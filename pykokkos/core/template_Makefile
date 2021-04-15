@@ -1,0 +1,44 @@
+KOKKOS_PATH = ${HOME}/Kokkos/kokkos
+KOKKOS_DEVICES = KOKKOS_DEVICES_PLACEHOLDER
+TARGET = TARGET_PLACEHOLDER
+
+SRC = $(wildcard *.cpp)
+
+default: build
+
+ifneq (,$(findstring Cuda,$(KOKKOS_DEVICES)))
+CXX = ${KOKKOS_PATH}/bin/nvcc_wrapper
+KOKKOS_ARCH = "Turing75"
+KOKKOS_CUDA_OPTIONS = "enable_lambdaFORCE_UVM_PLACEHOLDER"
+else
+CXX = g++
+KOKKOS_ARCH = "BDW"
+endif
+
+PY_CFLAGS = $(shell python3-config --cflags)
+PY_CFLAGS := $(filter-out -flto, $(PY_CFLAGS))
+INCLUDES = -I${HOME}/pybind11/include ${PY_CFLAGS} -I..
+CXXFLAGS = -O3 -std=c++11 -fPIC `python3 -m pybind11 --includes`
+LINK = ${CXX}
+DEPFLAGS = -M
+DEFINES = DEFINES_PLACEHOLDER
+
+OBJ = $(SRC:.cpp=.o)
+LIB = 
+
+include $(KOKKOS_PATH)/Makefile.kokkos
+
+build: $(TARGET)
+
+$(TARGET): $(OBJ) $(KOKKOS_LINK_DEPENDS)
+	$(LINK) -shared $(INCLUDES) $(KOKKOS_LDFLAGS) $(EXTRA_PATH) $(OBJ) $(KOKKOS_LIBS) $(DEFINES) -o $(TARGET)
+
+%.o:%.cpp
+	$(CXX) $(INCLUDES) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(EXTRA_INC) $(DEFINES) -c $<
+
+run: $(TARGET)
+	./$(TARGET)
+
+clean:
+	rm *.o
+	rm $(TARGET)

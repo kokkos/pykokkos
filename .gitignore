@@ -1,0 +1,26 @@
+*~
+*.class
+*.tmp
+*.host
+*.a
+*.o
+*.pyc
+*.out
+.clangd
+**/pk_cpp/
+**/*.egg-info
+tmp/
+examples/**/KokkosCore_config.h
+# **/views_pb2.py
+# **/views.pb.cc
+# **/views.pb.h
+.vscode/
+
+# Testing and coverage results
+.coverage
+cov.xml
+
+# mypy
+.mypy_cache/
+
+__pycache__/
