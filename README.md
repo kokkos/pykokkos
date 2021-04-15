@@ -37,3 +37,8 @@ PK_KOKKOS_INCLUDE_PATH_CUDA: this is the path to the include/ directory in your 
 PK_KOKKOS_NVCC: this is the path to bin/nvcc_wrapper in your Kokkos CUDA install
 PK_KOKKOS_LIB_PATH_OMP: same as above for openmp
 PK_KOKKOS_INCLUDE_PATH_OMP: same as above for openmp
+
+### Developers
+
+Nader Al Awar (nader.alawar@utexas.edu)
+Steven Zhu
