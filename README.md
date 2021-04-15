@@ -41,4 +41,5 @@ PK_KOKKOS_INCLUDE_PATH_OMP: same as above for openmp
 ### Developers
 
 Nader Al Awar (nader.alawar@utexas.edu)
+
 Steven Zhu
