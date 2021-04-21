@@ -2,6 +2,7 @@
 # $ conda create --name <env> --file <this file>
 # platform: linux-64
 _libgcc_mutex=0.1=main
+astpretty=2.1.0=pyhd8ed1ab_0
 astroid=2.4.1=py38_0
 autopep8=1.4.4=py_0
 blas=1.0=mkl
@@ -36,7 +37,7 @@ ncurses=6.2=he6710b0_1
 numba=0.51.2=py38h0573a6f_1
 numpy=1.18.5=py38ha1c710e_0
 numpy-base=1.18.5=py38hde5b4d6_0
-openssl=1.1.1j=h27cfd23_0
+openssl=1.1.1k=h27cfd23_0
 patchelf=0.11=he1b5a44_0
 pip=20.0.2=py38_3
 psutil=5.7.0=py38h7b6447c_0
