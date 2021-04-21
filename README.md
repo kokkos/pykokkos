@@ -9,7 +9,11 @@ kokkos-python bindings.
 ### Setting up your environment
 
 Create a new conda environment with Python 3.8 and install the
-packages from requirements.txt.
+packages from requirements.txt:
+
+```bash
+conda create --name pyk --file requirements.txt -c conda-forge
+```
 
 Install PyKokkos as an editable python package by running:
 
