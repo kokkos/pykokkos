@@ -47,3 +47,9 @@ PK_KOKKOS_INCLUDE_PATH_OMP: same as above for openmp
 Nader Al Awar (nader.alawar@utexas.edu)
 
 Steven Zhu
+
+### Acknowledgments
+
+This project is partially funded by the U.S. Department of Energy,
+National Nuclear Security Administration under Award Number
+DE-NA0003969 (PSAAP III).
