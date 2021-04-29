@@ -179,24 +179,11 @@ class ForceLJNeigh(Force):
             type_j: int = self.type[j]
             rsq: float = dx * dx + dy * dy + dz * dz
 
-            cutsq_ij: float = 0.0
-            if self.use_stackparams:
-                pass
-            else:
-                cutsq_ij = self.rnd_cutsq[type_i][type_j]
+            cutsq_ij: float = self.rnd_cutsq[type_i][type_j]
 
             if rsq < cutsq_ij:
-                lj1_ij: float = 0.0
-                if self.use_stackparams:
-                    pass
-                else:
-                    lj1_ij = self.rnd_lj1[type_i][type_j]
-
-                lj2_ij: float = 0.0
-                if self.use_stackparams:
-                    pass
-                else:
-                    lj2_ij = self.rnd_lj2[type_i][type_j]
+                lj1_ij: float = self.rnd_lj1[type_i][type_j]
+                lj2_ij: float = self.rnd_lj2[type_i][type_j]
 
                 r2inv: float = 1.0 / rsq
                 r6inv: float = r2inv * r2inv * r2inv
