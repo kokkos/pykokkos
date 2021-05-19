@@ -40,7 +40,7 @@ the translation and compilation steps.
 ### Views
 
 PyKokkos uses Views as its main n-dimensional array data structure. In
-Python, Views data behave as Numpy Arrays. The following snippet shows
+Python, Views data behave as NumPy Arrays. The following snippet shows
 how a View can be created and some of the basic operations it
 supports:
 
@@ -120,7 +120,7 @@ called.
 ### Other Examples
 
 The following table shows a list of other PyKokkos examples, as well
-as their corresponding C++ Kokkos implementations
+as their corresponding C++ Kokkos implementations:
 
 | Example  | | |
 | -------- | - | - |
@@ -129,6 +129,11 @@ as their corresponding C++ Kokkos implementations
 | team_policy | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/team_policy.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_policy/Solution/team_policy_solution.cpp) |
 | team_vector_loop | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/team_vector_loop.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_vector_loop/Solution/team_vector_loop_solution.cpp) |
 | subview | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/subview.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/subview/Solution/exercise_subview_solution.cpp) |
+| mdrange | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/workload/mdrange.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/mdrange/Solution/exercise_mdrange_solution.cpp) |
+| nstream | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/nstream.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/nstream-kokkos.cc) |
+| stencil | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/stencil.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/stencil-kokkos.cc) |
+| transpose | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/transpose.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/transpose-kokkos.cc) |
+| ExaMiniMD | [PyKokkos](https://github.com/kokkos/pykokkos/tree/main/examples/ExaMiniMD) | [Kokkos](https://github.com/ECP-copa/ExaMiniMD) |
 
 ## Requirements
 
