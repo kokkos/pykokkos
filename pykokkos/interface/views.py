@@ -16,7 +16,7 @@ from .data_types import (
     real,
     int16, int32, int64,
     uint16, uint32, uint64,
-    float, double
+    double
 )
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
@@ -252,7 +252,9 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
-        if trait is trait.Unmanaged:
+        if array:
+            self.array = array
+        elif trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, self.dtype.value, self.space.value)
         else:
             self.array = kokkos.array("", shape, self.dtype.value, space.value, layout.value, trait.value)
@@ -385,7 +387,7 @@ def from_numpy(array: np.ndarray) -> ViewType:
     elif np_dtype is np.uint64:
         dtype = uint64
     elif np_dtype is np.float32:
-        dtype = float # PyKokkos float
+        dtype = DataType.float # PyKokkos float
     elif np_dtype is np.float64:
         dtype = double
     else:
