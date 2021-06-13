@@ -239,6 +239,11 @@ class Runtime:
                 sys.exit(f"ERROR: view \"{name}\"'s type does not match current precision,"
                          f" determined to be {precision} from view \"{view}\"")
 
+        if dtype == "float32":
+            dtype = "float"
+        elif dtype == "float64":
+            dtype = "double"
+
         precision = visitors_util.view_dtypes[dtype].value
 
         return precision
