@@ -16,7 +16,7 @@ if [ "${COMPILER}" == "g++" ]; then
         -O3 \
         -isystem "${PK_KOKKOS_INCLUDE_PATH_OMP}" \
         -fPIC \
-        -fopenmp -std=c++11 \
+        -fopenmp -std=c++14 \
         -DSPACE="${EXEC_SPACE}" \
         -o "${SRC}".o \
         -c "${SRC}" \
@@ -42,7 +42,7 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         -isystem "${PK_KOKKOS_INCLUDE_PATH_CUDA}" \
         -arch=sm_75 \
         --expt-extended-lambda -fPIC \
-        -Xcompiler -fopenmp -std=c++11 \
+        -Xcompiler -fopenmp -std=c++14 \
         -DSPACE="${EXEC_SPACE}" \
         -o "${SRC}".o \
         -c "${SRC}" \
