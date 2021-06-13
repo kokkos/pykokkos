@@ -196,7 +196,7 @@ class View(ViewType):
 
         self.shape[dimension] = size
         self.array = kokkos.array(
-            "", self.shape, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
+            "", self.shape, None, None, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
         self.data = np.array(self.array, copy=False)
 
         smaller: np.ndarray = old_data if old_data.size < self.data.size else self.data
@@ -257,7 +257,7 @@ class View(ViewType):
         elif trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, self.dtype.value, self.space.value)
         else:
-            self.array = kokkos.array("", shape, self.dtype.value, space.value, layout.value, trait.value)
+            self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
 
     def _get_type(self, dtype: Union[DataType, type]) -> Optional[DataType]:
@@ -321,7 +321,9 @@ class Subview(ViewType):
         self.base_view: View = self._get_base_view(parent_view)
 
         self.data: np.ndarray = parent_view.data[data_slice]
-        self.array = kokkos.unmanaged_array(self.data, parent_view.dtype.value, parent_view.space.value)
+        self.array = kokkos.array(
+            self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
+            layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: List[int] = list(self.data.shape)
 
         self.parent_slice: List[Union[int, slice]]
