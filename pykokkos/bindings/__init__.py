@@ -1,1 +1,1 @@
-from . import bindings as kokkos
+import kokkos
