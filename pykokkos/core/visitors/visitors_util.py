@@ -283,10 +283,8 @@ def cpp_view_type(
             params["dtype"] = datatype
 
         elif parameter in Trait.__members__:
-            if parameter != ("Default"):
+            if parameter not in ("Default", "Managed", "Unmanaged"):
                 params["trait"] = f"Kokkos::MemoryTraits<Kokkos::{parameter}>"
-            if parameter == "Unmanaged":
-                unmanaged = True
 
         elif parameter in Layout.__members__:
             if parameter != "LayoutDefault":
