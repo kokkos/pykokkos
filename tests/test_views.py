@@ -251,7 +251,7 @@ class TestViews(unittest.TestCase):
         view.set_precision(pk.float)
 
         self.assertTrue(view.dtype is pk.DataType.float)
-        self.assertTrue(pk.View._get_dtype_name(str(type(view.array))) == "float")
+        self.assertTrue(pk.View._get_dtype_name(str(type(view.array))) == "float32")
         pk.parallel_for(self.threads, f.pfor)
         pk.execute(pk.ExecutionSpace.Default, w)
 
