@@ -118,6 +118,17 @@ class CppSetup:
             print(f"Exception while copying views and makefile: {ex}")
             sys.exit(1)
 
+    def get_kokkos_path(self) -> Path:
+        """
+        Get the location of the installed Kokkos package
+
+        :returns: path to the location
+        """
+
+        from pykokkos.bindings import kokkos
+
+        return Path(kokkos.__path__[0]).parent
+
     def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
         """
         Invoke the compilation script
@@ -137,14 +148,25 @@ class CppSetup:
         view_layout = f"Kokkos::{view_layout}"
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
+        kokkos_path: Path = self.get_kokkos_path()
+
+        compute_capability: str = ""
+        if compiler == "nvcc":
+            try:
+                import cupy
+                compute_capability = f"sm_{cupy.cuda.Device().compute_capability}"
+            except:
+                print(f"ERROR: could not get CUDA compute capability")
 
         command: List[str] = [f"./{self.script}",
-                              compiler,         # What compiler to use
-                              self.module_file, # Compilation target
-                              space.value,      # Execution space
-                              view_space,       # Argument views memory space
-                              view_layout,      # Argument views memory layout
-                              precision]        # Default real precision
+                              compiler,           # What compiler to use
+                              self.module_file,   # Compilation target
+                              space.value,        # Execution space
+                              view_space,         # Argument views memory space
+                              view_layout,        # Argument views memory layout
+                              precision,          # Default real precision
+                              str(kokkos_path),   # Path to Kokkos install
+                              compute_capability] # Device compute capability
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
         if compile_result.returncode != 0:

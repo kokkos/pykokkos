@@ -6,6 +6,8 @@ EXEC_SPACE="${3}"
 PK_ARG_MEMSPACE="${4}"
 PK_ARG_LAYOUT="${5}"
 PK_REAL="${6}"
+KOKKOS_PATH="${7}"
+COMPUTE_CAPABILITY="${8}"
 SRC=$(find -name "*.cpp")
 
 
@@ -14,7 +16,7 @@ if [ "${COMPILER}" == "g++" ]; then
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
-        -isystem "${PK_KOKKOS_INCLUDE_PATH_OMP}" \
+        -isystem "${KOKKOS_PATH}/include/kokkos" \
         -fPIC \
         -fopenmp -std=c++14 \
         -DSPACE="${EXEC_SPACE}" \
@@ -31,16 +33,16 @@ if [ "${COMPILER}" == "g++" ]; then
         -shared \
         -fopenmp \
         "${SRC}".o -o "${MODULE}" \
-        "${PK_KOKKOS_LIB_PATH_OMP}/libkokkoscontainers.so" \
-        "${PK_KOKKOS_LIB_PATH_OMP}/libkokkoscore.so"
+        "${KOKKOS_PATH}/lib/libkokkoscontainers.so" \
+        "${KOKKOS_PATH}/lib/libkokkoscore.so"
 
 elif [ "${COMPILER}" == "nvcc" ]; then
-        "${PK_KOKKOS_NVCC}" \
+        "${KOKKOS_PATH}/bin/nvcc_wrapper" \
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
-        -isystem "${PK_KOKKOS_INCLUDE_PATH_CUDA}" \
-        -arch=sm_75 \
+        -isystem "${KOKKOS_PATH}/include/kokkos" \
+        -arch="${COMPUTE_CAPABILITY}" \
         --expt-extended-lambda -fPIC \
         -Xcompiler -fopenmp -std=c++14 \
         -DSPACE="${EXEC_SPACE}" \
@@ -51,14 +53,14 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         -Dpk_exec_space="Kokkos::${EXEC_SPACE}" \
         -Dpk_real="${PK_REAL}"
 
-        "${PK_KOKKOS_NVCC}" \
+        "${KOKKOS_PATH}/bin/nvcc_wrapper" \
         -I.. \
         -O3 \
         -shared \
-        -arch=sm_75 \
+        -arch="${COMPUTE_CAPABILITY}" \
         --expt-extended-lambda \
         -fopenmp \
         "${SRC}".o -o "${MODULE}" \
-        "${PK_KOKKOS_LIB_PATH_CUDA}/libkokkoscontainers.so" \
-        "${PK_KOKKOS_LIB_PATH_CUDA}/libkokkoscore.so"
+        "${KOKKOS_PATH}/lib/libkokkoscontainers.so" \
+        "${KOKKOS_PATH}/lib/libkokkoscore.so"
 fi

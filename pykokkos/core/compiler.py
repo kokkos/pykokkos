@@ -214,11 +214,11 @@ class Compiler:
                 if not is_compiled[i]:
                     output_dir: Path = self.get_output_dir(main, metadata, s)
                     c_start: float = time.perf_counter()
-                    cpp_setup.compile(output_dir, functor, bindings, s, force_uvm, self.get_compiler(s))
+                    cpp_setup.compile(output_dir, functor, bindings, s, force_uvm, self.get_compiler())
                     c_end: float = time.perf_counter() - c_start
                     self.logger.info(f"compilation {c_end}")
 
-    def get_compiler(self, space: ExecutionSpace) -> str:
+    def get_compiler(self) -> str:
         """
         Get the compiler to use based on the machine name
 
@@ -227,7 +227,9 @@ class Compiler:
         :returns: g++ or nvcc
         """
 
-        if space is ExecutionSpace.Cuda:
+        from pykokkos.bindings import kokkos
+
+        if hasattr(kokkos, "Cuda"):
             return "nvcc"
 
         return "g++"
