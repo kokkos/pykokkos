@@ -74,22 +74,25 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 )
 
         # handle subview
-        if isinstance(node.value, ast.Subscript) and not isinstance(node.value.slice, ast.Index):
-            view = node.value.value
-            if isinstance(view, ast.Attribute) and view.value.id == "self":
-            # reference view through self
-                attr = node.value.value
-                view_name = view.attr
-            elif isinstance(view, ast.Name):
-            # reference views through params (standalone)
-                view_name = view.id
-            else:
-                self.error(view, "View not recognized")
+        if isinstance(node.value, ast.Subscript):
+            if (sys.version_info.minor <= 8 and not isinstance(node.value.slice, ast.Index)) or (
+                sys.version_info.minor > 8 and isinstance(node.value.slice, ast.Tuple)):
 
-            if cppast.DeclRefExpr(view_name) in self.views:
-                return self.generate_subview(node, view_name)
-            else:
-                self.error(node, "Can only take subview of views")
+                view = node.value.value
+                if isinstance(view, ast.Attribute) and view.value.id == "self":
+                # reference view through self
+                    attr = node.value.value
+                    view_name = view.attr
+                elif isinstance(view, ast.Name):
+                # reference views through params (standalone)
+                    view_name = view.id
+                else:
+                    self.error(view, "View not recognized")
+
+                if cppast.DeclRefExpr(view_name) in self.views:
+                    return self.generate_subview(node, view_name)
+                else:
+                    self.error(node, "Can only take subview of views")
 
         targets: List[cppast.DeclRefExpr] = [
             self.visit(t) for t in node.targets]

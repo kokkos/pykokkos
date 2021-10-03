@@ -213,7 +213,14 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             id = value.value.id
 
         if id == "List":
-            member_type: cppast.Type = get_type(subscript.value, pk_import)
+            if sys.version_info.minor <= 8:
+                # In Python >= 3.9, ast.Index is deprecated
+                # (see # https://docs.python.org/3/whatsnew/3.9.html)
+                value = subscript.value
+            else:
+                value = subscript
+            member_type: cppast.Type = get_type(value, pk_import)
+
             return member_type
 
         if id == pk_import:
