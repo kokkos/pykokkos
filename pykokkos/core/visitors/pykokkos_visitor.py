@@ -1,5 +1,6 @@
 import ast
 from ast import FunctionDef, AST
+import sys
 from typing import List, Dict, Tuple, Union
 
 from pykokkos.core import cppast
@@ -206,9 +207,9 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 # (see # https://docs.python.org/3/whatsnew/3.9.html)
                 # Instead of ast.Index, value will be used directly
 
-            if not isinstance(index, ast.Index):
-                self.error(
-                    current_node, "Slices not supported, use simple indices")
+                if not isinstance(index, ast.Index):
+                    self.error(
+                        current_node, "Slices not supported, use simple indices")
 
             slices.insert(0, index)
             current_node = current_node.value

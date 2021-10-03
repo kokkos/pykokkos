@@ -186,7 +186,6 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
     if isinstance(annotation, ast.Name):
         type_name: str = annotation.id
-        print(type_name)
 
         if type_name == "int":
             return cppast.PrimitiveType(cppast.BuiltinType.INT)
