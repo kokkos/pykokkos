@@ -200,9 +200,16 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         while isinstance(current_node, ast.Subscript):
             index = current_node.slice
+
+            if sys.version_info.minor <= 8:
+                # In Python >= 3.9, ast.Index is deprecated
+                # (see # https://docs.python.org/3/whatsnew/3.9.html)
+                # Instead of ast.Index, value will be used directly
+
             if not isinstance(index, ast.Index):
                 self.error(
                     current_node, "Slices not supported, use simple indices")
+
             slices.insert(0, index)
             current_node = current_node.value
             dim += 1

@@ -186,6 +186,7 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
     if isinstance(annotation, ast.Name):
         type_name: str = annotation.id
+        print(type_name)
 
         if type_name == "int":
             return cppast.PrimitiveType(cppast.BuiltinType.INT)
@@ -218,7 +219,13 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
         if id == pk_import:
             type_name: str = get_node_name(value)
-            dtype_node: ast.Attribute = subscript.value
+
+            if sys.version_info.minor <= 8:
+                # In Python >= 3.9, ast.Index is deprecated
+                # (see # https://docs.python.org/3/whatsnew/3.9.html)
+                dtype_node: ast.Attribute = subscript.value
+            else:
+                dtype_node: ast.Attribute = subscript
 
             if type_name == "Acc":
                 return get_type(dtype_node, pk_import)
