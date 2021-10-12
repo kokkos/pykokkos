@@ -252,9 +252,7 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
-        if array:
-            self.array = array
-        elif trait is trait.Unmanaged:
+        if trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, self.dtype.value, self.space.value)
         else:
             self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
