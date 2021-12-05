@@ -1,6 +1,7 @@
 import importlib.util
 import sys
-from typing import Any, Callable, Dict, List, Optional, Union
+import time
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
+from .module_setup import ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -24,6 +26,9 @@ class Runtime:
     def __init__(self):
         self.compiler: Compiler = Compiler()
 
+        # cache module_setup objects using a workload/workunit and space tuple
+        self.module_setups: Dict[Tuple[Union[object, Callable[..., None]], ExecutionSpace], ModuleSetup] = {}
+
     def run_workload(self, space: ExecutionSpace, workload: object) -> None:
         """
         Run the workload
@@ -34,17 +39,16 @@ class Runtime:
 
         if self.is_debug(space):
             run_workload_debug(workload)
+            return
 
-        else:
-            module: str
-            members: Optional[PyKokkosMembers]
-            module, members = self.compiler.compile_object(workload, space, km.is_uvm_enabled())
+        module_setup: ModuleSetup = self.get_module_setup(workload, space)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
 
-            if members is None:
-                raise RuntimeError("ERROR: members cannot be none")
+        if members is None:
+            raise RuntimeError("ERROR: members cannot be none")
 
-            self.execute(workload, module, members)
-            self.run_callbacks(workload, members)
+        self.execute(workload, module_setup, members)
+        self.run_callbacks(workload, members)
 
 
     def run_workunit(
@@ -73,12 +77,12 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        module: str
-        module, members = self.compiler.compile_object(workunit, policy.space, km.is_uvm_enabled())
+        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, policy.space, km.is_uvm_enabled())
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        return self.execute(workunit, module, members, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -94,7 +98,7 @@ class Runtime:
     def execute(
         self,
         entity: Union[object, Callable[..., None]],
-        module_path: str,
+        module_setup: ModuleSetup,
         members: PyKokkosMembers,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
@@ -112,7 +116,8 @@ class Runtime:
         :returns: the result of the operation (None for "for" and workloads)
         """
 
-        module = self.import_module(module_path)
+        module = self.import_module(module_setup.name, module_setup.path)
+
         args: Dict[str, Any] = self.get_arguments(entity, members, policy, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
@@ -125,21 +130,23 @@ class Runtime:
         if not is_workunit:
             self.retrieve_results(entity, members, args)
 
-        sys.modules.pop("kernel")
-
         return result
 
-    def import_module(self, module_path: str):
+    def import_module(self, module_name: str, module_path: str):
         """
         Import a compiled module
 
+        :param module_name: the name of the compiled module
         :param module_path: the path to the compiled module
         :returns: the imported module
         """
 
-        spec = importlib.util.spec_from_file_location("kernel", module_path)
+        if module_name in sys.modules:
+            return sys.modules[module_name]
+
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
         module = importlib.util.module_from_spec(spec)
-        sys.modules["kernel"] = module
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
 
         return module
@@ -352,3 +359,23 @@ class Runtime:
         for name in callbacks:
             callback = getattr(workload, name.declname)
             callback()
+
+    def get_module_setup(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> ModuleSetup:
+        """
+        Get the compiled module setup information unique to an entity + space
+
+        :param entity: the workload or workunit object
+        :param space: the execution space
+        :returns: the ModuleSetup object
+        """
+
+        space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
+        module_setup_id: Tuple[str, ExecutionSpace] = (entity, space)
+
+        if module_setup_id in self.module_setups:
+            return self.module_setups[module_setup_id]
+
+        module_setup = ModuleSetup(entity, space)
+        self.module_setups[module_setup_id] = module_setup
+
+        return module_setup
