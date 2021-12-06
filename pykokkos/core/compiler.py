@@ -35,6 +35,7 @@ class Compiler:
 
         # caches the result of CppSetup.is_compiled(path)
         self.is_compiled_cache: Dict[str, bool] = {}
+        self.parser_cache: Dict[str, Parser] = {}
 
         self.functor_file: str = "functor.hpp"
         self.bindings_file: str = "bindings.cpp"
@@ -126,15 +127,17 @@ class Compiler:
         hash: str = self.members_hash(metadata.path, metadata.name)
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
-                self.members[hash] = self.extract_members(module_setup.name, metadata)
+                self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
 
-        parser = Parser(metadata.path)
+        self.is_compiled_cache[module_setup.output_dir] = True
+
+        parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm)
 
-        members: PyKokkosMembers = self.extract_members(module_setup.name, metadata)
+        members: PyKokkosMembers = self.extract_members(metadata)
         self.members[hash] = members
 
         return members
@@ -272,7 +275,7 @@ class Compiler:
 
         return f"{path}_{name}"
 
-    def extract_members(self, module_name: str, metadata: EntityMetadata) -> PyKokkosMembers:
+    def extract_members(self, metadata: EntityMetadata) -> PyKokkosMembers:
         """
         Extract the PyKokkos members from an entity
 
@@ -281,12 +284,16 @@ class Compiler:
         :returns: the PyKokkosMembers object
         """
 
-        parser = Parser(metadata.path)
+        parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
-        translator = StaticTranslator(module_name, self.functor_file)
-        translator.translate(entity, parser.get_classtypes())
-        members: PyKokkosMembers = translator.pk_members
+        entity.AST = StaticTranslator.add_parent_refs(entity.AST)
+        classtypes = parser.get_classtypes()
+        for c in classtypes:
+            c.AST = StaticTranslator.add_parent_refs(c.AST)
+
+        members = PyKokkosMembers()
+        members.extract(entity, classtypes)
 
         return members
 
@@ -307,3 +314,19 @@ class Compiler:
         self.is_compiled_cache[output_dir] = is_compiled
 
         return is_compiled
+
+    def get_parser(self, path: str) -> Parser:
+        """
+        Get the parser for a particular file
+
+        :param path: the path to the file
+        :returns: the Parser object
+        """
+
+        if path in self.parser_cache:
+            return self.parser_cache[path]
+
+        parser = Parser(path)
+        self.parser_cache[path] = parser
+
+        return parser

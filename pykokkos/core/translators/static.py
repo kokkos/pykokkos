@@ -80,7 +80,8 @@ class StaticTranslator:
 
         return functor, bindings
 
-    def add_parent_refs(self, classdef: ast.ClassDef) -> ast.ClassDef:
+    @staticmethod
+    def add_parent_refs(classdef: ast.ClassDef) -> ast.ClassDef:
         """
         Add references to each node's parent node in classdef
 
