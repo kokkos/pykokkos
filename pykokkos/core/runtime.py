@@ -1,7 +1,7 @@
 import importlib.util
 import sys
 import time
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class Runtime:
         self.compiler: Compiler = Compiler()
 
         # cache module_setup objects using a workload/workunit and space tuple
-        self.module_setups: Dict[Tuple[Union[object, Callable[..., None]], ExecutionSpace], ModuleSetup] = {}
+        self.module_setups: Dict[Tuple, ModuleSetup] = {}
 
     def run_workload(self, space: ExecutionSpace, workload: object) -> None:
         """
@@ -370,8 +370,8 @@ class Runtime:
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
-        module_setup_id: Tuple[str, ExecutionSpace] = (entity, space)
 
+        module_setup_id = self.get_module_setup_id(entity, space)
         if module_setup_id in self.module_setups:
             return self.module_setups[module_setup_id]
 
@@ -379,3 +379,31 @@ class Runtime:
         self.module_setups[module_setup_id] = module_setup
 
         return module_setup
+
+    def get_module_setup_id(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> Tuple:
+        """
+        Get a unique module setup id for an entity + space
+        combination. For workunits, the idenitifier is just the
+        workunit and execution space. For workloads and functors, we
+        need the type of the class as well as the file containing it.
+
+        :param entity: the workload or workunit object
+        :param space: the execution space
+        :returns: a unique tuple per entity and space
+        """
+
+        is_workload: bool = not isinstance(entity, Callable)
+        is_functor: bool = hasattr(entity, "__self__")
+
+        if is_workload:
+            workload_type: Type = type(entity)
+            module_setup_id: Tuple[Callable, str, ExecutionSpace] = (
+                workload_type, workload_type.__module__, space)
+        elif is_functor:
+            functor_type: Type = type(entity.__self__)
+            module_setup_id: Tuple[Callable, str, str, ExecutionSpace] = (
+                type(functor_type), functor_type.__module__, entity.__name__, space)
+        else:
+            module_setup_id: Tuple[Callable, ExecutionSpace] = (entity, space)
+
+        return module_setup_id
