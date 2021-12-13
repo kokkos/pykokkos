@@ -1,11 +1,12 @@
 import ast
+import copy
 import sys
 from typing import Dict, List, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
-from pykokkos.core.visitors import ConstructorVisitor, ParameterVisitor, visitors_util
+from pykokkos.core.visitors import ConstructorVisitor, KokkosMainVisitor, ParameterVisitor, visitors_util
 from pykokkos.interface import Decorator, ViewTypeInfo
 
 
@@ -90,6 +91,10 @@ class PyKokkosMembers:
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
 
+        if entity.style is PyKokkosStyles.workload:
+            name: str = f"pk_functor_{entity.name.declname}"
+            self.reduction_result_queue, self.timer_result_queue = self.get_queues(source, name, pk_import)
+
         if len(self.pk_mains) > 1:
             print("ERROR: Only one pk.main function can be translated")
             sys.exit(1)
@@ -125,6 +130,33 @@ class PyKokkosMembers:
         views = dict(visitor.visit(classdef))
 
         return views
+
+    def get_queues(self, source: Tuple[List[str], int], name: str, pk_import: str) -> Tuple[List[str], List[str]]:
+        """
+        Get all fields assigned to a reduction result or timer result
+
+        :param source: the python source code of the workload
+        :param name: the name of the workload
+        :param pk_import: the identifier used to access the PyKokkos package
+        :returns: two lists, one for the reduction results and one for the timer results
+        """
+
+        views = copy.deepcopy(self.views) # Needed since KokkosMainVisitor modifies views
+
+        # Copied from translate_mains() in bindings.py
+        node_visitor = KokkosMainVisitor(
+            {}, source, views, self.pk_workunits,
+            self.fields, self.pk_functions,
+            self.classtype_methods, name, pk_import, True)
+
+        for main in self.pk_mains.values():
+            try:
+                node_visitor.visit(main)
+            except NotImplementedError:
+                print(f"Translation of {main.name} failed")
+                sys.exit(1)
+
+        return (node_visitor.reduction_result_queue, node_visitor.timer_result_queue)
 
     def get_real_views(self):
         """
