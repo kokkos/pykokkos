@@ -1,4 +1,5 @@
 from __future__ import annotations
+import ctypes
 from enum import Enum
 import sys
 from typing import (
@@ -6,6 +7,7 @@ from typing import (
     Tuple, TypeVar, Union
 )
 
+import cupy as cp
 import numpy as np
 
 from pykokkos.bindings import kokkos
@@ -245,7 +247,8 @@ class View(ViewType):
         if layout is Layout.LayoutDefault:
             layout = get_default_layout(space)
 
-        if space is MemorySpace.CudaSpace:
+        # only allow CudaSpace view for cupy arrays
+        if space is MemorySpace.CudaSpace and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
         self.space: MemorySpace = space
@@ -253,7 +256,7 @@ class View(ViewType):
         self.trait: Trait = trait
 
         if trait is trait.Unmanaged:
-            self.array = kokkos.unmanaged_array(array, self.dtype.value, self.space.value)
+            self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
             self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
@@ -366,9 +369,14 @@ class Subview(ViewType):
 
         return base_view
 
-def from_numpy(array: np.ndarray) -> ViewType:
+def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
+
+    :param array: the numpy array
+    :param layout: an optional argument for memory space (used by from_cupy)
+    :param layout: an optional argument for layout (used by from_cupy)
+    :returns: a PyKokkos View wrapping the array
     """
 
     dtype: DataTypeClass
@@ -393,7 +401,64 @@ def from_numpy(array: np.ndarray) -> ViewType:
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
-    return View(list(array.shape), dtype, trait=Trait.Unmanaged, array=array)
+    if layout is None and array.ndim > 1:
+        if array.flags["F_CONTIGUOUS"]:
+            layout = Layout.LayoutLeft
+        else:
+            layout = Layout.LayoutRight
+
+    if space is None:
+        space = MemorySpace.MemorySpaceDefault
+
+    if layout is None:
+        layout = Layout.LayoutDefault
+
+    return View(list(array.shape), dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+
+def from_cupy(array: cp.ndarray) -> ViewType:
+    """
+    Create a PyKokkos View from a cupy array
+
+    :param array: the cupy array
+    """
+
+    np_dtype = array.dtype.type
+
+    if np_dtype is np.int16:
+        ctype = ctypes.c_int16
+    elif np_dtype is np.int32:
+        ctype = ctypes.c_int32
+    elif np_dtype is np.int64:
+        ctype = ctypes.c_int64
+    elif np_dtype is np.uint16:
+        ctype = ctypes.c_uint16
+    elif np_dtype is np.uint32:
+        ctype = ctypes.c_uint32
+    elif np_dtype is np.uint64:
+        ctype = ctypes.c_uint64
+    elif np_dtype is np.float32:
+        ctype = ctypes.c_float
+    elif np_dtype is np.float64:
+        ctype = ctypes.c_double
+    else:
+        raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
+
+    # Inspired by
+    # https://stackoverflow.com/questions/23930671/how-to-create-n-dim-numpy-array-from-a-pointer
+
+    ptr = array.data.ptr
+    ptr = ctypes.cast(ptr, ctypes.POINTER(ctype))
+    np_array = np.ctypeslib.as_array(ptr, shape=array.shape)
+
+    # need to select the layout here since the np_array flags do not
+    # preserve the original flags
+    layout: Layout
+    if array.flags["F_CONTIGUOUS"]:
+        layout = Layout.LayoutLeft
+    else:
+        layout = Layout.LayoutRight
+
+    return from_numpy(np_array, MemorySpace.CudaSpace, layout)
 
 T = TypeVar("T")
 

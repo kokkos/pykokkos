@@ -140,8 +140,11 @@ class CppSetup:
         """
 
         view_space: str = "Kokkos::HostSpace"
-        if space is ExecutionSpace.Cuda and enable_uvm:
-            view_space = "Kokkos::CudaUVMSpace"
+        if space is ExecutionSpace.Cuda:
+            if enable_uvm:
+                view_space = "Kokkos::CudaUVMSpace"
+            else:
+                view_space = "Kokkos::CudaSpace"
 
         view_layout: str = str(get_default_layout(get_default_memory_space(space)))
         view_layout = view_layout.split(".")[-1]

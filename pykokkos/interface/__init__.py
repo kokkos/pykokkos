@@ -37,7 +37,7 @@ from .views import (
     View, ViewType, ViewTypeInfo,
     View1D, View2D, View3D, View4D,
     View5D, View6D, View7D, View8D,
-    from_numpy
+    from_cupy, from_numpy
 )
 
 
