@@ -3,14 +3,12 @@ import re
 import sys
 from typing import Dict, List, Optional, Set, Union
 
-import astpretty
-
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, Trait
 
 def pretty_print(node):
-    astpretty.pprint(node, show_offsets=False)
+    print(node, indent=4)
 
 
 allowed_types: Dict[str, str] = {
