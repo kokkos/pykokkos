@@ -1,0 +1,23 @@
+{% set name = "PyKokkos" %}
+{% set version = "0.1" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  path: .
+
+requirements:
+  run:
+    - python
+    - pybind11
+    - numpy
+    - cupy
+    - patchelf
+
+about:
+  home: https://github.com/kokkos/pykokkos/
+  license: BSD
+  license_family: BSD
+  summary: Performance portable Kokkos kernels in Python
