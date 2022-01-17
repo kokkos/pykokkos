@@ -8,7 +8,7 @@ from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, Trait
 
 def pretty_print(node):
-    print(node, indent=4)
+    print(ast.dump(node, indent=4))
 
 
 allowed_types: Dict[str, str] = {
