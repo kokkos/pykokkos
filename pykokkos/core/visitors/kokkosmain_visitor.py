@@ -387,6 +387,22 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             return cppast.MemberCallExpr(sorter_ref, function, args)
 
+        if name == "shmem_size":
+            if len(args) != 1:
+                self.error(node.func, "shmem_size() accepts only a single argument")
+
+            func: ast.Attribute = node.func
+            cpp_view_type: str = self.get_scratch_view_type(func.value)
+
+            if cpp_view_type is None:
+                self.error(func, "Wrong call to shmem_size()")
+
+            view_type = cppast.ClassType(cpp_view_type)
+            call_expr = cppast.MemberCallExpr(view_type, name, args)
+            call_expr.is_static = True
+
+            return call_expr
+
         return super().visit_Call(node)
 
     def visit_Constant(self, node: ast.Constant) -> cppast.DeclRefExpr:

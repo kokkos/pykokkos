@@ -114,6 +114,20 @@ class WorkunitVisitor(PyKokkosVisitor):
 
                 return cppast.CompoundStmt([declstmt, callstmt])
 
+            if function_name.startswith("ScratchView"):
+                cpp_view_type: str = self.get_scratch_view_type(node.annotation)
+                py_view_type: str = node.annotation.value.attr
+                rank = int(re.search(r'\d+', py_view_type).group())
+
+                typeref = cppast.ClassType(cpp_view_type)
+                args: List[cppast.Expr] = [self.visit(a) for a in node.value.args]
+                constructor = cppast.ConstructExpr(declname, args)
+
+                view_decl = cppast.VarDecl(typeref, constructor, None)
+                self.views[declname] = None
+
+                return cppast.DeclStmt(view_decl)
+
         return super().visit_AnnAssign(node)
 
     def visit_arguments(self, node: ast.arguments) -> List[cppast.ParmVarDecl]:
@@ -192,7 +206,7 @@ class WorkunitVisitor(PyKokkosVisitor):
         if name in dir(TeamMember):
             team_member: str = visitors_util.get_node_name(node.func.value)
             call = cppast.MemberCallExpr(cppast.DeclRefExpr(
-                team_member), cppast.DeclRefExpr(name), [])
+                team_member), cppast.DeclRefExpr(name), args)
 
             return call
 

@@ -1,7 +1,7 @@
 import ast
 from ast import FunctionDef, AST
 import sys
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.interface import View
@@ -635,6 +635,34 @@ class PyKokkosVisitor(ast.NodeVisitor):
             return True
 
         return False
+
+    def get_scratch_view_type(self, view_type: ast.Subscript) -> Optional[str]:
+        """
+        Get the cppast representation of a scratch view
+
+        :param view_type: the subscripted type of the view
+        :returns: the string representation of the view if it is valid
+        """
+
+        is_valid: bool = False
+
+        if isinstance(view_type, ast.Subscript) and isinstance(view_type.value, ast.Attribute):
+            attr: ast.Attribute = view_type.value
+
+            if attr.value.id == self.pk_import and attr.attr.startswith("ScratchView"):
+                view_dtype: cppast.PrimitiveType = visitors_util.get_type(view_type.slice, self.pk_import)
+                view_type: str = attr.attr
+                is_valid = True
+
+        if not is_valid:
+            return None
+
+        scratch_view = cppast.ClassType(view_type)
+        scratch_view.add_template_param(view_dtype)
+
+        cpp_view_type: str = visitors_util.cpp_view_type(scratch_view)
+
+        return cpp_view_type
 
     def error(self, node, message):
         visitors_util.error(self.src, self.debug, node, message)

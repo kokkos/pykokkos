@@ -264,6 +264,7 @@ def cpp_view_type(
     """
 
     py_type: str = view_type.typename
+    is_scratch_view: bool = py_type.startswith("ScratchView")
 
     if rank is None:
         rank = int(re.search(r'\d+', py_type).group())
@@ -275,6 +276,9 @@ def cpp_view_type(
 
     # unmanaged views cannot have a layout
     unmanaged: bool = False
+    if is_scratch_view:
+        unmanaged = True
+
     template_params: List[cppast.Node] = view_type.template_params
     s = cppast.Serializer()
     for t in template_params:
@@ -309,8 +313,13 @@ def cpp_view_type(
 
     if space is not None:
         params["space"] = space
+    elif is_scratch_view:
+        params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
     else:
         params["space"] = f"{Keywords.DefaultExecSpace.value}::memory_space"
+
+    if is_scratch_view:
+        params["trait"] = f"Kokkos::MemoryTraits<Kokkos::Unmanaged>"
 
     params_ordered: List[str] = []
     params_ordered.append(params["dtype"])
