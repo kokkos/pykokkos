@@ -358,6 +358,7 @@ class MemberCallExpr(CallExpr):
     def __init__(self, base: DeclRefExpr, function: DeclRefExpr, args: List[Expr]):
         self._base: DeclRefExpr = base
         self.is_pointer = False
+        self.is_static = False
         super().__init__(function, args)
 
     @property
