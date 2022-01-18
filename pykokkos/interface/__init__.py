@@ -37,6 +37,9 @@ from .views import (
     View, ViewType, ViewTypeInfo,
     View1D, View2D, View3D, View4D,
     View5D, View6D, View7D, View8D,
+    ScratchView, ScratchView1D, ScratchView2D,
+    ScratchView3D, ScratchView4D, ScratchView5D,
+    ScratchView6D, ScratchView7D, ScratchView8D,
     from_cupy, from_numpy
 )
 
