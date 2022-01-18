@@ -492,3 +492,40 @@ class View7D(Generic[T]):
 
 class View8D(Generic[T]):
     pass
+
+
+class ScratchView:
+    def shmem_size(i: int):
+        pass
+
+
+class ScratchView1D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView2D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView3D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView4D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView5D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView6D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView7D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView8D(ScratchView, Generic[T]):
+    pass
