@@ -88,6 +88,9 @@ class TeamPolicy(ExecutionPolicy):
         self.team_size: int = team_size if isinstance(team_size, int) else -1
         self.vector_length: int = vector_length
 
+    def set_scratch_size(self, level: int, per_team_or_thread): # -> TeamPolicy:
+        pass
+
 
 class TeamThreadRange(ExecutionPolicy):
     def __init__(self, team_member: TeamMember, count: int):
