@@ -9,7 +9,7 @@ from pykokkos.core.visitors.visitors_util import (
 )
 from pykokkos.interface import (
     View, TeamMember, BinSort, ViewType, Timer,
-    Iterate, Rank, ScratchView
+    Iterate, Rank, ScratchView, TeamPolicy
 )
 from .members import PyKokkosMembers
 
@@ -43,6 +43,7 @@ class SymbolsPass:
         self.global_symbols.update(dir(View))
         self.global_symbols.update(dir(ScratchView))
         self.global_symbols.update(dir(TeamMember))
+        self.global_symbols.update(dir(TeamPolicy))
         self.global_symbols.update(dir(BinSort))
         self.global_symbols.update(dir(ViewType))
         self.global_symbols.update(dir(Timer))

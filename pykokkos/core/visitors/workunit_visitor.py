@@ -222,7 +222,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             return call
 
         function = cppast.DeclRefExpr(f"Kokkos::{name}")
-        if name in ("TeamThreadRange", "ThreadVectorRange", "PerTeam", "PerThread"):
+        if name in ("TeamThreadRange", "ThreadVectorRange"):
             return cppast.CallExpr(function, args)
 
         if name in ("parallel_for", "single"):

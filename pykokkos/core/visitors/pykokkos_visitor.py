@@ -389,13 +389,13 @@ class PyKokkosVisitor(ast.NodeVisitor):
             self.error(
                 node.func, "Function not supported, did you mean pykokkos.printf()?"
             )
-        elif name in ["fence"]:
+        elif name in ["PerTeam", "PerThread", "fence"]:
             name = "Kokkos::" + name
 
         function = cppast.DeclRefExpr(name)
         args: List[cppast.Expr] = [self.visit(a) for a in node.args]
 
-        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::fence"]:
+        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence"]:
             return cppast.CallExpr(function, args)
 
         if function in self.kokkos_functions:
@@ -413,7 +413,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 object_name: cppast.DeclRefExpr = self.visit(node.func.value)
                 return cppast.MemberCallExpr(object_name, function, args)
 
-        self.error(node.func, "Function not supported for translation")
+        self.error(node.func, f"Function {name} not supported for translation")
 
     def visit_Return(self, node: ast.Return) -> cppast.ReturnStmt:
         parent_function: FunctionDef = self.get_parent_function(node)
