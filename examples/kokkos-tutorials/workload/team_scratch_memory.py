@@ -37,20 +37,17 @@ class Workload:
 
         self.result: float = 0
         self.timer_result: float = 0
-        self.scratch_size: int = 0
 
     @pk.main
     def run(self):
         timer = pk.Timer()
-        # self.scratch_size = ScratchView1D[float].shmem_size(M)
-        # self.scratch_size = pk.ScratchView1D.shmem_size(M)
-        # self.scratch_size = ScratchView1D[float].shmem_size(M)
-        # self.scratch_size = ScratchView1D.shmem_size(M)
-        self.scratch_size = pk.ScratchView1D[float].shmem_size(M)
+        scratch_size: int = pk.ScratchView1D[float].shmem_size(M)
 
         for i in range(self.nrepeat):
-            self.result = pk.parallel_reduce("team_scratch_memory",
-                pk.TeamPolicy(self.E, "auto", 32), self.yAx)
+            self.result = pk.parallel_reduce(
+                "team_scratch_memory",
+                pk.TeamPolicy(self.E, "auto", 32).set_scratch_size(0, pk.PerTeam(scratch_size)),
+                self.yAx)
 
         self.timer_result = timer.seconds()
 
