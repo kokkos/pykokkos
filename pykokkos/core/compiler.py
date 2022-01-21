@@ -237,7 +237,7 @@ class Compiler:
         """
 
         try:
-            os.makedirs(self.get_main_dir(main), exist_ok=True)
+            os.makedirs(ModuleSetup.get_main_dir(main), exist_ok=True)
         except FileExistsError:
             pass
 
