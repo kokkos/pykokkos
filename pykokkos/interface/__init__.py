@@ -6,6 +6,9 @@ from .atomic.atomic_fetch_op import (
     atomic_fetch_rshift, atomic_fetch_sub, atomic_fetch_xor,
     atomic_compare_exchange
 )
+from .atomic.atomic_op import (
+    atomic_add
+)
 from .bin_sort import BinSort, BinOp, BinOp1D, BinOp3D
 from .data_types import (
     DataType, DataTypeClass,
