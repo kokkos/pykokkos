@@ -161,15 +161,19 @@ class CppSetup:
             except:
                 print(f"ERROR: could not get CUDA compute capability")
 
+        kokkos_lib_path: Path = kokkos_path / "lib"
+        if not kokkos_lib_path.is_dir():
+            kokkos_lib_path = kokkos_path / "lib64"
+
         command: List[str] = [f"./{self.script}",
-                              compiler,           # What compiler to use
-                              self.module_file,   # Compilation target
-                              space.value,        # Execution space
-                              view_space,         # Argument views memory space
-                              view_layout,        # Argument views memory layout
-                              precision,          # Default real precision
-                              str(kokkos_path),   # Path to Kokkos install
-                              compute_capability] # Device compute capability
+                              compiler,             # What compiler to use
+                              self.module_file,     # Compilation target
+                              space.value,          # Execution space
+                              view_space,           # Argument views memory space
+                              view_layout,          # Argument views memory layout
+                              precision,            # Default real precision
+                              str(kokkos_lib_path), # Path to Kokkos install
+                              compute_capability]   # Device compute capability
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
         if compile_result.returncode != 0:
@@ -177,14 +181,9 @@ class CppSetup:
             print(f"C++ compilation in {output_dir} failed")
             sys.exit(1)
 
-        rpath: str
-        if space is ExecutionSpace.Cuda:
-            rpath = os.environ["PK_KOKKOS_LIB_PATH_CUDA"]
-        else:
-            rpath = os.environ["PK_KOKKOS_LIB_PATH_OMP"]
         patchelf: List[str] = ["patchelf",
                                "--set-rpath",
-                               rpath,
+                               str(kokkos_lib_path),
                                self.module_file]
 
         patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
