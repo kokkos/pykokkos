@@ -34,6 +34,7 @@ from .parallel_dispatch import (
     execute,
     parallel_for, parallel_reduce, parallel_scan
 )
+from .random import rand
 from .timer import Timer
 from .views import (
     Subview, Trait,
