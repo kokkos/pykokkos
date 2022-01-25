@@ -46,7 +46,8 @@ def generate_assignments(members: Dict[cppast.DeclRefExpr, cppast.Type]) -> List
 def generate_constructor(
     name: str,
     fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
-    views: Dict[cppast.DeclRefExpr, cppast.ClassType]
+    views: Dict[cppast.DeclRefExpr, cppast.ClassType],
+    has_rand_call: bool
 ) -> cppast.ConstructorDecl:
     """
     Generate the functor constructor
@@ -54,6 +55,7 @@ def generate_constructor(
     :param name: the functor class name
     :param fields: a dict mapping from field name to type
     :param views: a dict mapping from view name to type
+    :param has_rand_call: whether the function contains a call to pk.rand()
     :returns: the cppast representation of the constructor
     """
 
@@ -80,6 +82,16 @@ def generate_constructor(
     # skip subviews
     assignments.extend(generate_assignments({v: views[v] for v in views if views[v]}))
 
+    if has_rand_call:
+        op = cppast.BinaryOperatorKind.Assign
+        field = cppast.MemberExpr(cppast.DeclRefExpr("this"), Keywords.RandPool.value)
+        field.is_pointer = True
+
+        value = cppast.CallExpr(cppast.DeclRefExpr("Kokkos::Random_XorShift64_Pool<>"), [cppast.IntegerLiteral(5374857)])
+        assign = cppast.AssignOperator([field], value, op)
+
+        assignments.append(assign)
+
     body = cppast.CompoundStmt(assignments)
 
     return cppast.ConstructorDecl("", name, params, body)
@@ -90,6 +102,7 @@ def generate_functor(
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
     functions: List[cppast.MethodDecl],
+    has_rand_call: bool
 ) -> cppast.RecordDecl:
     """
     Generate the functor source
@@ -98,7 +111,7 @@ def generate_functor(
     :param members: an object containing the fields and views
     :param workunits: a dict mapping from workunit name to a tuple of operation type and source
     :param functions: a list of KOKKOS_FUNCTIONS defined in the functor
-    :param has_real: whether the function contains a pk.real datatype
+    :param has_rand_call: whether the function contains a call to pk.rand()
     :returns: the cppast representation of the functor
     """
 
@@ -123,7 +136,10 @@ def generate_functor(
         view_type: str = get_view_type(t)
         decls.append(cppast.DeclStmt(cppast.FieldDecl(view_type, n)))
 
-    decls.append(generate_constructor(name, fields, views))
+    if has_rand_call:
+        decls.append(cppast.DeclStmt(cppast.FieldDecl("Kokkos::Random_XorShift64_Pool<>", cppast.DeclRefExpr(Keywords.RandPool.value))))
+
+    decls.append(generate_constructor(name, fields, views, has_rand_call))
     for _, s in workunits.values():
         decls.append(s)
 

@@ -17,3 +17,5 @@ class Keywords(Enum):
     DefaultExecSpaceInstance = "pk_exec_space_instance"
     KernelName = "pk_kernel_name"
     RealPrecision = "pk_real"
+    RandPool = "pk_randpool"
+    RandPoolState = "pk_rgen"

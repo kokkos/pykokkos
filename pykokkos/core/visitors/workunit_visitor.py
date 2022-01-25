@@ -1,8 +1,9 @@
 import ast
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pykokkos.core import cppast
+from pykokkos.core.keywords import Keywords
 from pykokkos.interface import TeamMember
 
 from . import visitors_util
@@ -10,6 +11,15 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 
 class WorkunitVisitor(PyKokkosVisitor):
+    def __init__(
+        self, env, src, views: Dict[cppast.DeclRefExpr, cppast.Type],
+        work_units: Dict[str, ast.FunctionDef], fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+        kokkos_functions: Dict[str, ast.FunctionDef], dependency_methods: Dict[str, List[str]],
+        pk_import: str, debug=False
+    ):
+        self.has_rand_call: bool = False
+        super().__init__(env, src, views, work_units, fields, kokkos_functions, dependency_methods, pk_import, debug)
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Union[str, Tuple[str, cppast.MethodDecl]]:
         if self.is_nested_call(node):
             params: List[cppast.ParmVarDecl] = [a for a in self.visit(node.args)]
@@ -254,6 +264,22 @@ class WorkunitVisitor(PyKokkosVisitor):
             # their first argument
             args[0] = cppast.UnaryOperator(args[0], cppast.BinaryOperatorKind.AddrOf)
             return cppast.CallExpr(function, args)
+
+        if name == "rand":
+            if len(args) != 1:
+                self.error(node, "pk.rand() accepts only one argument, the datatype")
+
+            self.has_rand_call = True
+
+            rand_type = cppast.ClassType("Kokkos::rand")
+            pool_type = cppast.ClassType("Kokkos::Random_XorShift64_Pool<>::generator_type")
+            rand_type.add_template_param(pool_type)
+            rand_type.add_template_param(visitors_util.get_type(node.args[0], self.pk_import))
+
+            rand_call = cppast.MemberCallExpr(rand_type, cppast.DeclRefExpr("draw"), [cppast.DeclRefExpr(Keywords.RandPoolState.value)])
+            rand_call.is_static = True
+
+            return rand_call
 
         return super().visit_Call(node)
 

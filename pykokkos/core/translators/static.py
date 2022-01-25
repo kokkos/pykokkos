@@ -1,14 +1,14 @@
 import ast
 import copy
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from pykokkos.core import cppast
-from pykokkos.core.visitors import (
-    ClasstypeVisitor, KokkosFunctionVisitor, KokkosMainVisitor, WorkunitVisitor
-)
+from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
-from pykokkos.interface import DataType
+from pykokkos.core.visitors import (
+    ClasstypeVisitor, KokkosFunctionVisitor, WorkunitVisitor
+)
 
 from .bindings import bind_main, bind_workunits
 from .functor import generate_functor
@@ -64,9 +64,10 @@ class StaticTranslator:
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
-        workunits = self.translate_workunits(source)
+        has_rand_call: bool
+        workunits, has_rand_call = self.translate_workunits(source)
 
-        struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions)
+        struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
 
         bindings: List[str] = self.generate_bindings(entity, functor_name, source, workunits)
 
@@ -176,12 +177,14 @@ class StaticTranslator:
 
         return translation
 
-    def translate_workunits(self, source: Tuple[List[str], int]) -> Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]:
+    def translate_workunits(self, source: Tuple[List[str], int]) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
         """
         Translate the workunits
 
         :param source: the python source code of the workload
-        :returns: a dictionary mapping from workload name to a tuple of operation name and source
+        :returns: a tuple of a dictionary mapping from workload name
+            to a tuple of operation name and source, and a boolean
+            indicating whether the workunit has a call to pk.rand()
         """
 
         node_visitor = WorkunitVisitor(
@@ -191,14 +194,20 @@ class StaticTranslator:
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 
+        has_rand_call: bool = False
         for n, w in self.pk_members.pk_workunits.items():
             try:
                 workunits[n] = node_visitor.visit(w)
+                has_rand_call = has_rand_call or node_visitor.has_rand_call
+                if node_visitor.has_rand_call:
+                    workunit: cppast.MethodDecl = workunits[n][1]
+                    self.add_rand_pool_state(workunit)
+                    node_visitor.has_rand_call = False
             except:
                 print(f"Translation of {w} failed")
                 sys.exit(1)
 
-        return workunits
+        return workunits, has_rand_call
 
     def generate_header(self) -> str:
         """
@@ -219,6 +228,7 @@ class StaticTranslator:
         headers: List[str] = [
             "pybind11/pybind11.h",
             "Kokkos_Core.hpp",
+            "Kokkos_Random.hpp",
             "Kokkos_Sort.hpp",
             "fstream",
             "iostream",
@@ -252,3 +262,23 @@ class StaticTranslator:
             bindings = bind_workunits(functor_name, self.pk_members, workunits, self.module_file)
 
         return bindings
+
+    def add_rand_pool_state(self, workunit: cppast.MethodDecl) -> None:
+        """
+        Generate code to initialize and free the random pool state in
+        a workunit
+
+        :param workunit: the workunit containing a call to pk.rand()
+        """
+
+        pool_type = cppast.ClassType("Kokkos::Random_XorShift64_Pool<>::generator_type")
+        pool_name = cppast.DeclRefExpr(Keywords.RandPoolState.value)
+        rand_pool = cppast.DeclRefExpr(Keywords.RandPool.value)
+        pool_value = cppast.MemberCallExpr(rand_pool, cppast.DeclRefExpr("get_state"), [])
+        init_pool = cppast.DeclStmt(cppast.VarDecl(pool_type, pool_name, pool_value))
+
+        free_pool = cppast.CallStmt(cppast.MemberCallExpr(rand_pool, cppast.DeclRefExpr("free_state"), [pool_name]))
+
+        body: cppast.CompoundStmt = workunit.body
+        body.statements.insert(0, init_pool)
+        body.statements.append(free_pool)
