@@ -1,12 +1,18 @@
 import argparse
 import copy
 import math
+import os
 import random
 import struct
 import sys
 from typing import List, Tuple
 
-from numba import jit, prange
+NUMBA_ENABLED: bool = False
+if "PK_EXA_NUMBA" in os.environ:
+    NUMBA_ENABLED = True
+    print("NUMBA ENABLED")
+
+    from numba import jit, prange
 
 import logging
 
@@ -185,57 +191,12 @@ class LAMMPS_RandomVelocityGeom:
         for i in range(5):
             self.uniform()
 
-@jit(nopython=True, cache=True)
-def uniform(seed) -> Tuple[int, int]:
-    IA: int = 16807
-    IM: int = 2147483647
-    AM: float = 1.0 / IM
-    IQ: int = 127773
-    IR: int = 2836
-    k: int = seed // IQ
-
-    seed = IA * (seed - k * IQ) - IR * k
-    if seed < 0:
-        seed += IM
-    ans: float = AM * seed
-    return ans, seed
-
-@jit(nopython=True, cache=True)
-def reset(hash_uint, coord_bin: np.ndarray) -> int:
-    # Potential complete numpy implementation at:
-    # https://loicpefferkorn.net/2013/09/python-force-c-integer-overflow-behavior/
-
-    # An explanation of the C++ version:
-    # By casting ibase to a char array, the data itself (ibase)
-    # is unchanged. What changes is the way we access this data.
-    # char *str is a char array of size 4, and each element is
-    # the corresponds to 8 bits of ibase. Accessing an element
-    # through str (str[i]) returns the 2's complement int value
-    # of those 8 bits.
-
-    for index in range(3):
-        for i in coord_bin[index]:
-            hash_uint += i
-            hash_uint &= 0xFFFFFFFF
-            hash_uint += hash_uint << 10
-            hash_uint &= 0xFFFFFFFF
-            hash_uint ^= hash_uint >> 6
-            hash_uint &= 0xFFFFFFFF
-
-    hash_uint += hash_uint << 3
-    hash_uint &= 0xFFFFFFFF
-    hash_uint ^= hash_uint >> 11
-    hash_uint &= 0xFFFFFFFF
-    hash_uint += hash_uint << 15
-    hash_uint &= 0xFFFFFFFF
-
-    seed = int(hash_uint & 0x7ffffff)
-    if seed == 0:
-        seed = 1
-
-    for i in range(5):
+if NUMBA_ENABLED:
+    @jit(nopython=True, cache=True)
+    def uniform(seed) -> Tuple[int, int]:
         IA: int = 16807
         IM: int = 2147483647
+        AM: float = 1.0 / IM
         IQ: int = 127773
         IR: int = 2836
         k: int = seed // IQ
@@ -243,38 +204,140 @@ def reset(hash_uint, coord_bin: np.ndarray) -> int:
         seed = IA * (seed - k * IQ) - IR * k
         if seed < 0:
             seed += IM
+        ans: float = AM * seed
+        return ans, seed
 
-    return seed
+    @jit(nopython=True, cache=True)
+    def reset(hash_uint, coord_bin: np.ndarray) -> int:
+        # Potential complete numpy implementation at:
+        # https://loicpefferkorn.net/2013/09/python-force-c-integer-overflow-behavior/
 
-@jit(nopython=True, cache=True)
-def init_v(hash_uint: int, coord_bin: np.ndarray, v: np.ndarray, mass: np.ndarray, type: np.ndarray, N_local: int) -> Tuple[int, int, int, int]:
-    total_mass: float = 0.0
-    total_momentum_x: float = 0.0
-    total_momentum_y: float = 0.0
-    total_momentum_z: float = 0.0
+        # An explanation of the C++ version:
+        # By casting ibase to a char array, the data itself (ibase)
+        # is unchanged. What changes is the way we access this data.
+        # char *str is a char array of size 4, and each element is
+        # the corresponds to 8 bits of ibase. Accessing an element
+        # through str (str[i]) returns the 2's complement int value
+        # of those 8 bits.
 
-    for i in range(N_local):
-        seed = reset(hash_uint, coord_bin[i, :, :])
+        for index in range(3):
+            for i in coord_bin[index]:
+                hash_uint += i
+                hash_uint &= 0xFFFFFFFF
+                hash_uint += hash_uint << 10
+                hash_uint &= 0xFFFFFFFF
+                hash_uint ^= hash_uint >> 6
+                hash_uint &= 0xFFFFFFFF
 
-        mass_i: float = mass[int(type[i])]
-        ans, seed = uniform(seed)
-        vx: float = ans - 0.5
-        ans, seed = uniform(seed)
-        vy: float = ans - 0.5
-        ans, seed = uniform(seed)
-        vz: float = ans - 0.5
+        hash_uint += hash_uint << 3
+        hash_uint &= 0xFFFFFFFF
+        hash_uint ^= hash_uint >> 11
+        hash_uint &= 0xFFFFFFFF
+        hash_uint += hash_uint << 15
+        hash_uint &= 0xFFFFFFFF
 
-        mass_i_sqrt = math.sqrt(mass_i)
-        v[i][0] = vx / mass_i_sqrt
-        v[i][1] = vy / mass_i_sqrt
-        v[i][2] = vz / mass_i_sqrt
+        seed = int(hash_uint & 0x7ffffff)
+        if seed == 0:
+            seed = 1
 
-        total_mass += mass_i
-        total_momentum_x += mass_i * v[i][0]
-        total_momentum_y += mass_i * v[i][1]
-        total_momentum_z += mass_i * v[i][2]
+        for i in range(5):
+            IA: int = 16807
+            IM: int = 2147483647
+            IQ: int = 127773
+            IR: int = 2836
+            k: int = seed // IQ
 
-    return total_mass, total_momentum_x, total_momentum_y, total_momentum_z
+            seed = IA * (seed - k * IQ) - IR * k
+            if seed < 0:
+                seed += IM
+
+        return seed
+
+    @jit(nopython=True, cache=True)
+    def init_v(hash_uint: int, coord_bin: np.ndarray, v: np.ndarray, mass: np.ndarray, type: np.ndarray, N_local: int) -> Tuple[int, int, int, int]:
+        total_mass: float = 0.0
+        total_momentum_x: float = 0.0
+        total_momentum_y: float = 0.0
+        total_momentum_z: float = 0.0
+
+        for i in range(N_local):
+            seed = reset(hash_uint, coord_bin[i, :, :])
+
+            mass_i: float = mass[int(type[i])]
+            ans, seed = uniform(seed)
+            vx: float = ans - 0.5
+            ans, seed = uniform(seed)
+            vy: float = ans - 0.5
+            ans, seed = uniform(seed)
+            vz: float = ans - 0.5
+
+            mass_i_sqrt = math.sqrt(mass_i)
+            v[i][0] = vx / mass_i_sqrt
+            v[i][1] = vy / mass_i_sqrt
+            v[i][2] = vz / mass_i_sqrt
+
+            total_mass += mass_i
+            total_momentum_x += mass_i * v[i][0]
+            total_momentum_y += mass_i * v[i][1]
+            total_momentum_z += mass_i * v[i][2]
+
+        return total_mass, total_momentum_x, total_momentum_y, total_momentum_z
+
+    @jit(nopython=True, cache=True, parallel=True)
+    def calculate_n(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z):
+        n: int = 0
+        for iz in prange(iz_start, iz_end + 1):
+            for iy in range(iy_start, iy_end + 1):
+                for ix in range(ix_start, ix_end + 1):
+                    for k in range(4):
+                        xtmp: float = (lattice_constant *
+                                    (1.0 * ix + basis[k][0]))
+                        ytmp: float = (lattice_constant *
+                                    (1.0 * iy + basis[k][1]))
+                        ztmp: float = (lattice_constant *
+                                    (1.0 * iz + basis[k][2]))
+
+                        if (
+                            xtmp >= sub_domain_lo_x
+                            and ytmp >= sub_domain_lo_y
+                            and ztmp >= sub_domain_lo_z
+                            and xtmp < sub_domain_hi_x
+                            and ytmp < sub_domain_hi_y
+                            and ztmp < sub_domain_hi_z
+                        ):
+                            n += 1
+        return n
+
+    @jit(nopython=True, cache=True)
+    def init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z, x, type, id, ntypes):
+        n: int = 0
+        for iz in range(iz_start, iz_end + 1):
+            for iy in range(iy_start, iy_end + 1):
+                for ix in range(ix_start, ix_end + 1):
+                    for k in range(4):
+                        xtmp: float = (lattice_constant *
+                                    (1.0 * ix + basis[k][0]))
+                        ytmp: float = (lattice_constant *
+                                    (1.0 * iy + basis[k][1]))
+                        ztmp: float = (lattice_constant *
+                                    (1.0 * iz + basis[k][2]))
+
+                        if (
+                            xtmp >= sub_domain_lo_x
+                            and ytmp >= sub_domain_lo_y
+                            and ztmp >= sub_domain_lo_z
+                            and xtmp < sub_domain_hi_x
+                            and ytmp < sub_domain_hi_y
+                            and ztmp < sub_domain_hi_z
+                        ):
+                            x[n][0] = xtmp
+                            x[n][1] = ytmp
+                            x[n][2] = ztmp
+                            type[n] = random.randint(0, ntypes - 1)
+                            id[n] = n + 1
+                            n += 1
+        return n
+
 
 @pk.functor(x=pk.ViewTypeInfo(layout=pk.LayoutRight))
 class init_system:
@@ -350,61 +413,6 @@ class init_system:
                         self.type[n] = 0
                         self.id[n] = n + 1
                         n += 1
-
-@jit(nopython=True, cache=True, parallel=True)
-def calculate_n(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z):
-    n: int = 0
-    for iz in prange(iz_start, iz_end + 1):
-        for iy in range(iy_start, iy_end + 1):
-            for ix in range(ix_start, ix_end + 1):
-                for k in range(4):
-                    xtmp: float = (lattice_constant *
-                                (1.0 * ix + basis[k][0]))
-                    ytmp: float = (lattice_constant *
-                                (1.0 * iy + basis[k][1]))
-                    ztmp: float = (lattice_constant *
-                                (1.0 * iz + basis[k][2]))
-
-                    if (
-                        xtmp >= sub_domain_lo_x
-                        and ytmp >= sub_domain_lo_y
-                        and ztmp >= sub_domain_lo_z
-                        and xtmp < sub_domain_hi_x
-                        and ytmp < sub_domain_hi_y
-                        and ztmp < sub_domain_hi_z
-                    ):
-                        n += 1
-    return n
-
-@jit(nopython=True, cache=True)
-def init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z, x, type, id, ntypes):
-    n: int = 0
-    for iz in range(iz_start, iz_end + 1):
-        for iy in range(iy_start, iy_end + 1):
-            for ix in range(ix_start, ix_end + 1):
-                for k in range(4):
-                    xtmp: float = (lattice_constant *
-                                (1.0 * ix + basis[k][0]))
-                    ytmp: float = (lattice_constant *
-                                (1.0 * iy + basis[k][1]))
-                    ztmp: float = (lattice_constant *
-                                (1.0 * iz + basis[k][2]))
-
-                    if (
-                        xtmp >= sub_domain_lo_x
-                        and ytmp >= sub_domain_lo_y
-                        and ztmp >= sub_domain_lo_z
-                        and xtmp < sub_domain_hi_x
-                        and ytmp < sub_domain_hi_y
-                        and ztmp < sub_domain_hi_z
-                    ):
-                        x[n][0] = xtmp
-                        x[n][1] = ytmp
-                        x[n][2] = ztmp
-                        type[n] = random.randint(0, ntypes - 1)
-                        id[n] = n + 1
-                        n += 1
-    return n
 
 class Input:
     def __init__(self, p: System):
@@ -957,11 +965,15 @@ class Input:
             self.system.grow(n)
             s = self.system
 
-            n: int = init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
-                            self.lattice_constant, basis_view.data,
-                            s.sub_domain_lo_x, s.sub_domain_lo_y, s.sub_domain_lo_z,
-                            s.sub_domain_hi_x, s.sub_domain_hi_y, s.sub_domain_hi_z,
-                            s.x.data, s.type.data, s.id.data, s.ntypes)
+            global NUMBA_ENABLED
+            if NUMBA_ENABLED:
+                n: int = init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
+                                self.lattice_constant, basis_view.data,
+                                s.sub_domain_lo_x, s.sub_domain_lo_y, s.sub_domain_lo_z,
+                                s.sub_domain_hi_x, s.sub_domain_hi_y, s.sub_domain_hi_z,
+                                s.x.data, s.type.data, s.id.data, s.ntypes)
+            else:
+                n: int = pk.parallel_reduce("init_x", pk.RangePolicy(pk.Serial, iz_start + 1, iz_end + 2), init_s.init_x)
 
             N_local_offset: int = n
             comm.scan_int(N_local_offset, 1)
@@ -1001,8 +1013,30 @@ class Input:
             hash_uint ^= hash_uint >> 6
             hash_uint &= 0xFFFFFFFF
 
-        x_bytes = np.reshape(np.frombuffer(s.x.data.tobytes(), dtype=np.byte), (s.x.shape[0], s.x.shape[1], 8)).astype(int)
-        total_mass, total_momentum_x, total_momentum_y, total_momentum_z = init_v(hash_uint, x_bytes, s.v.data, s.mass.data, s.type.data, self.system.N_local)
+        if NUMBA_ENABLED:
+            x_bytes = np.reshape(np.frombuffer(s.x.data.tobytes(), dtype=np.byte), (s.x.shape[0], s.x.shape[1], 8)).astype(int)
+            total_mass, total_momentum_x, total_momentum_y, total_momentum_z = init_v(hash_uint, x_bytes, s.v.data, s.mass.data, s.type.data, self.system.N_local)
+        else:
+            rand = LAMMPS_RandomVelocityGeom()
+            for i in range(self.system.N_local):
+                rand.seed = 0
+                x: List[float] = [s.x[i][0], s.x[i][1], s.x[i][2]]
+                rand.reset(self.temperature_seed, x)
+
+                mass_i: float = s.mass[int(s.type[i])]
+                vx: float = rand.uniform() - 0.5
+                vy: float = rand.uniform() - 0.5
+                vz: float = rand.uniform() - 0.5
+
+                mass_i_sqrt = math.sqrt(mass_i)
+                s.v[i][0] = vx / mass_i_sqrt
+                s.v[i][1] = vy / mass_i_sqrt
+                s.v[i][2] = vz / mass_i_sqrt
+
+                total_mass += mass_i
+                total_momentum_x += mass_i * s.v[i][0]
+                total_momentum_y += mass_i * s.v[i][1]
+                total_momentum_z += mass_i * s.v[i][2]
 
         s.q.fill(0.0)
 
