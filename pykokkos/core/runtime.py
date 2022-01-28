@@ -1,15 +1,15 @@
 import importlib.util
 import sys
-import time
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 
+from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
-    DataType, ExecutionPolicy, ExecutionSpace,
-    MemorySpace, RangePolicy, TeamPolicy, View, ViewType
+    DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType
 )
 import pykokkos.kokkos_manager as km
 
@@ -190,6 +190,7 @@ class Runtime:
 
         args.update(self.get_fields(entity_members))
         args.update(self.get_views(entity_members))
+        args.update(self.get_randpool_args(entity_members))
 
         return args
 
@@ -407,3 +408,24 @@ class Runtime:
             module_setup_id: Tuple[Callable, ExecutionSpace] = (entity, space)
 
         return module_setup_id
+
+    def get_randpool_args(self, members: Dict[str, type]) -> Dict[str, int]:
+        """
+        Get the arguments to pass to the RandPool constructor
+
+        :param members: the dictionary containing all members
+        :returns: a dict mapping from argument name to value
+        """
+
+        arguments: Dict[str, Any] = {}
+        for key, value in members.items():
+            if isinstance(value, RandomPool):
+                arguments[Keywords.RandPoolSeed.value] = value.seed
+                arguments[Keywords.RandPoolNumStates.value] = value.num_states
+                break
+
+        if len(arguments) == 0:
+            arguments[Keywords.RandPoolSeed.value] = 0
+            arguments[Keywords.RandPoolNumStates.value] = 0
+
+        return arguments
