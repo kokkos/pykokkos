@@ -19,3 +19,5 @@ class Keywords(Enum):
     RealPrecision = "pk_real"
     RandPool = "pk_randpool"
     RandPoolState = "pk_rgen"
+    RandPoolSeed = "pk_randpool_seed"
+    RandPoolNumStates = "pk_randpool_num_states"

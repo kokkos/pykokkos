@@ -1,13 +1,13 @@
 import ast
 import copy
 import sys
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.visitors import ConstructorVisitor, KokkosMainVisitor, ParameterVisitor, visitors_util
-from pykokkos.interface import Decorator, ViewTypeInfo
+from pykokkos.interface import Decorator, RandomPool, ViewTypeInfo
 
 
 class PyKokkosMembers:
@@ -27,6 +27,8 @@ class PyKokkosMembers:
         self.pk_callbacks: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
 
         self.classtype_methods: Dict[cppast.DeclRefExpr, List[cppast.DeclRefExpr]] = {}
+
+        self.random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = None
 
         self.reduction_result_queue: List[str] = []
         self.timer_result_queue: List[str] = []
@@ -50,10 +52,12 @@ class PyKokkosMembers:
             self.pk_mains = self.get_decorated_functions(AST, Decorator.KokkosMain)
             self.fields = self.get_fields(AST, source, pk_import)
             self.views = self.get_views(AST, source, pk_import)
+            self.random_pool = self.get_random_pool(AST, source, pk_import)
 
         elif entity.style is PyKokkosStyles.functor:
             self.fields = self.get_fields(AST, source, pk_import)
             self.views = self.get_views(AST, source, pk_import)
+            self.random_pool = self.get_random_pool(AST, source, pk_import)
 
         elif entity.style is PyKokkosStyles.workunit:
             # for operation by default
@@ -266,3 +270,30 @@ class PyKokkosMembers:
         args.insert(0, ast.arg(arg="self", annotation=None, type_comment=None))
         functiondef.args.args = args
 
+    def get_random_pool(self, classdef: ast.ClassDef, source: Tuple[List[str], int], pk_import: str) -> Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]]:
+        """
+        Gets the type of the random pool if it exists
+
+        :param classdef: the classdef to be parsed
+        :param source: the python source code of the workload
+        :param pk_import: the identifier used to access the PyKokkos package
+        :returns: the type of the random pool if it exists
+        """
+
+        visitor = ConstructorVisitor(source, "randpool", pk_import, True)
+        fields = dict(visitor.visit(classdef))
+
+        if len(fields) > 1:
+            print("ERROR: Only one pk.RandPool allowed")
+            sys.exit(1)
+
+        if len(fields) == 0:
+            return None
+
+        declref: cppast.DeclRefExpr
+        decltype: cppast.ClassType
+        for n, t in fields.items():
+            declref = n
+            decltype = t
+
+        return declref, decltype

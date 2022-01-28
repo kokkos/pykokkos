@@ -1,7 +1,7 @@
 import ast
 import copy
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
@@ -271,13 +271,19 @@ class StaticTranslator:
         :param workunit: the workunit containing a call to pk.rand()
         """
 
-        pool_type = cppast.ClassType("Kokkos::Random_XorShift64_Pool<>::generator_type")
-        pool_name = cppast.DeclRefExpr(Keywords.RandPoolState.value)
-        rand_pool = cppast.DeclRefExpr(Keywords.RandPool.value)
-        pool_value = cppast.MemberCallExpr(rand_pool, cppast.DeclRefExpr("get_state"), [])
-        init_pool = cppast.DeclStmt(cppast.VarDecl(pool_type, pool_name, pool_value))
+        random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = self.pk_members.random_pool
 
-        free_pool = cppast.CallStmt(cppast.MemberCallExpr(rand_pool, cppast.DeclRefExpr("free_state"), [pool_name]))
+        pool_type: str = random_pool[1].typename
+        generator_type = cppast.ClassType(f"Kokkos::{pool_type}<>::generator_type")
+
+        pool_state_name = cppast.DeclRefExpr(Keywords.RandPoolState.value)
+
+        rand_pool_name: cppast.DeclRefExpr = random_pool[0]
+        pool_value = cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("get_state"), [])
+
+        init_pool = cppast.DeclStmt(cppast.VarDecl(generator_type, pool_state_name, pool_value))
+
+        free_pool = cppast.CallStmt(cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("free_state"), [pool_state_name]))
 
         body: cppast.CompoundStmt = workunit.body
         body.statements.insert(0, init_pool)

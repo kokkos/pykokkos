@@ -67,6 +67,9 @@ def get_kernel_params(
             params[Keywords.ThreadsBegin.value] = "int"
             params[Keywords.ThreadsEnd.value] = "int"
 
+    params[Keywords.RandPoolSeed.value] = "int"
+    params[Keywords.RandPoolNumStates.value] = "int"
+
     for result in members.reduction_result_queue:
         view_name = f"reduction_result_{result}"
         view_type = cppast.ClassType("View1D")
@@ -120,6 +123,9 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
         args.append("0")
+
+    args.append(Keywords.RandPoolSeed.value)
+    args.append(Keywords.RandPoolNumStates.value)
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
