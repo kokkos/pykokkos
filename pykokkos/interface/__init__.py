@@ -34,7 +34,9 @@ from .parallel_dispatch import (
     execute,
     parallel_for, parallel_reduce, parallel_scan
 )
-from .random import rand
+from .random import (
+    rand, RandomPool, Random_XorShift64_Pool, Random_XorShift1024_Pool
+)
 from .timer import Timer
 from .views import (
     Subview, Trait,
