@@ -106,8 +106,17 @@ class PyKokkosVisitor(ast.NodeVisitor):
         subview_args: List[cppast.Expr] = [cppast.DeclRefExpr(view_name)]
 
         slice_node = node.value
-        for dim in slice_node.slice.dims:
-            if isinstance(dim, ast.Index):
+        for dim in slice_node.slice.elts:
+            # In Python >= 3.9, ast.Index is deprecated
+            # (see # https://docs.python.org/3/whatsnew/3.9.html)
+            # Instead of ast.Index, value will be used directly
+            check_type: type
+            if sys.version_info.minor <= 8:
+                check_type: type = ast.Index
+            else:
+                check_type: type = ast.Name
+
+            if isinstance(dim, check_type):
                 subview_args.append(self.visit(dim))
             else:
                 if dim.lower is None and dim.upper is None: 
