@@ -71,7 +71,9 @@ class ForceLJNeigh(Force):
         # copied from system
         self.x: pk.View2D[pk.double] = system.x
         self.f: pk.View2D[pk.double] = system.f
-        self.f_a: pk.View2D[pk.double] = system.f
+        # TODO: this should be atomic. Disabled since it is
+        # overwriting f
+        #self.f_a: pk.View2D[pk.double] = system.f
         self.id: pk.View1D[pk.int32] = system.id
         self.type: pk.View1D[pk.int32] = system.type
 
@@ -112,7 +114,7 @@ class ForceLJNeigh(Force):
         self.N_local = system.N_local
         self.x = system.x
         self.f = system.f
-        self.f_a = system.f
+        # self.f_a = system.f
         self.type = system.type
         self.id = system.id
 
@@ -129,7 +131,7 @@ class ForceLJNeigh(Force):
         self.N_local = system.N_local
         self.x = system.x
         self.f = system.f
-        self.f_a = system.f
+        # self.f_a = system.f
         self.type = system.type
         self.id = system.id
 
@@ -242,13 +244,19 @@ class ForceLJNeigh(Force):
                 fxi += dx * fpair
                 fyi += dy * fpair
                 fzi += dz * fpair
-                self.f_a[j][0] -= dx * fpair
-                self.f_a[j][1] -= dy * fpair
-                self.f_a[j][2] -= dz * fpair
+                self.f[j][0] -= dx * fpair
+                self.f[j][1] -= dy * fpair
+                self.f[j][2] -= dz * fpair
+                # self.f_a[j][0] -= dx * fpair
+                # self.f_a[j][1] -= dy * fpair
+                # self.f_a[j][2] -= dz * fpair
 
-        self.f_a[i][0] += fxi
-        self.f_a[i][1] += fyi
-        self.f_a[i][2] += fzi
+        self.f[i][0] += fxi
+        self.f[i][1] += fyi
+        self.f[i][2] += fzi
+        # self.f_a[i][0] += fxi
+        # self.f_a[i][1] += fyi
+        # self.f_a[i][2] += fzi
 
     @pk.workunit
     def fullneigh_reduce(self, i: int, PE: pk.Acc[pk.double]) -> None:
