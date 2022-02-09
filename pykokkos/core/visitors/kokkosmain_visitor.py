@@ -85,7 +85,13 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 view_type: cppast.ClassType = self.views[view]
                 is_subview: bool = view_type is None
                 if is_subview:
-                    parent_view = cppast.DeclRefExpr(self.subviews[view.declname])
+                    parent_view_name: str = self.subviews[view.declname]
+
+                    # Need to remove "pk_d_" from the start of the
+                    # view name to get the type of the parent
+                    if parent_view_name.startswith("pk_d_"):
+                        parent_view_name = parent_view_name.replace("pk_d_", "", 1)
+                    parent_view = cppast.DeclRefExpr(parent_view_name)
                     view_type = self.views[parent_view]
 
                 view_type_str: str = visitors_util.cpp_view_type(view_type)
@@ -444,3 +450,11 @@ class KokkosMainVisitor(PyKokkosVisitor):
             return policy.base
         else:
             return policy
+
+    def generate_subview(self, node: ast.Assign, view_name: str) -> cppast.DeclStmt:
+        """
+        Generate a subview in pk.main. This involves adding the
+        "pk_d_" prefix to the parent view.
+        """
+
+        return super().generate_subview(node, f"pk_d_{view_name}")
