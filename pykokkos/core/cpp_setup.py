@@ -5,6 +5,8 @@ import subprocess
 import sys
 from typing import List
 
+import cupy
+
 from pykokkos.interface import ExecutionSpace, get_default_layout, get_default_memory_space
 import pykokkos.kokkos_manager as km
 
@@ -143,8 +145,6 @@ class CppSetup:
         if space is ExecutionSpace.Cuda:
             if enable_uvm:
                 view_space = "Kokkos::CudaUVMSpace"
-            else:
-                view_space = "Kokkos::CudaSpace"
 
         view_layout: str = str(get_default_layout(get_default_memory_space(space)))
         view_layout = view_layout.split(".")[-1]
@@ -153,17 +153,11 @@ class CppSetup:
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         kokkos_path: Path = self.get_kokkos_path()
 
-        compute_capability: str = ""
-        if compiler == "nvcc":
-            try:
-                import cupy
-                compute_capability = f"sm_{cupy.cuda.Device().compute_capability}"
-            except:
-                print(f"ERROR: could not get CUDA compute capability")
-
         kokkos_lib_path: Path = kokkos_path / "lib"
         if not kokkos_lib_path.is_dir():
             kokkos_lib_path = kokkos_path / "lib64"
+
+        compute_capability: str = self.get_cuda_compute_capability(compiler)
 
         command: List[str] = [f"./{self.script}",
                               compiler,             # What compiler to use
@@ -191,6 +185,20 @@ class CppSetup:
             print(patchelf_result.stderr.decode("utf-8"))
             print(f"patchelf failed")
             sys.exit(1)
+
+    def get_cuda_compute_capability(self, compiler: str) -> str:
+        """
+        Get the compute capability of an Nvidia GPU
+
+        :param compiler: the compiler being used (nvcc or g++)
+        :returns: the compute capability as a string or the empty
+            string if g++ is the compiler
+        """
+
+        if compiler != "nvcc":
+            return ""
+
+        return f"sm_{cupy.cuda.Device().compute_capability}"
 
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:
