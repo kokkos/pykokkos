@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from typing import List
+from typing import List, Tuple
 
 import cupy
 
@@ -32,11 +32,7 @@ class CppSetup:
         self.script: str = "compile.sh"
         self.script_path: Path = Path(__file__).resolve().parent / self.script
 
-        self.makefile: Path = Path(__file__).resolve().parent / "template_Makefile"
-        self.kokkos_devices_placeholder: str = "KOKKOS_DEVICES_PLACEHOLDER"
-        self.target_placeholder: str = "TARGET_PLACEHOLDER"
-        self.defines_placeholder: str = "DEFINES_PLACEHOLDER"
-        self.force_uvm_placeholder: str = "FORCE_UVM_PLACEHOLDER"
+        self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
         self.format: bool = False
 
@@ -120,16 +116,44 @@ class CppSetup:
             print(f"Exception while copying views and makefile: {ex}")
             sys.exit(1)
 
-    def get_kokkos_path(self) -> Path:
+    def get_kokkos_paths(self) -> Tuple[Path, Path]:
         """
-        Get the location of the installed Kokkos package
+        Get the paths of the Kokkos instal lib and include
+        directories. If the environment variable is set, use that
+        Kokkos install. If not, fall back to installed pykokkos-base
+        package.
 
-        :returns: path to the location
+        :returns: a tuple of paths to the Kokkos lib/ and include/
+            directories respectively
         """
+
+        lib_path: Path
+        include_path: Path
+        if self.lib_path_env in os.environ:
+            lib_path = Path(os.environ.get(self.lib_path_env))
+            if not lib_path.is_dir():
+                raise RuntimeError(f"lib/ directory path {str(lib_path)} does not exist")
+
+            include_path = lib_path.parent / "include"
+            if not include_path.is_dir():
+                raise RuntimeError(f"install/ directory path {str(include_path)} does not exist")
+
+            return lib_path, include_path
 
         from pykokkos.bindings import kokkos
+        install_path = Path(kokkos.__path__[0]).parent
 
-        return Path(kokkos.__path__[0]).parent
+        if (install_path / "lib").is_dir():
+            lib_path = install_path / "lib"
+        elif (install_path / "lib64").is_dir():
+            lib_path = install_path / "lib64"
+        else:
+            raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
+                               f" Try setting {self.lib_path_env} instead.")
+
+        include_path = lib_path.parent / "include/kokkos"
+
+        return lib_path, include_path
 
     def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
         """
@@ -151,12 +175,9 @@ class CppSetup:
         view_layout = f"Kokkos::{view_layout}"
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
-        kokkos_path: Path = self.get_kokkos_path()
-
-        kokkos_lib_path: Path = kokkos_path / "lib"
-        if not kokkos_lib_path.is_dir():
-            kokkos_lib_path = kokkos_path / "lib64"
-
+        lib_path: Path
+        include_path: Path
+        lib_path, include_path = self.get_kokkos_paths()
         compute_capability: str = self.get_cuda_compute_capability(compiler)
 
         command: List[str] = [f"./{self.script}",
@@ -166,7 +187,8 @@ class CppSetup:
                               view_space,           # Argument views memory space
                               view_layout,          # Argument views memory layout
                               precision,            # Default real precision
-                              str(kokkos_lib_path), # Path to Kokkos install
+                              str(lib_path),        # Path to Kokkos install lib/ directory
+                              str(include_path),    # Path to Kokkos install include/ directory
                               compute_capability]   # Device compute capability
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
@@ -177,7 +199,7 @@ class CppSetup:
 
         patchelf: List[str] = ["patchelf",
                                "--set-rpath",
-                               str(kokkos_lib_path),
+                               str(lib_path),
                                self.module_file]
 
         patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
