@@ -20,19 +20,20 @@ class StaticTranslator:
     Translates a PyKokkos workload to C++ using static analysis only
     """
 
-    def __init__(self, module: str, functor: str):
+    def __init__(self, module: str, functor: str, pk_members: PyKokkosMembers):
         """
         StaticTranslator Constructor
 
         :param module: the name of the compiled Python module
         :param functor: the name of the generated functor file
+        :param pk_members: the PyKokkos related members of the entity
         """
 
         self.pk_import: str
-        self.pk_members: PyKokkosMembers
 
         self.module_file: str = module
         self.functor_file: str = functor
+        self.pk_members: PyKokkosMembers = pk_members
 
     def translate(
         self,
@@ -53,8 +54,6 @@ class StaticTranslator:
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
 
-        self.pk_members = PyKokkosMembers()
-        self.pk_members.extract(entity, classtypes)
         self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source

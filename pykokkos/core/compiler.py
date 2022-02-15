@@ -135,10 +135,15 @@ class Compiler:
 
         parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
-        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm)
 
-        members: PyKokkosMembers = self.extract_members(metadata)
-        self.members[hash] = members
+        members: PyKokkosMembers
+        if hash in self.members: # True if compiled with another execution space
+            members = self.members[hash]
+        else:
+            members = self.extract_members(metadata)
+            self.members[hash] = members
+
+        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
 
         return members
 
@@ -163,7 +168,8 @@ class Compiler:
         entity: PyKokkosEntity,
         classtypes: List[PyKokkosEntity],
         space: ExecutionSpace,
-        force_uvm: bool
+        force_uvm: bool,
+        members: PyKokkosMembers
     ) -> None:
         """
         Compile the entity
@@ -174,7 +180,7 @@ class Compiler:
         :param classtypes: the list of parsed classtypes being compiled
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
-        :returns: the PyKokkos members obtained during translation
+        :param members: the PyKokkos related members of the entity
         """
 
         if space is ExecutionSpace.Default:
@@ -187,7 +193,7 @@ class Compiler:
             return
 
         cpp_setup = CppSetup(module_setup.module_file, self.functor_file, self.bindings_file)
-        translator = StaticTranslator(module_setup.name, self.functor_file)
+        translator = StaticTranslator(module_setup.name, self.functor_file, members)
 
         t_start: float = time.perf_counter()
         functor: List[str]
