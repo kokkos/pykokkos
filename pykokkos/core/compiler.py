@@ -212,14 +212,12 @@ class Compiler:
         """
         Get the compiler to use based on the machine name
 
-        :param machine: the name of the machine
-        :param space: the execution space
         :returns: g++ or nvcc
         """
 
         from pykokkos.bindings import kokkos
 
-        if hasattr(kokkos, "Cuda"):
+        if kokkos.get_device_available("Cuda"):
             return "nvcc"
 
         return "g++"
