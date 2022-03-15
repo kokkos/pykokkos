@@ -36,14 +36,16 @@ class ViewTypeInfo:
     Contains type information for a view that is used by a functor
     """
 
-    def __init__(self, *, layout: Optional[Layout] = None, trait: Optional[Trait] = None):
+    def __init__(self, *, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None, trait: Optional[Trait] = None):
         """
         ViewTypeInfo constructor
 
+        :param space: the memory space of the view
         :param layout: the layout of the view
         :param trait: the memory trait of the view
         """
 
+        self.space: Optional[MemorySpace] = space
         self.layout: Optional[Layout] = layout
         self.trait: Optional[Trait] = trait
 
