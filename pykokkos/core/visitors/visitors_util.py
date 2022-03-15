@@ -116,15 +116,19 @@ math_constants: Dict[str, str] = {
 
 
 def error(src, debug: bool, node, message) -> None:
-    print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
+    if hasattr(node, "lineno"):
+        print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
+    else:
+        print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
     if debug:
         print("DEBUG AST:")
         pretty_print(node)
 
-    print(src[0][node.lineno - src[1] - 1], end="")
-    err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
-    print(" " * node.col_offset + "^" * err_len)
+    if hasattr(node, "lineno"):
+        print(src[0][node.lineno - src[1] - 1], end="")
+        err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
+        print(" " * node.col_offset + "^" * err_len)
 
     sys.exit("PyKokkos: Translation failed")
 
