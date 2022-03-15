@@ -27,6 +27,25 @@ def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
 
     return False
 
+def get_view_memory_space(view_type: cppast.ClassType) -> str:
+    """
+    Get the memory space of a view. Return ArgMemSpace if space was
+    not specified in ViewTypeInfo
+
+    :param view_type: the cppast type of the view extracted from the source
+    :returns: the memory space template parameter
+    """
+
+    # Check if there is a MemorySpace template parameter
+    for t in view_type.template_params:
+        if isinstance(t, cppast.DeclRefExpr):
+            name: str = t.declname
+
+            if name.endswith("Space"):
+                return f"Kokkos::{name}"
+
+    return Keywords.ArgMemSpace.value
+
 def get_kernel_params(
     members: PyKokkosMembers,
     is_hierarchical: bool,
@@ -53,8 +72,10 @@ def get_kernel_params(
         # skip subviews
         if t is None:
             continue
+
+        space: str = get_view_memory_space(t)
         layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
-        params[n.declname] = cpp_view_type(t, space=Keywords.ArgMemSpace.value, layout=layout, real=real)
+        params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
     if not is_workload:
         params[Keywords.KernelName.value] = "const std::string&"
@@ -118,7 +139,12 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
         args.append(d_v)
-        mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+
+        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
+        if get_view_memory_space(view_type) == Keywords.ArgMemSpace.value:
+            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+        else:
+            mirror_views += f"auto {d_v} = {v};"
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
@@ -147,6 +173,11 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
         view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
         # skip subviews
         if view_type is None:
+            continue
+
+        # skip views with user-set memory spaces
+        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
+        if get_view_memory_space(view_type) == Keywords.ArgMemSpace.value:
             continue
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.
@@ -243,6 +274,8 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
         call += f"}} else {{ {custom_call} }}"
 
     call += generate_copy_back(members)
+    call += "Kokkos::fence();"
+
     if operation in ("reduce", "scan"):
         call += f"return {Keywords.Accumulator.value};"
 
@@ -494,8 +527,9 @@ def bind_main_single(
     acc: str = f"double {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
+    fence: str = "Kokkos::fence();"
 
-    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
+    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} {fence} }}"
     wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
     binding: str = f"{kernel} {wrapper}"
 

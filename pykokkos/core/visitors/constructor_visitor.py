@@ -118,14 +118,14 @@ class ConstructorVisitor(ast.NodeVisitor):
 
         template_params: List[cppast.DeclRefExpr] = []
         layout: Optional[Layout] = self.get_layout(call)
-        # space: Optional[cppast.DeclRefExpr] = self.get_memory_space(call)
+        space: Optional[cppast.DeclRefExpr] = self.get_memory_space(call)
         trait: Optional[Trait] = self.get_trait(call)
 
         if layout is not None:
             template_params.append(layout)
 
-        # if space is not None:
-        #     template_params.append(space)
+        if space is not None:
+            template_params.append(space)
 
         if trait is not None:
             template_params.append(trait)

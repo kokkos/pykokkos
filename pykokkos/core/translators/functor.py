@@ -4,6 +4,7 @@ from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.visitors import cpp_view_type
 
+from .bindings import get_view_memory_space
 from .members import PyKokkosMembers
 
 def get_view_type(view: cppast.ClassType) -> str:
@@ -15,7 +16,7 @@ def get_view_type(view: cppast.ClassType) -> str:
     :return: the string representation of the view type
     """
 
-    space: str = f"{Keywords.DefaultExecSpace.value}::memory_space"
+    space: str = get_view_memory_space(view)
     layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
     view_type: str = cpp_view_type(view, space=space, layout=layout)
 
