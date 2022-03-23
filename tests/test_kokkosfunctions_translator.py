@@ -166,7 +166,7 @@ class TestKokkosFunctionsTranslator(unittest.TestCase):
         expected_result: float = self.threads * (self.f_1 + self.f_2)
         result: float = pk.parallel_reduce(self.range_policy, self.functor.add_floats)
 
-        assert_allclose(expected_result, result)
+        assert_allclose(result, expected_result)
 
     def test_nested_sum(self):
         expected_result: int = self.threads * (self.i_1 + self.i_2)
