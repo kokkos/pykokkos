@@ -176,7 +176,6 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
             continue
 
         # skip views with user-set memory spaces
-        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
         if get_view_memory_space(view_type) == Keywords.ArgMemSpace.value:
             continue
 
