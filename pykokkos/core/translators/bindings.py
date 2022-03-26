@@ -27,12 +27,15 @@ def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
 
     return False
 
-def get_view_memory_space(view_type: cppast.ClassType) -> str:
+def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
     """
-    Get the memory space of a view. Return ArgMemSpace if space was
-    not specified in ViewTypeInfo
+    Get the memory space of a view. Return the default memory space if
+    space was not specified in ViewTypeInfo
 
-    :param view_type: the cppast type of the view extracted from the source
+    :param view_type: the cppast type of the view extracted from the
+        source
+    :param location: where the view_type is needed, either "bindings"
+        or "functor"
     :returns: the memory space template parameter
     """
 
@@ -44,7 +47,10 @@ def get_view_memory_space(view_type: cppast.ClassType) -> str:
             if name.endswith("Space"):
                 return f"Kokkos::{name}"
 
-    return Keywords.ArgMemSpace.value
+    if location == "functor":
+        return f"{Keywords.DefaultExecSpace.value}::memory_space"
+    if location == "bindings":
+        return Keywords.ArgMemSpace.value
 
 def get_kernel_params(
     members: PyKokkosMembers,
@@ -73,7 +79,7 @@ def get_kernel_params(
         if t is None:
             continue
 
-        space: str = get_view_memory_space(t)
+        space: str = get_view_memory_space(t, "bindings")
         layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
@@ -141,7 +147,7 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
         args.append(d_v)
 
         view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
-        if get_view_memory_space(view_type) == Keywords.ArgMemSpace.value:
+        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
             mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
         else:
             mirror_views += f"auto {d_v} = {v};"
@@ -176,7 +182,7 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
             continue
 
         # skip views with user-set memory spaces
-        if get_view_memory_space(view_type) == Keywords.ArgMemSpace.value:
+        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
             continue
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.

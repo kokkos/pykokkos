@@ -16,7 +16,7 @@ def get_view_type(view: cppast.ClassType) -> str:
     :return: the string representation of the view type
     """
 
-    space: str = get_view_memory_space(view)
+    space: str = get_view_memory_space(view, "functor")
     layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
     view_type: str = cpp_view_type(view, space=space, layout=layout)
 
