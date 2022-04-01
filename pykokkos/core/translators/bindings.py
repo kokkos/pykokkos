@@ -73,6 +73,29 @@ def get_kernel_params(
     params: Dict[str, str] = {}
     for n, t in members.fields.items():
         params[n.declname] = s.serialize(t)
+    # NOTE: this is a bit of a hack to auto-cast the reduction result
+    # view to the highest possible integer type when
+    # only integers are involved; typically, one might
+    # want a proper casting table and maybe even to make decisions
+    # about value-based casting
+    red_view_type = "double"
+    integer_type_seen = 0
+    for type_val in params.values():
+        if "int" in type_val:
+            integer_type_seen += 1
+    if integer_type_seen == len(params):
+        # we only have integer types present in the
+        # reduction operation, so pick the largest
+        # integer type to use for the reduction return view
+        # type
+        if "int64_t" in params.values():
+            red_view_type = "int64_t"
+        elif "int32_t" in params.values():
+            # NOTE: which is preferred--preservation
+            # of the types in the reduction, or casting
+            # up to reduce likelihood of overflow?
+            red_view_type = "int32_t"
+    params["red_view_type"] = red_view_type
 
     for n, t in members.views.items():
         # skip subviews
@@ -100,7 +123,10 @@ def get_kernel_params(
     for result in members.reduction_result_queue:
         view_name = f"reduction_result_{result}"
         view_type = cppast.ClassType("View1D")
-        view_type.add_template_param(cppast.DeclRefExpr("double"))
+        if red_view_type == "double":
+            view_type.add_template_param(cppast.DeclRefExpr("double"))
+        else:
+            view_type.add_template_param(cppast.DeclRefExpr(red_view_type))
         view_type.add_template_param(cppast.DeclRefExpr("HostSpace"))
         params[view_name] = cpp_view_type(view_type, space="Kokkos::HostSpace", layout="Kokkos::LayoutRight")
 
@@ -538,7 +564,8 @@ def bind_main_single(
     params: Dict[str, str] = get_kernel_params(members, False, True, real)
     signature: str = generate_kernel_signature("void", kernel_name, params)
     instantiation: str = generate_functor_instance(functor, members)
-    acc: str = f"double {Keywords.Accumulator.value} = 0;"
+    acc_type = params["red_view_type"]
+    acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
     fence: str = generate_fence_call()

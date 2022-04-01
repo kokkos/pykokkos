@@ -5,7 +5,7 @@ import pykokkos as pk
 class SquareSum:
     def __init__(self, n):
         self.N: int = n
-        self.total: pk.double = 0
+        self.total: pk.int64 = 0
 
     @pk.main
     def run(self):
@@ -16,7 +16,7 @@ class SquareSum:
         print("Sum:", self.total)
 
     @pk.workunit
-    def squaresum(self, i: int, acc: pk.Acc[pk.double]):
+    def squaresum(self, i: int, acc: pk.Acc[pk.int64]):
         acc += i * i
 
 
