@@ -1,3 +1,4 @@
+import sys
 import argparse
 import os
 import shutil
@@ -25,4 +26,5 @@ if args.specifictests:
 
 # force pytest to actually import
 # all the test modules directly
-pytest.main(pytest_args)
+ret = pytest.main(pytest_args)
+sys.exit(ret)
