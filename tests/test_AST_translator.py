@@ -3,6 +3,7 @@ from typing import List
 import unittest
 
 import pykokkos as pk
+from numpy.testing import assert_allclose
 
 
 # Tests for translation of each node of type AST to C++
@@ -167,7 +168,7 @@ class TestASTTranslator(unittest.TestCase):
         expected_result: float = self.threads * (math.pi + math.e + math.tau)
         result: float = pk.parallel_reduce(self.range_policy, self.functor.math_constants)
 
-        self.assertEqual(expected_result, result)
+        assert_allclose(expected_result, result)
 
     # def test_constants(self):
     #     self.assertEqual(5, self.workload.int_constant)
