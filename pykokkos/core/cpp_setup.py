@@ -5,7 +5,6 @@ import subprocess
 import sys
 from typing import List, Tuple
 
-import cupy
 
 from pykokkos.interface import ExecutionSpace, get_default_layout, get_default_memory_space
 import pykokkos.kokkos_manager as km
@@ -219,6 +218,8 @@ class CppSetup:
 
         if compiler != "nvcc":
             return ""
+        else:
+            import cupy
 
         return f"sm_{cupy.cuda.Device().compute_capability}"
 

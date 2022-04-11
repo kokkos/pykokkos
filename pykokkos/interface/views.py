@@ -7,7 +7,6 @@ from typing import (
     Tuple, TypeVar, Union
 )
 
-import cupy as cp
 import numpy as np
 
 from pykokkos.bindings import kokkos
@@ -417,7 +416,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
 
     return View(list(array.shape), dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
-def from_cupy(array: cp.ndarray) -> ViewType:
+def from_cupy(array) -> ViewType:
     """
     Create a PyKokkos View from a cupy array
 
