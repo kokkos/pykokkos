@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
@@ -7,6 +7,8 @@ import pykokkos.kokkos_manager as km
 from .views import ViewType
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
+
+workunit_cache: Dict[int, Callable] = {}
 
 @dataclass
 class HandledArgs:
@@ -122,14 +124,39 @@ def parallel_for(*args, **kwargs) -> None:
         workunit
     """
 
+    args_to_hash: List = []
+    args_not_to_hash: Dict = {}
+    for k, v in kwargs.items():
+        if not isinstance(v, int):
+            args_to_hash.append(v)
+        else:
+            args_not_to_hash[k] = v
+
+    # Hash the workunit
+    for a in args:
+        if callable(a):
+            args_to_hash.append(a.__name__)
+            break
+
+    to_hash = frozenset(args_to_hash)
+    cache_key: int = hash(to_hash)
+
+    if cache_key in workunit_cache:
+        func, args = workunit_cache[cache_key]
+        args.update(args_not_to_hash)
+        func(**args)
+        return
+
     handled_args: HandledArgs = handle_args(True, args)
-    runtime_singleton.runtime.run_workunit(
+    func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
         "for",
         **kwargs)
 
+    workunit_cache[cache_key] = (func, args)
+    func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     """
@@ -139,21 +166,39 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     :param operation: the name of the operation, "reduce" or "scan"
     """
 
+    args_to_hash: List = []
+    args_not_to_hash: Dict = {}
+    for k, v in kwargs.items():
+        if not isinstance(v, int):
+            args_to_hash.append(v)
+        else:
+            args_not_to_hash[k] = v
+
+    for a in args:
+        if callable(a):
+            args_to_hash.append(a.__name__)
+            break
+
+    args_to_hash.append(operation)
+
+    to_hash = frozenset(args_to_hash)
+    cache_key: int = hash(to_hash)
+
+    if cache_key in workunit_cache:
+        func, args = workunit_cache[cache_key]
+        args.update(args_not_to_hash)
+        return func(**args)
+
     handled_args: HandledArgs = handle_args(True, args)
+    func, args = runtime_singleton.runtime.run_workunit(
+        handled_args.name,
+        handled_args.policy,
+        handled_args.workunit,
+        operation,
+        **kwargs)
 
-    result: Optional[Union[float, int]]
-    result = runtime_singleton.runtime.run_workunit(
-                handled_args.name,
-                handled_args.policy,
-                handled_args.workunit,
-                operation,
-                **kwargs)
-
-    if result is None:
-        raise RuntimeError("ERROR: reduction returned None")
-
-    return result
-
+    workunit_cache[cache_key] = (func, args)
+    return func(**args)
 
 def parallel_reduce(*args, **kwargs) -> Union[float, int]:
     """
