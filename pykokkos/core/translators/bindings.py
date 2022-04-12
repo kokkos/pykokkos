@@ -182,7 +182,7 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
             continue
 
         # skip views with user-set memory spaces
-        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
+        if get_view_memory_space(view_type, "bindings") != Keywords.ArgMemSpace.value:
             continue
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.
@@ -240,6 +240,15 @@ def generate_kernel_signature(return_type: str, kernel: str, params: Dict[str, s
 
     return signature
 
+def generate_fence_call() -> str:
+    """
+    Generate a C++ function call to Kokkos fence
+
+    :returns: the call to the current execution space's fence
+    """
+
+    return f"{Keywords.DefaultExecSpaceInstance.value}.fence();"
+
 def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: cppast.DeclRefExpr, is_hierarchical: bool) -> str:
     """
     Generate the calls to the operation
@@ -279,7 +288,7 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
         call += f"}} else {{ {custom_call} }}"
 
     call += generate_copy_back(members)
-    call += "Kokkos::fence();"
+    call += generate_fence_call()
 
     if operation in ("reduce", "scan"):
         call += f"return {Keywords.Accumulator.value};"
@@ -532,7 +541,7 @@ def bind_main_single(
     acc: str = f"double {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
-    fence: str = "Kokkos::fence();"
+    fence: str = generate_fence_call()
 
     kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} {fence} }}"
     wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
