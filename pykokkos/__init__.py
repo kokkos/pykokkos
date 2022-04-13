@@ -33,6 +33,9 @@ def cleanup():
     del runtime_singleton.runtime
     del runtime_singleton
 
+    from pykokkos.interface.parallel_dispatch import workunit_cache
+    workunit_cache.clear()
+
 # Will be called in reverse order of registration (cleanup then finalize)
 atexit.register(finalize)
 atexit.register(cleanup)
