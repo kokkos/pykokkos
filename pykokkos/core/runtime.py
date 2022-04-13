@@ -124,10 +124,10 @@ class Runtime:
         else:
             args["pk_kernel_name"] = name
 
-        result: Optional[Union[float, int]] = self.call_wrapper(entity, members, args, module)
+        is_workunit_or_functor: bool = isinstance(entity, Callable)
+        result = self.call_wrapper(entity, members, args, module, is_workunit_or_functor)
 
-        is_workunit: bool = isinstance(entity, Callable)
-        if not is_workunit:
+        if not is_workunit_or_functor:
             self.retrieve_results(entity, members, args)
 
         return result
@@ -199,7 +199,8 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         members: PyKokkosMembers,
         args: Dict[str, Any],
-        module
+        module,
+        return_wrapper: bool
     ) -> Optional[Union[float, int]]:
         """
         Call the wrapper in the imported module
@@ -208,6 +209,7 @@ class Runtime:
         :param members: a collection of PyKokkos related members
         :param args: the arguments to be passed to the wrapper
         :param module: the imported module
+        :param return_wrapper: whether to return the wrapper (assuming it will be called later)
         """
 
         is_workunit: bool = isinstance(entity, Callable)
@@ -220,6 +222,9 @@ class Runtime:
             wrapper += f"_{precision}"
 
         func = getattr(module, wrapper)
+
+        if return_wrapper:
+            return func, args
 
         return func(**args)
 
