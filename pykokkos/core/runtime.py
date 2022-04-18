@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 
-import kokkos
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
@@ -127,14 +126,6 @@ class Runtime:
 
         is_workunit_or_functor: bool = isinstance(entity, Callable)
         result = self.call_wrapper(entity, members, args, module, is_workunit_or_functor)
-
-        red_view_type = kokkos.double
-        for key, val in args.items():
-            if 'reduction_result_' in key:
-                # TODO: other types
-                if  "int64" in str(val):
-                    red_view_type = kokkos.int64
-        args["red_view_type"] = red_view_type
 
         if not is_workunit_or_functor:
             self.retrieve_results(entity, members, args)
@@ -282,9 +273,7 @@ class Runtime:
 
         for result in members.reduction_result_queue:
             name: str = f"reduction_result_{result}"
-            # TODO: need a switch that sets DataType based on
-            # kernel argument types/casting rules?
-            result_view = View([1], DataType.int64, MemorySpace.HostSpace)
+            result_view = View([1], DataType.double, MemorySpace.HostSpace)
             args[name] = result_view.array
 
         for result in members.timer_result_queue:
