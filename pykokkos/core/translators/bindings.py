@@ -536,9 +536,23 @@ def bind_main_single(
 
     main: List[str] = translate_mains(source, functor, members, pk_import)
     params: Dict[str, str] = get_kernel_params(members, False, True, real)
+
+    # fall back to the old hard-coded default
+    # for now--this includes cases where an
+    # accumulator is not even defined
+    acc_type = "double"
+
+    for element in source[0]:
+        # TODO: support more types
+        if "pk.Acc" in element:
+            if "pk.int64" in element:
+                acc_type = "int64_t"
+            elif "pk.double" in element:
+                acc_type = "double"
+
     signature: str = generate_kernel_signature("void", kernel_name, params)
     instantiation: str = generate_functor_instance(functor, members)
-    acc: str = f"double {Keywords.Accumulator.value} = 0;"
+    acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
     fence: str = generate_fence_call()
