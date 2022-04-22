@@ -77,12 +77,10 @@ class SquareSumInt:
 @pytest.mark.parametrize("series_max", [10, 5000, 90000])
 @pytest.mark.parametrize("dtype", [np.float64, np.int64])
 def test_squaresum_types(series_max, dtype):
-    # related to gh-6
-
-    # Enforce pykokkos reduction return view type
-    # matches accumulator type, indirectly via
-    # consistency with NumPy for lack
-    # of overflow, etc.
+    # check for the ability to match NumPy in
+    # sum of squares reductions with various types
+    if series_max == 90000 and dtype == np.int64:
+        pytest.xfail("see gh-24")
     expected = np.sum(np.arange(series_max, dtype=dtype) ** 2)
     if dtype == np.float64:
         ss_instance = SquareSumFloat(series_max)

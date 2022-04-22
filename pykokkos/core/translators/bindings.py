@@ -2,7 +2,6 @@ import sys
 import re
 from typing import Dict, List, Optional, Tuple
 
-import pykokkos as pk
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.visitors import cpp_view_type, KokkosMainVisitor, visitors_util
