@@ -13,3 +13,8 @@ def atomic_add(
         indices: List[int],
         value: Union[int, float]) -> Union[int, float]:
     pass
+
+def atomic_increment(
+        view: View,
+        indices: List[int]) -> Union[int, float]:
+    pass

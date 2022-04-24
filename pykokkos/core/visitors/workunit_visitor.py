@@ -244,10 +244,13 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         atomic_fetch_op: re.Pattern = re.compile("atomic_*")
         is_atomic_fetch_op: bool = atomic_fetch_op.match(name)
+        is_atomic_increment: bool = name == "atomic_increment"
         is_atomic_compare_exchange: bool = name == "atomic_compare_exchange"
 
-        if is_atomic_fetch_op or is_atomic_compare_exchange:
-            if is_atomic_fetch_op and len(args) != 3:
+        if is_atomic_fetch_op or is_atomic_compare_exchange or is_atomic_increment:
+            if is_atomic_increment and len(args) != 2:
+                self.error(node, "is_atomic_increment takes exactly 2 arguments")
+            if not is_atomic_increment and is_atomic_fetch_op and len(args) != 3:
                 self.error(node, "atomic_fetch_op functions take exactly 3 arguments")
             if is_atomic_compare_exchange and len(args) != 4:
                 self.error(node, "atomic_compare_exchange takes exactly 4 arguments")

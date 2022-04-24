@@ -7,7 +7,7 @@ from .atomic.atomic_fetch_op import (
     atomic_compare_exchange
 )
 from .atomic.atomic_op import (
-    atomic_add
+    atomic_add, atomic_increment
 )
 from .bin_sort import BinSort, BinOp, BinOp1D, BinOp3D
 from .data_types import (
