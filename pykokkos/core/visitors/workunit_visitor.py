@@ -200,7 +200,11 @@ class WorkunitVisitor(PyKokkosVisitor):
         is_hierachical: bool = isinstance(node.annotation, ast.Attribute)
 
         if is_hierachical:
-            decltype.typename = f"const {decltype.typename}"
+            try:
+                decltype.typename = f"const {decltype.typename}"
+            except AttributeError:
+                decltype._type = f"const {decltype.typename.value}"
+
             decltype.is_reference = True
 
         declname = cppast.DeclRefExpr(node.arg)
