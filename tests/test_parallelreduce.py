@@ -70,7 +70,7 @@ class SquareSumInt:
         self.total = pk.parallel_reduce(self.N, self.squaresum)
 
     @pk.workunit
-    def squaresum(self, i: int, acc: pk.Acc[pk.int64]):
+    def squaresum(self, i: pk.int64, acc: pk.Acc[pk.int64]):
         acc += i * i
 
 
@@ -79,8 +79,6 @@ class SquareSumInt:
 def test_squaresum_types(series_max, dtype):
     # check for the ability to match NumPy in
     # sum of squares reductions with various types
-    if series_max == 90000 and dtype == np.int64:
-        pytest.xfail("see gh-24")
     expected = np.sum(np.arange(series_max, dtype=dtype) ** 2)
     if dtype == np.float64:
         ss_instance = SquareSumFloat(series_max)
