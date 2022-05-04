@@ -285,9 +285,9 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
     # "pykokkos ufuncs" some day?
     view: pk.View1d = pk.View([10], pk.double)
     view[:] = np.arange(10, dtype=np.float64)
-    sqrt_kokkos_instance = kokkos_test_class(threads=10, view=view)
-    pk.execute(pk.ExecutionSpace.Default, sqrt_kokkos_instance)
-    actual = sqrt_kokkos_instance.view
+    kokkos_instance = kokkos_test_class(threads=10, view=view)
+    pk.execute(pk.ExecutionSpace.Default, kokkos_instance)
+    actual = kokkos_instance.view
     expected = numpy_ufunc(range(10))
     assert_allclose(actual, expected)
 
