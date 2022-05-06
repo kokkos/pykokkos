@@ -291,3 +291,17 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
     expected = numpy_ufunc(range(10))
     assert_allclose(actual, expected)
 
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.reciprocal, np.reciprocal),
+])
+def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc, numpy_ufunc):
+    # test the ufuncs we have exposed in the pk namespace
+    # vs. their NumPy equivalents
+    expected = numpy_ufunc(np.arange(10, dtype=np.float64))
+
+    # TODO: parametrize test with more types somehow?
+    view: pk.View1d = pk.View([10], pk.double)
+    view[:] = np.arange(10, dtype=np.float64)
+    actual = pk_ufunc(view=view)
+    assert_allclose(actual, expected)
