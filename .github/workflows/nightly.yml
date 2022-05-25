@@ -1,0 +1,59 @@
+name: Nightly_Testing_vs_Kokkos_develop
+
+on:
+  schedule:
+    # 5 am UTC is late evening for current dev
+    # team
+    - cron: '00 5 * * *'
+
+jobs:
+  test_vs_kokkos_develop:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        python-version: ["3.10"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - run: git checkout develop
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade numpy mypy cmake pytest pybind11 scikit-build patchelf ninja
+      - name: Build Kokkos develop branch
+        run: |
+          cd /tmp
+          mkdir kokkos_install
+          git clone https://github.com/kokkos/kokkos.git
+          cd kokkos
+          git checkout develop
+          mkdir build && cd build
+          cmake -G Ninja .. -DCMAKE_INSTALL_PREFIX=/tmp/kokkos_install -DKokkos_ENABLE_OPENMP=On -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build .
+          cmake --install .
+      - name: Install pykokkos-base
+        run: |
+          cd /tmp
+          git clone https://github.com/kokkos/pykokkos-base.git
+          cd pykokkos-base
+          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DKokkos_DIR=/tmp/kokkos_install/lib/cmake/Kokkos/ -DENABLE_INTERNAL_KOKKOS=OFF
+      - name: Install pykokkos
+        run: |
+          python -m pip install .
+      - name: mypy check
+        run: |
+          mypy pykokkos
+      - name: run tests
+        run: python runtests.py
+        # when you build pykokkos-base with an external Kokkos,
+        # it fails to copy the lib/ with Kokkos shared libs
+        # to the installed Python package dir (which it does in
+        # the submodule scenario), so set it manually
+        # export PK_KOKKOS_LIB_PATH=/tmp/kokkos_install/lib
+        env:
+          PK_KOKKOS_LIB_PATH: /tmp/kokkos_install/lib
