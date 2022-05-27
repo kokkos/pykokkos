@@ -298,6 +298,7 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.log2, np.log2),
         (pk.log10, np.log10),
         (pk.log1p, np.log1p),
+        (pk.sqrt, np.sqrt),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -320,3 +321,21 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
         assert_allclose(actual, expected, rtol=1.5e-7)
     else:
         assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("arr", [
+    np.array([4, -1, np.inf]),
+    np.array([-np.inf, np.nan, np.inf]),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_1d_sqrt_negative_values(arr, pk_dtype, numpy_dtype):
+    # verify sqrt behavior for negative reals,
+    # NaN and infinite values
+    expected = np.sqrt(arr, dtype=numpy_dtype)
+    view: pk.View1d = pk.View([arr.size], pk_dtype)
+    view[:] = arr
+    actual = pk.sqrt(view=view)
+    assert_allclose(actual, expected)

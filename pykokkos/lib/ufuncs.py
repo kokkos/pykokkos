@@ -75,6 +75,49 @@ def log(view):
     return view
 
 
+def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
+    view[tid] = sqrt(view[tid]) # type: ignore
+
+
+@pk.workunit
+def sqrt_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
+    view[tid] = sqrt(view[tid]) # type: ignore
+
+
+def sqrt(view):
+    """
+    Return the non-negative square root of the argument, element-wise.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Input view.
+
+    Returns
+    -------
+    y : pykokkos view
+        Output view.
+
+    Notes
+    -----
+    .. note::
+        This function should exhibit the same branch cut behavior
+        as the equivalent NumPy ufunc.
+    """
+    # TODO: support complex types when they
+    # are available in pykokkos?
+    if str(view.dtype) == "DataType.double":
+        pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view)
+    elif str(view.dtype) == "DataType.float":
+        pk.parallel_for(view.shape[0], sqrt_impl_1d_float, view=view)
+    return view
+    if str(view.dtype) == "DataType.double":
+        pk.parallel_for(view.shape[0], log_impl_1d_double, view=view)
+    elif str(view.dtype) == "DataType.float":
+        pk.parallel_for(view.shape[0], log_impl_1d_float, view=view)
+    return view
+
+
 @pk.workunit
 def log2_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
     view[tid] = log2(view[tid]) # type: ignore
@@ -168,4 +211,3 @@ def log1p(view):
         pk.parallel_for(view.shape[0], log1p_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log1p_impl_1d_float, view=view)
-    return view
