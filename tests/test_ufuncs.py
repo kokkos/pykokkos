@@ -339,3 +339,13 @@ def test_1d_sqrt_negative_values(arr, pk_dtype, numpy_dtype):
     view[:] = arr
     actual = pk.sqrt(view=view)
     assert_allclose(actual, expected)
+
+
+def test_caching():
+    # regression test for gh-34
+    expected = np.reciprocal(np.arange(10, dtype=np.float32))
+    for i in range(300):
+        view: pk.View1d = pk.View([10], pk.float)
+        view[:] = np.arange(10, dtype=np.float32)
+        actual = pk.reciprocal(view=view)
+        assert_allclose(actual, expected)
