@@ -311,3 +311,13 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     view[:] = np.arange(10, dtype=numpy_dtype)
     actual = pk_ufunc(view=view)
     assert_allclose(actual, expected)
+
+
+def test_caching():
+    # regression test for gh-34
+    expected = np.reciprocal(np.arange(10, dtype=np.float32))
+    for i in range(300):
+        view: pk.View1d = pk.View([10], pk.float)
+        view[:] = np.arange(10, dtype=np.float32)
+        actual = pk.reciprocal(view=view)
+        assert_allclose(actual, expected)

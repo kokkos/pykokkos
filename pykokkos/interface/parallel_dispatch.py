@@ -1,3 +1,4 @@
+import gc
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -142,10 +143,25 @@ def parallel_for(*args, **kwargs) -> None:
     cache_key: int = hash(to_hash)
 
     if cache_key in workunit_cache:
-        func, args = workunit_cache[cache_key]
-        args.update(args_not_to_hash)
-        func(**args)
-        return
+        dead_obj = 0
+        func, newargs = workunit_cache[cache_key]
+        for arg in newargs.values():
+            # see gh-34
+            # reject cache retrieval when an object in the
+            # cache has a reference count of 0 (presumably
+            # only possible because of the C++/pybind11 infra;
+            # normally a refcount of 1 is the lowest for pure
+            # Python objects)
+            # NOTE: is the cache genuinely useful now though?
+            ref_count = len(gc.get_referrers(arg))
+            if ref_count == 0:
+                dead_obj += 1
+                break
+        if not dead_obj:
+            args = newargs
+            args.update(args_not_to_hash)
+            func(**args)
+            return
 
     handled_args: HandledArgs = handle_args(True, args)
     func, args = runtime_singleton.runtime.run_workunit(
