@@ -12,7 +12,11 @@ from pykokkos.kokkos_manager import (
 )
 
 initialize()
-from pykokkos.lib.ufuncs import reciprocal # type: ignore
+from pykokkos.lib.ufuncs import (reciprocal, # type: ignore
+                                 log,
+                                 log2,
+                                 log10,
+                                 log1p)
 
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
