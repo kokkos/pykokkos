@@ -1,6 +1,7 @@
 import pykokkos as pk
 
 import numpy as np
+from numpy.random import default_rng
 from numpy.testing import assert_allclose
 import pytest
 
@@ -349,3 +350,24 @@ def test_caching():
         view[:] = np.arange(10, dtype=np.float32)
         actual = pk.reciprocal(view=view)
         assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.reciprocal, np.reciprocal),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    pk_dtype,
+                                    numpy_dtype):
+    rng = default_rng(123)
+    in_arr = rng.random((5, 5)).astype(numpy_dtype)
+    expected = numpy_ufunc(in_arr)
+
+    view: pk.View2d = pk.View([5, 5], pk_dtype)
+    view[:] = in_arr
+    actual = pk_ufunc(view=view)
+    assert_allclose(actual, expected)
