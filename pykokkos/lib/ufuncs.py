@@ -75,6 +75,7 @@ def log(view):
     return view
 
 
+@pk.workunit
 def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
     view[tid] = sqrt(view[tid]) # type: ignore
 
@@ -110,11 +111,6 @@ def sqrt(view):
         pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], sqrt_impl_1d_float, view=view)
-    return view
-    if str(view.dtype) == "DataType.double":
-        pk.parallel_for(view.shape[0], log_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float":
-        pk.parallel_for(view.shape[0], log_impl_1d_float, view=view)
     return view
 
 
@@ -211,3 +207,4 @@ def log1p(view):
         pk.parallel_for(view.shape[0], log1p_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log1p_impl_1d_float, view=view)
+    return view
