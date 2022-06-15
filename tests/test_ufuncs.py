@@ -294,6 +294,10 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
 
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.reciprocal, np.reciprocal),
+        (pk.log, np.log),
+        (pk.log2, np.log2),
+        (pk.log10, np.log10),
+        (pk.log1p, np.log1p),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -310,4 +314,9 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     view: pk.View1d = pk.View([10], pk_dtype)
     view[:] = np.arange(10, dtype=numpy_dtype)
     actual = pk_ufunc(view=view)
-    assert_allclose(actual, expected)
+    # log10 single-precision needs relaxed tol
+    # for now
+    if numpy_ufunc == np.log10 and numpy_dtype == np.float32:
+        assert_allclose(actual, expected, rtol=1.5e-7)
+    else:
+        assert_allclose(actual, expected)
