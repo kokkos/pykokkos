@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ctypes
+import math
 from enum import Enum
 import sys
 from typing import (
@@ -60,6 +61,7 @@ class ViewType:
     space: MemorySpace
     layout: Layout
     trait: Trait
+    size: int
 
     def rank(self) -> int:
         """
@@ -238,6 +240,7 @@ class View(ViewType):
         """
 
         self.shape: List[int] = shape
+        self.size = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
             sys.exit(f"ERROR: Invalid dtype {dtype}")

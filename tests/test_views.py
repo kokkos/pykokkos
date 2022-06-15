@@ -319,5 +319,19 @@ class TestViews(unittest.TestCase):
         pk.parallel_for(self.threads, f.pfor)
         pk.execute(pk.ExecutionSpace.Default, w)
 
+
+@pytest.mark.parametrize("input_arr, view_dims, view_type", [
+    (np.arange(10), [10], pk.View1D),
+    (np.arange(50).reshape(10, 5), [10, 5], pk.View2D),
+    (np.arange(500).reshape(10, 10, 5), [10, 10, 5], pk.View3D),
+    ])
+def test_sizes(input_arr, view_dims, view_type):
+    # regression test for gh-31
+    expected_size = input_arr.size
+    view: view_type = pk.View(view_dims)
+    view[:] = input_arr
+    assert view.size == expected_size
+
+
 if __name__ == '__main__':
     unittest.main()
