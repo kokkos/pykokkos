@@ -300,6 +300,7 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.log10, np.log10),
         (pk.log1p, np.log1p),
         (pk.sqrt, np.sqrt),
+        (pk.sign, np.sign),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -370,4 +371,21 @@ def test_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
     view: pk.View2d = pk.View([5, 5], pk_dtype)
     view[:] = in_arr
     actual = pk_ufunc(view=view)
+    assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+@pytest.mark.parametrize("in_arr", [
+    np.array([-5, 4.5, np.nan]),
+    np.array([np.nan, np.nan, np.nan]),
+])
+def test_sign_1d_special_cases(in_arr, pk_dtype, numpy_dtype):
+    in_arr = in_arr.astype(numpy_dtype)
+    view: pk.View1D = pk.View([in_arr.size], pk_dtype)
+    view[:] = in_arr
+    expected = np.sign(in_arr)
+    actual = pk.sign(view=view)
     assert_allclose(actual, expected)
