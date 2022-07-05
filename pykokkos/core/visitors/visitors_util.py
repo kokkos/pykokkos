@@ -104,6 +104,7 @@ math_functions: Set = {
     "tan",
     "tanh",
     "trunc",
+    "nan",
 }
 
 math_constants: Dict[str, str] = {
