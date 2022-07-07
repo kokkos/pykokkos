@@ -1,5 +1,7 @@
 import pykokkos as pk
 
+import numpy as np
+
 
 @pk.workunit
 def reciprocal_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
@@ -208,3 +210,51 @@ def log1p(view):
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log1p_impl_1d_float, view=view)
     return view
+
+
+@pk.workunit
+def absolute_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
+    view[tid] = fabs(view[tid]) # type: ignore
+
+
+@pk.workunit
+def absolute_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
+    view[tid] = fabs(view[tid]) # type: ignore
+
+
+def absolute(view):
+    """
+    Return the absolute value of the view, element-wise.
+
+    Parameters
+    ----------
+    view : pykokkos view or NumPy array
+           Input view.
+
+    Returns
+    -------
+    y : pykokkos view
+        Output view.
+
+    """
+    if isinstance(view, (np.ndarray, np.generic)):
+        if np.issubdtype(view.dtype, np.float64):
+            view_loc: pk.View1d = pk.View([view.size], pk.double)
+        elif np.issubdtype(view.dtype, np.float32):
+            view_loc: pk.View1d = pk.View([view.size], pk.float)
+        # NOTE: this might be an interesting design idea?
+        # when you receive a NumPy array directly, you create
+        # a new view for the output data to match the NumPy
+        # model of not modifying the input data inplace?
+        view_loc[:] = view
+        view = view_loc
+    if str(view.dtype) == "DataType.double":
+        pk.parallel_for(view.shape[0], absolute_impl_1d_double, view=view)
+    elif str(view.dtype) == "DataType.float":
+        pk.parallel_for(view.shape[0], absolute_impl_1d_float, view=view)
+    return view
+
+
+def abs(view):
+    # aliased to absolute(), as in NumPy
+    return absolute(view)
