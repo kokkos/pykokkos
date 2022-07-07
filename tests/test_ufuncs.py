@@ -1,3 +1,4 @@
+import copy
 import pykokkos as pk
 
 import numpy as np
@@ -299,6 +300,8 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.log10, np.log10),
         (pk.log1p, np.log1p),
         (pk.sqrt, np.sqrt),
+        (pk.abs, np.abs),
+        (pk.absolute, np.absolute),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -349,3 +352,22 @@ def test_caching():
         view[:] = np.arange(10, dtype=np.float32)
         actual = pk.reciprocal(view=view)
         assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("arr", [
+    np.array([4., -1., 17.7, -5.5]),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_abs_ufunc_1d(arr, pk_dtype, numpy_dtype):
+    expected = np.abs(arr, dtype=numpy_dtype)
+    view: pk.View1d = pk.View([arr.size], pk_dtype)
+    view[:] = copy.deepcopy(arr)
+    actual = pk.abs(view=view)
+    assert_allclose(actual, expected)
+    # check that the pykokkos ufunc can also directly
+    # handle a NumPy array argument
+    actual = pk.abs(view=copy.deepcopy(arr))
+    assert_allclose(actual, expected)
