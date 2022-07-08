@@ -1,4 +1,6 @@
+import copy
 import pykokkos as pk
+from pykokkos.interface.views import ViewType
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -349,3 +351,48 @@ def test_caching():
         view[:] = np.arange(10, dtype=np.float32)
         actual = pk.reciprocal(view=view)
         assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+@pytest.mark.parametrize("input_type", [
+        "numpy",
+        "pykokkos",
+])
+def test_arctan2_vs_numpy_1d(pk_dtype, numpy_dtype, input_type):
+    # TODO: what behavior do we want for the case
+    # where pk.arctan2 receives on argument as a view
+    # and the other as a "pure" NumPy array?
+
+    # in addition to verifying the 1D NumPy arrays
+    # and pykokkos views are handled consistely with
+    # NumPy for arctan2 ufunc, make sure that for the
+    # case of NumPy arrays we do not modify the input
+    # inplace (for consitency with NumPy design)
+    x = np.array([-1, +1, +1, -1], dtype=numpy_dtype)
+    y = np.array([-1, -1, +1, +1], dtype=numpy_dtype)
+    expected = np.arctan2(y, x, dtype=numpy_dtype)
+    if input_type == "numpy":
+        # direct array arguments
+        actual = pk.arctan2(y, x)
+        print("actual numpy:", actual)
+        print("expected numpy:", expected)
+        assert_allclose(actual, expected)
+        assert not np.may_share_memory(actual, x)
+        assert not np.may_share_memory(actual, y)
+        # we expect to get a NumPy array back when
+        # one is provided
+        assert isinstance(actual, (np.ndarray, np.generic))
+    else:
+        # pk view arguments
+        view_x: pk.View1d = pk.View([x.size], pk_dtype)
+        view_x[:] = copy.deepcopy(x)
+        view_y: pk.View1d = pk.View([y.size], pk_dtype)
+        view_y[:] = copy.deepcopy(y)
+        actual = pk.arctan2(view_y, view_x)
+        assert_allclose(actual, expected)
+        # we expect to get a 1D pykokkos view back
+        # when one is provided
+        assert isinstance(actual, ViewType)
