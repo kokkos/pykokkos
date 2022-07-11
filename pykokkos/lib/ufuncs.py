@@ -11,6 +11,18 @@ def reciprocal_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
     view[tid] = 1 / view[tid] # type: ignore
 
 
+@pk.workunit
+def reciprocal_impl_2d_double(tid: int, view: pk.View2D[pk.double]):
+    for i in range(view.extent(1)): # type: ignore
+        view[tid][i] = 1 / view[tid][i] # type: ignore
+
+
+@pk.workunit
+def reciprocal_impl_2d_float(tid: int, view: pk.View2D[pk.float]):
+    for i in range(view.extent(1)): # type: ignore
+        view[tid][i] = 1 / view[tid][i] # type: ignore
+
+
 def reciprocal(view):
     """
     Return the reciprocal of the argument, element-wise.
@@ -33,10 +45,14 @@ def reciprocal(view):
     """
     # see gh-29 for some discussion of the dispatching
     # awkwardness used here
-    if str(view.dtype) == "DataType.double":
+    if str(view.dtype) == "DataType.double" and len(view.shape) == 1:
         pk.parallel_for(view.shape[0], reciprocal_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float":
+    elif str(view.dtype) == "DataType.float" and len(view.shape) == 1:
         pk.parallel_for(view.shape[0], reciprocal_impl_1d_float, view=view)
+    elif str(view.dtype) == "DataType.float" and len(view.shape) == 2:
+        pk.parallel_for(view.shape[0], reciprocal_impl_2d_float, view=view)
+    elif str(view.dtype) == "DataType.double" and len(view.shape) == 2:
+        pk.parallel_for(view.shape[0], reciprocal_impl_2d_double, view=view)
     # NOTE: pretty awkward to both return the view
     # and operate on it in place; the former is closer
     # to NumPy semantics
