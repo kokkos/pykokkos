@@ -1,3 +1,4 @@
+import copy
 import pykokkos as pk
 
 import numpy as np
@@ -389,3 +390,30 @@ def test_sign_1d_special_cases(in_arr, pk_dtype, numpy_dtype):
     expected = np.sign(in_arr)
     actual = pk.sign(view=view)
     assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("arr", [
+    # arrays of different shapes
+    np.arange(20),
+    np.ones((5, 2)),
+    np.ones((5, 2, 2)),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+@pytest.mark.parametrize("arr_kind", [
+    # whether to use a pk view or NumPy array
+    "view", "arr",
+])
+def test_sum_ufunc(arr, pk_dtype, numpy_dtype, arr_kind):
+    expected = np.sum(arr, dtype=numpy_dtype)
+    if arr_kind == "view":
+        view = pk.View(arr.shape, pk_dtype)
+        view[:] = copy.deepcopy(arr.astype(numpy_dtype))
+    else:
+        view = copy.deepcopy(arr.astype(numpy_dtype))
+    actual = pk.sum(view=view)
+    assert_allclose(actual, expected)
+	# the original view/arr should be unchanged
+    assert_allclose(view, arr)
