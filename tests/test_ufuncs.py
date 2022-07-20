@@ -349,3 +349,42 @@ def test_caching():
         view[:] = np.arange(10, dtype=np.float32)
         actual = pk.reciprocal(view=view)
         assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("arr", [
+    np.arange(110),
+    np.ones((5, 3)) * 7.2,
+    np.ones((2, 3, 2)) * -3.19,
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+        (pk.int32, np.int32),
+        (pk.int64, np.int64),
+])
+@pytest.mark.parametrize("arr_type", [
+        "numpy", "kokkos",
+])
+def test_cumsum_ufunc(arr, pk_dtype, numpy_dtype, arr_type):
+    expected = np.cumsum(arr, dtype=numpy_dtype)
+    if arr_type == "kokkos":
+        view = pk.View(arr.shape, pk_dtype)
+        view[:] = arr
+    else:
+        view = arr.astype(numpy_dtype)
+    actual = pk.cumsum(view=view)
+    assert_allclose(actual, expected, rtol=1.3e-7)
+    # beyond the correct numerical results,
+    # let's also confirm that there is no memory
+    # overlap between the input and output array-like
+    # objects, and that pykokkos views/NumPy arrays
+    # as input result in the same type of output
+    assert not np.may_share_memory(actual, arr)
+    assert not np.may_share_memory(actual, view)
+    if arr_type == "kokkos":
+        # NOTE: could we get proper inheritance/instance
+        # checking here eventually?
+        assert("pykokkos" in str(type(actual)))
+        assert("View" in str(type(actual)))
+    else:
+        assert isinstance(actual, (np.ndarray, np.generic))

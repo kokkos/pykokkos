@@ -12,12 +12,13 @@ from pykokkos.kokkos_manager import (
 )
 
 initialize()
-from pykokkos.lib.ufuncs import (reciprocal, # type: ignore
+from pykokkos.lib.ufuncs import (reciprocal,
                                  log,
                                  log2,
                                  log10,
                                  log1p,
-                                 sqrt)
+                                 sqrt,
+                                 cumsum)
 
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
