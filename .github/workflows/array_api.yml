@@ -1,0 +1,46 @@
+name: Array API Testing
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  test_array_api:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        python-version: ["3.10"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade numpy mypy cmake pytest pybind11 scikit-build patchelf
+      - name: Install pykokkos-base
+        run: |
+          cd /tmp
+          git clone https://github.com/kokkos/pykokkos-base.git
+          cd pykokkos-base
+          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF
+      - name: Install pykokkos
+        run: |
+          python -m pip install .
+      - name: Check Array API conformance
+        run: |
+          cd /tmp
+          git clone https://github.com/data-apis/array-api-tests.git
+          cd array-api-tests
+          git submodule update --init
+          pip install -r requirements.txt
+          export ARRAY_API_TESTS_MODULE=pykokkos
+          # only run a subset of the conformance tests to get started
+          pytest array_api_tests/test_array_object.py::test_getitem

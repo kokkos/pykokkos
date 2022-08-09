@@ -283,7 +283,7 @@ class View(ViewType):
             if dtype is real:
                 return DataType[km.get_default_precision().__name__]
 
-            return DataType[dtype.__name__]
+            return dtype
 
         if dtype is int:
             return DataType["int32"]
@@ -417,7 +417,16 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     if layout is None:
         layout = Layout.LayoutDefault
 
-    return View(list(array.shape), dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+    # TODO: pykokkos support for 0-D arrays?
+    # temporary/terrible hack here for array API testing..
+    if array.ndim == 0:
+        ret_list = list((1,))
+        array = [0]
+    else:
+        ret_list = list((array.shape))
+
+
+    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
 def from_cupy(array) -> ViewType:
     """
@@ -463,6 +472,23 @@ def from_cupy(array) -> ViewType:
         layout = Layout.LayoutRight
 
     return from_numpy(np_array, MemorySpace.CudaSpace, layout)
+
+
+# asarray is required for comformance with the array API:
+# https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
+
+def asarray(obj, /, *, dtype=None, device=None, copy=None):
+    # TODO: proper implementation/design
+    # for now, let's cheat and use NumPy asarray() followed
+    # by pykokkos from_numpy()
+    if "bool" in str(dtype):
+        dtype = np.bool_
+    arr = np.asarray(obj, dtype=dtype)
+    ret = from_numpy(arr)
+    return ret
+
+
+
 
 T = TypeVar("T")
 

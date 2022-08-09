@@ -19,6 +19,7 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  log1p,
                                  sqrt,
                                  sign)
+from pykokkos.lib.info import iinfo, finfo
 
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
