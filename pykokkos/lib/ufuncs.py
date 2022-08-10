@@ -224,3 +224,35 @@ def log1p(view):
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log1p_impl_1d_float, view=view)
     return view
+
+
+@pk.workunit
+def sign_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
+    if view[tid] > 0:
+        view[tid] = 1
+    elif view[tid] == 0:
+        view[tid] = 0
+    elif view[tid] < 0:
+        view[tid] = -1
+    else:
+        view[tid] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
+    if view[tid] > 0:
+        view[tid] = 1
+    elif view[tid] == 0:
+        view[tid] = 0
+    elif view[tid] < 0:
+        view[tid] = -1
+    else:
+        view[tid] = nan("")
+
+
+def sign(view):
+    if str(view.dtype) == "DataType.double":
+        pk.parallel_for(view.shape[0], sign_impl_1d_double, view=view)
+    elif str(view.dtype) == "DataType.float":
+        pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view)
+    return view
