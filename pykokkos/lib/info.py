@@ -25,8 +25,13 @@ def iinfo(type_or_arr):
     # values from the NumPy equivalent
     if "int32" in str(type_or_arr):
         return info_type_attrs(bits=32,
-                               min=2147483647,
-                               max=-2147483648)
+                               max=2147483647,
+                               min=-2147483648)
+    elif "int16" in str(type_or_arr):
+        # iinfo(min=-32768, max=32767, dtype=int16)
+        return info_type_attrs(bits=16,
+                               min=-32768,
+                               max=32767)
     elif "int64" in str(type_or_arr):
         return info_type_attrs(bits=64,
                                min=-9223372036854775808,

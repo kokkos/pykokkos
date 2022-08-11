@@ -30,41 +30,42 @@ class DataTypeClass:
     pass
 
 
-int16 = DataType.int16
+class int16(DataTypeClass):
+    value = kokkos.int16
 
+class int32(DataTypeClass):
+    value = kokkos.int32
 
-int32 = DataType.int32
-
-
-int64 = DataType.int64
-
+class int64(DataTypeClass):
+    value = kokkos.int64
 
 class uint16(DataTypeClass):
-    pass
+    value = kokkos.uint16
 
 
 class uint32(DataTypeClass):
-    pass
+    value = kokkos.int32
 
 
 class uint64(DataTypeClass):
-    pass
+    value = kokkos.int64
 
 
-float = DataType.float
+class float(DataTypeClass):
+    value = kokkos.float
 
-
-double = DataType.double
-double.__name__ = "double" # type: ignore
+class double(DataTypeClass):
+    value = kokkos.double
 
 
 class real(DataTypeClass):
-    pass
+    value = None
 
 class float32(DataTypeClass):
-    pass
+    value = kokkos.float
 
 class float64(DataTypeClass):
-    pass
+    value = kokkos.double
 
-bool = DataType.bool
+class bool(DataTypeClass):
+    value = kokkos.int16
