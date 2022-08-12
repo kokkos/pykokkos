@@ -1,5 +1,7 @@
 import pykokkos as pk
 
+import numpy as np
+
 
 @pk.workunit
 def reciprocal_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
@@ -256,3 +258,158 @@ def sign(view):
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view)
     return view
+
+
+# TODO: why can't we use concise (but not lambda) functions
+# for reductions instead of this boilerplate-heavy infra
+# for reducing? see gh-51
+
+
+@pk.workload
+class SumImpl1dDouble:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.double = 0
+        self.view: pk.View1D[pk.double] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        acc += self.view[i]
+
+
+@pk.workload
+class SumImpl1dFloat:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.float = 0
+        self.view: pk.View1D[pk.float] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        acc += self.view[i]
+
+
+@pk.workload
+class SumImpl2dDouble:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.double = 0
+        self.view: pk.View2D[pk.double] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        for j in range(self.view.extent(1)):
+            acc += self.view[i][j]
+
+
+@pk.workload
+class SumImpl2dFloat:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.float = 0
+        self.view: pk.View2D[pk.float] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        for j in range(self.view.extent(1)):
+            acc += self.view[i][j]
+
+
+@pk.workload
+class SumImpl3dDouble:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.double = 0
+        self.view: pk.View3D[pk.double] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        for j in range(self.view.extent(1)):
+            for k in range(self.view.extent(2)):
+                acc += self.view[i][j][k]
+
+
+@pk.workload
+class SumImpl3dFloat:
+    def __init__(self, n, view):
+        self.N: int = n
+        self.total: pk.float = 0
+        self.view: pk.View3D[pk.float] = view
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.sum)
+
+    @pk.workunit
+    def sum(self, i: int, acc: pk.Acc[pk.double]):
+        for j in range(self.view.extent(1)):
+            for k in range(self.view.extent(2)):
+                acc += self.view[i][j][k]
+
+
+def sum(view):
+    """
+    Sum of elements.
+
+    Parameters
+    ----------
+    view : pykokkos view or NumPy array
+
+    Returns
+    -------
+    y : pykokkos view or NumPy array or scalar
+
+    """
+    # TODO: support axis-aligned sums as NumPy does
+    # TODO: support `where` argument like NumPy does
+    if isinstance(view, (np.ndarray, np.generic)):
+        if np.issubdtype(view.dtype, np.float64):
+            view_loc = pk.View(view.shape, pk.double)
+        elif np.issubdtype(view.dtype, np.float32):
+            view_loc = pk.View(view.shape, pk.float)
+        view_loc[:] = view
+        view = view_loc
+    if str(view.dtype) == "DataType.double" and len(view.shape) == 1:
+        sum_inst = SumImpl1dDouble(n=view.shape[0],
+                                   view=view)
+    elif str(view.dtype) == "DataType.float" and len(view.shape) == 1:
+        sum_inst = SumImpl1dFloat(n=view.shape[0],
+                                  view=view)
+    elif str(view.dtype) == "DataType.double" and len(view.shape) == 2:
+        sum_inst = SumImpl2dDouble(n=view.shape[0],
+                                   view=view)
+    elif str(view.dtype) == "DataType.float" and len(view.shape) == 2:
+        sum_inst = SumImpl2dFloat(n=view.shape[0],
+                                  view=view)
+    elif str(view.dtype) == "DataType.double" and len(view.shape) == 3:
+        sum_inst = SumImpl3dDouble(n=view.shape[0],
+                                   view=view)
+    elif str(view.dtype) == "DataType.float" and len(view.shape) == 3:
+        # NOTE: I believe the Kokkos C++ docs suggest
+        # going parallel on the left-most dimension
+        # but I'm not sure if that is guaranteed to always
+        # be optimal?
+        sum_inst = SumImpl3dFloat(n=view.shape[0],
+                                  view=view)
+    pk.execute(pk.ExecutionSpace.Default, sum_inst)
+    return sum_inst.total
