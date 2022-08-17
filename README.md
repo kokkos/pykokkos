@@ -198,7 +198,7 @@ research paper:
   author = {Al Awar, Nader and Zhu, Steven and Biros, George and Gligoric, Milos},
   title = {A Performance Portability Framework for Python},
   booktitle = {International Conference on Supercomputing},
-  pages = {To appear},
+  pages = {467-478},
   year = {2021},
 }
 ```
