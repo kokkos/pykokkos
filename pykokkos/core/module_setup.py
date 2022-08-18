@@ -104,14 +104,15 @@ class ModuleSetup:
         self.console_main: str = "pk_console"
 
         self.main: Path = self.get_main_path()
-        self.output_dir: Path = self.get_output_dir(self.main, self.metadata, space)
+        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space)
 
-        self.path: str = os.path.join(self.output_dir, self.module_file)
-        self.name: str = self.path.replace("/", "_")
-        self.name: str = self.name.replace("-", "_")
-        self.name: str = self.name.replace(".", "_")
+        if self.output_dir is not None:
+            self.path: str = os.path.join(self.output_dir, self.module_file)
+            self.name: str = self.path.replace("/", "_")
+            self.name: str = self.name.replace("-", "_")
+            self.name: str = self.name.replace(".", "_")
 
-    def get_output_dir(self, main: Path, metadata: EntityMetadata, space: ExecutionSpace) -> Path:
+    def get_output_dir(self, main: Path, metadata: EntityMetadata, space: ExecutionSpace) -> Optional[Path]:
         """
         Get the output directory for an execution space
 
@@ -120,6 +121,9 @@ class ModuleSetup:
         :param space: the execution space to compile for
         :returns: the path to the output directory for a specific execution space
         """
+
+        if metadata.path is None:
+            return None
 
         if space is ExecutionSpace.Default:
             space = km.get_default_space()
