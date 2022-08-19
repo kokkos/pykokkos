@@ -147,20 +147,6 @@ class Compiler:
 
         return members
 
-    def get_main_path(self) -> Path:
-        """
-        Get the path to the main file
-
-        :returns: a Path object to the main file
-        """
-
-        if hasattr(sys.modules["__main__"], "__file__"):
-            path: str = sys.modules["__main__"].__file__
-            path = path[:-3] # remove the .py extensions
-            return Path(path)
-
-        return Path(self.console_main)
-
     def compile_entity(
         self,
         main: Path,
@@ -257,7 +243,8 @@ class Compiler:
         """
 
         defaults: Optional[CompilationDefaults]
-        main: Path = self.get_main_path()
+        module_setup = ModuleSetup(None, km.get_default_space())
+        main: Path = module_setup.get_main_path()
         file: Path = self.get_defaults_file(main)
 
         try:
