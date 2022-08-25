@@ -14,7 +14,8 @@ from .data_types import (
     DataType, DataTypeClass,
     int16, int32, int64,
     uint16, uint32, uint64,
-    float, double, real
+    float, double, real,
+    float32, float64, bool,
 )
 from .decorators import (
     callback, classtype, Decorator, function, functor, main,
@@ -46,7 +47,8 @@ from .views import (
     ScratchView, ScratchView1D, ScratchView2D,
     ScratchView3D, ScratchView4D, ScratchView5D,
     ScratchView6D, ScratchView7D, ScratchView8D,
-    from_cupy, from_numpy
+    from_cupy, from_numpy,
+    asarray,
 )
 
 

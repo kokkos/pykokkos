@@ -1,6 +1,7 @@
 from enum import Enum
 
 from pykokkos.bindings import kokkos
+import numpy as np
 
 
 class DataType(Enum):
@@ -12,7 +13,17 @@ class DataType(Enum):
     uint64 = kokkos.uint64
     float = kokkos.float
     double = kokkos.double
+    # https://data-apis.org/array-api/2021.12/API_specification/data_types.html
+    # A conforming implementation of the array API standard
+    # must provide and support the dtypes listed above; for
+    # now, we will use aliases and possibly even incorrect/empty
+    # implementations so that we can start testing with the array
+    # API standard suite, otherwise we won't even be able to import
+    # the tests let alone run them
+    float32 = kokkos.float
+    float64 = kokkos.double
     real = None
+    bool = np.bool_
 
 
 class DataTypeClass:
@@ -20,36 +31,41 @@ class DataTypeClass:
 
 
 class int16(DataTypeClass):
-    pass
-
+    value = kokkos.int16
 
 class int32(DataTypeClass):
-    pass
-
+    value = kokkos.int32
 
 class int64(DataTypeClass):
-    pass
-
+    value = kokkos.int64
 
 class uint16(DataTypeClass):
-    pass
+    value = kokkos.uint16
 
 
 class uint32(DataTypeClass):
-    pass
+    value = kokkos.int32
 
 
 class uint64(DataTypeClass):
-    pass
+    value = kokkos.int64
 
 
 class float(DataTypeClass):
-    pass
-
+    value = kokkos.float
 
 class double(DataTypeClass):
-    pass
+    value = kokkos.double
 
 
 class real(DataTypeClass):
-    pass
+    value = None
+
+class float32(DataTypeClass):
+    value = kokkos.float
+
+class float64(DataTypeClass):
+    value = kokkos.double
+
+class bool(DataTypeClass):
+    value = kokkos.int16

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ctypes
+import os
 import math
 from enum import Enum
 import sys
@@ -10,6 +11,7 @@ from typing import (
 
 import numpy as np
 
+import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 
@@ -131,6 +133,8 @@ class ViewType:
         :returns: the length of the first dimension
         """
 
+        if len(self.shape) == 0:
+            return 0
         return self.shape[0]
 
     def __iter__(self) -> Iterator:
@@ -240,6 +244,8 @@ class View(ViewType):
         """
 
         self.shape: List[int] = shape
+        if self.shape == [0]:
+            self.shape = ()
         self.size = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
@@ -259,9 +265,19 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
+        if self.dtype == pk.float:
+            self.dtype = DataType.float
+        elif self.dtype == pk.double:
+            self.dtype = DataType.double
+        elif self.dtype == pk.int32:
+            self.dtype = DataType.int32
+        elif self.dtype == pk.int64:
+            pass
         if trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
+            if len(shape) == 0:
+                shape = [1]
             self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
 
@@ -283,7 +299,10 @@ class View(ViewType):
             if dtype is real:
                 return DataType[km.get_default_precision().__name__]
 
-            return DataType[dtype.__name__]
+            if dtype == DataType.int64:
+                dtype = int64
+
+            return dtype
 
         if dtype is int:
             return DataType["int32"]
@@ -326,10 +345,14 @@ class Subview(ViewType):
         self.base_view: View = self._get_base_view(parent_view)
 
         self.data: np.ndarray = parent_view.data[data_slice]
+        self.dtype = parent_view.dtype
         self.array = kokkos.array(
             self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
             layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: List[int] = list(self.data.shape)
+        if self.data.shape == (0,):
+            self.data = np.array([], dtype=self.dtype)
+            self.shape = ()
 
         self.parent_slice: List[Union[int, slice]]
         self.parent_slice = self._create_slice(data_slice)
@@ -373,6 +396,13 @@ class Subview(ViewType):
 
         return base_view
 
+    def __eq__(self, other):
+        if isinstance(other, View):
+            if len(self.data) == 0 and len(other.data) == 0:
+                return True
+            result_of_eq = self.data == other.data
+            return result_of_eq
+
 def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
@@ -402,6 +432,8 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         dtype = DataType.float # PyKokkos float
     elif np_dtype is np.float64:
         dtype = double
+    elif np_dtype is np.bool_:
+        dtype = int16
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -417,7 +449,16 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     if layout is None:
         layout = Layout.LayoutDefault
 
-    return View(list(array.shape), dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+    # TODO: pykokkos support for 0-D arrays?
+    # temporary/terrible hack here for array API testing..
+    if array.ndim == 0:
+        ret_list = ()
+        array = np.array(())
+    else:
+        ret_list = list((array.shape))
+
+
+    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
 def from_cupy(array) -> ViewType:
     """
@@ -463,6 +504,23 @@ def from_cupy(array) -> ViewType:
         layout = Layout.LayoutRight
 
     return from_numpy(np_array, MemorySpace.CudaSpace, layout)
+
+
+# asarray is required for comformance with the array API:
+# https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
+
+def asarray(obj, /, *, dtype=None, device=None, copy=None):
+    # TODO: proper implementation/design
+    # for now, let's cheat and use NumPy asarray() followed
+    # by pykokkos from_numpy()
+    if "bool" in str(dtype):
+        dtype = np.bool_
+    arr = np.asarray(obj, dtype=dtype)
+    ret = from_numpy(arr)
+    return ret
+
+
+
 
 T = TypeVar("T")
 
