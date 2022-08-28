@@ -1,31 +1,19 @@
 from dataclasses import dataclass
-import inspect
 import json
 import logging
 import os
 from pathlib import Path
-import platform
 import sys
-import sysconfig
 import time
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
-from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
+from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
-
-@dataclass
-class EntityMetadata:
-    """
-    Contains metadata about the functor or workunit
-    """
-
-    entity: Union[Callable[..., None], type, None]
-    name: str
-    path: str
+from .module_setup import EntityMetadata, ModuleSetup
 
 @dataclass
 class CompilationDefaults:
@@ -42,16 +30,12 @@ class Compiler:
     """
 
     def __init__(self):
-        self.base_dir: str = "pk_cpp"
-
         # maps from entity metadata to members
         self.members: Dict[str, PyKokkosMembers] = {}
-        self.module_name: str = "kernel"
-        suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
-        self.module_file: str = f"{self.module_name}{suffix}"
 
-        # The path to the main file if using the console
-        self.console_main: str = "pk_console"
+        # caches the result of CppSetup.is_compiled(path)
+        self.is_compiled_cache: Dict[str, bool] = {}
+        self.parser_cache: Dict[str, Parser] = {}
 
         self.functor_file: str = "functor.hpp"
         self.bindings_file: str = "bindings.cpp"
@@ -119,67 +103,59 @@ class Compiler:
         """
 
         for e in entities.values():
-            metadata = EntityMetadata(None, e.name.declname, e.path)
-            self.compile_entity(main, metadata, e, classtypes, spaces, force_uvm)
+            for space in spaces:
+                module_setup = ModuleSetup(None, space, e.name.declname, e.path)
+                self.compile_entity(main, module_setup, e, classtypes, space, force_uvm)
 
     def compile_object(
         self,
-        entity_object: Union[object, Callable[..., None]],
+        module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool
-    ) -> Tuple[str, Optional[PyKokkosMembers]]:
+    ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
 
-        :param entity_object: the entity object
+        :param entity_object: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
-        :returns: the path to the compiled module and PyKokkos members obtained during translation
+        :returns: the PyKokkos members obtained during translation
         """
 
-        main: Path = self.get_main_path()
-        metadata: EntityMetadata = self.get_metadata(entity_object)
-        output_dir: Path = self.get_output_dir(main, metadata, space)
-        module_path: str = os.path.join(output_dir, self.module_file)
+        metadata = module_setup.metadata
 
         hash: str = self.members_hash(metadata.path, metadata.name)
-        if CppSetup.is_compiled(output_dir):
+        if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 self.members[hash] = self.extract_members(metadata)
 
-            return (module_path, self.members[hash])
+            return self.members[hash]
 
-        parser = Parser(metadata.path)
+        self.is_compiled_cache[module_setup.output_dir] = True
+
+        parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
-        self.compile_entity(main, metadata, entity, parser.get_classtypes(), [space], force_uvm)
 
-        members: PyKokkosMembers = self.extract_members(metadata)
-        self.members[hash] = members
+        members: PyKokkosMembers
+        if hash in self.members: # True if compiled with another execution space
+            members = self.members[hash]
+        else:
+            members = self.extract_members(metadata)
+            self.members[hash] = members
 
-        return (module_path, members)
+        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
 
-    def get_main_path(self) -> Path:
-        """
-        Get the path to the main file
-
-        :returns: a Path object to the main file
-        """
-
-        if hasattr(sys.modules["__main__"], "__file__"):
-            path: str = sys.modules["__main__"].__file__
-            path = path[:-3] # remove the .py extensions
-            return Path(path)
-
-        return Path(self.console_main)
+        return members
 
     def compile_entity(
         self,
         main: Path,
-        metadata: EntityMetadata,
+        module_setup: ModuleSetup,
         entity: PyKokkosEntity,
         classtypes: List[PyKokkosEntity],
-        spaces: List[ExecutionSpace],
-        force_uvm: bool
+        space: ExecutionSpace,
+        force_uvm: bool,
+        members: PyKokkosMembers
     ) -> None:
         """
         Compile the entity
@@ -188,134 +164,49 @@ class Compiler:
         :param metadata: the metadata of the entity being compiled
         :param entity: the parsed entity being compiled
         :param classtypes: the list of parsed classtypes being compiled
-        :param spaces: the list of execution spaces to compile for
-        :param force_uvm: whether CudaUVMSpace is enabled
-        :returns: the PyKokkos members obtained during translation
-        """
-
-        cpp_setup = CppSetup(self.module_file, self.functor_file, self.bindings_file)
-        translator = StaticTranslator(self.module_name, self.functor_file)
-
-        spaces = [km.get_default_space() if s is ExecutionSpace.Default else s for s in spaces]
-        is_compiled: List[bool] = [CppSetup.is_compiled(self.get_output_dir(main, metadata, s)) for s in spaces]
-
-        if not all(is_compiled):
-            t_start: float = time.perf_counter()
-            functor: List[str]
-            bindings: List[str]
-            functor, bindings = translator.translate(entity, classtypes)
-            t_end: float = time.perf_counter() - t_start
-            self.logger.info(f"translation {t_end}")
-
-            for i, s in enumerate(spaces):
-                if s is ExecutionSpace.Debug:
-                    continue
-
-                if not is_compiled[i]:
-                    output_dir: Path = self.get_output_dir(main, metadata, s)
-                    c_start: float = time.perf_counter()
-                    cpp_setup.compile(output_dir, functor, bindings, s, force_uvm, self.get_compiler())
-                    c_end: float = time.perf_counter() - c_start
-                    self.logger.info(f"compilation {c_end}")
-
-    def get_compiler(self) -> str:
-        """
-        Get the compiler to use based on the machine name
-
-        :param machine: the name of the machine
-        :param space: the execution space
-        :returns: g++ or nvcc
-        """
-
-        from pykokkos.bindings import kokkos
-
-        if hasattr(kokkos, "Cuda"):
-            return "nvcc"
-
-        return "g++"
-
-    def get_output_dir(self, main: Path, metadata: EntityMetadata, space: ExecutionSpace) -> Path:
-        """
-        Get the output directory for an execution space
-
-        :param main: the path to the main file in the current PyKokkos application
-        :param metadata: the metadata of the entity being compiled
         :param space: the execution space to compile for
-        :returns: the path to the output directory for a specific execution space
+        :param force_uvm: whether CudaUVMSpace is enabled
+        :param members: the PyKokkos related members of the entity
         """
 
         if space is ExecutionSpace.Default:
             space = km.get_default_space()
 
-        return self.get_entity_dir(main, metadata) / space.value
+        if space is ExecutionSpace.Debug:
+            return
 
-    def get_entity_dir(self, main: Path, metadata: EntityMetadata) -> Path:
+        if module_setup.is_compiled():
+            return
+
+        cpp_setup = CppSetup(module_setup.module_file, self.functor_file, self.bindings_file)
+        translator = StaticTranslator(module_setup.name, self.functor_file, members)
+
+        t_start: float = time.perf_counter()
+        functor: List[str]
+        bindings: List[str]
+        functor, bindings = translator.translate(entity, classtypes)
+        t_end: float = time.perf_counter() - t_start
+        self.logger.info(f"translation {t_end}")
+
+        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
+        c_start: float = time.perf_counter()
+        cpp_setup.compile(output_dir, functor, bindings, space, force_uvm, self.get_compiler())
+        c_end: float = time.perf_counter() - c_start
+        self.logger.info(f"compilation {c_end}")
+
+    def get_compiler(self) -> str:
         """
-        Get the base output directory for an entity
+        Get the compiler to use based on the machine name
 
-        :param main: the path to the main file in the current PyKokkos application
-        :param metadata: the metadata of the entity being compiled
-        :returns: the path to the base output directory
-        """
-
-        filename: str = metadata.path.split("/")[-1].split(".")[0]
-        dirname: str = f"{filename}_{metadata.name}"
-
-        return self.get_main_dir(main) / Path(dirname)
-
-    def get_main_dir(self, main: Path) -> Path:
-        """
-        Get the main directory for an application from the path to the main file
-
-        :param main: the path to the main file in the current PyKokkos application
-        :returns: the path to the main directory
-        """
-
-        # If the parent directory is root, remove it so we can
-        # concatenate it to pk_cpp
-        main_path: Path = main
-        if str(main).startswith("/"):
-            main_path = Path(str(main)[1:])
-
-        return Path(self.base_dir) / main_path
-
-    def get_metadata(self, entity: Union[Callable[..., None], object]) -> EntityMetadata:
-        """
-        Gets the name and filepath of an entity
-
-        :param entity: the workload or workunit function object
-        :returns: an EntityMetadata object
+        :returns: g++ or nvcc
         """
 
-        entity_type: Union[Callable[..., None], type]
+        from pykokkos.bindings import kokkos
 
-        if isinstance(entity, Callable):
-            is_functor: bool = hasattr(entity, "__self__")
-            if is_functor:
-                entity_type = self.get_functor(entity)
-            else:
-                entity_type = entity
-        else:
-            entity_type = type(entity)
+        if kokkos.get_device_available("Cuda"):
+            return "nvcc"
 
-        name: str = entity_type.__name__
-        filepath: str = inspect.getfile(entity_type)
-
-        return EntityMetadata(entity, name, filepath)
-
-    def get_functor(self, workunit: Callable[..., None]) -> type:
-        """
-        Get the functor that the workunit belongs to
-
-        :param workunit: the workunit function object
-        :returns: the functor's type
-        """
-
-        for p in inspect.getmro(workunit.__self__.__class__):
-            if workunit.__name__ in p.__dict__:
-                return p
-
-        raise ValueError(workunit, "Method does not exist")
+        return "g++"
 
     def get_defaults_file(self, main: Path) -> Path:
         """
@@ -325,7 +216,7 @@ class Compiler:
         :returns: a Path object of the defaults file
         """
 
-        return self.get_main_dir(main) / self.defaults_file
+        return ModuleSetup.get_main_dir(main) / self.defaults_file
 
     def write_defaults(self, main: Path, defaults: CompilationDefaults) -> None:
         """
@@ -336,7 +227,7 @@ class Compiler:
         """
 
         try:
-            os.makedirs(self.get_main_dir(main), exist_ok=True)
+            os.makedirs(ModuleSetup.get_main_dir(main), exist_ok=True)
         except FileExistsError:
             pass
 
@@ -352,7 +243,8 @@ class Compiler:
         """
 
         defaults: Optional[CompilationDefaults]
-        main: Path = self.get_main_path()
+        module_setup = ModuleSetup(None, km.get_default_space())
+        main: Path = module_setup.get_main_path()
         file: Path = self.get_defaults_file(main)
 
         try:
@@ -378,16 +270,54 @@ class Compiler:
         """
         Extract the PyKokkos members from an entity
 
-        :param entity: the metadata of the entity being compiled
+        :param module_name: the name of the module being compiled
+        :param metadata: the metadata of the entity being compiled
         :returns: the PyKokkosMembers object
         """
 
-        parser = Parser(metadata.path)
+        parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
-        translator = StaticTranslator(self.module_name, self.functor_file)
+        entity.AST = StaticTranslator.add_parent_refs(entity.AST)
+        classtypes = parser.get_classtypes()
+        for c in classtypes:
+            c.AST = StaticTranslator.add_parent_refs(c.AST)
 
-        translator.translate(entity, parser.get_classtypes())
-        members: PyKokkosMembers = translator.pk_members
+        members = PyKokkosMembers()
+        members.extract(entity, classtypes)
 
         return members
+
+    def is_compiled(self, output_dir: str) -> bool:
+        """
+        Check if the entity is compiled. This caches the result of
+        CppSetup.is_compiled() as that requires accessing the
+        filesystem, which is costly.
+
+        :param output_dir: the location of the compiled entity
+        :returns: True if output_dir exists
+        """
+
+        if output_dir in self.is_compiled_cache:
+            return self.is_compiled_cache[output_dir]
+
+        is_compiled: bool = CppSetup.is_compiled(output_dir)
+        self.is_compiled_cache[output_dir] = is_compiled
+
+        return is_compiled
+
+    def get_parser(self, path: str) -> Parser:
+        """
+        Get the parser for a particular file
+
+        :param path: the path to the file
+        :returns: the Parser object
+        """
+
+        if path in self.parser_cache:
+            return self.parser_cache[path]
+
+        parser = Parser(path)
+        self.parser_cache[path] = parser
+
+        return parser

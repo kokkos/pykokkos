@@ -1,18 +1,20 @@
 import importlib.util
 import sys
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 
+from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
-    DataType, ExecutionPolicy, ExecutionSpace,
-    MemorySpace, RangePolicy, TeamPolicy, View, ViewType
+    DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType
 )
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
+from .module_setup import ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -24,6 +26,9 @@ class Runtime:
     def __init__(self):
         self.compiler: Compiler = Compiler()
 
+        # cache module_setup objects using a workload/workunit and space tuple
+        self.module_setups: Dict[Tuple, ModuleSetup] = {}
+
     def run_workload(self, space: ExecutionSpace, workload: object) -> None:
         """
         Run the workload
@@ -34,17 +39,16 @@ class Runtime:
 
         if self.is_debug(space):
             run_workload_debug(workload)
+            return
 
-        else:
-            module: str
-            members: Optional[PyKokkosMembers]
-            module, members = self.compiler.compile_object(workload, space, km.is_uvm_enabled())
+        module_setup: ModuleSetup = self.get_module_setup(workload, space)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
 
-            if members is None:
-                raise RuntimeError("ERROR: members cannot be none")
+        if members is None:
+            raise RuntimeError("ERROR: members cannot be none")
 
-            self.execute(workload, module, members)
-            self.run_callbacks(workload, members)
+        self.execute(workload, module_setup, members)
+        self.run_callbacks(workload, members)
 
 
     def run_workunit(
@@ -73,12 +77,12 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        module: str
-        module, members = self.compiler.compile_object(workunit, policy.space, km.is_uvm_enabled())
+        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, policy.space, km.is_uvm_enabled())
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        return self.execute(workunit, module, members, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -94,7 +98,7 @@ class Runtime:
     def execute(
         self,
         entity: Union[object, Callable[..., None]],
-        module_path: str,
+        module_setup: ModuleSetup,
         members: PyKokkosMembers,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
@@ -112,34 +116,37 @@ class Runtime:
         :returns: the result of the operation (None for "for" and workloads)
         """
 
-        module = self.import_module(module_path)
+        module = self.import_module(module_setup.name, module_setup.path)
+
         args: Dict[str, Any] = self.get_arguments(entity, members, policy, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
             args["pk_kernel_name"] = name
 
-        result: Optional[Union[float, int]] = self.call_wrapper(entity, members, args, module)
+        is_workunit_or_functor: bool = isinstance(entity, Callable)
+        result = self.call_wrapper(entity, members, args, module, is_workunit_or_functor)
 
-        is_workunit: bool = isinstance(entity, Callable)
-        if not is_workunit:
+        if not is_workunit_or_functor:
             self.retrieve_results(entity, members, args)
-
-        sys.modules.pop("kernel")
 
         return result
 
-    def import_module(self, module_path: str):
+    def import_module(self, module_name: str, module_path: str):
         """
         Import a compiled module
 
+        :param module_name: the name of the compiled module
         :param module_path: the path to the compiled module
         :returns: the imported module
         """
 
-        spec = importlib.util.spec_from_file_location("kernel", module_path)
+        if module_name in sys.modules:
+            return sys.modules[module_name]
+
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
         module = importlib.util.module_from_spec(spec)
-        sys.modules["kernel"] = module
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
 
         return module
@@ -183,6 +190,7 @@ class Runtime:
 
         args.update(self.get_fields(entity_members))
         args.update(self.get_views(entity_members))
+        args.update(self.get_randpool_args(entity_members))
 
         return args
 
@@ -191,7 +199,8 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         members: PyKokkosMembers,
         args: Dict[str, Any],
-        module
+        module,
+        return_wrapper: bool
     ) -> Optional[Union[float, int]]:
         """
         Call the wrapper in the imported module
@@ -200,6 +209,7 @@ class Runtime:
         :param members: a collection of PyKokkos related members
         :param args: the arguments to be passed to the wrapper
         :param module: the imported module
+        :param return_wrapper: whether to return the wrapper (assuming it will be called later)
         """
 
         is_workunit: bool = isinstance(entity, Callable)
@@ -212,6 +222,9 @@ class Runtime:
             wrapper += f"_{precision}"
 
         func = getattr(module, wrapper)
+
+        if return_wrapper:
+            return func, args
 
         return func(**args)
 
@@ -352,3 +365,72 @@ class Runtime:
         for name in callbacks:
             callback = getattr(workload, name.declname)
             callback()
+
+    def get_module_setup(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> ModuleSetup:
+        """
+        Get the compiled module setup information unique to an entity + space
+
+        :param entity: the workload or workunit object
+        :param space: the execution space
+        :returns: the ModuleSetup object
+        """
+
+        space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
+
+        module_setup_id = self.get_module_setup_id(entity, space)
+        if module_setup_id in self.module_setups:
+            return self.module_setups[module_setup_id]
+
+        module_setup = ModuleSetup(entity, space)
+        self.module_setups[module_setup_id] = module_setup
+
+        return module_setup
+
+    def get_module_setup_id(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> Tuple:
+        """
+        Get a unique module setup id for an entity + space
+        combination. For workunits, the idenitifier is just the
+        workunit and execution space. For workloads and functors, we
+        need the type of the class as well as the file containing it.
+
+        :param entity: the workload or workunit object
+        :param space: the execution space
+        :returns: a unique tuple per entity and space
+        """
+
+        is_workload: bool = not isinstance(entity, Callable)
+        is_functor: bool = hasattr(entity, "__self__")
+
+        if is_workload:
+            workload_type: Type = type(entity)
+            module_setup_id: Tuple[Callable, str, ExecutionSpace] = (
+                workload_type, workload_type.__module__, space)
+        elif is_functor:
+            functor_type: Type = type(entity.__self__)
+            module_setup_id: Tuple[Callable, str, str, ExecutionSpace] = (
+                type(functor_type), functor_type.__module__, entity.__name__, space)
+        else:
+            module_setup_id: Tuple[Callable, ExecutionSpace] = (entity, space)
+
+        return module_setup_id
+
+    def get_randpool_args(self, members: Dict[str, type]) -> Dict[str, int]:
+        """
+        Get the arguments to pass to the RandPool constructor
+
+        :param members: the dictionary containing all members
+        :returns: a dict mapping from argument name to value
+        """
+
+        arguments: Dict[str, Any] = {}
+        for key, value in members.items():
+            if isinstance(value, RandomPool):
+                arguments[Keywords.RandPoolSeed.value] = value.seed
+                arguments[Keywords.RandPoolNumStates.value] = value.num_states
+                break
+
+        if len(arguments) == 0:
+            arguments[Keywords.RandPoolSeed.value] = 0
+            arguments[Keywords.RandPoolNumStates.value] = 0
+
+        return arguments

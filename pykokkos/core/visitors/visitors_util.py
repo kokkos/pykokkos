@@ -3,14 +3,12 @@ import re
 import sys
 from typing import Dict, List, Optional, Set, Union
 
-import astpretty
-
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, Trait
 
 def pretty_print(node):
-    astpretty.pprint(node, show_offsets=False)
+    print(ast.dump(node, indent=4))
 
 
 allowed_types: Dict[str, str] = {
@@ -106,6 +104,7 @@ math_functions: Set = {
     "tan",
     "tanh",
     "trunc",
+    "nan",
 }
 
 math_constants: Dict[str, str] = {
@@ -118,15 +117,19 @@ math_constants: Dict[str, str] = {
 
 
 def error(src, debug: bool, node, message) -> None:
-    print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
+    if hasattr(node, "lineno"):
+        print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
+    else:
+        print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
     if debug:
         print("DEBUG AST:")
         pretty_print(node)
 
-    print(src[0][node.lineno - src[1] - 1], end="")
-    err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
-    print(" " * node.col_offset + "^" * err_len)
+    if hasattr(node, "lineno"):
+        print(src[0][node.lineno - src[1] - 1], end="")
+        err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
+        print(" " * node.col_offset + "^" * err_len)
 
     sys.exit("PyKokkos: Translation failed")
 
@@ -266,6 +269,7 @@ def cpp_view_type(
     """
 
     py_type: str = view_type.typename
+    is_scratch_view: bool = py_type.startswith("ScratchView")
 
     if rank is None:
         rank = int(re.search(r'\d+', py_type).group())
@@ -277,6 +281,9 @@ def cpp_view_type(
 
     # unmanaged views cannot have a layout
     unmanaged: bool = False
+    if is_scratch_view:
+        unmanaged = True
+
     template_params: List[cppast.Node] = view_type.template_params
     s = cppast.Serializer()
     for t in template_params:
@@ -311,8 +318,13 @@ def cpp_view_type(
 
     if space is not None:
         params["space"] = space
+    elif is_scratch_view:
+        params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
     else:
         params["space"] = f"{Keywords.DefaultExecSpace.value}::memory_space"
+
+    if is_scratch_view:
+        params["trait"] = f"Kokkos::MemoryTraits<Kokkos::Unmanaged>"
 
     params_ordered: List[str] = []
     params_ordered.append(params["dtype"])

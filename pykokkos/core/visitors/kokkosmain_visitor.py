@@ -4,7 +4,7 @@ from ast import FunctionDef
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.interface import BinOp, BinSort, View, Iterate
+from pykokkos.interface import BinOp, BinSort, View, Iterate, TeamPolicy
 
 from . import visitors_util
 from .pykokkos_visitor import PyKokkosVisitor
@@ -85,7 +85,13 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 view_type: cppast.ClassType = self.views[view]
                 is_subview: bool = view_type is None
                 if is_subview:
-                    parent_view = cppast.DeclRefExpr(self.subviews[view.declname])
+                    parent_view_name: str = self.subviews[view.declname]
+
+                    # Need to remove "pk_d_" from the start of the
+                    # view name to get the type of the parent
+                    if parent_view_name.startswith("pk_d_"):
+                        parent_view_name = parent_view_name.replace("pk_d_", "", 1)
+                    parent_view = cppast.DeclRefExpr(parent_view_name)
                     view_type = self.views[parent_view]
 
                 view_type_str: str = visitors_util.cpp_view_type(view_type)
@@ -239,6 +245,10 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             return policy
 
+        if name in dir(TeamPolicy):
+            team_policy = self.visit(node.func.value)
+            return cppast.MemberCallExpr(team_policy, cppast.DeclRefExpr(name), args)
+
         elif name in ["RangePolicy", "MDRangePolicy"]:
             rank = len(node.args[0].elts)
             if rank == 0:
@@ -284,15 +294,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 arg_start = 1
 
             policy: cppast.ConstructExpr = args[arg_start]
-
-            # Replace the number of threads with a RangePolicy
-            if not isinstance(policy, cppast.ConstructExpr):
-                begin = cppast.IntegerLiteral(0)
-                end = args[arg_start]
-                policy = cppast.ConstructExpr(cppast.DeclRefExpr("Kokkos::RangePolicy"), [begin, end])
-
-            space = cppast.DeclRefExpr(Keywords.DefaultExecSpace.value)
-            policy.add_template_param(space)
+            policy = self.add_space_to_policy(policy)
 
             if isinstance(node.args[arg_start + 1], ast.Lambda):
                 decl: str = "KOKKOS_LAMBDA ("
@@ -315,7 +317,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             else:
                 work_unit: str = args[arg_start + 1].declname
-                policy.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}"))
+                policy = self.add_workunit_to_policy(policy, work_unit)
 
                 call_args: List[cppast.Expr] = [policy, cppast.DeclRefExpr("pk_f")]
                 if kernel_name is not None:
@@ -340,15 +342,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
             init_var = cppast.BinaryOperator(acc_decl, initial_value, cppast.BinaryOperatorKind.Assign)
 
             policy: cppast.ConstructExpr = args[arg_start]
-
-            # Replace the number of threads with a RangePolicy
-            if not isinstance(policy, cppast.ConstructExpr):
-                begin = cppast.IntegerLiteral(0)
-                end = args[arg_start]
-                policy = cppast.ConstructExpr(cppast.DeclRefExpr("Kokkos::RangePolicy"), [begin, end])
-
-            space = cppast.DeclRefExpr(Keywords.DefaultExecSpace.value)
-            policy.add_template_param(space)
+            policy = self.add_space_to_policy(policy)
 
             if isinstance(node.args[arg_start + 1], ast.Lambda):
                 decl: str = "KOKKOS_LAMBDA ("
@@ -370,7 +364,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             else:
                 work_unit: str = args[arg_start + 1].declname
-                policy.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}"))
+                policy = self.add_workunit_to_policy(policy, work_unit)
 
                 call_args: List[cppast.Expr] = [policy, cppast.DeclRefExpr("pk_f"), acc_decl]
                 if kernel_name is not None:
@@ -387,6 +381,22 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             return cppast.MemberCallExpr(sorter_ref, function, args)
 
+        if name == "shmem_size":
+            if len(args) != 1:
+                self.error(node.func, "shmem_size() accepts only a single argument")
+
+            func: ast.Attribute = node.func
+            cpp_view_type: str = self.get_scratch_view_type(func.value)
+
+            if cpp_view_type is None:
+                self.error(func, "Wrong call to shmem_size()")
+
+            view_type = cppast.ClassType(cpp_view_type)
+            call_expr = cppast.MemberCallExpr(view_type, name, args)
+            call_expr.is_static = True
+
+            return call_expr
+
         return super().visit_Call(node)
 
     def visit_Constant(self, node: ast.Constant) -> cppast.DeclRefExpr:
@@ -394,3 +404,57 @@ class KokkosMainVisitor(PyKokkosVisitor):
             return cppast.DeclRefExpr("Kokkos::AUTO")
 
         return super().visit_Constant(node)
+
+    def add_space_to_policy(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
+        """
+        Add the execution space to the execution policy
+
+        :param policy: the execution policy (could also be an integer)
+        :returns: the execution policy
+        """
+
+        # Replace the number of threads with a RangePolicy
+        if type(policy) not in (cppast.ConstructExpr, cppast.MemberCallExpr):
+            begin = cppast.IntegerLiteral(0)
+            policy = cppast.ConstructExpr(cppast.DeclRefExpr("Kokkos::RangePolicy"), [begin, policy])
+
+        space = cppast.DeclRefExpr(Keywords.DefaultExecSpace.value)
+        policy_constructor = self.get_policy_constructor(policy)
+        policy_constructor.add_template_param(space)
+
+        return policy
+
+    def add_workunit_to_policy(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr], work_unit: str) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
+        """
+        Add the workunit tag to the execution policy
+
+        :param policy: the execution policy (could also be an integer)
+        :param work_unit: the tag of the workunit
+        :returns: the execution policy
+        """
+
+        policy_constructor = self.get_policy_constructor(policy)
+        policy_constructor.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}"))
+
+        return policy
+
+    def get_policy_constructor(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]) -> cppast.ConstructExpr:
+        """
+        Get the call to the policy constructor from the policy object
+
+        :param: the policy object
+        :returns: the call to the constructor
+        """
+
+        if isinstance(policy, cppast.MemberCallExpr):
+            return policy.base
+        else:
+            return policy
+
+    def generate_subview(self, node: ast.Assign, view_name: str) -> cppast.DeclStmt:
+        """
+        Generate a subview in pk.main. This involves adding the
+        "pk_d_" prefix to the parent view.
+        """
+
+        return super().generate_subview(node, f"pk_d_{view_name}")

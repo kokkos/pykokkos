@@ -27,7 +27,7 @@ class Particle:
 @pk.workload(
     x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     pack_indicies_all=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    pack_indicies=pk.ViewTypeInfo(trait=pk.Unmanaged))
+    pack_indicies=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
 class CommSerial(Comm):
     def __init__(self, s: System, comm_depth: float):
         super().__init__(s, comm_depth)

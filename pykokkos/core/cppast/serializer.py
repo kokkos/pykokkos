@@ -159,7 +159,13 @@ class Serializer:
         function: str = self.serialize(node.function)
         args: List[str] = [self.serialize(a) for a in node.args]
 
-        access: str = "." if node.is_pointer is False else "->"
+        access: str
+        if node.is_pointer:
+            access = "->"
+        elif node.is_static:
+            access = "::"
+        else:
+            access = "."
 
         return f"{base}{access}{function}(" + ",".join(args) + ")"
 

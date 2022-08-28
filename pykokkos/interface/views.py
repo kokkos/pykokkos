@@ -1,4 +1,7 @@
 from __future__ import annotations
+import ctypes
+import os
+import math
 from enum import Enum
 import sys
 from typing import (
@@ -8,6 +11,7 @@ from typing import (
 
 import numpy as np
 
+import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 
@@ -34,14 +38,16 @@ class ViewTypeInfo:
     Contains type information for a view that is used by a functor
     """
 
-    def __init__(self, *, layout: Optional[Layout] = None, trait: Optional[Trait] = None):
+    def __init__(self, *, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None, trait: Optional[Trait] = None):
         """
         ViewTypeInfo constructor
 
+        :param space: the memory space of the view
         :param layout: the layout of the view
         :param trait: the memory trait of the view
         """
 
+        self.space: Optional[MemorySpace] = space
         self.layout: Optional[Layout] = layout
         self.trait: Optional[Trait] = trait
 
@@ -57,6 +63,7 @@ class ViewType:
     space: MemorySpace
     layout: Layout
     trait: Trait
+    size: int
 
     def rank(self) -> int:
         """
@@ -126,6 +133,8 @@ class ViewType:
         :returns: the length of the first dimension
         """
 
+        if len(self.shape) == 0:
+            return 0
         return self.shape[0]
 
     def __iter__(self) -> Iterator:
@@ -235,6 +244,9 @@ class View(ViewType):
         """
 
         self.shape: List[int] = shape
+        if self.shape == [0]:
+            self.shape = ()
+        self.size = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
             sys.exit(f"ERROR: Invalid dtype {dtype}")
@@ -245,16 +257,27 @@ class View(ViewType):
         if layout is Layout.LayoutDefault:
             layout = get_default_layout(space)
 
-        if space is MemorySpace.CudaSpace:
+        # only allow CudaSpace view for cupy arrays
+        if space is MemorySpace.CudaSpace and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
         self.space: MemorySpace = space
         self.layout: Layout = layout
         self.trait: Trait = trait
 
+        if self.dtype == pk.float:
+            self.dtype = DataType.float
+        elif self.dtype == pk.double:
+            self.dtype = DataType.double
+        elif self.dtype == pk.int32:
+            self.dtype = DataType.int32
+        elif self.dtype == pk.int64:
+            pass
         if trait is trait.Unmanaged:
-            self.array = kokkos.unmanaged_array(array, self.dtype.value, self.space.value)
+            self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
+            if len(shape) == 0:
+                shape = [1]
             self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
 
@@ -276,7 +299,10 @@ class View(ViewType):
             if dtype is real:
                 return DataType[km.get_default_precision().__name__]
 
-            return DataType[dtype.__name__]
+            if dtype == DataType.int64:
+                dtype = int64
+
+            return dtype
 
         if dtype is int:
             return DataType["int32"]
@@ -319,10 +345,14 @@ class Subview(ViewType):
         self.base_view: View = self._get_base_view(parent_view)
 
         self.data: np.ndarray = parent_view.data[data_slice]
+        self.dtype = parent_view.dtype
         self.array = kokkos.array(
             self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
             layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: List[int] = list(self.data.shape)
+        if self.data.shape == (0,):
+            self.data = np.array([], dtype=self.dtype)
+            self.shape = ()
 
         self.parent_slice: List[Union[int, slice]]
         self.parent_slice = self._create_slice(data_slice)
@@ -366,9 +396,21 @@ class Subview(ViewType):
 
         return base_view
 
-def from_numpy(array: np.ndarray) -> ViewType:
+    def __eq__(self, other):
+        if isinstance(other, View):
+            if len(self.data) == 0 and len(other.data) == 0:
+                return True
+            result_of_eq = self.data == other.data
+            return result_of_eq
+
+def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
+
+    :param array: the numpy array
+    :param layout: an optional argument for memory space (used by from_cupy)
+    :param layout: an optional argument for layout (used by from_cupy)
+    :returns: a PyKokkos View wrapping the array
     """
 
     dtype: DataTypeClass
@@ -390,10 +432,95 @@ def from_numpy(array: np.ndarray) -> ViewType:
         dtype = DataType.float # PyKokkos float
     elif np_dtype is np.float64:
         dtype = double
+    elif np_dtype is np.bool_:
+        dtype = int16
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
-    return View(list(array.shape), dtype, trait=Trait.Unmanaged, array=array)
+    if layout is None and array.ndim > 1:
+        if array.flags["F_CONTIGUOUS"]:
+            layout = Layout.LayoutLeft
+        else:
+            layout = Layout.LayoutRight
+
+    if space is None:
+        space = MemorySpace.MemorySpaceDefault
+
+    if layout is None:
+        layout = Layout.LayoutDefault
+
+    # TODO: pykokkos support for 0-D arrays?
+    # temporary/terrible hack here for array API testing..
+    if array.ndim == 0:
+        ret_list = ()
+        array = np.array(())
+    else:
+        ret_list = list((array.shape))
+
+
+    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+
+def from_cupy(array) -> ViewType:
+    """
+    Create a PyKokkos View from a cupy array
+
+    :param array: the cupy array
+    """
+
+    np_dtype = array.dtype.type
+
+    if np_dtype is np.int16:
+        ctype = ctypes.c_int16
+    elif np_dtype is np.int32:
+        ctype = ctypes.c_int32
+    elif np_dtype is np.int64:
+        ctype = ctypes.c_int64
+    elif np_dtype is np.uint16:
+        ctype = ctypes.c_uint16
+    elif np_dtype is np.uint32:
+        ctype = ctypes.c_uint32
+    elif np_dtype is np.uint64:
+        ctype = ctypes.c_uint64
+    elif np_dtype is np.float32:
+        ctype = ctypes.c_float
+    elif np_dtype is np.float64:
+        ctype = ctypes.c_double
+    else:
+        raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
+
+    # Inspired by
+    # https://stackoverflow.com/questions/23930671/how-to-create-n-dim-numpy-array-from-a-pointer
+
+    ptr = array.data.ptr
+    ptr = ctypes.cast(ptr, ctypes.POINTER(ctype))
+    np_array = np.ctypeslib.as_array(ptr, shape=array.shape)
+
+    # need to select the layout here since the np_array flags do not
+    # preserve the original flags
+    layout: Layout
+    if array.flags["F_CONTIGUOUS"]:
+        layout = Layout.LayoutLeft
+    else:
+        layout = Layout.LayoutRight
+
+    return from_numpy(np_array, MemorySpace.CudaSpace, layout)
+
+
+# asarray is required for comformance with the array API:
+# https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
+
+def asarray(obj, /, *, dtype=None, device=None, copy=None):
+    # TODO: proper implementation/design
+    # for now, let's cheat and use NumPy asarray() followed
+    # by pykokkos from_numpy()
+    if "bool" in str(dtype):
+        dtype = np.bool_
+    arr = np.asarray(obj, dtype=dtype)
+    ret = from_numpy(arr)
+    return ret
+
+
+
 
 T = TypeVar("T")
 
@@ -426,4 +553,41 @@ class View7D(Generic[T]):
 
 
 class View8D(Generic[T]):
+    pass
+
+
+class ScratchView:
+    def shmem_size(i: int):
+        pass
+
+
+class ScratchView1D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView2D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView3D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView4D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView5D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView6D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView7D(ScratchView, Generic[T]):
+    pass
+
+
+class ScratchView8D(ScratchView, Generic[T]):
     pass

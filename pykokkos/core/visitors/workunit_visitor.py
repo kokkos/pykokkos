@@ -1,8 +1,9 @@
 import ast
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pykokkos.core import cppast
+from pykokkos.core.keywords import Keywords
 from pykokkos.interface import TeamMember
 
 from . import visitors_util
@@ -10,6 +11,15 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 
 class WorkunitVisitor(PyKokkosVisitor):
+    def __init__(
+        self, env, src, views: Dict[cppast.DeclRefExpr, cppast.Type],
+        work_units: Dict[str, ast.FunctionDef], fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+        kokkos_functions: Dict[str, ast.FunctionDef], dependency_methods: Dict[str, List[str]],
+        pk_import: str, debug=False
+    ):
+        self.has_rand_call: bool = False
+        super().__init__(env, src, views, work_units, fields, kokkos_functions, dependency_methods, pk_import, debug)
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Union[str, Tuple[str, cppast.MethodDecl]]:
         if self.is_nested_call(node):
             params: List[cppast.ParmVarDecl] = [a for a in self.visit(node.args)]
@@ -114,6 +124,20 @@ class WorkunitVisitor(PyKokkosVisitor):
 
                 return cppast.CompoundStmt([declstmt, callstmt])
 
+            if function_name.startswith("ScratchView"):
+                cpp_view_type: str = self.get_scratch_view_type(node.annotation)
+                py_view_type: str = node.annotation.value.attr
+                rank = int(re.search(r'\d+', py_view_type).group())
+
+                typeref = cppast.ClassType(cpp_view_type)
+                args: List[cppast.Expr] = [self.visit(a) for a in node.value.args]
+                constructor = cppast.ConstructExpr(declname, args)
+
+                view_decl = cppast.VarDecl(typeref, constructor, None)
+                self.views[declname] = None
+
+                return cppast.DeclStmt(view_decl)
+
         return super().visit_AnnAssign(node)
 
     def visit_arguments(self, node: ast.arguments) -> List[cppast.ParmVarDecl]:
@@ -176,7 +200,11 @@ class WorkunitVisitor(PyKokkosVisitor):
         is_hierachical: bool = isinstance(node.annotation, ast.Attribute)
 
         if is_hierachical:
-            decltype.typename = f"const {decltype.typename}"
+            try:
+                decltype.typename = f"const {decltype.typename}"
+            except AttributeError:
+                decltype._type = f"const {decltype.typename.value}"
+
             decltype.is_reference = True
 
         declname = cppast.DeclRefExpr(node.arg)
@@ -192,7 +220,7 @@ class WorkunitVisitor(PyKokkosVisitor):
         if name in dir(TeamMember):
             team_member: str = visitors_util.get_node_name(node.func.value)
             call = cppast.MemberCallExpr(cppast.DeclRefExpr(
-                team_member), cppast.DeclRefExpr(name), [])
+                team_member), cppast.DeclRefExpr(name), args)
 
             return call
 
@@ -208,7 +236,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             return call
 
         function = cppast.DeclRefExpr(f"Kokkos::{name}")
-        if name in ("TeamThreadRange", "ThreadVectorRange", "PerTeam", "PerThread"):
+        if name in ("TeamThreadRange", "ThreadVectorRange"):
             return cppast.CallExpr(function, args)
 
         if name in ("parallel_for", "single"):
@@ -218,12 +246,15 @@ class WorkunitVisitor(PyKokkosVisitor):
             else:
                 return cppast.CallExpr(function, [args[0], f"pk_id_{work_unit}"])
 
-        atomic_fetch_op: re.Pattern = re.compile("atomic_fetch_*")
+        atomic_fetch_op: re.Pattern = re.compile("atomic_*")
         is_atomic_fetch_op: bool = atomic_fetch_op.match(name)
+        is_atomic_increment: bool = name == "atomic_increment"
         is_atomic_compare_exchange: bool = name == "atomic_compare_exchange"
 
-        if is_atomic_fetch_op or is_atomic_compare_exchange:
-            if is_atomic_fetch_op and len(args) != 3:
+        if is_atomic_fetch_op or is_atomic_compare_exchange or is_atomic_increment:
+            if is_atomic_increment and len(args) != 2:
+                self.error(node, "is_atomic_increment takes exactly 2 arguments")
+            if not is_atomic_increment and is_atomic_fetch_op and len(args) != 3:
                 self.error(node, "atomic_fetch_op functions take exactly 3 arguments")
             if is_atomic_compare_exchange and len(args) != 4:
                 self.error(node, "atomic_compare_exchange takes exactly 4 arguments")
@@ -240,6 +271,22 @@ class WorkunitVisitor(PyKokkosVisitor):
             # their first argument
             args[0] = cppast.UnaryOperator(args[0], cppast.BinaryOperatorKind.AddrOf)
             return cppast.CallExpr(function, args)
+
+        if name == "rand":
+            if len(args) != 1:
+                self.error(node, "pk.rand() accepts only one argument, the datatype")
+
+            self.has_rand_call = True
+
+            rand_type = cppast.ClassType("Kokkos::rand")
+            pool_type = cppast.ClassType("Kokkos::Random_XorShift64_Pool<>::generator_type")
+            rand_type.add_template_param(pool_type)
+            rand_type.add_template_param(visitors_util.get_type(node.args[0], self.pk_import))
+
+            rand_call = cppast.MemberCallExpr(rand_type, cppast.DeclRefExpr("draw"), [cppast.DeclRefExpr(Keywords.RandPoolState.value)])
+            rand_call.is_static = True
+
+            return rand_call
 
         return super().visit_Call(node)
 

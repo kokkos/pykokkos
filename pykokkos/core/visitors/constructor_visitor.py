@@ -22,8 +22,8 @@ class ConstructorVisitor(ast.NodeVisitor):
         :param debug: if true, prints the python AST when an error is encountered
         """
 
-        if member_type not in ("fields", "views", "typeinfo"):
-            raise ValueError("member_type has to be either \"fields\", \"views\", or \"typeinfo\"")
+        if member_type not in ("fields", "views", "typeinfo", "randpool"):
+            raise ValueError("member_type has to be either \"fields\", \"views\", \"typeinfo\", or \"randpool\"")
 
         self.src: Tuple[List[str], int] = src
         self.member_type: str = member_type
@@ -48,7 +48,7 @@ class ConstructorVisitor(ast.NodeVisitor):
         members: List[Tuple] = []
 
         for statement in node.body:
-            if self.member_type in ("fields", "views") and isinstance(statement, ast.AnnAssign):
+            if self.member_type in ("fields", "views", "randpool") and isinstance(statement, ast.AnnAssign):
                 ann_assign: Tuple = self.visit(statement)
                 if len(ann_assign) != 0:
                     members.append(ann_assign)
@@ -66,6 +66,9 @@ class ConstructorVisitor(ast.NodeVisitor):
                     return ()
 
             decltype = visitors_util.get_type(node.annotation, self.pk_import)
+            if decltype.typename in ("Random_XorShift64_Pool", "Random_XorShift1024_Pool"):
+                return ()
+
             if decltype is None:
                 self.error(node, "Type is not supported")
 
@@ -78,6 +81,17 @@ class ConstructorVisitor(ast.NodeVisitor):
             # do not return lists
             if isinstance(decltype, cppast.PrimitiveType):
                 return ()
+
+        elif self.member_type == "randpool":
+            if not isinstance(node.annotation, ast.Attribute):
+                return ()
+
+            rand_pool_type: str = node.annotation.attr
+
+            if rand_pool_type not in ("Random_XorShift64_Pool", "Random_XorShift1024_Pool"):
+                return ()
+
+            decltype: cppast.ClassType = cppast.ClassType(rand_pool_type)
 
         return (declref, decltype)
 
@@ -104,14 +118,14 @@ class ConstructorVisitor(ast.NodeVisitor):
 
         template_params: List[cppast.DeclRefExpr] = []
         layout: Optional[Layout] = self.get_layout(call)
-        # space: Optional[cppast.DeclRefExpr] = self.get_memory_space(call)
+        space: Optional[cppast.DeclRefExpr] = self.get_memory_space(call)
         trait: Optional[Trait] = self.get_trait(call)
 
         if layout is not None:
             template_params.append(layout)
 
-        # if space is not None:
-        #     template_params.append(space)
+        if space is not None:
+            template_params.append(space)
 
         if trait is not None:
             template_params.append(trait)

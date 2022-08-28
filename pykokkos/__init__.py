@@ -12,7 +12,16 @@ from pykokkos.kokkos_manager import (
 )
 
 initialize()
-atexit.register(finalize)
+from pykokkos.lib.ufuncs import (reciprocal,
+                                 log,
+                                 log2,
+                                 log10,
+                                 log1p,
+                                 sqrt,
+                                 sign)
+from pykokkos.lib.info import iinfo, finfo
+from pykokkos.lib.create import zeros
+from pykokkos.lib.util import all, any
 
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
@@ -23,3 +32,20 @@ if defaults is not None:
         enable_uvm()
     else:
         disable_uvm()
+
+def cleanup():
+    """
+    Delete the runtime instance to avoid Kokkos errors caused by
+    deallocation after calling Kokkos::finalize()
+    """
+
+    global runtime_singleton
+    del runtime_singleton.runtime
+    del runtime_singleton
+
+    from pykokkos.interface.parallel_dispatch import workunit_cache
+    workunit_cache.clear()
+
+# Will be called in reverse order of registration (cleanup then finalize)
+atexit.register(finalize)
+atexit.register(cleanup)

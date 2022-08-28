@@ -1,9 +1,10 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.visitors import cpp_view_type
 
+from .bindings import get_view_memory_space
 from .members import PyKokkosMembers
 
 def get_view_type(view: cppast.ClassType) -> str:
@@ -15,7 +16,7 @@ def get_view_type(view: cppast.ClassType) -> str:
     :return: the string representation of the view type
     """
 
-    space: str = f"{Keywords.DefaultExecSpace.value}::memory_space"
+    space: str = get_view_memory_space(view, "functor")
     layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
     view_type: str = cpp_view_type(view, space=space, layout=layout)
 
@@ -42,11 +43,58 @@ def generate_assignments(members: Dict[cppast.DeclRefExpr, cppast.Type]) -> List
 
     return assignments
 
+def generate_rand_pool_params() -> Tuple[cppast.ParmVarDecl, cppast.ParmVarDecl]:
+    """
+    Generate the parameters that initialize the random pool
+
+    :returns: a tuple of the seed parameter and the number of states
+        parameter
+    """
+
+    seed = cppast.DeclRefExpr(Keywords.RandPoolNumStates.value)
+    seed_type = cppast.PrimitiveType(cppast.BuiltinType.INT)
+    num_states = cppast.DeclRefExpr(Keywords.RandPoolSeed.value)
+    num_states_type = cppast.PrimitiveType(cppast.BuiltinType.INT)
+
+    seed_param = cppast.ParmVarDecl(seed_type, seed)
+    num_states_param = cppast.ParmVarDecl(num_states_type, num_states)
+
+    return seed_param, num_states_param
+
+def generate_rand_pool(
+    seed: cppast.DeclRefExpr,
+    num_states: cppast.DeclRefExpr,
+    random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]]
+) -> Tuple[cppast.ParmVarDecl, cppast.ParmVarDecl, cppast.AssignOperator, cppast.CallStmt]:
+    """
+    Generate the code that initializes the random pool
+
+    :param random_pool: a tuple of the pool name and type
+    :returns: a tuple of the random pool initialization and the call
+        to init()
+    """
+
+
+    # Call to random pool constructor and assignment to field
+    op = cppast.BinaryOperatorKind.Assign
+    pool_name: str = random_pool[0].declname
+    field = cppast.MemberExpr(cppast.DeclRefExpr("this"), pool_name)
+    field.is_pointer = True
+    value = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::{random_pool[1].typename}<>"), [])
+    assign = cppast.AssignOperator([field], value, op)
+
+    # Call to random pool init function
+    seed = cppast.DeclRefExpr(Keywords.RandPoolNumStates.value)
+    init_randpool = cppast.CallStmt(cppast.MemberCallExpr(field, cppast.DeclRefExpr("init"), [seed, num_states]))
+
+    return assign, init_randpool
 
 def generate_constructor(
     name: str,
     fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
-    views: Dict[cppast.DeclRefExpr, cppast.ClassType]
+    views: Dict[cppast.DeclRefExpr, cppast.ClassType],
+    random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]],
+    has_rand_call: bool
 ) -> cppast.ConstructorDecl:
     """
     Generate the functor constructor
@@ -54,6 +102,8 @@ def generate_constructor(
     :param name: the functor class name
     :param fields: a dict mapping from field name to type
     :param views: a dict mapping from view name to type
+    :param random_pool: a tuple of the pool name and type
+    :param has_rand_call: whether the function contains a call to pk.rand()
     :returns: the cppast representation of the constructor
     """
 
@@ -80,6 +130,19 @@ def generate_constructor(
     # skip subviews
     assignments.extend(generate_assignments({v: views[v] for v in views if views[v]}))
 
+    seed_param: cppast.ParmVarDecl
+    num_states_param: cppast.ParmVarDecl
+    seed_param, num_states_param = generate_rand_pool_params()
+
+    params.append(seed_param)
+    params.append(num_states_param)
+
+    if has_rand_call:
+        assign, init_randpool = generate_rand_pool(seed_param.declname, num_states_param.declname, random_pool)
+
+        assignments.append(assign)
+        assignments.append(init_randpool)
+
     body = cppast.CompoundStmt(assignments)
 
     return cppast.ConstructorDecl("", name, params, body)
@@ -90,6 +153,7 @@ def generate_functor(
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
     functions: List[cppast.MethodDecl],
+    has_rand_call: bool
 ) -> cppast.RecordDecl:
     """
     Generate the functor source
@@ -98,7 +162,7 @@ def generate_functor(
     :param members: an object containing the fields and views
     :param workunits: a dict mapping from workunit name to a tuple of operation type and source
     :param functions: a list of KOKKOS_FUNCTIONS defined in the functor
-    :param has_real: whether the function contains a pk.real datatype
+    :param has_rand_call: whether a kernel contains a call to pk.rand()
     :returns: the cppast representation of the functor
     """
 
@@ -123,7 +187,13 @@ def generate_functor(
         view_type: str = get_view_type(t)
         decls.append(cppast.DeclStmt(cppast.FieldDecl(view_type, n)))
 
-    decls.append(generate_constructor(name, fields, views))
+    random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = members.random_pool
+    if has_rand_call:
+        pool_name: cppast.DeclRefExpr = random_pool[0]
+        pool_type: str = random_pool[1].typename
+        decls.append(cppast.DeclStmt(cppast.FieldDecl(f"Kokkos::{pool_type}<>", pool_name)))
+
+    decls.append(generate_constructor(name, fields, views, random_pool, has_rand_call))
     for _, s in workunits.values():
         decls.append(s)
 

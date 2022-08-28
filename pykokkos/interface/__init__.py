@@ -6,12 +6,16 @@ from .atomic.atomic_fetch_op import (
     atomic_fetch_rshift, atomic_fetch_sub, atomic_fetch_xor,
     atomic_compare_exchange
 )
+from .atomic.atomic_op import (
+    atomic_add, atomic_increment
+)
 from .bin_sort import BinSort, BinOp, BinOp1D, BinOp3D
 from .data_types import (
     DataType, DataTypeClass,
     int16, int32, int64,
     uint16, uint32, uint64,
-    float, double, real
+    float, double, real,
+    float32, float64, bool,
 )
 from .decorators import (
     callback, classtype, Decorator, function, functor, main,
@@ -31,13 +35,20 @@ from .parallel_dispatch import (
     execute,
     parallel_for, parallel_reduce, parallel_scan
 )
+from .random import (
+    rand, RandomPool, Random_XorShift64_Pool, Random_XorShift1024_Pool
+)
 from .timer import Timer
 from .views import (
     Subview, Trait,
     View, ViewType, ViewTypeInfo,
     View1D, View2D, View3D, View4D,
     View5D, View6D, View7D, View8D,
-    from_numpy
+    ScratchView, ScratchView1D, ScratchView2D,
+    ScratchView3D, ScratchView4D, ScratchView5D,
+    ScratchView6D, ScratchView7D, ScratchView8D,
+    from_cupy, from_numpy,
+    asarray,
 )
 
 

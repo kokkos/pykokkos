@@ -3,7 +3,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from typing import List
+from typing import List, Tuple
+
 
 from pykokkos.interface import ExecutionSpace, get_default_layout, get_default_memory_space
 import pykokkos.kokkos_manager as km
@@ -30,11 +31,7 @@ class CppSetup:
         self.script: str = "compile.sh"
         self.script_path: Path = Path(__file__).resolve().parent / self.script
 
-        self.makefile: Path = Path(__file__).resolve().parent / "template_Makefile"
-        self.kokkos_devices_placeholder: str = "KOKKOS_DEVICES_PLACEHOLDER"
-        self.target_placeholder: str = "TARGET_PLACEHOLDER"
-        self.defines_placeholder: str = "DEFINES_PLACEHOLDER"
-        self.force_uvm_placeholder: str = "FORCE_UVM_PLACEHOLDER"
+        self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
         self.format: bool = False
 
@@ -118,16 +115,44 @@ class CppSetup:
             print(f"Exception while copying views and makefile: {ex}")
             sys.exit(1)
 
-    def get_kokkos_path(self) -> Path:
+    def get_kokkos_paths(self) -> Tuple[Path, Path]:
         """
-        Get the location of the installed Kokkos package
+        Get the paths of the Kokkos instal lib and include
+        directories. If the environment variable is set, use that
+        Kokkos install. If not, fall back to installed pykokkos-base
+        package.
 
-        :returns: path to the location
+        :returns: a tuple of paths to the Kokkos lib/ and include/
+            directories respectively
         """
+
+        lib_path: Path
+        include_path: Path
+        if self.lib_path_env in os.environ:
+            lib_path = Path(os.environ.get(self.lib_path_env))
+            if not lib_path.is_dir():
+                raise RuntimeError(f"lib/ directory path {str(lib_path)} does not exist")
+
+            include_path = lib_path.parent / "include"
+            if not include_path.is_dir():
+                raise RuntimeError(f"install/ directory path {str(include_path)} does not exist")
+
+            return lib_path, include_path
 
         from pykokkos.bindings import kokkos
+        install_path = Path(kokkos.__path__[0]).parent
 
-        return Path(kokkos.__path__[0]).parent
+        if (install_path / "lib").is_dir():
+            lib_path = install_path / "lib"
+        elif (install_path / "lib64").is_dir():
+            lib_path = install_path / "lib64"
+        else:
+            raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
+                               f" Try setting {self.lib_path_env} instead.")
+
+        include_path = lib_path.parent / "include/kokkos"
+
+        return lib_path, include_path
 
     def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
         """
@@ -140,33 +165,30 @@ class CppSetup:
         """
 
         view_space: str = "Kokkos::HostSpace"
-        if space is ExecutionSpace.Cuda and enable_uvm:
-            view_space = "Kokkos::CudaUVMSpace"
+        if space is ExecutionSpace.Cuda:
+            if enable_uvm:
+                view_space = "Kokkos::CudaUVMSpace"
 
         view_layout: str = str(get_default_layout(get_default_memory_space(space)))
         view_layout = view_layout.split(".")[-1]
         view_layout = f"Kokkos::{view_layout}"
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
-        kokkos_path: Path = self.get_kokkos_path()
-
-        compute_capability: str = ""
-        if compiler == "nvcc":
-            try:
-                import cupy
-                compute_capability = f"sm_{cupy.cuda.Device().compute_capability}"
-            except:
-                print(f"ERROR: could not get CUDA compute capability")
+        lib_path: Path
+        include_path: Path
+        lib_path, include_path = self.get_kokkos_paths()
+        compute_capability: str = self.get_cuda_compute_capability(compiler)
 
         command: List[str] = [f"./{self.script}",
-                              compiler,           # What compiler to use
-                              self.module_file,   # Compilation target
-                              space.value,        # Execution space
-                              view_space,         # Argument views memory space
-                              view_layout,        # Argument views memory layout
-                              precision,          # Default real precision
-                              str(kokkos_path),   # Path to Kokkos install
-                              compute_capability] # Device compute capability
+                              compiler,             # What compiler to use
+                              self.module_file,     # Compilation target
+                              space.value,          # Execution space
+                              view_space,           # Argument views memory space
+                              view_layout,          # Argument views memory layout
+                              precision,            # Default real precision
+                              str(lib_path),        # Path to Kokkos install lib/ directory
+                              str(include_path),    # Path to Kokkos install include/ directory
+                              compute_capability]   # Device compute capability
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
         if compile_result.returncode != 0:
@@ -174,14 +196,9 @@ class CppSetup:
             print(f"C++ compilation in {output_dir} failed")
             sys.exit(1)
 
-        rpath: str
-        if space is ExecutionSpace.Cuda:
-            rpath = os.environ["PK_KOKKOS_LIB_PATH_CUDA"]
-        else:
-            rpath = os.environ["PK_KOKKOS_LIB_PATH_OMP"]
         patchelf: List[str] = ["patchelf",
                                "--set-rpath",
-                               rpath,
+                               str(lib_path),
                                self.module_file]
 
         patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
@@ -189,6 +206,22 @@ class CppSetup:
             print(patchelf_result.stderr.decode("utf-8"))
             print(f"patchelf failed")
             sys.exit(1)
+
+    def get_cuda_compute_capability(self, compiler: str) -> str:
+        """
+        Get the compute capability of an Nvidia GPU
+
+        :param compiler: the compiler being used (nvcc or g++)
+        :returns: the compute capability as a string or the empty
+            string if g++ is the compiler
+        """
+
+        if compiler != "nvcc":
+            return ""
+        else:
+            import cupy
+
+        return f"sm_{cupy.cuda.Device().compute_capability}"
 
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:

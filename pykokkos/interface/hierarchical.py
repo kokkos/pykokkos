@@ -13,6 +13,15 @@ class TeamMember:
     def team_rank(self) -> int:
         return self._team_rank
 
+    def team_size(self) -> int:
+        pass
+
+    def team_scratch(self, level: int) -> int:
+        pass
+
+    def team_barrier(self) -> None:
+        pass
+
     def __index__(self) -> int:
         return self._league_rank
 

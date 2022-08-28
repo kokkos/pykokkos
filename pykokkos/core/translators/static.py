@@ -4,11 +4,11 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
-from pykokkos.core.visitors import (
-    ClasstypeVisitor, KokkosFunctionVisitor, KokkosMainVisitor, WorkunitVisitor
-)
+from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
-from pykokkos.interface import DataType
+from pykokkos.core.visitors import (
+    ClasstypeVisitor, KokkosFunctionVisitor, WorkunitVisitor
+)
 
 from .bindings import bind_main, bind_workunits
 from .functor import generate_functor
@@ -20,19 +20,20 @@ class StaticTranslator:
     Translates a PyKokkos workload to C++ using static analysis only
     """
 
-    def __init__(self, module: str, functor: str):
+    def __init__(self, module: str, functor: str, pk_members: PyKokkosMembers):
         """
         StaticTranslator Constructor
 
         :param module: the name of the compiled Python module
         :param functor: the name of the generated functor file
+        :param pk_members: the PyKokkos related members of the entity
         """
 
         self.pk_import: str
-        self.pk_members: PyKokkosMembers
 
         self.module_file: str = module
         self.functor_file: str = functor
+        self.pk_members: PyKokkosMembers = pk_members
 
     def translate(
         self,
@@ -53,8 +54,6 @@ class StaticTranslator:
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
 
-        self.pk_members = PyKokkosMembers()
-        self.pk_members.extract(entity, classtypes)
         self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source
@@ -64,9 +63,10 @@ class StaticTranslator:
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
-        workunits = self.translate_workunits(source)
+        has_rand_call: bool
+        workunits, has_rand_call = self.translate_workunits(source)
 
-        struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions)
+        struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
 
         bindings: List[str] = self.generate_bindings(entity, functor_name, source, workunits)
 
@@ -80,7 +80,8 @@ class StaticTranslator:
 
         return functor, bindings
 
-    def add_parent_refs(self, classdef: ast.ClassDef) -> ast.ClassDef:
+    @staticmethod
+    def add_parent_refs(classdef: ast.ClassDef) -> ast.ClassDef:
         """
         Add references to each node's parent node in classdef
 
@@ -175,12 +176,14 @@ class StaticTranslator:
 
         return translation
 
-    def translate_workunits(self, source: Tuple[List[str], int]) -> Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]:
+    def translate_workunits(self, source: Tuple[List[str], int]) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
         """
         Translate the workunits
 
         :param source: the python source code of the workload
-        :returns: a dictionary mapping from workload name to a tuple of operation name and source
+        :returns: a tuple of a dictionary mapping from workload name
+            to a tuple of operation name and source, and a boolean
+            indicating whether the workunit has a call to pk.rand()
         """
 
         node_visitor = WorkunitVisitor(
@@ -190,14 +193,20 @@ class StaticTranslator:
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 
+        has_rand_call: bool = False
         for n, w in self.pk_members.pk_workunits.items():
             try:
                 workunits[n] = node_visitor.visit(w)
+                has_rand_call = has_rand_call or node_visitor.has_rand_call
+                if node_visitor.has_rand_call:
+                    workunit: cppast.MethodDecl = workunits[n][1]
+                    self.add_rand_pool_state(workunit)
+                    node_visitor.has_rand_call = False
             except:
                 print(f"Translation of {w} failed")
                 sys.exit(1)
 
-        return workunits
+        return workunits, has_rand_call
 
     def generate_header(self) -> str:
         """
@@ -218,6 +227,7 @@ class StaticTranslator:
         headers: List[str] = [
             "pybind11/pybind11.h",
             "Kokkos_Core.hpp",
+            "Kokkos_Random.hpp",
             "Kokkos_Sort.hpp",
             "fstream",
             "iostream",
@@ -251,3 +261,29 @@ class StaticTranslator:
             bindings = bind_workunits(functor_name, self.pk_members, workunits, self.module_file)
 
         return bindings
+
+    def add_rand_pool_state(self, workunit: cppast.MethodDecl) -> None:
+        """
+        Generate code to initialize and free the random pool state in
+        a workunit
+
+        :param workunit: the workunit containing a call to pk.rand()
+        """
+
+        random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = self.pk_members.random_pool
+
+        pool_type: str = random_pool[1].typename
+        generator_type = cppast.ClassType(f"Kokkos::{pool_type}<>::generator_type")
+
+        pool_state_name = cppast.DeclRefExpr(Keywords.RandPoolState.value)
+
+        rand_pool_name: cppast.DeclRefExpr = random_pool[0]
+        pool_value = cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("get_state"), [])
+
+        init_pool = cppast.DeclStmt(cppast.VarDecl(generator_type, pool_state_name, pool_value))
+
+        free_pool = cppast.CallStmt(cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("free_state"), [pool_state_name]))
+
+        body: cppast.CompoundStmt = workunit.body
+        body.statements.insert(0, init_pool)
+        body.statements.append(free_pool)

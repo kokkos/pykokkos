@@ -1,6 +1,14 @@
 from pykokkos.interface.data_types import int32
+import pytest
 import unittest
 
+try:
+    import cupy as cp
+    HAS_CUDA = True
+except ImportError:
+    HAS_CUDA = False
+
+import numpy as np
 import pykokkos as pk
 
 
@@ -23,7 +31,9 @@ class MyView3D(pk.View):
 @pk.functor(
         subview1D=pk.ViewTypeInfo(trait=pk.Unmanaged),
         subview2D=pk.ViewTypeInfo(trait=pk.Unmanaged),
-        subview3D=pk.ViewTypeInfo(trait=pk.Unmanaged))
+        subview3D=pk.ViewTypeInfo(trait=pk.Unmanaged),
+        np_view=pk.ViewTypeInfo(space=pk.HostSpace),
+        cp_view=pk.ViewTypeInfo(space=pk.CudaSpace, layout=pk.LayoutRight))
 class ViewsTestFunctor:
     def __init__(self, threads: int, i_1: int, i_2: int, i_3: int, i_4: int):
         self.threads: int = threads
@@ -77,6 +87,12 @@ class ViewsTestFunctor:
         self.subview1D: pk.View1D[pk.int32] = self.altView1D[:]
         self.subview2D: pk.View2D[pk.int32] = self.altView2D[:, :i_2 // 2]
         self.subview3D: pk.View3D[pk.int32] = self.altView3D[:, :i_2 // 2, i_3 // 2: i_3]
+
+        np_arr = np.zeros((threads, 2)).astype(np.int32)
+        cp_arr = cp.zeros((threads, 2)).astype(np.int32)
+
+        self.np_view: pk.View2D[int] = pk.from_numpy(np_arr)
+        self.cp_view: pk.View2D[int] = pk.from_cupy(cp_arr)
 
     @pk.workunit
     def v1d(self, tid: int) -> None:
@@ -154,6 +170,16 @@ class RealViewTestWorkload:
     def pfor(self, tid: int) -> None:
         self.view[tid] = tid
 
+@pk.workunit(np_arr = pk.ViewTypeInfo(space=pk.HostSpace))
+def addition_np(tid: int, np_arr: pk.View2D[int]) -> None:
+    np_arr[tid][0] += 1
+    np_arr[tid][1] += 2
+
+@pk.workunit(cp_arr = pk.ViewTypeInfo(space=pk.CudaSpace, layout=pk.LayoutRight))
+def addition_cp(tid: int, cp_arr: pk.View2D[int]) -> None:
+    cp_arr[tid][0] += 1
+    cp_arr[tid][1] += 2
+
 class TestViews(unittest.TestCase):
     def setUp(self):
         self.threads: int = 10
@@ -165,6 +191,8 @@ class TestViews(unittest.TestCase):
         self.functor = ViewsTestFunctor(self.threads, self.i_1, self.i_2, self.i_3, self.i_4)
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_v1d(self):
         pk.parallel_for(self.range_policy, self.functor.v1d)
 
@@ -173,6 +201,8 @@ class TestViews(unittest.TestCase):
             self.assertEqual(expected_result, self.functor.view1D[i])
             self.assertEqual(expected_result, self.functor.myView1D[i])
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_v2d(self):
         pk.parallel_for(self.range_policy, self.functor.v2d)
 
@@ -182,6 +212,8 @@ class TestViews(unittest.TestCase):
                 self.assertEqual(expected_result, self.functor.view2D[i][j])
                 self.assertEqual(expected_result, self.functor.myView2D[i][j])
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_v3d(self):
         pk.parallel_for(self.range_policy, self.functor.v3d)
 
@@ -194,6 +226,8 @@ class TestViews(unittest.TestCase):
                     self.assertEqual(
                         expected_result, self.functor.myView3D[i][j][k])
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_sv1d(self):
         pk.parallel_for(self.range_policy, self.functor.sv1d)
 
@@ -218,24 +252,54 @@ class TestViews(unittest.TestCase):
     #                 expected_result: int = self.i_4 + i + j + k
     #                 self.assertEqual(expected_result, self.functor.subview3D[i][j][k - self.i_3 // 2])
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_dynamic1D(self):
         expected_result: int = self.i_4 * self.i_2
         result: int = pk.parallel_reduce(pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.i_2), self.functor.dynamic1D)
 
         self.assertEqual(expected_result, result)
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_dynamic2D(self):
         expected_result: int = self.i_4 * self.i_1 * self.i_2
         result: int = pk.parallel_reduce(pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.i_2), self.functor.dynamic2D)
 
         self.assertEqual(expected_result, result)
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_extent(self):
         expected_result: int = (self.i_1 + self.i_2 + self.i_3) * self.threads
         result: int = pk.parallel_reduce(self.range_policy, self.functor.extent)
 
         self.assertEqual(expected_result, result)
 
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
+    def test_arrays(self):
+        np_arr = np.zeros((self.threads, 2)).astype(np.int32)
+        cp_arr = cp.zeros((self.threads, 2)).astype(np.int32)
+
+        np_view = pk.from_numpy(np_arr)
+        cp_view = pk.from_cupy(cp_arr)
+
+        pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=np_view)
+        pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, self.threads), addition_cp, cp_arr=cp_view)
+
+        for i in range(self.threads):
+            self.assertEqual(1, np_arr[i][0])
+            self.assertEqual(2, np_arr[i][1])
+            self.assertEqual(1, np_view[i][0])
+            self.assertEqual(2, np_view[i][1])
+
+            self.assertEqual(1, cp_arr[i][0])
+            self.assertEqual(2, cp_arr[i][1])
+
+
+    @pytest.mark.skipif(not HAS_CUDA,
+                        reason="CUDA/cupy not available")
     def test_real(self):
         pk.set_default_precision(pk.int32)
         view: pk.View1d = pk.View([self.threads])
@@ -254,6 +318,20 @@ class TestViews(unittest.TestCase):
         self.assertTrue(pk.View._get_dtype_name(str(type(view.array))) == "float32")
         pk.parallel_for(self.threads, f.pfor)
         pk.execute(pk.ExecutionSpace.Default, w)
+
+
+@pytest.mark.parametrize("input_arr, view_dims, view_type", [
+    (np.arange(10), [10], pk.View1D),
+    (np.arange(50).reshape(10, 5), [10, 5], pk.View2D),
+    (np.arange(500).reshape(10, 10, 5), [10, 10, 5], pk.View3D),
+    ])
+def test_sizes(input_arr, view_dims, view_type):
+    # regression test for gh-31
+    expected_size = input_arr.size
+    view: view_type = pk.View(view_dims)
+    view[:] = input_arr
+    assert view.size == expected_size
+
 
 if __name__ == '__main__':
     unittest.main()

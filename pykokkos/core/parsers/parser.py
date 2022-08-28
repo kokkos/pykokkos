@@ -233,6 +233,11 @@ class Parser:
                 attribute = decorator
 
             if isinstance(attribute, ast.Attribute):
+                # Needed to get the attribute when the decorator is of
+                # the form A.B.C
+                while isinstance(attribute.value, ast.Attribute):
+                    attribute = attribute.value
+
                 if (attribute.value.id == pk_import and Decorator.is_work_unit(attribute.attr)):
                     return True
 

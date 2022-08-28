@@ -27,6 +27,31 @@ def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
 
     return False
 
+def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
+    """
+    Get the memory space of a view. Return the default memory space if
+    space was not specified in ViewTypeInfo
+
+    :param view_type: the cppast type of the view extracted from the
+        source
+    :param location: where the view_type is needed, either "bindings"
+        or "functor"
+    :returns: the memory space template parameter
+    """
+
+    # Check if there is a MemorySpace template parameter
+    for t in view_type.template_params:
+        if isinstance(t, cppast.DeclRefExpr):
+            name: str = t.declname
+
+            if name.endswith("Space"):
+                return f"Kokkos::{name}"
+
+    if location == "functor":
+        return f"{Keywords.DefaultExecSpace.value}::memory_space"
+    if location == "bindings":
+        return Keywords.ArgMemSpace.value
+
 def get_kernel_params(
     members: PyKokkosMembers,
     is_hierarchical: bool,
@@ -53,8 +78,10 @@ def get_kernel_params(
         # skip subviews
         if t is None:
             continue
+
+        space: str = get_view_memory_space(t, "bindings")
         layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
-        params[n.declname] = cpp_view_type(t, space=Keywords.ArgMemSpace.value, layout=layout, real=real)
+        params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
     if not is_workload:
         params[Keywords.KernelName.value] = "const std::string&"
@@ -66,6 +93,9 @@ def get_kernel_params(
         else:
             params[Keywords.ThreadsBegin.value] = "int"
             params[Keywords.ThreadsEnd.value] = "int"
+
+    params[Keywords.RandPoolSeed.value] = "int"
+    params[Keywords.RandPoolNumStates.value] = "int"
 
     for result in members.reduction_result_queue:
         view_name = f"reduction_result_{result}"
@@ -115,11 +145,19 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
         args.append(d_v)
-        mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+
+        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
+        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
+            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+        else:
+            mirror_views += f"auto {d_v} = {v};"
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
         args.append("0")
+
+    args.append(Keywords.RandPoolSeed.value)
+    args.append(Keywords.RandPoolNumStates.value)
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
@@ -141,6 +179,10 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
         view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
         # skip subviews
         if view_type is None:
+            continue
+
+        # skip views with user-set memory spaces
+        if get_view_memory_space(view_type, "bindings") != Keywords.ArgMemSpace.value:
             continue
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.
@@ -198,6 +240,15 @@ def generate_kernel_signature(return_type: str, kernel: str, params: Dict[str, s
 
     return signature
 
+def generate_fence_call() -> str:
+    """
+    Generate a C++ function call to Kokkos fence
+
+    :returns: the call to the current execution space's fence
+    """
+
+    return f"{Keywords.DefaultExecSpaceInstance.value}.fence();"
+
 def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: cppast.DeclRefExpr, is_hierarchical: bool) -> str:
     """
     Generate the calls to the operation
@@ -237,6 +288,8 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
         call += f"}} else {{ {custom_call} }}"
 
     call += generate_copy_back(members)
+    call += generate_fence_call()
+
     if operation in ("reduce", "scan"):
         call += f"return {Keywords.Accumulator.value};"
 
@@ -483,13 +536,28 @@ def bind_main_single(
 
     main: List[str] = translate_mains(source, functor, members, pk_import)
     params: Dict[str, str] = get_kernel_params(members, False, True, real)
+
+    # fall back to the old hard-coded default
+    # for now--this includes cases where an
+    # accumulator is not even defined
+    acc_type = "double"
+
+    for element in source[0]:
+        # TODO: support more types
+        if "pk.Acc" in element:
+            if "pk.int64" in element:
+                acc_type = "int64_t"
+            elif "pk.double" in element:
+                acc_type = "double"
+
     signature: str = generate_kernel_signature("void", kernel_name, params)
     instantiation: str = generate_functor_instance(functor, members)
-    acc: str = f"double {Keywords.Accumulator.value} = 0;"
+    acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
+    fence: str = generate_fence_call()
 
-    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
+    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} {fence} }}"
     wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
     binding: str = f"{kernel} {wrapper}"
 

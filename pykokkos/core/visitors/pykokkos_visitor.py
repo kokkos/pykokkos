@@ -1,7 +1,7 @@
 import ast
 from ast import FunctionDef, AST
 import sys
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.interface import View
@@ -106,8 +106,17 @@ class PyKokkosVisitor(ast.NodeVisitor):
         subview_args: List[cppast.Expr] = [cppast.DeclRefExpr(view_name)]
 
         slice_node = node.value
-        for dim in slice_node.slice.dims:
-            if isinstance(dim, ast.Index):
+        for dim in slice_node.slice.elts:
+            # In Python >= 3.9, ast.Index is deprecated
+            # (see # https://docs.python.org/3/whatsnew/3.9.html)
+            # Instead of ast.Index, value will be used directly
+            check_type: type
+            if sys.version_info.minor <= 8:
+                check_type: type = ast.Index
+            else:
+                check_type: type = ast.Name
+
+            if isinstance(dim, check_type):
                 subview_args.append(self.visit(dim))
             else:
                 if dim.lower is None and dim.upper is None: 
@@ -389,13 +398,13 @@ class PyKokkosVisitor(ast.NodeVisitor):
             self.error(
                 node.func, "Function not supported, did you mean pykokkos.printf()?"
             )
-        elif name in ["fence"]:
+        elif name in ["PerTeam", "PerThread", "fence"]:
             name = "Kokkos::" + name
 
         function = cppast.DeclRefExpr(name)
         args: List[cppast.Expr] = [self.visit(a) for a in node.args]
 
-        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::fence"]:
+        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence"]:
             return cppast.CallExpr(function, args)
 
         if function in self.kokkos_functions:
@@ -413,7 +422,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 object_name: cppast.DeclRefExpr = self.visit(node.func.value)
                 return cppast.MemberCallExpr(object_name, function, args)
 
-        self.error(node.func, "Function not supported for translation")
+        self.error(node.func, f"Function {name} not supported for translation")
 
     def visit_Return(self, node: ast.Return) -> cppast.ReturnStmt:
         parent_function: FunctionDef = self.get_parent_function(node)
@@ -635,6 +644,34 @@ class PyKokkosVisitor(ast.NodeVisitor):
             return True
 
         return False
+
+    def get_scratch_view_type(self, view_type: ast.Subscript) -> Optional[str]:
+        """
+        Get the cppast representation of a scratch view
+
+        :param view_type: the subscripted type of the view
+        :returns: the string representation of the view if it is valid
+        """
+
+        is_valid: bool = False
+
+        if isinstance(view_type, ast.Subscript) and isinstance(view_type.value, ast.Attribute):
+            attr: ast.Attribute = view_type.value
+
+            if attr.value.id == self.pk_import and attr.attr.startswith("ScratchView"):
+                view_dtype: cppast.PrimitiveType = visitors_util.get_type(view_type.slice, self.pk_import)
+                view_type: str = attr.attr
+                is_valid = True
+
+        if not is_valid:
+            return None
+
+        scratch_view = cppast.ClassType(view_type)
+        scratch_view.add_template_param(view_dtype)
+
+        cpp_view_type: str = visitors_util.cpp_view_type(scratch_view)
+
+        return cpp_view_type
 
     def error(self, node, message):
         visitors_util.error(self.src, self.debug, node, message)
