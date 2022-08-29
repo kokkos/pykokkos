@@ -1,5 +1,7 @@
 import pykokkos as pk
 
+import numpy as np
+
 
 @pk.workunit
 def reciprocal_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
@@ -1429,3 +1431,172 @@ def isinf(view):
                         view=view,
                         out=out)
     return out
+=======
+=======
+def equal_impl_1d_double(tid: int,
+                         view1: pk.View1D[pk.double],
+                         view2: pk.View1D[pk.double],
+                         view2_size: int,
+                         view_result: pk.View1D[pk.uint16]):
+    view2_idx: int = 0
+    if view2_size == 1:
+        view2_idx = 0
+    else:
+        view2_idx = tid
+    if view1[tid] == view2[view2_idx]:
+        view_result[tid] = 1
+    else:
+        view_result[tid] = 0
+
+
+@pk.workunit
+def equal_impl_1d_uint16(tid: int,
+                         view1: pk.View1D[pk.uint16],
+                         view2: pk.View1D[pk.uint16],
+                         view2_size: int,
+                         view_result: pk.View1D[pk.uint16]):
+    view2_idx: int = 0
+    if view2_size == 1:
+        view2_idx = 0
+    else:
+        view2_idx = tid
+    if view1[tid] == view2[view2_idx]:
+        view_result[tid] = 1
+    else:
+        view_result[tid] = 0
+
+
+@pk.workunit
+def equal_impl_1d_int16(tid: int,
+                         view1: pk.View1D[pk.int16],
+                         view2: pk.View1D[pk.int16],
+                         view2_size: int,
+                         view_result: pk.View1D[pk.uint16]):
+    view2_idx: int = 0
+    if view2_size == 1:
+        view2_idx = 0
+    else:
+        view2_idx = tid
+    if view1[tid] == view2[view2_idx]:
+        view_result[tid] = 1
+    else:
+        view_result[tid] = 0
+
+
+@pk.workunit
+def equal_impl_1d_int32(tid: int,
+                         view1: pk.View1D[pk.int32],
+                         view2: pk.View1D[pk.int32],
+                         view2_size: int,
+                         view_result: pk.View1D[pk.uint16]):
+    view2_idx: int = 0
+    if view2_size == 1:
+        view2_idx = 0
+    else:
+        view2_idx = tid
+    if view1[tid] == view2[view2_idx]:
+        view_result[tid] = 1
+    else:
+        view_result[tid] = 0
+
+
+@pk.workunit
+def equal_impl_1d_int64(tid: int,
+                         view1: pk.View1D[pk.int64],
+                         view2: pk.View1D[pk.int64],
+                         view2_size: int,
+                         view_result: pk.View1D[pk.uint16]):
+    view2_idx: int = 0
+    if view2_size == 1:
+        view2_idx = 0
+    else:
+        view2_idx = tid
+    if view1[tid] == view2[view2_idx]:
+        view_result[tid] = 1
+    else:
+        view_result[tid] = 0
+
+def equal(view1, view2):
+    # TODO: write even more dispatching for cases where view1 and view2
+    # have different, but comparable, types (like float32 vs. float64?)
+    # this may "explode" without templating
+
+    if sum(view1.shape) == 0 or sum(view2.shape) == 0:
+        return np.empty(shape=(0,))
+
+    if view1.shape != view2.shape:
+        if not view1.size <= 1 and not view2.size <= 1:
+            # TODO: supporting __eq__ over broadcasted shapes beyond
+            # scalar (i.e., matching number of columns)
+            raise ValueError("view1 and view2 have incompatible shapes")
+
+    # TODO: something more appropriate than uint16 as a proxy
+    # for the bool type? (a shorter integer like uint8
+    # at least?)
+    view_result = pk.View([*view1.shape], dtype=pk.uint16)
+
+    # NOTE: the blocks below are asymmetric on view1 vs view2,
+    # and also quite awkward--they evolved from making the array API
+    # test_ones() test pass, but need refinement or removal eventually
+    try:
+        if isinstance(view2.array, np.ndarray):
+            if view2.size <= 1:
+                new_shape = (1,)
+            else:
+                new_shape = view2.shape
+            view2r = pk.View([*new_shape], dtype=view2.dtype)
+            view2r[:] = view2.array
+            view2 = view2r
+    except AttributeError:
+        pass
+    try:
+        if isinstance(view1.array, np.ndarray):
+            if view1.shape == () or view1.shape == (0,):
+                view1r = pk.View([1], dtype=view1.dtype)
+                view1r[:] = view1.array
+                view1 = view1r
+    except AttributeError:
+        pass
+
+    if ("double" in str(view1.dtype) or "float64" in str(view1.dtype) and
+       ("double" in str(view2.dtype) or "float64" in str(view2.dtype))):
+        pk.parallel_for(view1.size,
+                        equal_impl_1d_double,
+                        view1=view1,
+                        view2=view2,
+                        view2_size=view2.size,
+                        view_result=view_result)
+    elif (("uint16" in str(view1.dtype) or "bool" in str(view1.dtype)) and
+          ("uint16" in str(view2.dtype) or "bool" in str(view2.dtype))):
+        pk.parallel_for(view1.size,
+                        equal_impl_1d_uint16,
+                        view1=view1,
+                        view2=view2,
+                        view2_size=view2.size,
+                        view_result=view_result)
+    elif "int16" in str(view1.dtype) and "int16" in str(view1.dtype):
+        pk.parallel_for(view1.size,
+                        equal_impl_1d_int16,
+                        view1=view1,
+                        view2=view2,
+                        view2_size=view2.size,
+                        view_result=view_result)
+    elif "int32" in str(view1.dtype) and "int32" in str(view1.dtype):
+        pk.parallel_for(view1.size,
+                        equal_impl_1d_int32,
+                        view1=view1,
+                        view2=view2,
+                        view2_size=view2.size,
+                        view_result=view_result)
+    elif "int64" in str(view1.dtype) and "int64" in str(view1.dtype):
+        pk.parallel_for(view1.size,
+                        equal_impl_1d_int64,
+                        view1=view1,
+                        view2=view2,
+                        view2_size=view2.size,
+                        view_result=view_result)
+    else:
+        # TODO: include the view types in the error message
+        raise NotImplementedError("equal ufunc not implemented for this comparison")
+
+    return view_result
