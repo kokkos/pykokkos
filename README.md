@@ -8,6 +8,55 @@ PyKokkos also makes use of [Python
 bindings](https://github.com/kokkos/kokkos-python) for constructing
 Kokkos Views.
 
+## Installation
+
+Clone [pykokkos-base](https://github.com/kokkos/pykokkos-base) and
+create a conda environment:
+
+```bash
+git clone https://github.com/kokkos/pykokkos-base.git
+cd pykokkos-base/
+conda create --name pyk --file requirements.txt
+conda activate pyk
+```
+
+Once the necessary packages have been downloaded and installed,
+install `pykokkos-base` with CUDA and OpenMP enabled:
+
+```bash
+python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
+```
+
+Other `pykokkos-base` configuration and installation options can be
+found in that project's
+[README](https://github.com/kokkos/pykokkos-base/blob/main/README.md).
+Note that this step will compile a large number of bindings which can
+take a while to complete. Please open an issue if you run into any
+problems with `pykokkos-base`.
+
+Once `pykokkos-base` has been installed, clone `pykokkos` and install
+its requirements:
+
+```bash
+cd ..
+git clone https://github.com/kokkos/pykokkos.git
+cd pykokkos/
+conda install -c conda-forge pybind11 cupy patchelf
+pip install --user -e .
+```
+
+Note that `cupy` is only required if CUDA is enabled in pykokkos-base.
+
+To verify that `pykokkos` has been installed correctly, install
+`pytest` and run the tests:
+
+```bash
+conda install pytest
+python runtests.py
+```
+
+Please open an issue for help with installation.
+
 ## Examples
 
 ### Hello World
@@ -140,48 +189,6 @@ as their corresponding C++ Kokkos implementations:
 PyKokkos has only been tested on Ubuntu with GCC 7.5.0 and NVCC 10.2.
 Support for other platforms and compilers is currently experimental.
 For help with setup and installation on please open a GitHub issue.
-
-## Installation
-
-Create a new Conda environment with Python 3.8 and install the
-packages from requirements.txt:
-
-```bash
-conda create --name pyk --file requirements.txt -c conda-forge
-```
-
-Install PyKokkos as an editable Python package by running:
-
-```bash
-pip install --user -e .
-```
-
-Clone Kokkos:
-
-```bash
-git clone https://github.com/kokkos/kokkos.git $HOME/Kokkos/kokkos
-pushd $HOME/Kokkos/kokkos
-git checkout 953d7968e8fc5908af954f883e2e38d02c279cf2
-popd
-```
-
-[Install
-Kokkos](https://github.com/kokkos/kokkos/blob/master/BUILD.md) as a
-shared library, once with only OpenMP enabled, and once with CUDA and
-OpenMP enabled.
-
-The following environment variables need to be set to point to the
-path to the Kokkos installation directories:
-
-`PK_KOKKOS_LIB_PATH_CUDA`: this is the path to the lib/ directory in your Kokkos CUDA install
-
-`PK_KOKKOS_INCLUDE_PATH_CUDA`: this is the path to the include/ directory in your Kokkos CUDA install
-
-`PK_KOKKOS_NVCC`: this is the path to bin/nvcc_wrapper in your Kokkos CUDA install
-
-`PK_KOKKOS_LIB_PATH_OMP`: same as above for OpenMP
-
-`PK_KOKKOS_INCLUDE_PATH_OMP`: same as above for OpenMP
 
 ### Developers
 
