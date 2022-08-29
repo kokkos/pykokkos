@@ -817,6 +817,7 @@ def logaddexp(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 def true_divide(viewA, viewB):
     """
     true_divide is an alias of divide
@@ -1431,6 +1432,7 @@ def isinf(view):
                         view=view,
                         out=out)
     return out
+
 
 @pk.workunit
 def equal_impl_1d_double(tid: int,
