@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11.0-rc.1"]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
@@ -30,6 +30,11 @@ jobs:
           cd /tmp
           git clone https://github.com/kokkos/pykokkos-base.git
           cd pykokkos-base
+          git submodule update --init
+          cd external/pybind11
+          git fetch --tags
+          git checkout v2.10.0
+          cd ../../
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF
       - name: Install pykokkos
         run: |
