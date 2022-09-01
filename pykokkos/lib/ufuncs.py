@@ -256,3 +256,491 @@ def sign(view):
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view)
     return view
+
+
+@pk.workunit
+def add_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = viewA[tid] + viewB[tid]
+
+
+@pk.workunit
+def add_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = viewA[tid] + viewB[tid]
+
+
+def add(viewA, viewB):
+    """
+    Sums positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+
+@pk.workunit
+def multiply_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = viewA[tid] * viewB[tid]
+
+
+@pk.workunit
+def multiply_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = viewA[tid] * viewB[tid]
+
+
+def multiply(viewA, viewB):
+    """
+    Multiplies positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            multiply_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            multiply_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+
+@pk.workunit
+def subtract_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = viewA[tid] - viewB[tid]
+
+
+@pk.workunit
+def subtract_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = viewA[tid] - viewB[tid]
+
+
+def subtract(viewA, viewB):
+    """
+    Subtracts positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            subtract_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            subtract_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+@pk.workunit
+def matmul_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View2D[pk.double]):
+    acc += viewA[tid] * viewB[0][tid]
+
+@pk.workunit
+def matmul_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View2D[pk.float]):
+    acc += viewA[tid] * viewB[0][tid]
+
+def matmul(viewA, viewB):
+    """
+    1D Matrix Multiplication of compatible views
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    num : number
+    """
+    if not len(viewA.shape) == 1 or not viewA.shape[0] == viewB.shape[0]:
+        raise RuntimeError(
+            "Input operand 1 has a mismatch in its core dimension (Size {} is different from {})".format(viewA.shape[0], viewB.shape[0]))
+    
+    space = pk.ExecutionSpace.OpenMP
+
+    if str(viewA.dtype) == "DataType.double":
+        return pk.parallel_reduce(
+            pk.RangePolicy(space, 0, viewA.shape[0]),
+            matmul_impl_1d_double,
+            viewA=viewA,
+            viewB=viewB)
+    
+    if str(viewA.dtype) == "DataType.float":
+        return pk.parallel_reduce(
+            pk.RangePolicy(space, 0, viewA.shape[0]),
+            matmul_impl_1d_float,
+            viewA=viewA,
+            viewB=viewB)
+
+@pk.workunit
+def divide_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = viewA[tid] / viewB[tid]
+
+@pk.workunit
+def divide_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = viewA[tid] / viewB[tid]
+
+
+def divide(viewA, viewB):
+    """
+    Divides positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+@pk.workunit
+def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = view[tid] * -1
+
+@pk.workunit
+def negative_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = view[tid] * -1
+
+def negative(view):
+    """
+    Element-wise negative of the view
+
+    Parameters
+    ----------
+    view : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    out = None
+    if str(view.dtype) == "DataType.double":
+        out = pk.View([view.shape[0]], pk.double)
+        pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
+    elif str(view.dtype) == "DataType.float":
+        out = pk.View([view.shape[0]], pk.float)
+        pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
+    return out
+
+@pk.workunit
+def positive_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = view[tid]
+
+@pk.workunit
+def positive_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = view[tid]
+
+def positive(view):
+    """
+    Element-wise positive of the view;
+    Essentially returns a copy of the view
+
+    Parameters
+    ----------
+    view : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    out = None
+    if str(view.dtype) == "DataType.double":
+        out = pk.View([view.shape[0]], pk.double)
+        pk.parallel_for(view.shape[0], positive_impl_1d_double, view=view, out=out)
+    elif str(view.dtype) == "DataType.float":
+        out = pk.View([view.shape[0]], pk.float)
+        pk.parallel_for(view.shape[0], positive_impl_1d_float, view=view, out=out)
+    return out
+
+
+@pk.workunit
+def power_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = pow(viewA[tid], viewB[tid])
+
+@pk.workunit
+def power_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = pow(viewA[tid], viewB[tid])
+
+
+def power(viewA, viewB):
+    """
+    Returns a view with each val in viewA risen
+    to the positionally corresponding power in viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            power_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            power_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+
+@pk.workunit
+def fmod_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = fmod(viewA[tid], viewB[tid])
+
+@pk.workunit
+def fmod_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = fmod(viewA[tid], viewB[tid])
+
+
+def fmod(viewA, viewB):
+    """
+    Element-wise remainder of division when element of viewA is
+    divided by positionally corresponding element of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            fmod_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            fmod_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+
+@pk.workunit
+def square_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
+    view[tid] = view[tid] * view[tid]
+
+@pk.workunit
+def square_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
+    view[tid] = view[tid] * view[tid]
+
+def square(view):
+    """
+    Squares argument element-wise
+
+    Parameters
+    ----------
+    view : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(view.dtype) == "DataType.double":
+        pk.parallel_for(
+            view.shape[0],
+            square_impl_1d_double,
+            view=view)
+
+    elif str(view.dtype) == "DataType.float":
+        pk.parallel_for(
+            view.shape[0],
+            square_impl_1d_float,
+            view=view)
+
+    return view
+
+@pk.workunit
+def greater_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = viewA[tid] > viewB[tid]
+
+@pk.workunit
+def greater_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = viewA[tid] > viewB[tid]
+
+
+def greater(viewA, viewB):
+    """
+    Return the truth value of viewA > viewB element-wise.
+
+    Parameters
+    ----------
+    view : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            greater_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            greater_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
+
+@pk.workunit
+def logaddexp_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    view[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+
+@pk.workunit
+def logaddexp_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
+    view[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+
+
+def logaddexp(viewA, viewB):
+    """
+    Return a view with log(exp(a) + exp(b)) calculate for
+    positionally corresponding elements in viewA and viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+    viewB : pykokkos view
+
+    Returns
+    -------
+    view : pykokkos view
+    """
+    if str(viewA.dtype) == "DataType.double":
+        view = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            logaddexp_impl_1d_double,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    elif str(viewA.dtype) == "DataType.float":
+        view = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            logaddexp_impl_1d_float,
+            view=view,
+            viewA=viewA,
+            viewB=viewB)
+
+    return view
