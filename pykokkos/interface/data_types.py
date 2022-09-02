@@ -5,9 +5,11 @@ import numpy as np
 
 
 class DataType(Enum):
+    int8 = kokkos.int8
     int16 = kokkos.int16
     int32 = kokkos.int32
     int64 = kokkos.int64
+    uint8 = kokkos.uint8
     uint16 = kokkos.uint16
     uint32 = kokkos.uint32
     uint64 = kokkos.uint64
@@ -29,6 +31,12 @@ class DataType(Enum):
 class DataTypeClass:
     pass
 
+
+class uint8(DataTypeClass):
+    value = kokkos.uint8
+
+class int8(DataTypeClass):
+    value = kokkos.int8
 
 class int16(DataTypeClass):
     value = kokkos.int16

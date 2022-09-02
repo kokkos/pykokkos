@@ -15,10 +15,12 @@ class BuiltinType(Enum):
     BOOL = "bool"
     FLOAT = "float"
 
+    INT8 = "int8_t"
     INT16 = "int16_t"
     INT32 = "int32_t"
     INT64 = "int64_t"
 
+    UINT8 = "uint8_t"
     UINT16 = "uint16_t"
     UINT32 = "uint32_t"
     UINT64 = "uint64_t"
