@@ -276,11 +276,15 @@ def add(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
 
     if str(viewA.dtype) == "DataType.double":
@@ -322,11 +326,15 @@ def multiply(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
 
     if str(viewA.dtype) == "DataType.double":
@@ -368,11 +376,15 @@ def subtract(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(viewA.dtype) == "DataType.double":
         view = pk.View([viewA.shape[0]], pk.double)
@@ -409,28 +421,30 @@ def matmul(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
-    num : number
+    Float/Double
+        1D Matmul result
+
     """
-    if not len(viewA.shape) == 1 or not viewA.shape[0] == viewB.shape[0]:
+    if len(viewA.shape) != 1 or viewA.shape[0] != viewB.shape[0]:
         raise RuntimeError(
             "Input operand 1 has a mismatch in its core dimension (Size {} is different from {})".format(viewA.shape[0], viewB.shape[0]))
-    
-    space = pk.ExecutionSpace.OpenMP
 
     if str(viewA.dtype) == "DataType.double":
         return pk.parallel_reduce(
-            pk.RangePolicy(space, 0, viewA.shape[0]),
+            viewA.shape[0],
             matmul_impl_1d_double,
             viewA=viewA,
             viewB=viewB)
     
     if str(viewA.dtype) == "DataType.float":
         return pk.parallel_reduce(
-            pk.RangePolicy(space, 0, viewA.shape[0]),
+            viewA.shape[0],
             matmul_impl_1d_float,
             viewA=viewA,
             viewB=viewB)
@@ -452,11 +466,15 @@ def divide(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(viewA.dtype) == "DataType.double":
         view = pk.View([viewA.shape[0]], pk.double)
@@ -493,12 +511,14 @@ def negative(view):
     Parameters
     ----------
     view : pykokkos view
+           Input view.
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
+           Output view.
+
     """
-    out = None
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
@@ -523,12 +543,14 @@ def positive(view):
     Parameters
     ----------
     view : pykokkos view
+           Input view.
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
+           Output view.
+
     """
-    out = None
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], positive_impl_1d_double, view=view, out=out)
@@ -549,17 +571,21 @@ def power_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk
 
 def power(viewA, viewB):
     """
-    Returns a view with each val in viewA risen
+    Returns a view with each val in viewA raised
     to the positionally corresponding power in viewB
 
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(viewA.dtype) == "DataType.double":
         view = pk.View([viewA.shape[0]], pk.double)
@@ -599,11 +625,15 @@ def fmod(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
 
     if str(viewA.dtype) == "DataType.double":
@@ -628,12 +658,12 @@ def fmod(viewA, viewB):
 
 
 @pk.workunit
-def square_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
-    view[tid] = view[tid] * view[tid]
+def square_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = view[tid] * view[tid]
 
 @pk.workunit
-def square_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
-    view[tid] = view[tid] * view[tid]
+def square_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = view[tid] * view[tid]
 
 def square(view):
     """
@@ -642,24 +672,31 @@ def square(view):
     Parameters
     ----------
     view : pykokkos view
+           Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(view.dtype) == "DataType.double":
+        out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(
             view.shape[0],
             square_impl_1d_double,
-            view=view)
+            view=view,
+            out=out)
 
     elif str(view.dtype) == "DataType.float":
+        out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(
             view.shape[0],
             square_impl_1d_float,
-            view=view)
+            view=view,
+            out=out)
 
-    return view
+    return out
 
 @pk.workunit
 def greater_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
@@ -677,10 +714,13 @@ def greater(viewA, viewB):
     Parameters
     ----------
     view : pykokkos view
+           Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(viewA.dtype) == "DataType.double":
         view = pk.View([viewA.shape[0]], pk.double)
@@ -719,11 +759,15 @@ def logaddexp(viewA, viewB):
     Parameters
     ----------
     viewA : pykokkos view
+            Input view.
     viewB : pykokkos view
+            Input view.
 
     Returns
     -------
     view : pykokkos view
+           Output view.
+
     """
     if str(viewA.dtype) == "DataType.double":
         view = pk.View([viewA.shape[0]], pk.double)
