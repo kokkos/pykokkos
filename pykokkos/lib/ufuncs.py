@@ -259,13 +259,13 @@ def sign(view):
 
 
 @pk.workunit
-def add_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = viewA[tid] + viewB[tid]
+def add_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double], ):
+    out[tid] = viewA[tid] + viewB[tid]
 
 
 @pk.workunit
-def add_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = viewA[tid] + viewB[tid]
+def add_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] + viewB[tid]
 
 
 def add(viewA, viewB):
@@ -288,34 +288,34 @@ def add(viewA, viewB):
     """
 
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             add_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             add_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
-
-
-@pk.workunit
-def multiply_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = viewA[tid] * viewB[tid]
+    return out
 
 
 @pk.workunit
-def multiply_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = viewA[tid] * viewB[tid]
+def multiply_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] * viewB[tid]
+
+
+@pk.workunit
+def multiply_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] * viewB[tid]
 
 
 def multiply(viewA, viewB):
@@ -338,34 +338,34 @@ def multiply(viewA, viewB):
     """
 
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             multiply_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             multiply_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
-
-
-@pk.workunit
-def subtract_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = viewA[tid] - viewB[tid]
+    return out
 
 
 @pk.workunit
-def subtract_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = viewA[tid] - viewB[tid]
+def subtract_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] - viewB[tid]
+
+
+@pk.workunit
+def subtract_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] - viewB[tid]
 
 
 def subtract(viewA, viewB):
@@ -387,24 +387,24 @@ def subtract(viewA, viewB):
 
     """
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             subtract_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             subtract_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
+    return out
 
 @pk.workunit
 def matmul_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View2D[pk.double]):
@@ -450,12 +450,12 @@ def matmul(viewA, viewB):
             viewB=viewB)
 
 @pk.workunit
-def divide_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = viewA[tid] / viewB[tid]
+def divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] / viewB[tid]
 
 @pk.workunit
-def divide_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = viewA[tid] / viewB[tid]
+def divide_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] / viewB[tid]
 
 
 def divide(viewA, viewB):
@@ -477,24 +477,24 @@ def divide(viewA, viewB):
 
     """
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             divide_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             divide_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
+    return out
 
 @pk.workunit
 def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
@@ -561,12 +561,12 @@ def positive(view):
 
 
 @pk.workunit
-def power_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = pow(viewA[tid], viewB[tid])
+def power_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = pow(viewA[tid], viewB[tid])
 
 @pk.workunit
-def power_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = pow(viewA[tid], viewB[tid])
+def power_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = pow(viewA[tid], viewB[tid])
 
 
 def power(viewA, viewB):
@@ -588,33 +588,33 @@ def power(viewA, viewB):
 
     """
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             power_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             power_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
+    return out
 
-
-@pk.workunit
-def fmod_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = fmod(viewA[tid], viewB[tid])
 
 @pk.workunit
-def fmod_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = fmod(viewA[tid], viewB[tid])
+def fmod_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = fmod(viewA[tid], viewB[tid])
+
+@pk.workunit
+def fmod_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = fmod(viewA[tid], viewB[tid])
 
 
 def fmod(viewA, viewB):
@@ -637,24 +637,24 @@ def fmod(viewA, viewB):
     """
 
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             fmod_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             fmod_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
+    return out
 
 
 @pk.workunit
@@ -699,12 +699,12 @@ def square(view):
     return out
 
 @pk.workunit
-def greater_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = viewA[tid] > viewB[tid]
+def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] > viewB[tid]
 
 @pk.workunit
-def greater_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = viewA[tid] > viewB[tid]
+def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] > viewB[tid]
 
 
 def greater(viewA, viewB):
@@ -723,32 +723,32 @@ def greater(viewA, viewB):
 
     """
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
-
-@pk.workunit
-def logaddexp_impl_1d_double(tid: int, view: pk.View1D[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
-    view[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+    return out
 
 @pk.workunit
-def logaddexp_impl_1d_float(tid: int, view: pk.View1D[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
-    view[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+def logaddexp_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double],):
+    out[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+
+@pk.workunit
+def logaddexp_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float],):
+    out[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
 
 
 def logaddexp(viewA, viewB):
@@ -770,21 +770,21 @@ def logaddexp(viewA, viewB):
 
     """
     if str(viewA.dtype) == "DataType.double":
-        view = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             logaddexp_impl_1d_double,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
     elif str(viewA.dtype) == "DataType.float":
-        view = pk.View([viewA.shape[0]], pk.float)
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             logaddexp_impl_1d_float,
-            view=view,
             viewA=viewA,
-            viewB=viewB)
+            viewB=viewB,
+            out=out)
 
-    return view
+    return out
