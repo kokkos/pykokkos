@@ -287,7 +287,7 @@ def add(viewA, viewB):
 
     """
 
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -296,7 +296,7 @@ def add(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -304,7 +304,8 @@ def add(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 
@@ -337,7 +338,7 @@ def multiply(viewA, viewB):
 
     """
 
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -346,7 +347,7 @@ def multiply(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -354,7 +355,8 @@ def multiply(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 
@@ -386,7 +388,7 @@ def subtract(viewA, viewB):
            Output view.
 
     """
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -395,7 +397,7 @@ def subtract(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -403,7 +405,8 @@ def subtract(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 @pk.workunit
@@ -435,19 +438,20 @@ def matmul(viewA, viewB):
         raise RuntimeError(
             "Input operand 1 has a mismatch in its core dimension (Size {} is different from {})".format(viewA.shape[0], viewB.shape[0]))
 
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         return pk.parallel_reduce(
             viewA.shape[0],
             matmul_impl_1d_double,
             viewA=viewA,
             viewB=viewB)
-    
-    if str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         return pk.parallel_reduce(
             viewA.shape[0],
             matmul_impl_1d_float,
             viewA=viewA,
             viewB=viewB)
+    else:
+        raise RuntimeError("Incompatible Types")
 
 @pk.workunit
 def divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
@@ -476,7 +480,7 @@ def divide(viewA, viewB):
            Output view.
 
     """
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -485,7 +489,7 @@ def divide(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -493,7 +497,8 @@ def divide(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 @pk.workunit
@@ -587,7 +592,7 @@ def power(viewA, viewB):
            Output view.
 
     """
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -596,7 +601,7 @@ def power(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -604,7 +609,8 @@ def power(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 
@@ -636,7 +642,7 @@ def fmod(viewA, viewB):
 
     """
 
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -645,7 +651,7 @@ def fmod(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -653,7 +659,8 @@ def fmod(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 
@@ -695,7 +702,8 @@ def square(view):
             square_impl_1d_float,
             view=view,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 @pk.workunit
@@ -713,8 +721,10 @@ def greater(viewA, viewB):
 
     Parameters
     ----------
-    view : pykokkos view
-           Input view.
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
 
     Returns
     -------
@@ -722,7 +732,7 @@ def greater(viewA, viewB):
            Output view.
 
     """
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -731,7 +741,7 @@ def greater(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -739,7 +749,8 @@ def greater(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 @pk.workunit
@@ -769,7 +780,7 @@ def logaddexp(viewA, viewB):
            Output view.
 
     """
-    if str(viewA.dtype) == "DataType.double":
+    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -778,7 +789,7 @@ def logaddexp(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float":
+    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -786,5 +797,6 @@ def logaddexp(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
