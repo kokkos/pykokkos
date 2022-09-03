@@ -351,7 +351,7 @@ def test_multi_array_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     # in the pk namespace vs. their NumPy equivalents
     expected = numpy_ufunc(
         np.arange(10, dtype=numpy_dtype),
-        np.full(10, 5, dtype=np.float32))
+        np.full(10, 5, dtype=numpy_dtype))
 
     viewA: pk.View1d = pk.View([10], pk_dtype)
     viewA[:] = np.arange(10, dtype=numpy_dtype)
