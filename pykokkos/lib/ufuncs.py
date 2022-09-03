@@ -282,7 +282,7 @@ def add(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -333,7 +333,7 @@ def multiply(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -384,7 +384,7 @@ def subtract(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -476,7 +476,7 @@ def divide(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -588,7 +588,7 @@ def power(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -637,7 +637,7 @@ def fmod(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -683,7 +683,7 @@ def square(view):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
@@ -707,11 +707,11 @@ def square(view):
     return out
 
 @pk.workunit
-def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = viewA[tid] > viewB[tid]
 
 @pk.workunit
-def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
     out[tid] = viewA[tid] > viewB[tid]
 
 
@@ -728,12 +728,12 @@ def greater(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view (uint16)
            Output view.
 
     """
+    out = pk.View([viewA.shape[0]], pk.uint16)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
-        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_double,
@@ -742,7 +742,6 @@ def greater(viewA, viewB):
             out=out)
 
     elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
-        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_float,
@@ -776,7 +775,7 @@ def logaddexp(viewA, viewB):
 
     Returns
     -------
-    view : pykokkos view
+    out : pykokkos view
            Output view.
 
     """
