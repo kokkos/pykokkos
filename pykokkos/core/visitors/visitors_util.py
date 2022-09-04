@@ -20,9 +20,11 @@ allowed_types: Dict[str, str] = {
 
 # Maps from the DataType enum to cppast
 view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
+    "int8": cppast.BuiltinType.INT8,
     "int16": cppast.BuiltinType.INT16,
     "int32": cppast.BuiltinType.INT32,
     "int64": cppast.BuiltinType.INT64,
+    "uint8": cppast.BuiltinType.UINT8,
     "uint16": cppast.BuiltinType.UINT16,
     "uint32": cppast.BuiltinType.UINT32,
     "uint64": cppast.BuiltinType.UINT64,
@@ -290,8 +292,8 @@ def cpp_view_type(
         parameter: str = s.serialize(t)
 
         if parameter in ("int", "double", "float",
-                            "int16_t", "int32_t", "int64_t",
-                            "uint16_t", "uint32_t", "uint64_t"):
+                            "int8_t", "int16_t", "int32_t", "int64_t",
+                            "uint8_t", "uint16_t", "uint32_t", "uint64_t"):
             datatype: str = parameter + "*" * rank
             params["dtype"] = datatype
 

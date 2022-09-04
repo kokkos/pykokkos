@@ -18,7 +18,9 @@ import pykokkos.kokkos_manager as km
 from .data_types import (
     DataType, DataTypeClass,
     real,
+    int8,
     int16, int32, int64,
+    uint8,
     uint16, uint32, uint64,
     double
 )
@@ -416,12 +418,16 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     dtype: DataTypeClass
     np_dtype = array.dtype.type
 
+    if np_dtype is np.int8:
+        dtype = int8
     if np_dtype is np.int16:
         dtype = int16
     elif np_dtype is np.int32:
         dtype = int32
     elif np_dtype is np.int64:
         dtype = int64
+    elif np_dtype is np.uint8:
+        dtype = uint8
     elif np_dtype is np.uint16:
         dtype = uint16
     elif np_dtype is np.uint32:
@@ -469,12 +475,16 @@ def from_cupy(array) -> ViewType:
 
     np_dtype = array.dtype.type
 
+    if np_dtype is np.int8:
+        ctype = ctypes.c_int8
     if np_dtype is np.int16:
         ctype = ctypes.c_int16
     elif np_dtype is np.int32:
         ctype = ctypes.c_int32
     elif np_dtype is np.int64:
         ctype = ctypes.c_int64
+    elif np_dtype is np.uint8:
+        ctype = ctypes.c_uint8
     elif np_dtype is np.uint16:
         ctype = ctypes.c_uint16
     elif np_dtype is np.uint32:
