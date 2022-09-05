@@ -60,7 +60,7 @@ class ViewType:
     """
 
     data: np.ndarray
-    shape: List[int]
+    shape: Tuple[int]
     dtype: DataType
     space: MemorySpace
     layout: Layout
@@ -84,9 +84,12 @@ class ViewType:
         :returns: an int representing the length of the specified dimension
         """
 
-        if dimension >= self.rank():
+        if dimension >= self.rank() and not (dimension == 0 and self.shape == ()):
             raise ValueError(
                 "\"dimension\" must be less than the view's rank")
+
+        if self.shape == ():
+            return 0
 
         return self.shape[dimension]
 
@@ -196,16 +199,22 @@ class View(ViewType):
         :param size: the new size
         """
 
-        if dimension >= self.rank():
+        if dimension >= self.rank() and not (dimension == 0 and self.shape == ()):
             raise ValueError(
                 f"Cannot resize dimension {dimension} since rank = {self.rank()}")
 
-        if self.shape[dimension] == size:
+        if self.shape != () and self.shape[dimension] == size:
             return
 
         old_data: np.ndarray = self.data
 
-        self.shape[dimension] = size
+        shape_list: List[int] = list(self.shape)
+        if shape_list == []:
+            shape_list.append(size)
+        else:
+            shape_list[dimension] = size
+
+        self.shape = tuple(shape_list)
         self.array = kokkos.array(
             "", self.shape, None, None, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
         self.data = np.array(self.array, copy=False)
@@ -227,7 +236,7 @@ class View(ViewType):
 
     def _init_view(
         self,
-        shape: List[int],
+        shape: Union[List[int], Tuple[int]],
         dtype: Union[DataTypeClass, type] = real,
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
@@ -245,10 +254,10 @@ class View(ViewType):
         :param array: the numpy array if trait is Unmanaged
         """
 
-        self.shape: List[int] = shape
-        if self.shape == [0]:
+        self.shape: Tuple[int] = tuple(shape)
+        if self.shape == (0,):
             self.shape = ()
-        self.size = math.prod(shape)
+        self.size: int = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
             sys.exit(f"ERROR: Invalid dtype {dtype}")
@@ -278,7 +287,7 @@ class View(ViewType):
         if trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
-            if len(shape) == 0:
+            if len(self.shape) == 0:
                 shape = [1]
             self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
@@ -351,9 +360,9 @@ class Subview(ViewType):
         self.array = kokkos.array(
             self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
             layout=parent_view.layout.value, trait=kokkos.Unmanaged)
-        self.shape: List[int] = list(self.data.shape)
+        self.shape: Tuple[int] = self.data.shape
         if self.data.shape == (0,):
-            self.data = np.array([], dtype=self.dtype)
+            self.data = np.array([], dtype=self.data.dtype)
             self.shape = ()
 
         self.parent_slice: List[Union[int, slice]]
