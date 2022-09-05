@@ -18,7 +18,19 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  log10,
                                  log1p,
                                  sqrt,
-                                 sign)
+                                 sign,
+                                 add,
+                                 subtract,
+                                 multiply,
+                                 matmul,
+                                 divide,
+                                 negative,
+                                 positive,
+                                 power,
+                                 fmod,
+                                 square,
+                                 greater,
+                                 logaddexp)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
 from pykokkos.lib.util import all, any

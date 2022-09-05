@@ -301,6 +301,9 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.log1p, np.log1p),
         (pk.sqrt, np.sqrt),
         (pk.sign, np.sign),
+        (pk.negative, np.negative),
+        (pk.positive, np.positive),
+        (pk.square, np.square),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -324,6 +327,73 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     else:
         assert_allclose(actual, expected)
 
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.add, np.add),
+        (pk.subtract, np.subtract),
+        (pk.multiply, np.multiply),
+        (pk.divide, np.divide),
+        (pk.power, np.power),
+        (pk.fmod, np.fmod),
+        (pk.greater, np.greater),
+        (pk.logaddexp, np.logaddexp),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_multi_array_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    pk_dtype,
+                                    numpy_dtype):
+
+    # test the multi array ufuncs we have exposed 
+    # in the pk namespace vs. their NumPy equivalents
+    expected = numpy_ufunc(
+        np.arange(10, dtype=numpy_dtype),
+        np.full(10, 5, dtype=numpy_dtype))
+
+    viewA: pk.View1d = pk.View([10], pk_dtype)
+    viewA[:] = np.arange(10, dtype=numpy_dtype)
+    viewB: pk.View1d = pk.View([10], pk_dtype)
+    viewB[:] = np.full(10, 5, dtype=numpy_dtype)
+
+    actual = pk_ufunc(viewA=viewA, viewB=viewB)
+
+    assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.matmul, np.matmul),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_matmul_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    pk_dtype,
+                                    numpy_dtype):
+    expected = numpy_ufunc(
+        np.arange(10, dtype=numpy_dtype),
+        np.full((10, 1), 2, dtype=numpy_dtype))
+
+
+    viewA = pk.View([10], pk_dtype)
+    viewB = pk.View([10, 1], pk_dtype)
+    viewA[:] = np.arange(10, dtype=numpy_dtype)
+    viewB[:] = np.full((10, 1), 2, dtype=numpy_dtype)
+
+    with pytest.raises(RuntimeError) as e_info:
+        viewC = pk.View([11], pk_dtype)
+        viewC[:] = np.arange(11, dtype=numpy_dtype)
+        pk_ufunc(viewC, viewB)
+
+    assert e_info.value.args[0] == "Input operand 1 has a mismatch in its core dimension (Size 11 is different from 10)"
+
+    actual = pk_ufunc(viewA, viewB)
+
+    assert_allclose(actual, expected)
 
 @pytest.mark.parametrize("arr", [
     np.array([4, -1, np.inf]),
