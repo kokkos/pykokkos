@@ -1576,3 +1576,69 @@ def equal(view1, view2):
         raise NotImplementedError("equal ufunc not implemented for this comparison")
 
     return view_result
+
+
+@pk.workunit
+def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+def isnan(view):
+    out = pk.View([*view.shape], dtype=pk.uint8)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isnan_impl_1d_double,
+                        view=view,
+                        out=out)
+    elif "float" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isnan_impl_1d_float,
+                        view=view,
+                        out=out)
+    return out
+
+
+@pk.workunit
+def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+def isfinite(view):
+    out = pk.View([*view.shape], dtype=pk.uint8)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.double)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_double,
+                            view=new_view,
+                            out=out)
+        else:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_double,
+                            view=view,
+                            out=out)
+    elif "float" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.float)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_float,
+                            view=new_view,
+                            out=out)
+        else:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_float,
+                            view=view,
+                            out=out)
+    return out
