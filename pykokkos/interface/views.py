@@ -286,6 +286,9 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
+        # TODO: if ufuncs stop inspecting
+        # type "strings," we should be able to
+        # purge these mappings
         if self.dtype == pk.float:
             self.dtype = DataType.float
         elif self.dtype == pk.double:
@@ -475,7 +478,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     elif np_dtype is np.float64:
         dtype = float64
     elif np_dtype is np.bool_:
-        dtype = uint16
+        dtype = uint8
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 

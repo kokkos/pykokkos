@@ -1431,8 +1431,8 @@ def isinf(view):
                         view=view,
                         out=out)
     return out
-=======
-=======
+
+@pk.workunit
 def equal_impl_1d_double(tid: int,
                          view1: pk.View1D[pk.double],
                          view2: pk.View1D[pk.double],
