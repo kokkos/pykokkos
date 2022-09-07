@@ -86,6 +86,8 @@ math_functions: Set = {
     "expm1",
     "fabs",
     "floor",
+    "fmax",
+    "fmin"
     "fmod",
     "hypot",
     "isfinite",
