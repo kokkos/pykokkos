@@ -328,7 +328,7 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     actual = pk_ufunc(view=view)
     # log10 single-precision needs relaxed tol
     # for now
-    if numpy_ufunc in {np.log10, np.cos} and numpy_dtype == np.float32:
+    if numpy_ufunc in {np.log10, np.cos, np.tan} and numpy_dtype == np.float32:
         assert_allclose(actual, expected, rtol=1.5e-7)
     else:
         assert_allclose(actual, expected)
