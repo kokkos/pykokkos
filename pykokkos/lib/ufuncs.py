@@ -948,7 +948,7 @@ def sin_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.flo
 
 def sin(view):
     """
-    Element-wise trignometric sine of the view
+    Element-wise trigonometric sine of the view
 
     Parameters
     ----------
@@ -982,7 +982,7 @@ def cos_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.flo
 
 def cos(view):
     """
-    Element-wise trignometric cosine of the view
+    Element-wise trigonometric cosine of the view
 
     Parameters
     ----------
@@ -1217,12 +1217,12 @@ def logical_not(view):
 
 
 @pk.workunit
-def fmax_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def fmax_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = fmax(viewA[tid], viewB[tid])
 
 
 @pk.workunit
-def fmax_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def fmax_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = fmax(viewA[tid], viewB[tid])
 
 
@@ -1239,12 +1239,12 @@ def fmax(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             fmax_impl_1d_double,
@@ -1253,6 +1253,7 @@ def fmax(viewA, viewB):
             out=out)
 
     elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             fmax_impl_1d_float,
@@ -1265,12 +1266,12 @@ def fmax(viewA, viewB):
 
 
 @pk.workunit
-def fmin_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def fmin_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = fmin(viewA[tid], viewB[tid])
 
 
 @pk.workunit
-def fmin_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def fmin_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = fmin(viewA[tid], viewB[tid])
 
 
@@ -1287,12 +1288,12 @@ def fmin(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+        out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             fmin_impl_1d_double,
@@ -1301,6 +1302,7 @@ def fmin(viewA, viewB):
             out=out)
 
     elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+        out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
             fmin_impl_1d_float,
