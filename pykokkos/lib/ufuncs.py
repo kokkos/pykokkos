@@ -409,9 +409,11 @@ def subtract(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def matmul_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View2D[pk.double]):
     acc += viewA[tid] * viewB[0][tid]
+
 
 @pk.workunit
 def matmul_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View2D[pk.float]):
@@ -453,9 +455,11 @@ def matmul(viewA, viewB):
     else:
         raise RuntimeError("Incompatible Types")
 
+
 @pk.workunit
 def divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = viewA[tid] / viewB[tid]
+
 
 @pk.workunit
 def divide_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -501,9 +505,11 @@ def divide(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = view[tid] * -1
+
 
 @pk.workunit
 def negative_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -532,9 +538,11 @@ def negative(view):
         pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
     return out
 
+
 @pk.workunit
 def positive_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = view[tid]
+
 
 @pk.workunit
 def positive_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -568,6 +576,7 @@ def positive(view):
 @pk.workunit
 def power_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = pow(viewA[tid], viewB[tid])
+
 
 @pk.workunit
 def power_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -617,6 +626,7 @@ def power(viewA, viewB):
 @pk.workunit
 def fmod_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = fmod(viewA[tid], viewB[tid])
+
 
 @pk.workunit
 def fmod_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -668,6 +678,7 @@ def fmod(viewA, viewB):
 def square_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = view[tid] * view[tid]
 
+
 @pk.workunit
 def square_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = view[tid] * view[tid]
@@ -706,9 +717,11 @@ def square(view):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = viewA[tid] > viewB[tid]
+
 
 @pk.workunit
 def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
@@ -752,9 +765,11 @@ def greater(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def logaddexp_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double],):
     out[tid] = log(exp(viewA[tid]) + exp(viewB[tid]))
+
 
 @pk.workunit
 def logaddexp_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float],):
@@ -825,6 +840,7 @@ def true_divide(viewA, viewB):
 def logaddexp2_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double],):
     out[tid] = log2(pow(2, viewA[tid]) + pow(2, viewB[tid]))
 
+
 @pk.workunit
 def logaddexp2_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float],):
     out[tid] = log2(pow(2, viewA[tid]) + pow(2, viewB[tid]))
@@ -873,6 +889,7 @@ def logaddexp2(viewA, viewB):
 @pk.workunit
 def floor_divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = viewA[tid] // viewB[tid]
+
 
 @pk.workunit
 def floor_divide_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -923,9 +940,11 @@ def floor_divide(viewA, viewB):
 def sin_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = sin(view[tid])
 
+
 @pk.workunit
 def sin_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = sin(view[tid])
+
 
 def sin(view):
     """
@@ -950,13 +969,16 @@ def sin(view):
         pk.parallel_for(view.shape[0], sin_impl_1d_float, view=view, out=out)
     return out
 
+
 @pk.workunit
 def cos_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = cos(view[tid])
 
+
 @pk.workunit
 def cos_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = cos(view[tid])
+
 
 def cos(view):
     """
@@ -981,13 +1003,16 @@ def cos(view):
         pk.parallel_for(view.shape[0], cos_impl_1d_float, view=view, out=out)
     return out
 
+
 @pk.workunit
 def tan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = tan(view[tid])
 
+
 @pk.workunit
 def tan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = tan(view[tid])
+
 
 def tan(view):
     """
@@ -1012,9 +1037,11 @@ def tan(view):
         pk.parallel_for(view.shape[0], tan_impl_1d_float, view=view, out=out)
     return out
 
+
 @pk.workunit
 def logical_and_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = viewA[tid] and viewB[tid]
+
 
 @pk.workunit
 def logical_and_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
@@ -1058,9 +1085,11 @@ def logical_and(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def logical_or_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = viewA[tid] or viewB[tid]
+
 
 @pk.workunit
 def logical_or_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
@@ -1104,9 +1133,11 @@ def logical_or(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def logical_xor_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = bool(viewA[tid]) ^ bool(viewB[tid])
+
 
 @pk.workunit
 def logical_xor_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
@@ -1150,13 +1181,16 @@ def logical_xor(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def logical_not_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = not view[tid]
 
+
 @pk.workunit
 def logical_not_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = not view[tid]
+
 
 def logical_not(view):
     """
@@ -1181,13 +1215,16 @@ def logical_not(view):
         pk.parallel_for(view.shape[0], logical_not_impl_1d_float, view=view, out=out)
     return out
 
+
 @pk.workunit
 def fmax_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = fmax(viewA[tid], viewB[tid])
 
+
 @pk.workunit
 def fmax_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
     out[tid] = fmax(viewA[tid], viewB[tid])
+
 
 def fmax(viewA, viewB):
     """
@@ -1226,13 +1263,16 @@ def fmax(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def fmin_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
     out[tid] = fmin(viewA[tid], viewB[tid])
 
+
 @pk.workunit
 def fmin_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
     out[tid] = fmin(viewA[tid], viewB[tid])
+
 
 def fmin(viewA, viewB):
     """
@@ -1271,13 +1311,16 @@ def fmin(viewA, viewB):
         raise RuntimeError("Incompatible Types")
     return out
 
+
 @pk.workunit
 def exp_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = exp(view[tid])
 
+
 @pk.workunit
 def exp_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = exp(view[tid])
+
 
 def exp(view):
     """
@@ -1307,9 +1350,11 @@ def exp(view):
 def exp2_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = pow(2, view[tid])
 
+
 @pk.workunit
 def exp2_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = pow(2, view[tid])
+
 
 def exp2(view):
     """
