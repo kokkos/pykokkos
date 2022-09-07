@@ -719,12 +719,12 @@ def square(view):
 
 
 @pk.workunit
-def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def greater_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] > viewB[tid]
 
 
 @pk.workunit
-def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def greater_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] > viewB[tid]
 
 
@@ -741,11 +741,11 @@ def greater(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view (uint8)
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
+    out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
             viewA.shape[0],
@@ -1039,12 +1039,12 @@ def tan(view):
 
 
 @pk.workunit
-def logical_and_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def logical_and_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] and viewB[tid]
 
 
 @pk.workunit
-def logical_and_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def logical_and_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] and viewB[tid]
 
 
@@ -1061,11 +1061,11 @@ def logical_and(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view (uint8)
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
+    out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
             viewA.shape[0],
@@ -1087,12 +1087,12 @@ def logical_and(viewA, viewB):
 
 
 @pk.workunit
-def logical_or_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def logical_or_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] or viewB[tid]
 
 
 @pk.workunit
-def logical_or_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def logical_or_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = viewA[tid] or viewB[tid]
 
 
@@ -1109,11 +1109,11 @@ def logical_or(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view (uint8)
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
+    out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
             viewA.shape[0],
@@ -1135,12 +1135,12 @@ def logical_or(viewA, viewB):
 
 
 @pk.workunit
-def logical_xor_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint16]):
+def logical_xor_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = bool(viewA[tid]) ^ bool(viewB[tid])
 
 
 @pk.workunit
-def logical_xor_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint16]):
+def logical_xor_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = bool(viewA[tid]) ^ bool(viewB[tid])
 
 
@@ -1157,11 +1157,11 @@ def logical_xor(viewA, viewB):
 
     Returns
     -------
-    out : pykokkos view (uint16)
+    out : pykokkos view (uint8)
            Output view.
 
     """
-    out = pk.View([viewA.shape[0]], pk.uint16)
+    out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
             viewA.shape[0],
@@ -1183,12 +1183,12 @@ def logical_xor(viewA, viewB):
 
 
 @pk.workunit
-def logical_not_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+def logical_not_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = not view[tid]
 
 
 @pk.workunit
-def logical_not_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+def logical_not_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = not view[tid]
 
 
@@ -1203,15 +1203,14 @@ def logical_not(view):
 
     Returns
     -------
-    out : pykokkos view
+    out : pykokkos view (uint8)
            Output view.
 
     """
+    out = pk.View([view.shape[0]], pk.uint8)
     if str(view.dtype) == "DataType.double":
-        out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], logical_not_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
-        out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], logical_not_impl_1d_float, view=view, out=out)
     return out
 
