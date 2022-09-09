@@ -30,7 +30,21 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  fmod,
                                  square,
                                  greater,
-                                 logaddexp)
+                                 logaddexp,
+                                 true_divide,
+                                 logaddexp2,
+                                 floor_divide,
+                                 sin,
+                                 cos,
+                                 tan,
+                                 logical_and,
+                                 logical_or,
+                                 logical_xor,
+                                 logical_not,
+                                 fmax,
+                                 fmin,
+                                 exp,
+                                 exp2)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
 from pykokkos.lib.util import all, any
