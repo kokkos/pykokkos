@@ -45,4 +45,4 @@ jobs:
           pip install -r requirements.txt
           export ARRAY_API_TESTS_MODULE=pykokkos
           # only run a subset of the conformance tests to get started
-          pytest array_api_tests/meta/test_broadcasting.py array_api_tests/meta/test_equality_mapping.py array_api_tests/meta/test_signatures.py array_api_tests/meta/test_special_cases.py
+          pytest array_api_tests/meta/test_broadcasting.py array_api_tests/meta/test_equality_mapping.py array_api_tests/meta/test_signatures.py array_api_tests/meta/test_special_cases.py array_api_tests/test_constants.py

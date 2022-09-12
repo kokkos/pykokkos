@@ -532,6 +532,10 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # TODO: proper implementation/design
     # for now, let's cheat and use NumPy asarray() followed
     # by pykokkos from_numpy()
+    if obj in [pk.e, pk.pi, pk.inf, pk.nan]:
+        view = pk.View([1], dtype=pk.float32)
+        view[:] = obj
+        return view
     if "bool" in str(dtype):
         dtype = np.bool_
     arr = np.asarray(obj, dtype=dtype)
