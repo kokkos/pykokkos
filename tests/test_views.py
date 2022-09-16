@@ -9,6 +9,7 @@ except ImportError:
     HAS_CUDA = False
 
 import numpy as np
+from numpy.testing import assert_allclose
 import pykokkos as pk
 
 
@@ -331,6 +332,29 @@ def test_sizes(input_arr, view_dims, view_type):
     view: view_type = pk.View(view_dims)
     view[:] = input_arr
     assert view.size == expected_size
+
+
+@pytest.mark.parametrize("const", [pk.e, pk.pi, pk.inf, pk.nan])
+@pytest.mark.parametrize("pk_dtype, np_dtype", [
+    (None, None),
+    (pk.float32, np.float32),
+    (pk.float64, np.float64),
+    (pk.double, np.float64),
+    (pk.int64, np.int64),
+    (pk.int32, np.int32),
+    ])
+def test_asarray_consts_vs_numpy(const, np_dtype, pk_dtype):
+    actual = pk.asarray(const)
+    numpy_val = np.asarray(const)
+    assert_allclose(actual, numpy_val)
+    # we compare dtype "strings" because our type system
+    # needs a ton of work still...
+    pk_type_string = str(actual.dtype).split(".")[-1][:-2]
+    numpy_type_string = str(numpy_val.dtype)
+    assert pk_type_string == numpy_type_string
+    # none of the final types for these float
+    # constants should ever be allowed to be ints
+    assert not "int" in pk_type_string
 
 
 if __name__ == '__main__':
