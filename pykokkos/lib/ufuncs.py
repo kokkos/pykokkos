@@ -1653,6 +1653,7 @@ def searchsorted(view, ele):
     return [x for x in view if x == ele][0]
 
 
+@pk.workunit
 def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isnan(view[tid])
 
