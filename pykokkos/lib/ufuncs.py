@@ -1524,7 +1524,7 @@ def mul0d_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D
     out[tid] = viewA[tid] * viewB[0]
 
 
-def mul0d(viewA, viewB):  # FIX
+def mul_num(viewA, viewB):
     view_temp = pk.View([1], pk.double)
     view_temp[0] = viewB
 

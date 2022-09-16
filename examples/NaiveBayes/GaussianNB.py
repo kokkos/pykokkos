@@ -588,8 +588,8 @@ class GaussianNB(_BaseNB):
             viewc = pk.View(res.shape, pk.double)
             viewc[:] = res
 
-            n_ij = -0.5 * pk.sum(pk.log(pk.mul0d(viewc, 2.0 * pi)))
-            n_ij = pk.add_num(pk.negative(pk.mul0d(pk.sum(pk.divide_num(pk.power_num(pk.add_num(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
+            n_ij = -0.5 * pk.sum(pk.log(pk.mul_num(viewc, 2.0 * pi)))
+            n_ij = pk.add_num(pk.negative(pk.mul_num(pk.sum(pk.divide_num(pk.power_num(pk.add_num(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
 
             joint_log_likelihood.append(jointi + n_ij)
 
