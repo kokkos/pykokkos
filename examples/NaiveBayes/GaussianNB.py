@@ -5,7 +5,7 @@ import pykokkos as pk
 from math import pi
 from functools import reduce
 
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator
 from inspect import isclass
 from itertools import chain
 
@@ -184,7 +184,7 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     if not fitted:
         raise Exception(msg % {"name": type(estimator).__name__})
 
-class _BaseNB(ClassifierMixin, BaseEstimator, metaclass=ABCMeta):
+class _BaseNB(BaseEstimator, metaclass=ABCMeta):
     """Abstract base class for naive Bayes estimators"""
 
     @abstractmethod
@@ -569,7 +569,8 @@ class GaussianNB(_BaseNB):
 
         for i in range(total_classes):
             jointi = pk.log(self.class_prior_[i])
-
+            
+            # convert subviews to views
             viewa = pk.View(X.shape, pk.double)
             viewa[:] = X
             view_tmp = pk.View(self.theta_.shape, pk.double)
