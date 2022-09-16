@@ -1394,44 +1394,18 @@ def sum_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.dou
     acc += viewA[tid]
 
 
-@pk.workunit
-def sum_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float]):
-    acc += viewA[tid]
-
-
 def sum(viewA, axis=None):
-    """
-    1D Matrix Multiplication of compatible views
-
-    Parameters
-    ----------
-    viewA : pykokkos view
-            Input view.
-    viewB : pykokkos view
-            Input view.
-
-    Returns
-    -------
-    Float/Double
-        1D sum result
-
-    """
     if(axis is not None):
         res = np.sum(viewA, axis=axis)
-        view = pk.View(res.shape, pk.float64)
+        view = pk.View(res.shape, pk.double)
         view[:] = res
 
         return view
 
-    if str(viewA.dtype) == "DataType.double" or viewA.dtype == pk.float64:
+    if str(viewA.dtype) == "DataType.double":
         return pk.parallel_reduce(
             viewA.shape[0],
             sum_impl_1d_double,
-            viewA=viewA)
-    elif str(viewA.dtype) == "DataType.float":
-        return pk.parallel_reduce(
-            viewA.shape[0],
-            sum_impl_1d_float,
             viewA=viewA)
 
 
@@ -1514,34 +1488,12 @@ def divide_num2_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.
 
 
 @pk.workunit
-def divide_num2_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = viewA[tid] / viewB[0]
-
-
-@pk.workunit
 def divide_num_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] / viewB[i]
 
 
 def divide_num(viewA, viewB):
-    """
-    divide_nums positionally corresponding elements
-    of viewA with elements of viewB
-
-    Parameters
-    ----------
-    viewA : pykokkos view
-            Input view.
-    viewB : pykokkos view
-            Input view.
-
-    Returns
-    -------
-    out : pykokkos view
-           Output view.
-
-    """
     if (not hasattr(viewB, '__iter__')):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
@@ -1555,21 +1507,11 @@ def divide_num(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
-    elif viewA.dtype == pk.float64:
+    elif str(viewA.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
             divide_num2_impl_1d_double,
-            viewA=viewA,
-            viewB=view_temp,
-            out=out)
-
-    elif viewA.dtype == pk.float32:
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            divide_num2_impl_1d_float,
             viewA=viewA,
             viewB=view_temp,
             out=out)
@@ -1582,51 +1524,18 @@ def mul0d_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D
     out[tid] = viewA[tid] * viewB[0]
 
 
-@pk.workunit
-def mul0d_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = viewA[tid] * viewB[0]
-
-
-def mul0d(viewA, viewB):
-    """
-    mul0d positionally corresponding elements
-    of viewA with elements of viewB
-
-    Parameters
-    ----------
-    viewA : pykokkos view
-            Input view.
-    viewB : pykokkos view
-            Input view.
-
-    Returns
-    -------
-    out : pykokkos view
-           Output view.
-
-    """
-
+def mul0d(viewA, viewB):  # FIX
     view_temp = pk.View([1], pk.double)
     view_temp[0] = viewB
 
-    viewc = pk.View(viewA.shape, pk.double)
+    viewc = pk.View(viewA.shape, pk.double)  # 
     viewc[:] = viewA
 
-
     if str(viewc.dtype) in {"DataType.double", "DataType.float64"}:
-        out = pk.View([viewA.shape[0]], pk.double)
+        out = pk.View([viewc.shape[0]], pk.double)
         pk.parallel_for(
-            viewc.shape[0],
+            viewA.shape[0],
             mul0d_impl_1d_double,
-            viewA=viewc,
-            viewB=view_temp,
-            out=out)
-
-    elif str(viewc.dtype) == "DataType.float":
-        out = pk.View([viewc.shape[0]], pk.float)
-        pk.parallel_for(
-            viewc.shape[0],
-            mul0d_impl_1d_float,
             viewA=viewc,
             viewB=view_temp,
             out=out)
@@ -1639,37 +1548,12 @@ def mul0d(viewA, viewB):
 def add_numm_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = viewA[tid] + viewB[0]
 
-
 @pk.workunit
-def add_numm_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = viewA[tid] + viewB[0]
-
-
-@pk.workunit
-def add_num_2d________impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def add_num_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] + viewB[i]
 
-
-
 def add_num(viewA, viewB):
-    """
-    add_nums positionally corresponding elements
-    of viewA with elements of viewB
-
-    Parameters
-    ----------
-    viewA : pykokkos view
-            Input view.
-    viewB : pykokkos view
-            Input view.
-
-    Returns
-    -------
-    out : pykokkos view
-           Output view.
-
-    """
     if (not hasattr(viewB, '__iter__')):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
@@ -1679,11 +1563,11 @@ def add_num(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            add_num_2d________impl_1d_double,
+            add_num_2d_impl_1d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
-    elif str(viewA.dtype) in {"DataType.double", "DataType.float64"}:
+    elif str(viewA.dtype) in "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1691,20 +1575,11 @@ def add_num(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
-    elif viewA.dtype == pk.float32:
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            add_numm_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
     else:
         raise RuntimeError("Incompatible Types")
     return out
 
-def get_shape(arr):
+def _get_shape(arr):
     rows = len(arr)
     cols = 1
 
@@ -1723,18 +1598,18 @@ def array(view):
 
 def transpose(view):
     res = list(map(list, zip(*view)))
-    view = pk.View(get_shape(res), pk.double)
+    view = pk.View(_get_shape(res), pk.double)
     view[:] = res
 
     return view
 
 @pk.workunit
-def power2__impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def power_num_impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = pow(viewA[tid][i], viewB[0])
 
 
-def power2(viewA, viewB):
+def power_num(viewA, viewB):
     if (not hasattr(viewB, '__iter__')):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
@@ -1744,7 +1619,7 @@ def power2(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            power2__impl_2d_double,
+            power_num_impl_2d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
@@ -1754,7 +1629,7 @@ def power2(viewA, viewB):
 
 
 @pk.workunit
-def index____impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
+def index_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
     out[tid] = viewA[viewB[tid]]
 
 def index(viewA, viewB):
@@ -1762,7 +1637,7 @@ def index(viewA, viewB):
         out = pk.View(viewB.shape, pk.double)
         pk.parallel_for(
             viewB.shape[0],
-            index____impl_1d_double,
+            index_impl_1d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)

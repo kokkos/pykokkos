@@ -494,7 +494,7 @@ class GaussianNB(_BaseNB):
             self.theta_ = pk.zeros((n_classes, n_features))
             self.var_ = pk.zeros((n_classes, n_features))
 
-            self.class_count_ = pk.zeros(n_classes, dtype=pk.float64)
+            self.class_count_ = pk.zeros(n_classes, dtype=pk.double)
 
             # Initialise the class prior
             # Take into account the priors
@@ -512,7 +512,7 @@ class GaussianNB(_BaseNB):
                 self.class_prior_ = priors
             else:
                 # Initialize the priors to zeros for each class
-                self.class_prior_ = pk.zeros(len(self.classes_), dtype=pk.float64)
+                self.class_prior_ = pk.zeros(len(self.classes_), dtype=pk.double)
         else:
             if X.shape[1] != self.theta_.shape[1]:
                 msg = "Number of features %d does not match previous data %d."
@@ -588,7 +588,7 @@ class GaussianNB(_BaseNB):
             viewc[:] = res
 
             n_ij = -0.5 * pk.sum(pk.log(pk.mul0d(viewc, 2.0 * pi)))
-            n_ij = pk.add_num(pk.negative(pk.mul0d(pk.sum(pk.divide_num(pk.power2(pk.add_num(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
+            n_ij = pk.add_num(pk.negative(pk.mul0d(pk.sum(pk.divide_num(pk.power_num(pk.add_num(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
 
             joint_log_likelihood.append(jointi + n_ij)
 
