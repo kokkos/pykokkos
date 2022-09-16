@@ -60,8 +60,8 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  index,
                                  findMax,
                                  searchsorted,
-                                isinf,
-                                isnan)
+                                 isinf,
+                                 isnan)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
 from pykokkos.lib.util import all, any
