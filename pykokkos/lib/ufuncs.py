@@ -1,4 +1,6 @@
+from typing import Sequence
 import pykokkos as pk
+import numpy as np
 
 
 @pk.workunit
@@ -84,12 +86,18 @@ def log(view):
         Output view.
 
     """
+    if (not hasattr(view, '__iter__')):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = view
+        view = view_temp
+
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], log_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log_impl_1d_float, view=view)
-    return view
-
+    
+    return view if view.shape[0] > 1 else view[0]
+ 
 
 @pk.workunit
 def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
@@ -1378,4 +1386,442 @@ def exp2(view):
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], exp2_impl_1d_float, view=view, out=out)
+    return out
+
+
+@pk.workunit
+def sum_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double]):
+    acc += viewA[tid]
+
+
+@pk.workunit
+def sum_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float]):
+    acc += viewA[tid]
+
+
+def sum(viewA, axis=None):
+    """
+    1D Matrix Multiplication of compatible views
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    Float/Double
+        1D sum result
+
+    """
+    if(axis is not None):
+        res = np.sum(viewA, axis=axis)
+        view = pk.View(res.shape, pk.float64)
+        view[:] = res
+
+        return view
+
+    if str(viewA.dtype) == "DataType.double" or viewA.dtype == pk.float64:
+        return pk.parallel_reduce(
+            viewA.shape[0],
+            sum_impl_1d_double,
+            viewA=viewA)
+    elif str(viewA.dtype) == "DataType.float":
+        return pk.parallel_reduce(
+            viewA.shape[0],
+            sum_impl_1d_float,
+            viewA=viewA)
+
+
+def argmax(view, axis):
+    res = np.argmax(view, axis=axis)
+    view = pk.View(res.shape, pk.int32)
+    view[:] = res
+
+    return view
+
+def unique(view):
+    res = np.unique(view)
+    view = pk.View(res.shape, pk.double)
+    view[:] = res
+
+    return view
+
+def var(view, axis):
+    res = np.var(view, axis=axis)
+    view = pk.View(res.shape, pk.double)
+    view[:] = res
+
+    return view
+
+# @pk.workunit
+# def mean0___impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+#     out[tid] = 0
+#     for i in range(viewA.extent(0)):
+#         out[tid] = out[tid] + (viewA[tid][i] / viewA.extent(0))
+
+
+# @pk.workunit
+# def mean1_____impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+#     x = 0
+#     for i in range(viewA.extent(1)):
+#         x += (viewA[i][tid] / viewA.extent(1))
+#     out[tid] = x
+
+
+
+def mean(view, axis):
+    viewA = pk.View(view.shape, pk.double)
+    viewA[:] = view
+
+    if str(viewA.dtype) == "DataType.double":
+        if (axis == 0):
+            sum_view = sum(viewA, axis=0)
+            return divide_num(sum_view, viewA.shape[0]) 
+        else:
+            sum_view = sum(viewA, axis=1)
+            return divide_num(sum_view, viewA.shape[1])
+    else:
+        raise RuntimeError("Incompatible Types")
+
+
+@pk.workunit
+def in1d_impl_1_d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.int8]):
+    out[tid] = 0
+    for i in range(viewB.extent(0)):
+        if (viewB[i] == viewA[tid]):
+            out[tid] = 1
+
+def in1d(viewA, viewB):
+    if str(viewA.dtype) == "DataType.double":
+        out = pk.View(viewA.shape, pk.int8)
+        pk.parallel_for(
+            viewA.shape[0],
+            in1d_impl_1_d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+
+    return out
+
+@pk.workunit
+def divide_num2_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] / viewB[0]
+
+
+@pk.workunit
+def divide_num2_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] / viewB[0]
+
+
+@pk.workunit
+def divide_num_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = viewA[tid][i] / viewB[i]
+
+
+def divide_num(viewA, viewB):
+    """
+    divide_nums positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    out : pykokkos view
+           Output view.
+
+    """
+    if (not hasattr(viewB, '__iter__')):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
+    if len(viewA.shape) == 2:
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_num_2d_impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+
+    elif viewA.dtype == pk.float64:
+        out = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_num2_impl_1d_double,
+            viewA=viewA,
+            viewB=view_temp,
+            out=out)
+
+    elif viewA.dtype == pk.float32:
+        out = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_num2_impl_1d_float,
+            viewA=viewA,
+            viewB=view_temp,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
+
+@pk.workunit
+def mul0d_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] * viewB[0]
+
+
+@pk.workunit
+def mul0d_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] * viewB[0]
+
+
+def mul0d(viewA, viewB):
+    """
+    mul0d positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    out : pykokkos view
+           Output view.
+
+    """
+
+    view_temp = pk.View([1], pk.double)
+    view_temp[0] = viewB
+
+    viewc = pk.View(viewA.shape, pk.double)
+    viewc[:] = viewA
+
+
+    if str(viewc.dtype) in {"DataType.double", "DataType.float64"}:
+        out = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewc.shape[0],
+            mul0d_impl_1d_double,
+            viewA=viewc,
+            viewB=view_temp,
+            out=out)
+
+    elif str(viewc.dtype) == "DataType.float":
+        out = pk.View([viewc.shape[0]], pk.float)
+        pk.parallel_for(
+            viewc.shape[0],
+            mul0d_impl_1d_float,
+            viewA=viewc,
+            viewB=view_temp,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
+
+
+@pk.workunit
+def add_numm_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = viewA[tid] + viewB[0]
+
+
+@pk.workunit
+def add_numm_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = viewA[tid] + viewB[0]
+
+
+@pk.workunit
+def add_num_2d________impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = viewA[tid][i] + viewB[i]
+
+
+
+def add_num(viewA, viewB):
+    """
+    add_nums positionally corresponding elements
+    of viewA with elements of viewB
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    out : pykokkos view
+           Output view.
+
+    """
+    if (not hasattr(viewB, '__iter__')):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
+    if len(viewA.shape) == 2:
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_num_2d________impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    elif str(viewA.dtype) in {"DataType.double", "DataType.float64"}:
+        out = pk.View([viewA.shape[0]], pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_numm_impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+
+    elif viewA.dtype == pk.float32:
+        out = pk.View([viewA.shape[0]], pk.float)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_numm_impl_1d_float,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
+
+def get_shape(arr):
+    rows = len(arr)
+    cols = 1
+
+    if (rows > 0 and isinstance(arr[0], Sequence)):
+        cols = len(arr[0])
+    
+    return [rows, cols] if (cols > 1) else [rows]
+
+
+def array(view):
+    res = np.array(view)
+    view = pk.View(res.shape, pk.double)
+    view[:] = res
+
+    return view
+
+def transpose(view):
+    res = list(map(list, zip(*view)))
+    view = pk.View(get_shape(res), pk.double)
+    view[:] = res
+
+    return view
+
+@pk.workunit
+def power2__impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = pow(viewA[tid][i], viewB[0])
+
+
+def power2(viewA, viewB):
+    if (not hasattr(viewB, '__iter__')):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
+    if str(viewA.dtype) == "DataType.double":
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            power2__impl_2d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
+
+
+@pk.workunit
+def index____impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
+    out[tid] = viewA[viewB[tid]]
+
+def index(viewA, viewB):
+    if str(viewB.dtype) == "DataType.int32":
+        out = pk.View(viewB.shape, pk.double)
+        pk.parallel_for(
+            viewB.shape[0],
+            index____impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
+
+
+def findMax(viewA):
+    return max(viewA)
+
+def searchsorted(view, ele):
+    return [x for x in view if x == ele][0]
+
+
+def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+def isnan(view):
+    out = pk.View([*view.shape], dtype=pk.uint8)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isnan_impl_1d_double,
+                        view=view,
+                        out=out)
+    elif "float" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isnan_impl_1d_float,
+                        view=view,
+                        out=out)
+    return out
+
+
+@pk.workunit
+def isinf_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
+    out[tid] = isinf(view[tid])
+
+
+@pk.workunit
+def isinf_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
+    out[tid] = isinf(view[tid])
+
+
+def isinf(view):
+    out = pk.View([*view.shape], dtype=pk.uint8)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isinf_impl_1d_double,
+                        view=view,
+                        out=out)
+    elif "float" in str(view.dtype):
+        pk.parallel_for(view.shape[0],
+                        isinf_impl_1d_float,
+                        view=view,
+                        out=out)
     return out

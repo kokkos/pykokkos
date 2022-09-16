@@ -8,12 +8,14 @@ import numpy as np
 # https://data-apis.org/array-api/2021.12/API_specification/utility_functions.html
 
 def all(x, /, *, axis=None, keepdims=False):
+    return np.all(x)
     if x == True:
         return True
     elif x == False:
         return False
     np_result = np.all(x)
     ret_val = pk.View(pk.from_numpy(np.all(x)))
+
     return ret_val
 
 

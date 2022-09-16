@@ -44,10 +44,28 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  fmax,
                                  fmin,
                                  exp,
-                                 exp2)
+                                 exp2,
+                                 argmax,
+                                 unique,
+                                 var,
+                                 in1d,
+                                 mean,
+                                 sum,
+                                 divide_num,
+                                 mul0d,
+                                 add_num,
+                                 array,
+                                 transpose,
+                                 power2,
+                                 index,
+                                 findMax,
+                                 searchsorted,
+                                isinf,
+                                isnan)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
 from pykokkos.lib.util import all, any
+from pykokkos.lib.constants import e, pi, inf, nan
 
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
