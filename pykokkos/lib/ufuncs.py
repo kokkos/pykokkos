@@ -1393,14 +1393,32 @@ def exp2(view):
 def sum_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double]):
     acc += viewA[tid]
 
+@pk.workunit
+def sum_axis0_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(viewA.extent(0)):
+        out[tid] += viewA[i][tid]
+
+
+@pk.workunit
+def sum_axis1_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(viewA.extent(1)):
+        out[tid] += viewA[tid][i]
+
 
 def sum(viewA, axis=None):
     if(axis is not None):
-        res = np.sum(viewA, axis=axis)
-        view = pk.View(res.shape, pk.double)
-        view[:] = res
+        if (axis == 0):
+            out = pk.View([viewA.shape[1]], pk.double)
+            pk.parallel_for(viewA.shape[1], sum_axis0_impl_1d_double, viewA=viewA, out=out)
+            return out
+        else:
+            out = pk.View([viewA.shape[0]], pk.double)
+            pk.parallel_for(viewA.shape[0], sum_axis1_impl_1d_double, viewA=viewA, out=out)
 
-        return view
+            return out
+
 
     if str(viewA.dtype) == "DataType.double":
         return pk.parallel_reduce(
@@ -1430,20 +1448,18 @@ def var(view, axis):
 
     return view
 
-# @pk.workunit
-# def mean0___impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
-#     out[tid] = 0
-#     for i in range(viewA.extent(0)):
-#         out[tid] = out[tid] + (viewA[tid][i] / viewA.extent(0))
+@pk.workunit
+def mean_axis0_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(viewA.extent(0)):
+        out[tid] += (viewA[i][tid] / viewA.extent(0))
 
 
-# @pk.workunit
-# def mean1_____impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
-#     x = 0
-#     for i in range(viewA.extent(1)):
-#         x += (viewA[i][tid] / viewA.extent(1))
-#     out[tid] = x
-
+@pk.workunit
+def mean_axis1_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(viewA.extent(1)):
+        out[tid] += (viewA[tid][i] / viewA.extent(1))
 
 
 def mean(view, axis):
@@ -1452,11 +1468,14 @@ def mean(view, axis):
 
     if str(viewA.dtype) == "DataType.double":
         if (axis == 0):
-            sum_view = sum(viewA, axis=0)
-            return divide_num(sum_view, viewA.shape[0]) 
+            out = pk.View([view.shape[1]], pk.double)
+            pk.parallel_for(viewA.shape[1], mean_axis0_impl_1d_double, viewA=viewA, out=out)
+            return out
         else:
-            sum_view = sum(viewA, axis=1)
-            return divide_num(sum_view, viewA.shape[1])
+            out = pk.View([view.shape[0]], pk.double)
+            pk.parallel_for(viewA.shape[0], mean_axis1_impl_1d_double, viewA=viewA, out=out)
+
+            return out
     else:
         raise RuntimeError("Incompatible Types")
 
