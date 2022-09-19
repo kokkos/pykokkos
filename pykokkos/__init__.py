@@ -8,7 +8,8 @@ from pykokkos.kokkos_manager import (
     initialize, finalize,
     get_default_space, set_default_space,
     get_default_precision, set_default_precision,
-    is_uvm_enabled, enable_uvm, disable_uvm
+    is_uvm_enabled, enable_uvm, disable_uvm,
+    set_device_id
 )
 
 initialize()

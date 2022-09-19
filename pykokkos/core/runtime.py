@@ -9,7 +9,8 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
-    RandomPool, RangePolicy, TeamPolicy, View, ViewType
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType,
+    is_host_execution_space
 )
 import pykokkos.kokkos_manager as km
 
@@ -47,7 +48,7 @@ class Runtime:
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        self.execute(workload, module_setup, members)
+        self.execute(workload, module_setup, members, space)
         self.run_callbacks(workload, members)
 
 
@@ -82,7 +83,7 @@ class Runtime:
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        return self.execute(workunit, module_setup, members, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -100,6 +101,7 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         module_setup: ModuleSetup,
         members: PyKokkosMembers,
+        space: ExecutionSpace,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
         **kwargs
@@ -110,13 +112,21 @@ class Runtime:
         :param entity: the workload or workunit object
         :param module_path: the path to the compiled module
         :param members: a collection of PyKokkos related members
+        :param space: the execution space
         :param policy: the execution policy for workunits
         :param name: the name of the kernel
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for "for" and workloads)
         """
 
-        module = self.import_module(module_setup.name, module_setup.path)
+        module_path: str
+        if is_host_execution_space(space):
+            module_path = module_setup.path
+        else:
+            device_id: int = km.get_device_id()
+            module_path = module_setup.gpu_module_paths[device_id]
+
+        module = self.import_module(module_setup.name, module_path)
 
         args: Dict[str, Any] = self.get_arguments(entity, members, policy, **kwargs)
         if name is None:
@@ -141,12 +151,14 @@ class Runtime:
         :returns: the imported module
         """
 
-        if module_name in sys.modules:
-            return sys.modules[module_name]
+        hashed_name: str = module_name.replace("kernel", f"kernel_{km.get_device_id()}")
+
+        if hashed_name in sys.modules:
+            return sys.modules[hashed_name]
 
         spec = importlib.util.spec_from_file_location(module_name, module_path)
         module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
+        sys.modules[hashed_name] = module
         spec.loader.exec_module(module)
 
         return module
