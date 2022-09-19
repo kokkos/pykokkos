@@ -178,7 +178,7 @@ class Compiler:
         if module_setup.is_compiled():
             return
 
-        cpp_setup = CppSetup(module_setup.module_file, self.functor_file, self.bindings_file)
+        cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files, self.functor_file, self.bindings_file)
         translator = StaticTranslator(module_setup.name, self.functor_file, members)
 
         t_start: float = time.perf_counter()

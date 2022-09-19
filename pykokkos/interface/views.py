@@ -1,9 +1,9 @@
 from __future__ import annotations
 import ctypes
-import os
 import math
 from enum import Enum
 import sys
+from types import ModuleType
 from typing import (
     Dict, Generic, Iterator, List, Optional,
     Tuple, TypeVar, Union
@@ -215,7 +215,10 @@ class View(ViewType):
             shape_list[dimension] = size
 
         self.shape = tuple(shape_list)
-        self.array = kokkos.array(
+
+        is_cpu: bool = self.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+        self.array = kokkos_lib.array(
             "", self.shape, None, None, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
         self.data = np.array(self.array, copy=False)
 
@@ -276,6 +279,9 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
+        is_cpu: bool = self.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+
         if self.dtype == pk.float:
             self.dtype = DataType.float
         elif self.dtype == pk.double:
@@ -285,11 +291,11 @@ class View(ViewType):
         elif self.dtype == pk.int64:
             pass
         if trait is trait.Unmanaged:
-            self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
+            self.array = kokkos_lib.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
             if len(self.shape) == 0:
                 shape = [1]
-            self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
+            self.array = kokkos_lib.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
 
     def _get_type(self, dtype: Union[DataType, type]) -> Optional[DataType]:
@@ -357,10 +363,15 @@ class Subview(ViewType):
 
         self.data: np.ndarray = parent_view.data[data_slice]
         self.dtype = parent_view.dtype
-        self.array = kokkos.array(
+
+        is_cpu: bool = self.parent_view.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+
+        self.array = kokkos_lib.array(
             self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
             layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: Tuple[int] = self.data.shape
+
         if self.data.shape == (0,):
             self.data = np.array([], dtype=self.data.dtype)
             self.shape = ()
