@@ -284,6 +284,10 @@ class View(ViewType):
             self.dtype = DataType.int32
         elif self.dtype == pk.int64:
             pass
+        elif self.dtype == pk.uint32:
+            self.dtype = DataType.uint32
+        elif self.dtype == pk.uint64:
+            self.dtype = DataType.uint64
         if trait is trait.Unmanaged:
             self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:

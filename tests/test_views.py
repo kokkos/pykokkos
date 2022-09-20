@@ -9,7 +9,7 @@ except ImportError:
     HAS_CUDA = False
 
 import numpy as np
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 import pykokkos as pk
 
 
@@ -355,6 +355,21 @@ def test_asarray_consts_vs_numpy(const, np_dtype, pk_dtype):
     # none of the final types for these float
     # constants should ever be allowed to be ints
     assert not "int" in pk_type_string
+
+
+
+@pytest.mark.parametrize("pk_dtype, np_dtype", [
+    (pk.uint8, np.uint8),
+    (pk.uint16, np.uint16),
+    (pk.uint32, np.uint32),
+    (pk.uint64, np.uint64),
+    ])
+def test_unsigned_int_overflow(pk_dtype, np_dtype):
+    # test for gh-86
+    actual = pk.View([1], dtype=pk_dtype)
+    actual[:] = -1
+    expected = np.array(-1, dtype=np_dtype)
+    assert_equal(actual, expected)
 
 
 if __name__ == '__main__':
