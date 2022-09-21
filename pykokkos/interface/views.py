@@ -451,7 +451,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
 
     if np_dtype is np.int8:
         dtype = int8
-    if np_dtype is np.int16:
+    elif np_dtype is np.int16:
         dtype = int16
     elif np_dtype is np.int32:
         dtype = int32
