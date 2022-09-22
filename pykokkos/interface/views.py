@@ -181,7 +181,7 @@ class ViewType:
 class View(ViewType):
     def __init__(
         self,
-        shape: Tuple[int],
+        shape: Union[List[int], Tuple[int]],
         dtype: Union[DataTypeClass, type] = real,
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
@@ -191,7 +191,7 @@ class View(ViewType):
         """
         View constructor.
 
-        :param shape: the shape of the view as a tuple of integers
+        :param shape: the shape of the view as a list or tuple of integers
         :param dtype: the data type of the view, either a pykokkos DataType or "int" or "float".
         :param space: the memory space of the view. Will be set to the execution space of the view by default.
         :param layout: the layout of the view in memory.
@@ -256,7 +256,7 @@ class View(ViewType):
         """
         Initialize the view
 
-        :param shape: the shape of the view as a tuple of integers
+        :param shape: the shape of the view as a list or tuple of integers
         :param dtype: the data type of the view, either a pykokkos DataType or "int" or "float".
         :param space: the memory space of the view. Will be set to the execution space of the view by default.
         :param layout: the layout of the view in memory.
@@ -265,8 +265,6 @@ class View(ViewType):
         """
 
         self.shape: Tuple[int] = tuple(shape)
-        if self.shape == (0,):
-            self.shape = ()
         self.size: int = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
@@ -286,9 +284,6 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
-        # TODO: if ufuncs stop inspecting
-        # type "strings," we should be able to
-        # purge these mappings
         if self.dtype == pk.float:
             self.dtype = DataType.float
         elif self.dtype == pk.double:

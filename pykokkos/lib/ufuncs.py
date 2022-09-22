@@ -1437,7 +1437,7 @@ def equal_impl_1d_double(tid: int,
                          view1: pk.View1D[pk.double],
                          view2: pk.View1D[pk.double],
                          view2_size: int,
-                         view_result: pk.View1D[pk.uint16]):
+                         view_result: pk.View1D[pk.uint8]):
     view2_idx: int = 0
     if view2_size == 1:
         view2_idx = 0
@@ -1454,7 +1454,7 @@ def equal_impl_1d_uint16(tid: int,
                          view1: pk.View1D[pk.uint16],
                          view2: pk.View1D[pk.uint16],
                          view2_size: int,
-                         view_result: pk.View1D[pk.uint16]):
+                         view_result: pk.View1D[pk.uint8]):
     view2_idx: int = 0
     if view2_size == 1:
         view2_idx = 0
@@ -1471,7 +1471,7 @@ def equal_impl_1d_int16(tid: int,
                          view1: pk.View1D[pk.int16],
                          view2: pk.View1D[pk.int16],
                          view2_size: int,
-                         view_result: pk.View1D[pk.uint16]):
+                         view_result: pk.View1D[pk.uint8]):
     view2_idx: int = 0
     if view2_size == 1:
         view2_idx = 0
@@ -1488,7 +1488,7 @@ def equal_impl_1d_int32(tid: int,
                          view1: pk.View1D[pk.int32],
                          view2: pk.View1D[pk.int32],
                          view2_size: int,
-                         view_result: pk.View1D[pk.uint16]):
+                         view_result: pk.View1D[pk.uint8]):
     view2_idx: int = 0
     if view2_size == 1:
         view2_idx = 0
@@ -1505,7 +1505,7 @@ def equal_impl_1d_int64(tid: int,
                          view1: pk.View1D[pk.int64],
                          view2: pk.View1D[pk.int64],
                          view2_size: int,
-                         view_result: pk.View1D[pk.uint16]):
+                         view_result: pk.View1D[pk.uint8]):
     view2_idx: int = 0
     if view2_size == 1:
         view2_idx = 0
@@ -1530,33 +1530,7 @@ def equal(view1, view2):
             # scalar (i.e., matching number of columns)
             raise ValueError("view1 and view2 have incompatible shapes")
 
-    # TODO: something more appropriate than uint16 as a proxy
-    # for the bool type? (a shorter integer like uint8
-    # at least?)
-    view_result = pk.View([*view1.shape], dtype=pk.uint16)
-
-    # NOTE: the blocks below are asymmetric on view1 vs view2,
-    # and also quite awkward--they evolved from making the array API
-    # test_ones() test pass, but need refinement or removal eventually
-    try:
-        if isinstance(view2.array, np.ndarray):
-            if view2.size <= 1:
-                new_shape = (1,)
-            else:
-                new_shape = view2.shape
-            view2r = pk.View([*new_shape], dtype=view2.dtype)
-            view2r[:] = view2.array
-            view2 = view2r
-    except AttributeError:
-        pass
-    try:
-        if isinstance(view1.array, np.ndarray):
-            if view1.shape == () or view1.shape == (0,):
-                view1r = pk.View([1], dtype=view1.dtype)
-                view1r[:] = view1.array
-                view1 = view1r
-    except AttributeError:
-        pass
+    view_result = pk.View([*view1.shape], dtype=pk.uint8)
 
     if ("double" in str(view1.dtype) or "float64" in str(view1.dtype) and
        ("double" in str(view2.dtype) or "float64" in str(view2.dtype))):
