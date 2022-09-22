@@ -280,14 +280,6 @@ class View(ViewType):
             self.dtype = DataType.float
         elif self.dtype == pk.double:
             self.dtype = DataType.double
-        elif self.dtype == pk.int32:
-            self.dtype = DataType.int32
-        elif self.dtype == pk.int64:
-            pass
-        elif self.dtype == pk.uint32:
-            self.dtype = DataType.uint32
-        elif self.dtype == pk.uint64:
-            self.dtype = DataType.uint64
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
                 # TODO: we don't really support 0-D under the hood--use
