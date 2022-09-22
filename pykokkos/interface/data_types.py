@@ -58,12 +58,12 @@ class uint16(DataTypeClass):
 
 
 class uint32(DataTypeClass):
-    value = kokkos.int32
+    value = kokkos.uint32
     np_equiv = np.uint32
 
 
 class uint64(DataTypeClass):
-    value = kokkos.int64
+    value = kokkos.uint64
     np_equiv = np.uint64
 
 
