@@ -1471,12 +1471,37 @@ def unique(view):
 
     return view
 
-def var(view, axis):
-    res = np.var(view, axis=axis)
-    view = pk.View(res.shape, pk.double)
-    view[:] = res
+@pk.workunit
+def var_2d_axis0_impl(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(0)):
+        out[tid] += (pow(view[i][tid] - view_mean[tid], 2)) / view.extent(0)
 
-    return view
+
+@pk.workunit
+def var_2d_axis1_impl(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(1)):
+        out[tid] += (pow(view[tid][i] - view_mean[tid], 2)) / view.extent(1)
+
+
+def var(view, axis):
+    view_temp = pk.View(view.shape, pk.double)
+    view_temp[:] = view
+    view = view_temp
+
+    if str(view.dtype) == "DataType.double":
+        if axis == 0:
+            view_mean = mean(view, 0)
+            out = pk.View([view.shape[1]], pk.double)
+            pk.parallel_for(view.shape[1], var_2d_axis0_impl, view=view, view_mean=view_mean, out=out)
+            return out
+        else:
+            view_mean = mean(view, 1)
+            out = pk.View([view.shape[0]], pk.double)
+            pk.parallel_for(view.shape[0], var_2d_axis1_impl, view=view, view_mean=view_mean, out=out)
+            return out
+
 
 @pk.workunit
 def mean_axis0_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
@@ -1533,22 +1558,24 @@ def in1d(viewA, viewB):
     return out
 
 
-def _get_shape(arr):
-    rows = len(arr)
-    cols = 1
-
-    if rows > 0 and isinstance(arr[0], Sequence):
-        cols = len(arr[0])
-    
-    return [rows, cols] if cols > 1 else [rows]
+@pk.workunit
+def transpose_impl_2d(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[i][tid] = view[tid][i]
 
 
 def transpose(view):
-    res = list(map(list, zip(*view)))
-    view = pk.View(_get_shape(res), pk.double)
-    view[:] = res
+    view_temp = pk.View(view.shape, dtype=pk.double)
+    view_temp[:] = view
+    view = view_temp
 
-    return view
+    if view.rank() == 2:
+        if str(view.dtype) == "DataType.double":
+            out = pk.View(view.shape[::-1], pk.double)
+            pk.parallel_for(view.shape[0], transpose_impl_2d, view=view, out=out)
+            return out
+    
+    raise RuntimeError("Incompatible Types")
 
 
 @pk.workunit
