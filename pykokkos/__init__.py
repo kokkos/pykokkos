@@ -50,13 +50,7 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  var,
                                  in1d,
                                  mean,
-                                 sum,
-                                 divide_num,
-                                 mul_num,
-                                 add_num,
-                                 array,
                                  transpose,
-                                 power_num,
                                  index,
                                  findMax,
                                  searchsorted,
@@ -64,7 +58,7 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  isnan)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
-from pykokkos.lib.util import all, any
+from pykokkos.lib.util import all, any, sum
 from pykokkos.lib.constants import e, pi, inf, nan
 
 runtime_singleton.runtime = Runtime()

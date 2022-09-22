@@ -479,6 +479,13 @@ class GaussianNB(_BaseNB):
 
         first_call = _check_partial_fit_first_call(self, classes)
         X, y = self._validate_data(X, y, reset=first_call)
+        temp = pk.View(y.shape, dtype=pk.double)
+        temp[:] = y
+        y = temp
+
+        temp = pk.View(X.shape, dtype=pk.double)
+        temp[:] = X
+        X = temp
 
         # If the ratio of data variance between dimensions is too small, it
         # will cause numerical errors. To address this, we artificially
@@ -559,7 +566,7 @@ class GaussianNB(_BaseNB):
         # Update if only no priors is provided
         if self.priors is None:
             # Empirical prior, with sample_weight taken into account
-            self.class_prior_ = pk.divide_num(self.class_count_, pk.sum(self.class_count_))
+            self.class_prior_ = pk.divide(self.class_count_, pk.sum(self.class_count_))
 
         return self
 
@@ -588,12 +595,12 @@ class GaussianNB(_BaseNB):
             viewc = pk.View(res.shape, pk.double)
             viewc[:] = res
 
-            n_ij = -0.5 * pk.sum(pk.log(pk.mul_num(viewc, 2.0 * pi)))
-            n_ij = pk.add_num(pk.negative(pk.mul_num(pk.sum(pk.divide_num(pk.power_num(pk.add_num(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
+            n_ij = -0.5 * pk.sum(pk.log(pk.multiply(viewc, 2.0 * pi)))
+            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
 
-            joint_log_likelihood.append(jointi + n_ij)
+            joint_log_likelihood.append(pk.add(n_ij, jointi))
 
-        joint_log_likelihood = pk.transpose(pk.array(joint_log_likelihood))
+        joint_log_likelihood = pk.transpose(pk.asarray(joint_log_likelihood))
         return joint_log_likelihood
 
 def main():
