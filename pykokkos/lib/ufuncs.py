@@ -521,7 +521,7 @@ def divide(viewA, viewB):
            Output view.
 
     """
-    if not isinstance(viewB, pk.View):
+    if not isinstance(viewB, pk.View) and not isinstance(viewB, pk.Subview):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
         viewB = view_temp

@@ -333,9 +333,8 @@ class View(ViewType):
 
 
     def __eq__(self, other):
-        # Tempprary fix. Will change soon 
-        if other.dtype.type == np.float64:
-            return self.array == other
+        if not isinstance(other, pk.View):
+            return [i == other for i in self]
 
         if self.array == other:
             return True
