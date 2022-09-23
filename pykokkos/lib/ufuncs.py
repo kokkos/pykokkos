@@ -1,8 +1,7 @@
-from typing import Sequence
-
-import pykokkos as pk
-import numpy as np
 import math
+
+import numpy as np
+import pykokkos as pk
 
 
 @pk.workunit
@@ -97,7 +96,7 @@ def log(view):
         pk.parallel_for(view.shape[0], log_impl_1d_float, view=view)
     
     return view
- 
+
 
 @pk.workunit
 def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
@@ -276,7 +275,7 @@ def add_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.
     out[tid] = viewA[tid] + viewB[tid]
 
 @pk.workunit
-def add_num_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def add_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] + viewB[i % viewB.extent(0)]
 
@@ -308,7 +307,7 @@ def add(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            add_num_2d_impl_1d_double,
+            add_2d_impl_1d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
@@ -1564,7 +1563,7 @@ def transpose(view):
             pk.parallel_for(view.shape[0], transpose_impl_2d, view=view, out=out)
             return out
     
-    raise RuntimeError("Incompatible Types")
+    raise RuntimeError("Transpose supports 2D views only")
 
 
 @pk.workunit
