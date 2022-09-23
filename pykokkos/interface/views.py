@@ -284,8 +284,17 @@ class View(ViewType):
             self.dtype = DataType.int32
         elif self.dtype == pk.int64:
             pass
+        elif self.dtype == pk.uint32:
+            self.dtype = DataType.uint32
+        elif self.dtype == pk.uint64:
+            self.dtype = DataType.uint64
         if trait is trait.Unmanaged:
-            self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
+            if array is not None and array.ndim == 0:
+                # TODO: we don't really support 0-D under the hood--use
+                # NumPy for now...
+                self.array = array
+            else:
+                self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
             if len(self.shape) == 0:
                 shape = [1]
@@ -321,6 +330,19 @@ class View(ViewType):
             return DataType["double"]
 
         return None
+
+
+    def __eq__(self, other):
+        if self.array == other:
+            return True
+        else:
+            return False
+
+
+    def __hash__(self):
+        hash_value = hash(self.array)
+        return hash_value
+
 
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
@@ -429,7 +451,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
 
     if np_dtype is np.int8:
         dtype = int8
-    if np_dtype is np.int16:
+    elif np_dtype is np.int16:
         dtype = int16
     elif np_dtype is np.int32:
         dtype = int32
@@ -468,7 +490,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     # temporary/terrible hack here for array API testing..
     if array.ndim == 0:
         ret_list = ()
-        array = np.array(())
+        array = np.array(array, dtype=np_dtype)
     else:
         ret_list = list((array.shape))
 
@@ -547,7 +569,10 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         return view
     if "bool" in str(dtype):
         dtype = np.bool_
-    arr = np.asarray(obj, dtype=dtype)
+    if dtype is not None:
+        arr = np.asarray(obj, dtype=dtype.np_equiv)
+    else:
+        arr = np.asarray(obj)
     ret = from_numpy(arr)
     return ret
 
