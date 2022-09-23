@@ -13,7 +13,7 @@ def all(x, /, *, axis=None, keepdims=False):
     elif x == False:
         return False
     np_result = np.all(x)
-    ret_val = pk.View(pk.from_numpy(np.all(x)))
+    ret_val = pk.from_numpy(np_result)
     return ret_val
 
 
