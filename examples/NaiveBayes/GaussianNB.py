@@ -378,14 +378,15 @@ class GaussianNB(_BaseNB):
         self : object
             Returns the instance itself.
         """
-        y = self._validate_data(y=y)
+        y = pk.asarray(self._validate_data(y=y))
+
         return self._partial_fit(
             X, y, pk.unique(y), _refit=True, sample_weight=sample_weight
         )
 
     def _check_X(self, X):
         """Validate X, used only in predict* methods."""
-        return self._validate_data(X, reset=False)
+        return pk.asarray(self._validate_data(X, reset=False))
 
     @staticmethod
     def _update_mean_variance(n_past, mu, var, X, sample_weight=None):
@@ -510,13 +511,8 @@ class GaussianNB(_BaseNB):
 
         first_call = _check_partial_fit_first_call(self, classes)
         X, y = self._validate_data(X, y, reset=first_call)
-        temp = pk.View(y.shape, dtype=pk.double)
-        temp[:] = y
-        y = temp
-
-        temp = pk.View(X.shape, dtype=pk.double)
-        temp[:] = X
-        X = temp
+        y = pk.asarray(y)
+        X = pk.asarray(X)
 
         # If the ratio of data variance between dimensions is too small, it
         # will cause numerical errors. To address this, we artificially
@@ -541,9 +537,6 @@ class GaussianNB(_BaseNB):
                 # Check that the provided prior matches the number of classes
                 if len(priors) != n_classes:
                     raise ValueError("Number of priors must match number of classes.")
-                # Check that the sum is 1
-                if not pk.isclose(priors.sum(), 1.0):
-                    raise ValueError("The sum of the priors should be 1.")
                 # Check that the priors are non-negative
                 if (priors < 0).any():
                     raise ValueError("Priors must be non-negative.")
@@ -607,13 +600,9 @@ class GaussianNB(_BaseNB):
 
         for i in range(total_classes):
             jointi = pk.log(self.class_prior_[i])
-            
-            # convert subviews to views
-            viewa = pk.View(X.shape, pk.double)
-            viewa[:] = X
 
             n_ij = -0.5 * pk.sum(pk.log(pk.multiply(self.var_[i, :], 2.0 * pi)))
-            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(viewa, pk.negative(self.theta_[i, :])), 2), self.var_[i, :]), 1), 0.5)), n_ij)
+            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(X, pk.negative(self.theta_[i, :])), 2), self.var_[i, :]), 1), 0.5)), n_ij)
 
             joint_log_likelihood.append(pk.add(n_ij, jointi))
 
@@ -627,7 +616,7 @@ def main():
     X, y = load_iris(return_X_y=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
     gnb = GaussianNB()
-    y_pred = gnb.fit(X_train, y_train).predict(X_test)
+    y_pred = gnb.fit(pk.asarray(X_train), pk.asarray(y_train)).predict(pk.asarray(X_test))
     print("Number of mislabeled points out of a total %d points : %d" % (X_test.shape[0], (y_test != y_pred).sum()))
 
 main()

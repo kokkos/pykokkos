@@ -478,6 +478,8 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         dtype = double
     elif np_dtype is np.bool_:
         dtype = int16
+    elif np_dtype is np.longlong:
+        dtype = int64
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
