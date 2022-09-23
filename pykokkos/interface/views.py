@@ -333,6 +333,10 @@ class View(ViewType):
 
 
     def __eq__(self, other):
+        # Tempprary fix. Will change soon 
+        if other.dtype.type == np.float64:
+            return self.array == other
+
         if self.array == other:
             return True
         else:
@@ -436,6 +440,10 @@ class Subview(ViewType):
             result_of_eq = self.data == other.data
             return result_of_eq
 
+    def __hash__(self):
+        hash_value = hash(self.array)
+        return hash_value
+
 def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
@@ -493,7 +501,6 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         array = np.array(array, dtype=np_dtype)
     else:
         ret_list = list((array.shape))
-
 
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
@@ -573,6 +580,8 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         arr = np.asarray(obj, dtype=dtype.np_equiv)
     else:
         arr = np.asarray(obj)
+    return arr
+    # Temporary fix, will update asap
     ret = from_numpy(arr)
     return ret
 

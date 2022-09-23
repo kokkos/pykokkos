@@ -369,10 +369,6 @@ def multiply(viewA, viewB):
         view_temp[0] = viewB
         viewB = view_temp
 
-    view_temp = pk.View(viewA.shape, pk.double)
-    view_temp[:] = viewA
-    viewA = view_temp
-
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -1486,10 +1482,6 @@ def var_2d_axis1_impl(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[
 
 
 def var(view, axis):
-    view_temp = pk.View(view.shape, pk.double)
-    view_temp[:] = view
-    view = view_temp
-
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             view_mean = mean(view, 0)
