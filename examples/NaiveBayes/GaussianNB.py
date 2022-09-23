@@ -611,23 +611,9 @@ class GaussianNB(_BaseNB):
             # convert subviews to views
             viewa = pk.View(X.shape, pk.double)
             viewa[:] = X
-            view_tmp = pk.View(self.theta_.shape, pk.double)
-            view_tmp[:] = self.theta_
 
-            res = view_tmp[i, :]
-
-            viewb = pk.View(res.shape, pk.double)
-            viewb[:] = res
-
-            view_tmp = pk.View(self.var_.shape, pk.double)
-            view_tmp[:] = self.var_
-
-            res = view_tmp[i, :]
-            viewc = pk.View(res.shape, pk.double)
-            viewc[:] = res
-
-            n_ij = -0.5 * pk.sum(pk.log(pk.multiply(viewc, 2.0 * pi)))
-            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(viewa, pk.negative(viewb)), 2), viewc), 1), 0.5)), n_ij)
+            n_ij = -0.5 * pk.sum(pk.log(pk.multiply(self.var_[i, :], 2.0 * pi)))
+            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(viewa, pk.negative(self.theta_[i, :])), 2), self.var_[i, :]), 1), 0.5)), n_ij)
 
             joint_log_likelihood.append(pk.add(n_ij, jointi))
 
