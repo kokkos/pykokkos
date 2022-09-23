@@ -22,7 +22,7 @@ from .data_types import (
     int16, int32, int64,
     uint8,
     uint16, uint32, uint64,
-    double
+    double, float64,
 )
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
@@ -138,8 +138,14 @@ class ViewType:
         :returns: the length of the first dimension
         """
 
+        # NOTE: careful with 0-D treatments and __bool__
+        # related handling; you can have shape () and
+        # still be True for example...
         if len(self.shape) == 0:
-            return 0
+            if self.data != 0:
+                return 1
+            else:
+                return 0
         return self.shape[0]
 
     def __iter__(self) -> Iterator:
@@ -149,7 +155,11 @@ class ViewType:
         :returns: an iterator over the data
         """
 
-        return (n for n in self.data)
+        if self.data.ndim > 0:
+            return (n for n in self.data)
+        else:
+            # 0-D case returns empty generator
+            return zip()
 
     def __str__(self) -> str:
         """
@@ -171,7 +181,7 @@ class ViewType:
 class View(ViewType):
     def __init__(
         self,
-        shape: List[int],
+        shape: Union[List[int], Tuple[int]],
         dtype: Union[DataTypeClass, type] = real,
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
@@ -181,7 +191,7 @@ class View(ViewType):
         """
         View constructor.
 
-        :param shape: the shape of the view as a list of integers
+        :param shape: the shape of the view as a list or tuple of integers
         :param dtype: the data type of the view, either a pykokkos DataType or "int" or "float".
         :param space: the memory space of the view. Will be set to the execution space of the view by default.
         :param layout: the layout of the view in memory.
@@ -246,7 +256,7 @@ class View(ViewType):
         """
         Initialize the view
 
-        :param shape: the shape of the view as a list of integers
+        :param shape: the shape of the view as a list or tuple of integers
         :param dtype: the data type of the view, either a pykokkos DataType or "int" or "float".
         :param space: the memory space of the view. Will be set to the execution space of the view by default.
         :param layout: the layout of the view in memory.
@@ -255,8 +265,6 @@ class View(ViewType):
         """
 
         self.shape: Tuple[int] = tuple(shape)
-        if self.shape == (0,):
-            self.shape = ()
         self.size: int = math.prod(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
@@ -278,16 +286,12 @@ class View(ViewType):
 
         if self.dtype == pk.float:
             self.dtype = DataType.float
-        elif self.dtype == pk.double:
-            self.dtype = DataType.double
+        elif self.dtype == pk.float64:
+            self.dtype = DataType.float64
         elif self.dtype == pk.int32:
             self.dtype = DataType.int32
-        elif self.dtype == pk.int64:
-            pass
-        elif self.dtype == pk.uint32:
-            self.dtype = DataType.uint32
-        elif self.dtype == pk.uint64:
-            self.dtype = DataType.uint64
+        elif self.dtype == pk.double:
+            self.dtype = DataType.double
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
                 # TODO: we don't really support 0-D under the hood--use
@@ -343,7 +347,10 @@ class View(ViewType):
 
 
     def __hash__(self):
-        hash_value = hash(self.array)
+        try:
+            hash_value = hash(self.array)
+        except TypeError:
+            hash_value = hash(self.array.data.tobytes())
         return hash_value
 
 
@@ -475,9 +482,9 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     elif np_dtype is np.float32:
         dtype = DataType.float # PyKokkos float
     elif np_dtype is np.float64:
-        dtype = double
+        dtype = float64
     elif np_dtype is np.bool_:
-        dtype = int16
+        dtype = uint8
     elif np_dtype is np.longlong:
         dtype = int64
     else:
@@ -499,7 +506,13 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     # temporary/terrible hack here for array API testing..
     if array.ndim == 0:
         ret_list = ()
-        array = np.array(array, dtype=np_dtype)
+        if np_dtype == np.bool_:
+            if array == 1:
+                array = np.array(1, dtype=np.uint8)
+            else:
+                array = np.array(0, dtype=np.uint8)
+        else:
+            array = np.array(array, dtype=np_dtype)
     else:
         ret_list = list((array.shape))
 
@@ -578,13 +591,11 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         view = pk.View([1], dtype=dtype)
         view[:] = obj
         return view
-    if "bool" in str(dtype):
-        dtype = np.bool_
     if dtype is not None:
         arr = np.asarray(obj, dtype=dtype.np_equiv)
     else:
         arr = np.asarray(obj)
-    # Temporary fix, will update asap
+
     ret = from_numpy(arr)
     return ret
 

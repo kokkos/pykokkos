@@ -53,9 +53,10 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  transpose,
                                  index,
                                  isinf,
-                                 isnan)
+                                 isnan,
+                                 equal)
 from pykokkos.lib.info import iinfo, finfo
-from pykokkos.lib.create import zeros
+from pykokkos.lib.create import zeros, ones
 from pykokkos.lib.util import all, any, sum, find_max, searchsorted
 from pykokkos.lib.constants import e, pi, inf, nan
 
