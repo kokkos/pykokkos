@@ -1453,7 +1453,6 @@ def exp2(view):
 
 # TODO: Implement parallel max reduction with index
 def argmax(view, axis):
-    print(view.shape)
     res = np.argmax(view, axis=axis)
     view = pk.View(res.shape, pk.int32)
     view[:] = res
@@ -1590,7 +1589,7 @@ def findMax(viewA):
     return max(viewA)
 
 def searchsorted(view, ele):
-    return [x for x in view if x == ele][0]
+    return np.searchsorted(view, ele)
 
 
 @pk.workunit
