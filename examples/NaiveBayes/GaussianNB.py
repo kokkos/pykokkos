@@ -91,7 +91,7 @@ def type_of_target(y, input_name=""):
 
 def _unique_multiclass(y):
     if hasattr(y, "__array__"):
-        return pk.unique(pk.array(y))
+        return pk.unique(pk.asarray(y))
     else:
         return set(y)
 

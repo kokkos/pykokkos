@@ -501,7 +501,10 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     else:
         ret_list = list((array.shape))
 
-    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+    # Temporary Fix. Will revert when fixed
+    view = pk.View(ret_list, dtype)
+    view[:] = array
+    return view
 
 def from_cupy(array) -> ViewType:
     """
@@ -579,7 +582,6 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         arr = np.asarray(obj, dtype=dtype.np_equiv)
     else:
         arr = np.asarray(obj)
-    return arr
     # Temporary fix, will update asap
     ret = from_numpy(arr)
     return ret

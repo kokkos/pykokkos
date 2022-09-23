@@ -1553,10 +1553,6 @@ def transpose_impl_2d(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.do
 
 
 def transpose(view):
-    view_temp = pk.View(view.shape, dtype=pk.double)
-    view_temp[:] = view
-    view = view_temp
-
     if view.rank() == 2:
         if str(view.dtype) == "DataType.double":
             out = pk.View(view.shape[::-1], pk.double)
