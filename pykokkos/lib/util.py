@@ -61,7 +61,7 @@ def sum(viewA, axis=None):
             viewA=viewA)
 
 
-def findMax(viewA):
+def find_max(viewA):
     return max(viewA)
 
 

@@ -518,7 +518,7 @@ class GaussianNB(_BaseNB):
         # will cause numerical errors. To address this, we artificially
         # boost the variance by epsilon, a small fraction of the standard
         # deviation of the largest dimension.
-        self.epsilon_ = self.var_smoothing * pk.findMax(pk.var(X, axis=0))
+        self.epsilon_ = self.var_smoothing * pk.find_max(pk.var(X, axis=0))
 
         if first_call:
             # This is the first call to partial_fit:
