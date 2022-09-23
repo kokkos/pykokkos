@@ -19,10 +19,13 @@ pytest_args = []
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-t', '--specifictests', type=str)
+parser.add_argument('-d', '--durations', type=int)
 args = parser.parse_args()
 
 if args.specifictests:
     pytest_args.append(args.specifictests)
+if args.durations:
+    pytest_args.append(f"--durations={args.durations}")
 
 # force pytest to actually import
 # all the test modules directly
