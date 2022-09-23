@@ -1453,6 +1453,7 @@ def exp2(view):
 
 # TODO: Implement parallel max reduction with index
 def argmax(view, axis):
+    print(view.shape)
     res = np.argmax(view, axis=axis)
     view = pk.View(res.shape, pk.int32)
     view[:] = res
@@ -1496,31 +1497,28 @@ def var(view, axis):
 
 
 @pk.workunit
-def mean_axis0_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+def mean_axis0_impl_1d_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
-    for i in range(viewA.extent(0)):
-        out[tid] += (viewA[i][tid] / viewA.extent(0))
+    for i in range(view.extent(0)):
+        out[tid] += (view[i][tid] / view.extent(0))
 
 
 @pk.workunit
-def mean_axis1_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+def mean_axis1_impl_1d_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
-    for i in range(viewA.extent(1)):
-        out[tid] += (viewA[tid][i] / viewA.extent(1))
+    for i in range(view.extent(1)):
+        out[tid] += (view[tid][i] / view.extent(1))
 
 
 def mean(view, axis):
-    viewA = pk.View(view.shape, pk.double)
-    viewA[:] = view
-
-    if str(viewA.dtype) == "DataType.double":
+    if str(view.dtype) == "DataType.double":
         if axis == 0:
             out = pk.View([view.shape[1]], pk.double)
-            pk.parallel_for(viewA.shape[1], mean_axis0_impl_1d_double, viewA=viewA, out=out)
+            pk.parallel_for(view.shape[1], mean_axis0_impl_1d_double, view=view, out=out)
             return out
         else:
             out = pk.View([view.shape[0]], pk.double)
-            pk.parallel_for(viewA.shape[0], mean_axis1_impl_1d_double, viewA=viewA, out=out)
+            pk.parallel_for(view.shape[0], mean_axis1_impl_1d_double, view=view, out=out)
 
             return out
     else:
