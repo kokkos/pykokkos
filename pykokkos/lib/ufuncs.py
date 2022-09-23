@@ -1585,13 +1585,6 @@ def index(viewA, viewB):
     return out
 
 
-def findMax(viewA):
-    return max(viewA)
-
-def searchsorted(view, ele):
-    return np.searchsorted(view, ele)
-
-
 @pk.workunit
 def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isnan(view[tid])

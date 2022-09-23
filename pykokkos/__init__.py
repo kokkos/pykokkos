@@ -52,13 +52,11 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  mean,
                                  transpose,
                                  index,
-                                 findMax,
-                                 searchsorted,
                                  isinf,
                                  isnan)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros
-from pykokkos.lib.util import all, any, sum
+from pykokkos.lib.util import all, any, sum, findMax, searchsorted
 from pykokkos.lib.constants import e, pi, inf, nan
 
 runtime_singleton.runtime = Runtime()

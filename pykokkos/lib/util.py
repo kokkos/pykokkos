@@ -60,3 +60,10 @@ def sum(viewA, axis=None):
             sum_impl_1d_double,
             viewA=viewA)
 
+
+def findMax(viewA):
+    return max(viewA)
+
+
+def searchsorted(view, ele):
+    return np.searchsorted(view, ele)
