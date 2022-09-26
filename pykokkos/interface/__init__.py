@@ -50,7 +50,7 @@ from .views import (
     ScratchView3D, ScratchView4D, ScratchView5D,
     ScratchView6D, ScratchView7D, ScratchView8D,
     from_cupy, from_numpy,
-    asarray,
+    asarray, result_type,
 )
 
 

@@ -577,6 +577,60 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     return ret
 
 
+def result_type(*arrays_and_dtypes):
+    """
+    Returns the dtype that results from applying the type promotion rules to the arguments.
+
+    Parameters
+        arrays_and_dtypes (Union[array, dtype]) – an arbitrary number of input arrays and/or dtypes.
+
+    Returns
+        out (dtype) – the dtype resulting from an operation involving the input arrays and dtypes.
+
+    """
+    # TODO: we'll probably want objects for "categories
+    # of types" to simplify the logic here eventually..
+    types_seen = []
+    uint_types_seen = []
+    int_types_seen = []
+    float_types_seen = []
+    for element in arrays_and_dtypes:
+        # dtypes may be added directly
+        for known_dtype in DataType.__members__.items():
+            if element.value == known_dtype[1].value:
+                types_seen.append(element)
+                if "uint" in str(element.value):
+                    uint_types_seen.append(element)
+                elif "int" in str(element.value):
+                    int_types_seen.append(element)
+                elif "float" in str(element.value) or "double" in str(element.value):
+                    float_types_seen.append(element)
+                break
+    # if there is only one type, we simply
+    # return it
+    if len(set(types_seen)) == 1:
+        return types_seen[0]
+    # if we have a mixture of a single "category of types"
+    # we simply use the largest one
+    elif uint_types_seen and (not int_types_seen) and (not float_types_seen):
+        largest_uint = uint_types_seen[0]
+        for dtype in uint_types_seen[1:]:
+            if pk.iinfo(dtype).max > pk.iinfo(largest_uint).max:
+                largest_uint = dtype
+        return largest_uint
+    elif int_types_seen and (not uint_types_seen) and (not float_types_seen):
+        largest_int = int_types_seen[0]
+        for dtype in int_types_seen[1:]:
+            if pk.iinfo(dtype).max > pk.iinfo(largest_int).max:
+                largest_int = dtype
+        return largest_int
+    elif float_types_seen and (not uint_types_seen) and (not int_types_seen):
+        largest_float = float_types_seen[0]
+        for dtype in float_types_seen[1:]:
+            if pk.finfo(dtype).max > pk.finfo(largest_float).max:
+                largest_float = dtype
+        return largest_float
+
 
 
 T = TypeVar("T")
