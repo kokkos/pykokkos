@@ -47,9 +47,14 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  exp2,
                                 isinf,
                                 isnan,
-                                equal)
+                                equal,
+                             isfinite)
 from pykokkos.lib.info import iinfo, finfo
-from pykokkos.lib.create import zeros, ones
+from pykokkos.lib.create import (zeros,
+                                 ones,
+                                 ones_like,
+                                 full)
+from pykokkos.lib.manipulate import reshape
 from pykokkos.lib.util import all, any
 from pykokkos.lib.constants import e, pi, inf, nan
 

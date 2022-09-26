@@ -36,6 +36,14 @@ def iinfo(type_or_arr):
         return info_type_attrs(bits=64,
                                min=-9223372036854775808,
                                max=9223372036854775807)
+    elif "uint8" in str(type_or_arr):
+        return info_type_attrs(bits=8,
+                               min=0,
+                               max=255)
+    elif "int8" in str(type_or_arr):
+        return info_type_attrs(bits=8,
+                               min=-128,
+                               max=127)
 
 
 def finfo(type_or_arr):
