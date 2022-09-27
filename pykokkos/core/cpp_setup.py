@@ -189,6 +189,20 @@ class CppSetup:
 
         return f"_{km.get_device_id()}"
 
+    def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
+        """
+        Get the suffix of the libkokkoscore and libkokkoscontainers
+        libraries corresponding to the enabled device
+
+        :param space: the execution space to compile for
+        :returns: the suffix as a string
+        """
+
+        if is_host_execution_space(space) or not km.is_multi_gpu_enabled():
+            return ""
+
+        return f"_{km.get_device_id()}"
+
     def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
         """
         Invoke the compilation script

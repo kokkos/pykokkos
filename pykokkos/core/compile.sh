@@ -56,7 +56,11 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         -Dpk_exec_space="Kokkos::${EXEC_SPACE}" \
         -Dpk_real="${PK_REAL}"
 
+<<<<<<< HEAD
         "${COMPILER_PATH}" \
+=======
+        "${KOKKOS_LIB_PATH}/../../bin/nvcc_wrapper" \
+>>>>>>> 399d9cb45296bbfa2f1f88a3c71e1f45799e7d26
         -I.. \
         -O3 \
         -shared \
