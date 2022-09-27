@@ -120,7 +120,7 @@ class Runtime:
         """
 
         module_path: str
-        if is_host_execution_space(space):
+        if is_host_execution_space(space) or not km.is_multi_gpu_enabled():
             module_path = module_setup.path
         else:
             device_id: int = km.get_device_id()
