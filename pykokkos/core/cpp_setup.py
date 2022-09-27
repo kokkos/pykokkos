@@ -122,7 +122,7 @@ class CppSetup:
             print(f"Exception while copying views and makefile: {ex}")
             sys.exit(1)
 
-    def get_kokkos_paths(self, space: ExecutionSpace) -> Tuple[Path, Path]:
+    def get_kokkos_paths(self, space: ExecutionSpace, compiler: str) -> Tuple[Path, Path, Path]:
         """
         Get the paths of the Kokkos instal lib and include
         directories. If the environment variable is set, use that
@@ -130,8 +130,9 @@ class CppSetup:
         pykokkos-base package.
 
         :param space: the execution space to compile for
-        :returns: a tuple of paths to the Kokkos lib/ and include/
-            directories respectively
+        :param compiler: what compiler to use
+        :returns: a tuple of paths to the Kokkos lib/, include/,
+            and compiler to be used
         """
 
         lib_path: Path
@@ -150,18 +151,29 @@ class CppSetup:
         is_cpu: bool = is_host_execution_space(space)
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
         install_path = Path(kokkos_lib.__path__[0])
+        lib_parent_path: Path
+        if km.is_multi_gpu_enabled():
+            lib_parent_path = install_path
+        else:
+            lib_parent_path = install_path.parent
 
-        if (install_path / "lib").is_dir():
-            lib_path = install_path / "lib"
-        elif (install_path / "lib64").is_dir():
-            lib_path = install_path / "lib64"
+        if (lib_parent_path / "lib").is_dir():
+            lib_path = lib_parent_path / "lib"
+        elif (lib_parent_path / "lib64").is_dir():
+            lib_path = lib_parent_path / "lib64"
         else:
             raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
                                f" Try setting {self.lib_path_env} instead.")
 
-        include_path = lib_path.parent.parent / "include/kokkos"
+        include_path = install_path.parent / "include/kokkos"
 
-        return lib_path, include_path
+        compiler_path: Path
+        if compiler != "nvcc":
+            compiler_path = Path("g++")
+        else:
+            compiler_path = install_path.parent / "bin/nvcc_wrapper"
+
+        return lib_path, include_path, compiler_path
 
     def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
         """
@@ -199,7 +211,8 @@ class CppSetup:
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         lib_path: Path
         include_path: Path
-        lib_path, include_path = self.get_kokkos_paths(space)
+        compiler_path: Path
+        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
         compute_capability: str = self.get_cuda_compute_capability(compiler)
         lib_suffix: str = self.get_kokkos_lib_suffix(space)
 
@@ -213,7 +226,8 @@ class CppSetup:
                               str(lib_path),        # Path to Kokkos install lib/ directory
                               str(include_path),    # Path to Kokkos install include/ directory
                               compute_capability,   # Device compute capability
-                              lib_suffix]           # The libkokkos* suffix identifying the gpu
+                              lib_suffix,           # The libkokkos* suffix identifying the gpu
+                              str(compiler_path)]   # The path to the compiler to use
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
         if compile_result.returncode != 0:
