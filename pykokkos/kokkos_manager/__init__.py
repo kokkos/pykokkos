@@ -189,8 +189,6 @@ try:
     import sys
 
     NUM_CUDA_GPUS: int = cp.cuda.runtime.getDeviceCount()
-    CONSTANTS["MULTI_GPU"] = True
-    CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
     KOKKOS_LIBS: List[str] = [f"gpu{id}" for id in range(NUM_CUDA_GPUS)]
 
     KOKKOS_LIB_INSTANCES: List = []
@@ -206,9 +204,10 @@ try:
         atexit.register(module.finalize)
         sys.argv.pop()
 
+    CONSTANTS["MULTI_GPU"] = True
+    CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
     CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_LIB_INSTANCES
     CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_LIB_INSTANCES[0]
 
 except Exception:
-    import traceback
-    traceback.print_exc()
+    pass
