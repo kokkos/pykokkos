@@ -10,6 +10,7 @@ KOKKOS_LIB_PATH="${7}"
 KOKKOS_INCLUDE_PATH="${8}"
 COMPUTE_CAPABILITY="${9}"
 LIB_SUFFIX="${10}"
+COMPILER_PATH="${11}"
 SRC=$(find -name "*.cpp")
 
 
@@ -39,7 +40,7 @@ if [ "${COMPILER}" == "g++" ]; then
         "${KOKKOS_LIB_PATH}/libkokkoscore${LIB_SUFFIX}.so"
 
 elif [ "${COMPILER}" == "nvcc" ]; then
-        "${KOKKOS_LIB_PATH}/../../bin/nvcc_wrapper" \
+        "${COMPILER_PATH}" \
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
@@ -55,7 +56,7 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         -Dpk_exec_space="Kokkos::${EXEC_SPACE}" \
         -Dpk_real="${PK_REAL}"
 
-        "${KOKKOS_LIB_PATH}/../../bin/nvcc_wrapper" \
+        "${COMPILER_PATH}" \
         -I.. \
         -O3 \
         -shared \
