@@ -102,13 +102,25 @@ def log(view):
 
 
 @pk.workunit
-def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
-    view[tid] = sqrt(view[tid]) # type: ignore
+def sqrt_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = sqrt(view[tid]) # type: ignore
 
 
 @pk.workunit
-def sqrt_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
-    view[tid] = sqrt(view[tid]) # type: ignore
+def sqrt_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = sqrt(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def sqrt_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = sqrt(view[tid]) # type: ignore
+
+
+@pk.workunit
+def sqrt_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = sqrt(view[tid][i]) # type: ignore
 
 
 def sqrt(view):
@@ -135,11 +147,22 @@ def sqrt(view):
     # are available in pykokkos?
     if len(view.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for sqrt() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float":
-        pk.parallel_for(view.shape[0], sqrt_impl_1d_float, view=view)
-    return view
+    out = pk.View(view.shape, view.dtype)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, sqrt_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sqrt_impl_2d_double, view=view, out=out)
+    elif "float" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, sqrt_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sqrt_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sqrt_impl_2d_float, view=view, out=out)
+    return out
 
 
 @pk.workunit
