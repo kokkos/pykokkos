@@ -588,6 +588,59 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     return ret
 
 
+def _get_largest_type(type_list: List[DataTypeClass], type_info: Callable) -> DataTypeClass:
+    largest_type = type_list[0]
+    for dtype in type_list[1:]:
+        if type_info(dtype).max > type_info(largest_type).max:
+            largest_type = dtype
+    return largest_type
+
+
+def result_type(*arrays_and_dtypes: DataTypeClass) -> DataTypeClass:
+    """
+    Returns the dtype that results from applying the type promotion rules to the arguments.
+
+    :param arrays_and_dtypes: an arbitrary number of input arrays and/or dtypes
+    :returns: the dtype resulting from an operation involving the input arrays and dtypes
+
+    """
+    # TODO: we'll probably want objects for "categories
+    # of types" to simplify the logic here eventually..
+    types_seen = []
+    uint_types_seen = []
+    int_types_seen = []
+    float_types_seen = []
+    for element in arrays_and_dtypes:
+        if isinstance(element, pk.View):
+            raise NotImplementedError("type promotion not yet implemented for Views")
+        # dtypes may be added directly
+        for known_dtype in DataType.__members__.items():
+            if element.value == known_dtype[1].value:
+                types_seen.append(element)
+                if "uint" in str(element.value):
+                    uint_types_seen.append(element)
+                elif "int" in str(element.value):
+                    int_types_seen.append(element)
+                elif "float" in str(element.value) or "double" in str(element.value):
+                    float_types_seen.append(element)
+                break
+    # if there is only one type, we simply
+    # return it
+    if len(set(types_seen)) == 1:
+        return types_seen[0]
+    # if we have a mixture of a single "category of types"
+    # we simply use the largest one
+    if uint_types_seen and (not int_types_seen) and (not float_types_seen):
+        return _get_largest_type(type_list=uint_types_seen,
+                                 type_info=pk.iinfo)
+    if int_types_seen and (not uint_types_seen) and (not float_types_seen):
+        return _get_largest_type(type_list=int_types_seen,
+                                 type_info=pk.iinfo)
+    if float_types_seen and (not uint_types_seen) and (not int_types_seen):
+        return _get_largest_type(type_list=float_types_seen,
+                                 type_info=pk.finfo)
+    raise NotImplementedError("Casting rules not implemented for the input.")
+
 
 
 T = TypeVar("T")
