@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import sysconfig
 import time
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
@@ -105,9 +105,15 @@ class ModuleSetup:
 
         self.main: Path = self.get_main_path()
         self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space)
+        self.gpu_module_files: List[str] = []
+        if km.is_multi_gpu_enabled():
+            self.gpu_module_files = [f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())]
 
         if self.output_dir is not None:
             self.path: str = os.path.join(self.output_dir, self.module_file)
+            if km.is_multi_gpu_enabled():
+                self.gpu_module_paths: str = [os.path.join(self.output_dir, module_file) for module_file in self.gpu_module_files]
+
             self.name: str = self.path.replace("/", "_")
             self.name: str = self.name.replace("-", "_")
             self.name: str = self.name.replace(".", "_")

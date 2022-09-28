@@ -3,10 +3,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from types import ModuleType
 from typing import List, Tuple
 
-
-from pykokkos.interface import ExecutionSpace, get_default_layout, get_default_memory_space
+from pykokkos.interface import (
+    ExecutionSpace, get_default_layout, get_default_memory_space,
+    is_host_execution_space
+)
 import pykokkos.kokkos_manager as km
 
 
@@ -15,16 +18,18 @@ class CppSetup:
     Creates the directory to hold the translation and invokes the compiler
     """
 
-    def __init__(self, module_file: str, functor: str, bindings: str):
+    def __init__(self, module_file: str, gpu_module_files: List[str], functor: str, bindings: str):
         """
         CppSetup constructor
 
         :param module: the name of the file containing the compiled Python module
+        :param gpu_module_files: the list of names of files containing for each gpu module
         :param functor: the name of the generated functor file
         :param bindings: the name of the generated bindings file
         """
 
         self.module_file: str = module_file
+        self.gpu_module_files: List[str] = gpu_module_files
         self.functor_file: str = functor
         self.bindings_file: str = bindings
 
@@ -58,6 +63,8 @@ class CppSetup:
         self.write_source(output_dir, functor, bindings)
         self.copy_script(output_dir)
         self.invoke_script(output_dir, space, enable_uvm, compiler)
+        if space is ExecutionSpace.Cuda and km.is_multi_gpu_enabled():
+            self.copy_multi_gpu_kernel(output_dir)
 
 
     def initialize_directory(self, name: Path) -> None:
@@ -115,15 +122,17 @@ class CppSetup:
             print(f"Exception while copying views and makefile: {ex}")
             sys.exit(1)
 
-    def get_kokkos_paths(self) -> Tuple[Path, Path]:
+    def get_kokkos_paths(self, space: ExecutionSpace, compiler: str) -> Tuple[Path, Path, Path]:
         """
         Get the paths of the Kokkos instal lib and include
         directories. If the environment variable is set, use that
-        Kokkos install. If not, fall back to installed pykokkos-base
-        package.
+        Kokkos install. If not, fall back to the installed
+        pykokkos-base package.
 
-        :returns: a tuple of paths to the Kokkos lib/ and include/
-            directories respectively
+        :param space: the execution space to compile for
+        :param compiler: what compiler to use
+        :returns: a tuple of paths to the Kokkos lib/, include/,
+            and compiler to be used
         """
 
         lib_path: Path
@@ -139,20 +148,46 @@ class CppSetup:
 
             return lib_path, include_path
 
-        from pykokkos.bindings import kokkos
-        install_path = Path(kokkos.__path__[0]).parent
+        is_cpu: bool = is_host_execution_space(space)
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+        install_path = Path(kokkos_lib.__path__[0])
+        lib_parent_path: Path
+        if km.is_multi_gpu_enabled():
+            lib_parent_path = install_path
+        else:
+            lib_parent_path = install_path.parent
 
-        if (install_path / "lib").is_dir():
-            lib_path = install_path / "lib"
-        elif (install_path / "lib64").is_dir():
-            lib_path = install_path / "lib64"
+        if (lib_parent_path / "lib").is_dir():
+            lib_path = lib_parent_path / "lib"
+        elif (lib_parent_path / "lib64").is_dir():
+            lib_path = lib_parent_path / "lib64"
         else:
             raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
                                f" Try setting {self.lib_path_env} instead.")
 
-        include_path = lib_path.parent / "include/kokkos"
+        include_path = install_path.parent / "include/kokkos"
 
-        return lib_path, include_path
+        compiler_path: Path
+        if compiler != "nvcc":
+            compiler_path = Path("g++")
+        else:
+            compiler_path = install_path.parent / "bin/nvcc_wrapper"
+
+        return lib_path, include_path, compiler_path
+
+    def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
+        """
+        Get the suffix of the libkokkoscore and libkokkoscontainers
+        libraries corresponding to the enabled device
+
+        :param space: the execution space to compile for
+        :returns: the suffix as a string
+        """
+
+        if is_host_execution_space(space) or not km.is_multi_gpu_enabled():
+            return ""
+
+        return f"_{km.get_device_id()}"
 
     def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
         """
@@ -176,8 +211,10 @@ class CppSetup:
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         lib_path: Path
         include_path: Path
-        lib_path, include_path = self.get_kokkos_paths()
+        compiler_path: Path
+        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
         compute_capability: str = self.get_cuda_compute_capability(compiler)
+        lib_suffix: str = self.get_kokkos_lib_suffix(space)
 
         command: List[str] = [f"./{self.script}",
                               compiler,             # What compiler to use
@@ -188,7 +225,9 @@ class CppSetup:
                               precision,            # Default real precision
                               str(lib_path),        # Path to Kokkos install lib/ directory
                               str(include_path),    # Path to Kokkos install include/ directory
-                              compute_capability]   # Device compute capability
+                              compute_capability,   # Device compute capability
+                              lib_suffix,           # The libkokkos* suffix identifying the gpu
+                              str(compiler_path)]   # The path to the compiler to use
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
 
         if compile_result.returncode != 0:
@@ -206,6 +245,49 @@ class CppSetup:
             print(patchelf_result.stderr.decode("utf-8"))
             print(f"patchelf failed")
             sys.exit(1)
+
+    def copy_multi_gpu_kernel(self, output_dir: Path) -> None:
+        """
+        Copy the kernel .so file once for each device and run patchelf
+        to point to the right library
+
+        :param output_dir: the base directory
+        """
+
+        original_module: Path = output_dir / self.module_file
+        for id, (kernel_filename, kokkos_gpu_module) in enumerate(zip(self.gpu_module_files, km.get_kokkos_gpu_modules())):
+            kernel_path: Path = output_dir / kernel_filename
+
+            try:
+                shutil.copy(original_module, kernel_path)
+            except Exception as ex:
+                print(f"Exception while copying kernel: {ex}")
+                sys.exit(1)
+
+            lib_path: Path = Path(kokkos_gpu_module.__path__[0]) / "lib"
+            patchelf: List[str] = ["patchelf",
+                                "--set-rpath",
+                                str(lib_path),
+                                kernel_filename]
+
+            patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
+            if patchelf_result.returncode != 0:
+                print(patchelf_result.stderr.decode("utf-8"))
+                print(f"patchelf failed")
+                sys.exit(1)
+
+            # Now replace the needed libkokkos* libraries with the correct version
+            needed_libraries: str = subprocess.run(["patchelf", "--print-needed", kernel_filename], cwd=output_dir, capture_output=True, check=False).stdout.decode("utf-8")
+
+            for line in needed_libraries.splitlines():
+                if "libkokkoscore" in line or "libkokkoscontainers" in line:
+                    # Line will be of the form f"libkokkoscore_{id}.so.3.4"
+                    # This will extract id
+                    current_id: int = int(line.split("_")[1].split(".")[0])
+                    to_remove: str = line
+                    to_add: str = line.replace(f"_{current_id}", f"_{id}")
+
+                    subprocess.run(["patchelf", "--replace-needed", to_remove, to_add, kernel_filename], cwd=output_dir, capture_output=True, check=False)
 
     def get_cuda_compute_capability(self, compiler: str) -> str:
         """

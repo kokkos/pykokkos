@@ -269,7 +269,7 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
     if is_hierarchical:
         args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
     else:
-        args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
+        args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
 
     args.append(Keywords.Instance.value)
 
