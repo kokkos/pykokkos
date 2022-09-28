@@ -110,6 +110,9 @@ class ViewType:
         :returns: a primitive type value if key is an int, a Subview otherwise
         """
 
+        if self.shape == () and key == 0:
+            return self.data
+
         if isinstance(key, int) or isinstance(key, TeamMember):
             return self.data[key]
 
@@ -176,6 +179,20 @@ class ViewType:
         """
 
         return self
+
+
+    def _scalarfunc(self, func):
+        # based on approach used in
+        # numpy/lib/user_array.py for
+        # handling scalar conversions
+        if self.ndim == 0 or (self.ndim == 1 and self.size == 1):
+            return func(self[0])
+        else:
+            raise TypeError("only single element arrays can be converted to Python scalars.")
+
+
+    def __float__(self):
+        return self._scalarfunc(float)
 
 
 class View(ViewType):
@@ -392,9 +409,14 @@ class Subview(ViewType):
         is_cpu: bool = self.parent_view.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
-        self.array = kokkos_lib.array(
-            self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
-            layout=parent_view.layout.value, trait=kokkos.Unmanaged)
+        if self.data is not None and self.data.ndim == 0:
+            # TODO: we don't really support 0-D under the hood--use
+            # NumPy for now...
+            self.array = self.data
+        else:
+            self.array = kokkos_lib.array(
+                self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
+                layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: Tuple[int] = self.data.shape
 
         if self.data.shape == (0,):
@@ -403,6 +425,8 @@ class Subview(ViewType):
 
         self.parent_slice: List[Union[int, slice]]
         self.parent_slice = self._create_slice(data_slice)
+        self.ndim = self.data.ndim
+        self.size = self.data.size
 
     def _create_slice(self, data_slice: Union[slice, Tuple]) -> List[Union[int, slice]]:
         """
