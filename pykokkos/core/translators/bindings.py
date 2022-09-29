@@ -380,9 +380,35 @@ def generate_kernel(
 
     return kernel
 
-def bind_wrappers(module: str, wrappers: List[str]) -> str:
+def bind_wrapper(variable: str, wrapper: str) -> str:
     """
     Generate the binding code for all wrappers
+
+    :returns: the binding code
+    """
+
+    binding = f"{variable}.def(\"{wrapper}\", &{wrapper});"
+
+    return binding
+
+def bind_functor(
+    variable: str,
+    functor: str) -> List[str]:
+    """
+    Generates the bindings for a functor.
+
+    :param variable: the name of the module variable
+    :param functor: the functor class name
+    :returns: the binding code
+    """
+    binding = f"pybind11::class_<{functor}>({variable},\"{functor}\")"
+    binding += f".def(pybind11::init<>());"
+
+    return binding
+
+def bind_module(module: str, wrappers: List[str], functor: str) -> str:
+    """
+    Generate the binding code for all wrappers and the functor
 
     :returns: the binding code
     """
@@ -390,7 +416,10 @@ def bind_wrappers(module: str, wrappers: List[str]) -> str:
     variable: str = "k"
     binding: str = f"PYBIND11_MODULE({module}, {variable}) {{"
     for w in wrappers:
-        binding += f"{variable}.def(\"{w}\", &{w});"
+        binding += bind_wrapper(variable,w)
+
+    binding += bind_functor(variable,functor)
+
     binding += "}"
 
     return binding
@@ -473,7 +502,7 @@ def bind_workunits(
         bindings.extend(b)
         wrapper_names.extend(w)
 
-    bindings.append(bind_wrappers(module, wrapper_names))
+    bindings.append(bind_module(module, wrapper_names,functor))
 
     return bindings
 
@@ -595,6 +624,6 @@ def bind_main(
         bindings.append(b)
         wrapper_names.append(w)
 
-    bindings.append(bind_wrappers(module, wrapper_names))
+    bindings.append(bind_module(module, wrapper_names,functor))
 
     return bindings
