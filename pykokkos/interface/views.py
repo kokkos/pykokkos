@@ -515,11 +515,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
             array = np.array(array, dtype=np_dtype)
     else:
         ret_list = list((array.shape))
-
-    # Temporary Fix. Will revert when fixed
-    view = pk.View(ret_list, dtype)
-    view[:] = array
-    return view
+    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
 def from_cupy(array) -> ViewType:
     """
