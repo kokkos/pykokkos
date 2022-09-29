@@ -8,11 +8,12 @@ from pykokkos.kokkos_manager import (
     initialize, finalize,
     get_default_space, set_default_space,
     get_default_precision, set_default_precision,
-    is_uvm_enabled, enable_uvm, disable_uvm
+    is_uvm_enabled, enable_uvm, disable_uvm,
+    set_device_id
 )
 
 initialize()
-from pykokkos.lib.ufuncs import (reciprocal,
+from pykokkos.lib.ufuncs import (isfinite, reciprocal,
                                  log,
                                  log2,
                                  log10,
@@ -54,9 +55,14 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  index,
                                  isinf,
                                  isnan,
-                                 equal)
+                                 equal,
+                                 isfinite)
 from pykokkos.lib.info import iinfo, finfo
-from pykokkos.lib.create import zeros, ones
+from pykokkos.lib.create import (zeros,
+                                 ones,
+                                 ones_like,
+                                 full)
+from pykokkos.lib.manipulate import reshape
 from pykokkos.lib.util import all, any, sum, find_max, searchsorted
 from pykokkos.lib.constants import e, pi, inf, nan
 

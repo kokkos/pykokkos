@@ -27,7 +27,7 @@ from .execution_policy import (
     ExecutionPolicy, RangePolicy, MDRangePolicy, TeamPolicy,
     TeamThreadRange, ThreadVectorRange, Iterate, Rank
 )
-from .execution_space import ExecutionSpace
+from .execution_space import ExecutionSpace, is_host_execution_space
 from .layout import Layout, get_default_layout
 from .hierarchical import (
     AUTO, TeamMember, PerTeam, PerThread, single
@@ -50,7 +50,7 @@ from .views import (
     ScratchView3D, ScratchView4D, ScratchView5D,
     ScratchView6D, ScratchView7D, ScratchView8D,
     from_cupy, from_numpy,
-    asarray,
+    asarray, result_type,
 )
 
 

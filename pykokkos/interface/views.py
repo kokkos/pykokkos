@@ -1,9 +1,9 @@
 from __future__ import annotations
 import ctypes
-import os
 import math
 from enum import Enum
 import sys
+from types import ModuleType
 from typing import (
     Dict, Generic, Iterator, List, Optional,
     Tuple, TypeVar, Union
@@ -110,6 +110,9 @@ class ViewType:
         :returns: a primitive type value if key is an int, a Subview otherwise
         """
 
+        if self.shape == () and key == 0:
+            return self.data
+
         if isinstance(key, int) or isinstance(key, TeamMember):
             return self.data[key]
 
@@ -178,6 +181,20 @@ class ViewType:
         return self
 
 
+    def _scalarfunc(self, func):
+        # based on approach used in
+        # numpy/lib/user_array.py for
+        # handling scalar conversions
+        if self.ndim == 0 or (self.ndim == 1 and self.size == 1):
+            return func(self[0])
+        else:
+            raise TypeError("only single element arrays can be converted to Python scalars.")
+
+
+    def __float__(self):
+        return self._scalarfunc(float)
+
+
 class View(ViewType):
     def __init__(
         self,
@@ -225,7 +242,10 @@ class View(ViewType):
             shape_list[dimension] = size
 
         self.shape = tuple(shape_list)
-        self.array = kokkos.array(
+
+        is_cpu: bool = self.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+        self.array = kokkos_lib.array(
             "", self.shape, None, None, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
         self.data = np.array(self.array, copy=False)
 
@@ -284,6 +304,9 @@ class View(ViewType):
         self.layout: Layout = layout
         self.trait: Trait = trait
 
+        is_cpu: bool = self.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+
         if self.dtype == pk.float:
             self.dtype = DataType.float
         elif self.dtype == pk.float64:
@@ -298,11 +321,11 @@ class View(ViewType):
                 # NumPy for now...
                 self.array = array
             else:
-                self.array = kokkos.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
+                self.array = kokkos_lib.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
         else:
             if len(self.shape) == 0:
                 shape = [1]
-            self.array = kokkos.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
+            self.array = kokkos_lib.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
 
     def _get_type(self, dtype: Union[DataType, type]) -> Optional[DataType]:
@@ -389,16 +412,28 @@ class Subview(ViewType):
 
         self.data: np.ndarray = parent_view.data[data_slice]
         self.dtype = parent_view.dtype
-        self.array = kokkos.array(
-            self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
-            layout=parent_view.layout.value, trait=kokkos.Unmanaged)
+
+        is_cpu: bool = self.parent_view.space is MemorySpace.HostSpace
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+
+        if self.data is not None and self.data.ndim == 0:
+            # TODO: we don't really support 0-D under the hood--use
+            # NumPy for now...
+            self.array = self.data
+        else:
+            self.array = kokkos_lib.array(
+                self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
+                layout=parent_view.layout.value, trait=kokkos.Unmanaged)
         self.shape: Tuple[int] = self.data.shape
+
         if self.data.shape == (0,):
             self.data = np.array([], dtype=self.data.dtype)
             self.shape = ()
 
         self.parent_slice: List[Union[int, slice]]
         self.parent_slice = self._create_slice(data_slice)
+        self.ndim = self.data.ndim
+        self.size = self.data.size
 
     def _create_slice(self, data_slice: Union[slice, Tuple]) -> List[Union[int, slice]]:
         """
@@ -595,6 +630,59 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     ret = from_numpy(arr)
     return ret
 
+
+def _get_largest_type(type_list: List[DataTypeClass], type_info: Callable) -> DataTypeClass:
+    largest_type = type_list[0]
+    for dtype in type_list[1:]:
+        if type_info(dtype).max > type_info(largest_type).max:
+            largest_type = dtype
+    return largest_type
+
+
+def result_type(*arrays_and_dtypes: DataTypeClass) -> DataTypeClass:
+    """
+    Returns the dtype that results from applying the type promotion rules to the arguments.
+
+    :param arrays_and_dtypes: an arbitrary number of input arrays and/or dtypes
+    :returns: the dtype resulting from an operation involving the input arrays and dtypes
+
+    """
+    # TODO: we'll probably want objects for "categories
+    # of types" to simplify the logic here eventually..
+    types_seen = []
+    uint_types_seen = []
+    int_types_seen = []
+    float_types_seen = []
+    for element in arrays_and_dtypes:
+        if isinstance(element, pk.View):
+            raise NotImplementedError("type promotion not yet implemented for Views")
+        # dtypes may be added directly
+        for known_dtype in DataType.__members__.items():
+            if element.value == known_dtype[1].value:
+                types_seen.append(element)
+                if "uint" in str(element.value):
+                    uint_types_seen.append(element)
+                elif "int" in str(element.value):
+                    int_types_seen.append(element)
+                elif "float" in str(element.value) or "double" in str(element.value):
+                    float_types_seen.append(element)
+                break
+    # if there is only one type, we simply
+    # return it
+    if len(set(types_seen)) == 1:
+        return types_seen[0]
+    # if we have a mixture of a single "category of types"
+    # we simply use the largest one
+    if uint_types_seen and (not int_types_seen) and (not float_types_seen):
+        return _get_largest_type(type_list=uint_types_seen,
+                                 type_info=pk.iinfo)
+    if int_types_seen and (not uint_types_seen) and (not float_types_seen):
+        return _get_largest_type(type_list=int_types_seen,
+                                 type_info=pk.iinfo)
+    if float_types_seen and (not uint_types_seen) and (not int_types_seen):
+        return _get_largest_type(type_list=float_types_seen,
+                                 type_info=pk.finfo)
+    raise NotImplementedError("Casting rules not implemented for the input.")
 
 
 

@@ -372,5 +372,30 @@ def test_unsigned_int_overflow(pk_dtype, np_dtype):
     assert_equal(actual, expected)
 
 
+@pytest.mark.parametrize("pk_dtype, pk_dtype2, expected_promo", [
+    (pk.uint8, pk.uint16, pk.uint16),
+    (pk.uint64, pk.uint8, pk.uint64),
+    (pk.float32, pk.float64, pk.float64),
+    ])
+def test_result_type_supported(pk_dtype, pk_dtype2, expected_promo):
+    # some basic behavior should already be covered
+    # by:
+    # array_api_tests/test_data_type_functions.py::test_result_type
+    actual = pk.result_type(pk_dtype, pk_dtype2)
+    assert actual == expected_promo
+
+
+@pytest.mark.parametrize("pk_dtype, pk_dtype2", [
+    (pk.from_numpy(np.array([0])), pk.uint16),
+    (pk.uint64, pk.int8),
+    (pk.float32, pk.int64),
+    ])
+def test_result_type_unsupported(pk_dtype, pk_dtype2):
+    # support for views (arrays) and mixed type
+    # categories is not yet available
+    with pytest.raises(NotImplementedError):
+        pk.result_type(pk_dtype, pk_dtype2)
+
+
 if __name__ == '__main__':
     unittest.main()
