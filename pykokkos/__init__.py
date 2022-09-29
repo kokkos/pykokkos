@@ -13,7 +13,7 @@ from pykokkos.kokkos_manager import (
 )
 
 initialize()
-from pykokkos.lib.ufuncs import (isfinite, reciprocal,
+from pykokkos.lib.ufuncs import (reciprocal,
                                  log,
                                  log2,
                                  log10,

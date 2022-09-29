@@ -8,7 +8,6 @@ import numpy as np
 # https://data-apis.org/array-api/2021.12/API_specification/utility_functions.html
 
 def all(x, /, *, axis=None, keepdims=False):
-    return np.all(x)
     if x == True:
         return True
     elif x == False:
@@ -25,6 +24,7 @@ def any(x, /, *, axis=None, keepdims=False):
 @pk.workunit
 def sum_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double]):
     acc += viewA[tid]
+
 
 @pk.workunit
 def sum_axis0_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View1D[pk.double]):
