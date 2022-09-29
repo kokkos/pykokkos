@@ -613,7 +613,7 @@ class GaussianNB(_BaseNB):
             n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(X, pk.negative(self.theta_[i, :])), 2), self.var_[i, :]), 1), 0.5)), n_ij)
 
             joint_log_likelihood.append(pk.add(n_ij, jointi))
-        print("----------------")
+
         joint_log_likelihood = pk.transpose(asarray(joint_log_likelihood))
         return joint_log_likelihood
 

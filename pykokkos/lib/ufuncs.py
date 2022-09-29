@@ -275,7 +275,7 @@ def add_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.
     out[tid] = viewA[tid] + viewB[tid]
 
 @pk.workunit
-def add_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def add_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] + viewB[i % viewB.extent(0)]
 
@@ -307,7 +307,7 @@ def add(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            add_2d_impl_1d_double,
+            add_impl_2d_1d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
@@ -497,7 +497,7 @@ def divide_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[
 
 
 @pk.workunit
-def divide_num_2d_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def divide_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] / viewB[i % viewB.extent(0)]
 
@@ -529,7 +529,7 @@ def divide(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            divide_num_2d_impl_1d_double,
+            divide_impl_2d_1d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
@@ -633,7 +633,7 @@ def power_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[p
     out[tid] = pow(viewA[tid], viewB[tid])
 
 @pk.workunit
-def power_num_impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def power_impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
     for i in range(viewA.extent(1)):
         out[tid][i] = pow(viewA[tid][i], viewB[i % viewB.extent(0)])
 
@@ -665,7 +665,7 @@ def power(viewA, viewB):
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
-            power_num_impl_2d_double,
+            power_impl_2d_double,
             viewA=viewA,
             viewB=viewB,
             out=out)
@@ -1467,14 +1467,14 @@ def unique(view):
     return view
 
 @pk.workunit
-def var_2d_axis0_impl(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+def var_impl_2d_axis0_double(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
     for i in range(view.extent(0)):
         out[tid] += (pow(view[i][tid] - view_mean[tid], 2)) / view.extent(0)
 
 
 @pk.workunit
-def var_2d_axis1_impl(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
     for i in range(view.extent(1)):
         out[tid] += (pow(view[tid][i] - view_mean[tid], 2)) / view.extent(1)
@@ -1485,24 +1485,24 @@ def var(view, axis):
         if axis == 0:
             view_mean = mean(view, 0)
             out = pk.View([view.shape[1]], pk.double)
-            pk.parallel_for(view.shape[1], var_2d_axis0_impl, view=view, view_mean=view_mean, out=out)
+            pk.parallel_for(view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
             return out
         else:
             view_mean = mean(view, 1)
             out = pk.View([view.shape[0]], pk.double)
-            pk.parallel_for(view.shape[0], var_2d_axis1_impl, view=view, view_mean=view_mean, out=out)
+            pk.parallel_for(view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
             return out
 
 
 @pk.workunit
-def mean_axis0_impl_1d_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+def mean_impl_1d_axis0_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
     for i in range(view.extent(0)):
         out[tid] += (view[i][tid] / view.extent(0))
 
 
 @pk.workunit
-def mean_axis1_impl_1d_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = 0
     for i in range(view.extent(1)):
         out[tid] += (view[tid][i] / view.extent(1))
@@ -1512,11 +1512,11 @@ def mean(view, axis):
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             out = pk.View([view.shape[1]], pk.double)
-            pk.parallel_for(view.shape[1], mean_axis0_impl_1d_double, view=view, out=out)
+            pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
             return out
         else:
             out = pk.View([view.shape[0]], pk.double)
-            pk.parallel_for(view.shape[0], mean_axis1_impl_1d_double, view=view, out=out)
+            pk.parallel_for(view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
 
             return out
     else:
@@ -1547,7 +1547,7 @@ def in1d(viewA, viewB):
 
 
 @pk.workunit
-def transpose_impl_2d(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+def transpose_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
     for i in range(view.extent(1)):
         out[i][tid] = view[tid][i]
 
@@ -1556,7 +1556,7 @@ def transpose(view):
     if view.rank() == 2:
         if str(view.dtype) == "DataType.double":
             out = pk.View(view.shape[::-1], pk.double)
-            pk.parallel_for(view.shape[0], transpose_impl_2d, view=view, out=out)
+            pk.parallel_for(view.shape[0], transpose_impl_2d_double, view=view, out=out)
             return out
     
     raise RuntimeError("Transpose supports 2D views only")
