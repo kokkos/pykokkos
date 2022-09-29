@@ -520,8 +520,6 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         dtype = float64
     elif np_dtype is np.bool_:
         dtype = uint8
-    elif np_dtype is np.longlong:
-        dtype = int64
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -550,6 +548,8 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
             array = np.array(array, dtype=np_dtype)
     else:
         ret_list = list((array.shape))
+
+
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
 def from_cupy(array) -> ViewType:
@@ -604,6 +604,7 @@ def from_cupy(array) -> ViewType:
 
 # asarray is required for comformance with the array API:
 # https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
+
 def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # TODO: proper implementation/design
     # for now, let's cheat and use NumPy asarray() followed
@@ -618,7 +619,6 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
         arr = np.asarray(obj, dtype=dtype.np_equiv)
     else:
         arr = np.asarray(obj)
-
     ret = from_numpy(arr)
     return ret
 
