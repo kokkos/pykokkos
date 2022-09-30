@@ -32,20 +32,58 @@ def main():
     # TODO: expand types and view dimensions for
     # ufunc pre-compilation as the support
     # grows more broadly for more dims and types in ufuncs
-    v = pk.View([2], dtype=pk.double)
-    v2 = pk.View([2, 1], dtype=pk.double)
-    for func in tqdm(filtered_function_list):
-        func_obj = func[1]
-        # try compiling the ufunc as binary, then
-        # as unary if that fails
-        try:
-            func_obj(v, v)
-        except TypeError:
-            func_obj(v)
-        except RuntimeError:
-            # some cases like matmul have stricter
-            # signature requirements
-            func_obj(v, v2)
+    for dtype in [pk.double,
+                  pk.float,
+                  pk.int8,
+                  pk.int16,
+                  pk.int32,
+                  pk.int64,
+                  pk.uint8,
+                  pk.uint16,
+                  pk.uint32,
+                  pk.uint64,
+                  ]:
+        for shape_v in [[2], [2, 2]]:
+            v = pk.View(shape_v, dtype=dtype)
+            for func in tqdm(filtered_function_list):
+                if len(shape_v) > 1 and "matmul" in func[0]: 
+                    continue
+                func_obj = func[1]
+                # try compiling the ufunc as binary, then
+                # as unary if that fails
+                try:
+                    func_obj(v, v)
+                except NotImplementedError:
+                    pass
+                except TypeError:
+                    try:
+                        func_obj(v)
+                    except (NotImplementedError, RuntimeError):
+                        pass
+                except RuntimeError:
+                    # some cases like matmul have stricter
+                    # signature requirements
+                    if "matmul" in func[0]:
+                        new_shape = shape_v[:]
+                        new_shape.append(1)
+                        v2 = pk.View(new_shape, dtype=dtype)
+                        try:
+                            func_obj(v, v2)
+                        except RuntimeError:
+                            pass
+                    else:
+                        pass
+
+
+def test_main():
+    # force pytest to run main() and produce a pk_cpp
+    # directory structure that is useful for saving time
+    # with the array API suite invoked by pytest
+
+    # TODO: we shouldn't need to do this long-term; the pk_cpp
+    # compilation directory structure shouldn't exclude reuse
+    # by other modules
+    main()
 
 
 if __name__ == "__main__":
