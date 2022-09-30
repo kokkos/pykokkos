@@ -1575,7 +1575,7 @@ def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk
         out[tid] += (pow(view[tid][i] - view_mean[tid], 2)) / view.extent(1)
 
 
-def var(view, axis):
+def var(view, axis=None):
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             view_mean = mean(view, 0)
@@ -1603,7 +1603,7 @@ def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View
         out[tid] += (view[tid][i] / view.extent(1))
 
 
-def mean(view, axis):
+def mean(view, axis=None):
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             out = pk.View([view.shape[1]], pk.double)
