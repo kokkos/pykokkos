@@ -1594,7 +1594,7 @@ def index_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D
     out[tid] = viewA[viewB[tid]]
 
 def index(viewA, viewB):
-    if str(viewB.dtype) == "DataType.int32":
+    if viewB.dtype == pk.int32:
         out = pk.View(viewB.shape, pk.double)
         pk.parallel_for(
             viewB.shape[0],

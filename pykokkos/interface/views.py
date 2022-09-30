@@ -309,8 +309,6 @@ class View(ViewType):
 
         if self.dtype == pk.float:
             self.dtype = DataType.float
-        elif self.dtype == pk.int32:
-            self.dtype = DataType.int32
         elif self.dtype == pk.double:
             self.dtype = DataType.double
         if trait is trait.Unmanaged:
@@ -358,7 +356,7 @@ class View(ViewType):
 
 
     def __eq__(self, other):
-        if not isinstance(other, pk.View):
+        if not isinstance(other, pk.View) and self.rank() > 0:
             return [i == other for i in self]
 
         if self.array == other:
