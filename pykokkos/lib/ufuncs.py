@@ -90,6 +90,9 @@ def log(view):
     if not isinstance(view, pk.View):
         return math.log(view)
 
+    if len(view.shape) > 1:
+        raise NotImplementedError("log() ufunc only supports 1D views")
+
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], log_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
@@ -130,6 +133,8 @@ def sqrt(view):
     """
     # TODO: support complex types when they
     # are available in pykokkos?
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for sqrt() ufunc.")
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
@@ -162,6 +167,8 @@ def log2(view):
         Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("log2() ufunc only supports 1D views")
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], log2_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
@@ -253,6 +260,8 @@ def log1p(view):
         Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("log1p() ufunc only supports 1D views")
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], log1p_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
@@ -285,6 +294,8 @@ def sign_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
 
 
 def sign(view):
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for sign() ufunc.")
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], sign_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
@@ -395,6 +406,9 @@ def multiply(viewA, viewB):
         view_temp[0] = viewB
         viewB = view_temp
 
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for mulitply() ufunc.")
+
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -445,6 +459,8 @@ def subtract(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for subtract() ufunc.")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -607,12 +623,16 @@ def negative(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for negative() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -641,12 +661,16 @@ def positive(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for positive() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], positive_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], positive_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -748,6 +772,8 @@ def fmod(viewA, viewB):
 
     """
 
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("fmod() ufunc only supports 1D views")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -794,6 +820,8 @@ def square(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for square() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(
@@ -841,6 +869,8 @@ def greater(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("greater() ufunc only supports 1D views")
     out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
@@ -890,6 +920,8 @@ def logaddexp(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logaddexp() ufunc.")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -960,6 +992,8 @@ def logaddexp2(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logaddexp2() ufunc.")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -1010,6 +1044,8 @@ def floor_divide(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for floor_divide() ufunc.")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -1057,12 +1093,16 @@ def sin(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for sin() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], sin_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], sin_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -1091,12 +1131,16 @@ def cos(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for cos() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], cos_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], cos_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -1125,12 +1169,16 @@ def tan(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for tan() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], tan_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], tan_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -1161,6 +1209,8 @@ def logical_and(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logical_and() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
@@ -1209,6 +1259,8 @@ def logical_or(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logical_or() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
@@ -1257,6 +1309,8 @@ def logical_xor(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logical_xor() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         pk.parallel_for(
@@ -1303,6 +1357,8 @@ def logical_not(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for logical_not() ufunc.")
     out = pk.View([view.shape[0]], pk.uint8)
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], logical_not_impl_1d_double, view=view, out=out)
@@ -1338,6 +1394,8 @@ def fmax(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("fmax() ufunc only supports 1D views")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -1387,6 +1445,8 @@ def fmin(viewA, viewB):
            Output view.
 
     """
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("fmax() ufunc only supports 1D views")
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -1434,12 +1494,16 @@ def exp(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for exp() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], exp_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], exp_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -1468,12 +1532,16 @@ def exp2(view):
            Output view.
 
     """
+    if len(view.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for exp2() ufunc.")
     if str(view.dtype) == "DataType.double":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], exp2_impl_1d_double, view=view, out=out)
     elif str(view.dtype) == "DataType.float":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], exp2_impl_1d_float, view=view, out=out)
+    else:
+        raise NotImplementedError
     return out
 
 
@@ -1618,6 +1686,8 @@ def isnan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.u
 
 
 def isnan(view):
+    if len(view.shape) > 1:
+        raise NotImplementedError("isnan() ufunc only supports 1D views")
     out = pk.View([*view.shape], dtype=pk.uint8)
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         pk.parallel_for(view.shape[0],
@@ -1643,6 +1713,8 @@ def isinf_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.u
 
 
 def isinf(view):
+    if len(view.shape) > 1:
+        raise NotImplementedError("isinf() ufunc only supports 1D views")
     out = pk.View([*view.shape], dtype=pk.uint8)
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         pk.parallel_for(view.shape[0],
@@ -1745,6 +1817,10 @@ def equal(view1, view2):
     # have different, but comparable, types (like float32 vs. float64?)
     # this may "explode" without templating
 
+    # array API suite will fail if we check view1.shape here...
+    if len(view2.shape) > 1:
+        raise NotImplementedError("only 1D views currently supported for equal() ufunc.")
+
     if sum(view1.shape) == 0 or sum(view2.shape) == 0:
         return np.empty(shape=(0,))
 
@@ -1811,6 +1887,8 @@ def isfinite_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[p
 
 
 def isfinite(view):
+    if len(view.shape) > 1:
+        raise NotImplementedError("isfinite() ufunc only supports 1D views")
     out = pk.View([*view.shape], dtype=pk.uint8)
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         if view.shape == ():
