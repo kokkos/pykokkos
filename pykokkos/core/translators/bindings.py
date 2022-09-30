@@ -382,7 +382,7 @@ def generate_kernel(
 
 def bind_wrapper(variable: str, wrapper: str) -> str:
     """
-    Generate the binding code for all wrappers
+    Generate the binding code for a wrapper
 
     :returns: the binding code
     """
@@ -408,7 +408,7 @@ def bind_functor(
 
 def bind_module(module: str, wrappers: List[str], functor: str) -> str:
     """
-    Generate the binding code for all wrappers and the functor
+    Generate the binding code for all wrappers and the functor (aka the module)
 
     :returns: the binding code
     """
