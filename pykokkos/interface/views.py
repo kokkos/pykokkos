@@ -309,8 +309,6 @@ class View(ViewType):
 
         if self.dtype == pk.float:
             self.dtype = DataType.float
-        elif self.dtype == pk.float64:
-            self.dtype = DataType.float64
         elif self.dtype == pk.int32:
             self.dtype = DataType.int32
         elif self.dtype == pk.double:
