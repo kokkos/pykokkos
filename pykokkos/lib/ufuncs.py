@@ -1547,6 +1547,9 @@ def exp2(view):
 
 # TODO: Implement parallel max reduction with index
 def argmax(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
     res = np.argmax(view, axis=axis)
     view = pk.View(res.shape, pk.int32)
     view[:] = res
@@ -1576,6 +1579,9 @@ def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk
 
 
 def var(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             view_mean = mean(view, 0)
@@ -1604,6 +1610,9 @@ def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View
 
 
 def mean(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
     if str(view.dtype) == "DataType.double":
         if axis == 0:
             out = pk.View([view.shape[1]], pk.double)
