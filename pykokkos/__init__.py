@@ -66,6 +66,8 @@ from pykokkos.lib.manipulate import reshape
 from pykokkos.lib.util import all, any, sum, find_max, searchsorted
 from pykokkos.lib.constants import e, pi, inf, nan
 
+__array_api_version__ = "1.0"
+
 runtime_singleton.runtime = Runtime()
 defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
 
