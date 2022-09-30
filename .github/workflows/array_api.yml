@@ -43,6 +43,7 @@ jobs:
           git checkout 4d9d7b4b73c
           git submodule update --init
           pip install -r requirements.txt
+          pip install "hypothesis==6.54.5"
           export ARRAY_API_TESTS_MODULE=pykokkos
           # only run a subset of the conformance tests to get started
           pytest array_api_tests/meta/test_broadcasting.py array_api_tests/meta/test_equality_mapping.py array_api_tests/meta/test_signatures.py array_api_tests/meta/test_special_cases.py array_api_tests/test_constants.py array_api_tests/meta/test_utils.py array_api_tests/test_creation_functions.py::test_ones array_api_tests/test_creation_functions.py::test_ones_like array_api_tests/test_data_type_functions.py::test_result_type array_api_tests/test_operators_and_elementwise_functions.py::test_log10
