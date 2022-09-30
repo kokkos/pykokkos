@@ -1546,7 +1546,7 @@ def exp2(view):
 
 
 # TODO: Implement parallel max reduction with index
-def argmax(view, axis):
+def argmax(view, axis=None):
     res = np.argmax(view, axis=axis)
     view = pk.View(res.shape, pk.int32)
     view[:] = res
