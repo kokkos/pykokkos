@@ -46,17 +46,24 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  fmin,
                                  exp,
                                  exp2,
-                                isinf,
-                                isnan,
-                                equal,
-                             isfinite)
+                                 argmax,
+                                 unique,
+                                 var,
+                                 in1d,
+                                 mean,
+                                 transpose,
+                                 index,
+                                 isinf,
+                                 isnan,
+                                 equal,
+                                 isfinite)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  ones,
                                  ones_like,
                                  full)
 from pykokkos.lib.manipulate import reshape
-from pykokkos.lib.util import all, any
+from pykokkos.lib.util import all, any, sum, find_max, searchsorted
 from pykokkos.lib.constants import e, pi, inf, nan
 
 runtime_singleton.runtime = Runtime()

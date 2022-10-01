@@ -1,7 +1,13 @@
 import pykokkos as pk
 
 def zeros(shape, *, dtype=None, device=None):
-    return pk.View([*shape], dtype=dtype)
+    if dtype is None:
+        dtype = pk.double
+
+    if isinstance(shape, int):
+        return pk.View([shape], dtype=dtype)
+    else:
+        return pk.View([*shape], dtype=dtype)
 
 
 def ones(shape, *, dtype=None, device=None):

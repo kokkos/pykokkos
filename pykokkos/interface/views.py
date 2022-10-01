@@ -356,6 +356,9 @@ class View(ViewType):
 
 
     def __eq__(self, other):
+        if not isinstance(other, pk.View) and self.rank() > 0:
+            return [i == other for i in self]
+
         if self.array == other:
             return True
         else:
@@ -473,6 +476,10 @@ class Subview(ViewType):
                 return True
             result_of_eq = self.data == other.data
             return result_of_eq
+
+    def __hash__(self):
+        hash_value = hash(self.array)
+        return hash_value
 
 def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """

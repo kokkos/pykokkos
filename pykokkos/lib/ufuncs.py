@@ -1,6 +1,7 @@
-import pykokkos as pk
+import math
 
 import numpy as np
+import pykokkos as pk
 
 
 @pk.workunit
@@ -86,12 +87,17 @@ def log(view):
         Output view.
 
     """
+    if not isinstance(view, pk.View):
+        return math.log(view)
+
     if len(view.shape) > 1:
         raise NotImplementedError("log() ufunc only supports 1D views")
+
     if str(view.dtype) == "DataType.double":
         pk.parallel_for(view.shape[0], log_impl_1d_double, view=view)
     elif str(view.dtype) == "DataType.float":
         pk.parallel_for(view.shape[0], log_impl_1d_float, view=view)
+    
     return view
 
 
@@ -299,12 +305,17 @@ def sign(view):
 
 @pk.workunit
 def add_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double], ):
-    out[tid] = viewA[tid] + viewB[tid]
+    out[tid] = viewA[tid] + viewB[tid % viewB.extent(0)]
 
 
 @pk.workunit
 def add_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = viewA[tid] + viewB[tid]
+
+@pk.workunit
+def add_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = viewA[tid][i] + viewB[i % viewB.extent(0)]
 
 
 def add(viewA, viewB):
@@ -325,10 +336,21 @@ def add(viewA, viewB):
            Output view.
 
     """
+    if not isinstance(viewB, pk.View):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
 
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for add() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.rank() == 2:
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            add_impl_2d_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+
+    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -352,7 +374,7 @@ def add(viewA, viewB):
 
 @pk.workunit
 def multiply_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = viewA[tid] * viewB[tid]
+    out[tid] = viewA[tid] * viewB[tid % viewB.extent(0)]
 
 
 @pk.workunit
@@ -379,8 +401,14 @@ def multiply(viewA, viewB):
 
     """
 
+    if not isinstance(viewB, pk.View):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for mulitply() ufunc.")
+
     if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -503,12 +531,18 @@ def matmul(viewA, viewB):
 
 @pk.workunit
 def divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = viewA[tid] / viewB[tid]
+    out[tid] = viewA[tid] / viewB[tid % viewB.extent(0)]
 
 
 @pk.workunit
 def divide_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = viewA[tid] / viewB[tid]
+
+
+@pk.workunit
+def divide_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = viewA[tid][i] / viewB[i % viewB.extent(0)]
 
 
 def divide(viewA, viewB):
@@ -529,9 +563,21 @@ def divide(viewA, viewB):
            Output view.
 
     """
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for divide() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if not isinstance(viewB, pk.View) and not isinstance(viewB, pk.Subview):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
+    if viewA.rank() == 2:
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            divide_impl_2d_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+
+    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -637,6 +683,11 @@ def power_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D
 def power_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = pow(viewA[tid], viewB[tid])
 
+@pk.workunit
+def power_impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(viewA.extent(1)):
+        out[tid][i] = pow(viewA[tid][i], viewB[i % viewB.extent(0)])
+
 
 def power(viewA, viewB):
     """
@@ -656,9 +707,21 @@ def power(viewA, viewB):
            Output view.
 
     """
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for power() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if not isinstance(viewB, pk.View):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewB
+        viewB = view_temp
+
+    if viewA.rank() == 2:
+        out = pk.View(viewA.shape, pk.double)
+        pk.parallel_for(
+            viewA.shape[0],
+            power_impl_2d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+
+    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1479,6 +1542,145 @@ def exp2(view):
         pk.parallel_for(view.shape[0], exp2_impl_1d_float, view=view, out=out)
     else:
         raise NotImplementedError
+    return out
+
+
+# TODO: Implement parallel max reduction with index
+def argmax(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
+    res = np.argmax(view, axis=axis)
+    view = pk.View(res.shape, pk.int32)
+    view[:] = res
+
+    return view
+
+# TODO: Implement parallel sorting + filtering 
+def unique(view):
+    res = np.unique(view)
+    view = pk.View(res.shape, pk.double)
+    view[:] = res
+
+    return view
+
+@pk.workunit
+def var_impl_2d_axis0_double(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(0)):
+        out[tid] += (pow(view[i][tid] - view_mean[tid], 2)) / view.extent(0)
+
+
+@pk.workunit
+def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(1)):
+        out[tid] += (pow(view[tid][i] - view_mean[tid], 2)) / view.extent(1)
+
+
+def var(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
+    if str(view.dtype) == "DataType.double":
+        if axis == 0:
+            view_mean = mean(view, 0)
+            out = pk.View([view.shape[1]], pk.double)
+            pk.parallel_for(view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
+            return out
+        else:
+            view_mean = mean(view, 1)
+            out = pk.View([view.shape[0]], pk.double)
+            pk.parallel_for(view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
+            return out
+
+
+@pk.workunit
+def mean_impl_1d_axis0_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(0)):
+        out[tid] += (view[i][tid] / view.extent(0))
+
+
+@pk.workunit
+def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = 0
+    for i in range(view.extent(1)):
+        out[tid] += (view[tid][i] / view.extent(1))
+
+
+def mean(view, axis=None):
+    if isinstance(axis, pk.View):
+        raise NotImplementedError
+
+    if str(view.dtype) == "DataType.double":
+        if axis == 0:
+            out = pk.View([view.shape[1]], pk.double)
+            pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
+            return out
+        else:
+            out = pk.View([view.shape[0]], pk.double)
+            pk.parallel_for(view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
+
+            return out
+    else:
+        raise RuntimeError("Incompatible Types")
+
+
+@pk.workunit
+def in1d_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.int8]):
+    out[tid] = 0
+    for i in range(viewB.extent(0)):
+        if viewB[i] == viewA[tid]:
+            out[tid] = 1
+            break
+
+def in1d(viewA, viewB):
+    if str(viewA.dtype) == "DataType.double":
+        out = pk.View(viewA.shape, pk.int8)
+        pk.parallel_for(
+            viewA.shape[0],
+            in1d_impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
+
+    return out
+
+
+@pk.workunit
+def transpose_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[i][tid] = view[tid][i]
+
+
+def transpose(view):
+    if view.rank() == 2:
+        if str(view.dtype) == "DataType.double":
+            out = pk.View(view.shape[::-1], pk.double)
+            pk.parallel_for(view.shape[0], transpose_impl_2d_double, view=view, out=out)
+            return out
+    
+    raise RuntimeError("Transpose supports 2D views only")
+
+
+@pk.workunit
+def index_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
+    out[tid] = viewA[viewB[tid]]
+
+def index(viewA, viewB):
+    if viewB.dtype == pk.int32:
+        out = pk.View(viewB.shape, pk.double)
+        pk.parallel_for(
+            viewB.shape[0],
+            index_impl_1d_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    else:
+        raise RuntimeError("Incompatible Types")
     return out
 
 
