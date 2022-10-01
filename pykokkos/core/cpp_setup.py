@@ -146,7 +146,13 @@ class CppSetup:
             if not include_path.is_dir():
                 raise RuntimeError(f"install/ directory path {str(include_path)} does not exist")
 
-            return lib_path, include_path
+            compiler_path: Path
+            if compiler != "nvcc":
+                compiler_path = Path("g++")
+            else:
+                compiler_path = lib_path.parent / "bin/nvcc_wrapper"
+
+            return lib_path, include_path, compiler_path
 
         is_cpu: bool = is_host_execution_space(space)
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
