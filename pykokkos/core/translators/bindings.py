@@ -391,9 +391,7 @@ def bind_wrapper(variable: str, wrapper: str) -> str:
 
     return binding
 
-def bind_functor(
-    variable: str,
-    functor: str) -> List[str]:
+def bind_functor(variable: str,functor: str) -> List[str]:
     """
     Generates the bindings for a functor.
 
