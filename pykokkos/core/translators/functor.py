@@ -147,6 +147,21 @@ def generate_constructor(
 
     return cppast.ConstructorDecl("", name, params, body)
 
+def generate_default_constructor(
+    name: str,
+) -> cppast.ConstructorDecl:
+    """
+    Generate the functor default constructor
+
+    :param name: the functor class name
+    :returns: the cppast representation of the default constructor
+    """
+
+    assignments: List[cppast.AssignOperator] = []
+    body = cppast.CompoundStmt(assignments)
+    params: List[cppast.ParmVarDecl] = []
+
+    return cppast.ConstructorDecl("", name, params, body)
 
 def generate_functor(
     name: str,
@@ -194,6 +209,7 @@ def generate_functor(
         decls.append(cppast.DeclStmt(cppast.FieldDecl(f"Kokkos::{pool_type}<>", pool_name)))
 
     decls.append(generate_constructor(name, fields, views, random_pool, has_rand_call))
+    decls.append(generate_default_constructor(name))
     for _, s in workunits.values():
         decls.append(s)
 
