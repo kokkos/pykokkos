@@ -145,8 +145,8 @@ def sqrt(view):
     """
     # TODO: support complex types when they
     # are available in pykokkos?
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for sqrt() ufunc.")
+    if len(view.shape) > 2:
+        raise NotImplementedError("only up to 2D views currently supported for sqrt() ufunc.")
     out = pk.View(view.shape, view.dtype)
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         if view.shape == ():
