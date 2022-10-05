@@ -43,7 +43,6 @@ jobs:
           git checkout 4d9d7b4b73c
           git submodule update --init
           pip install -r requirements.txt
-          pip install "hypothesis==6.54.5"
           export ARRAY_API_TESTS_MODULE=pykokkos
           # we precompile some of the ufunc implementations
           # to circumvent the currently slow performance of
