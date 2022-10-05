@@ -1914,14 +1914,117 @@ def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D
 
 
 @pk.workunit
+def isfinite_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+
+@pk.workunit
 def isfinite_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
     out[tid] = isfinite(view[tid])
 
 
+@pk.workunit
+def isfinite_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+@pk.workunit
+def isfinite_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+@pk.workunit
+def isfinite_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def isfinite_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint8]):
+    out[tid] = isfinite(view[tid])
+
+
+@pk.workunit
+def isfinite_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = isfinite(view[tid][i]) # type: ignore
+
+
 def isfinite(view):
-    if len(view.shape) > 1:
-        raise NotImplementedError("isfinite() ufunc only supports 1D views")
+    if len(view.shape) > 2:
+        raise NotImplementedError("isfinite() ufunc only supports up to 2D views")
     out = pk.View([*view.shape], dtype=pk.uint8)
+    if view.size == 0:
+        out = pk.View(view.shape, dtype=pk.bool)
+        return out
+    out = pk.View([*view.shape], dtype=pk.bool)
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.double)
@@ -1930,9 +2033,14 @@ def isfinite(view):
                             isfinite_impl_1d_double,
                             view=new_view,
                             out=out)
-        else:
+        elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0],
                             isfinite_impl_1d_double,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_double,
                             view=view,
                             out=out)
     elif "float" in str(view.dtype):
@@ -1943,9 +2051,158 @@ def isfinite(view):
                             isfinite_impl_1d_float,
                             view=new_view,
                             out=out)
-        else:
+        elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0],
                             isfinite_impl_1d_float,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_float,
+                            view=view,
+                            out=out)
+    elif "uint8" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint8)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_uint8,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_uint8,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_uint8,
+                            view=view,
+                            out=out)
+    elif "int8" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int8)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_int8,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_int8,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_int8,
+                            view=view,
+                            out=out)
+    elif "uint16" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint16)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_uint16,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_uint16,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_uint16,
+                            view=view,
+                            out=out)
+    elif "int16" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int16)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_int16,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_int16,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_int16,
+                            view=view,
+                            out=out)
+    elif "uint32" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint32)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_uint32,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_uint32,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_uint32,
+                            view=view,
+                            out=out)
+    elif "int32" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int32)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_int32,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_int32,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_int32,
+                            view=view,
+                            out=out)
+    elif "uint64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint64)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_uint64,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_uint64,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_uint64,
+                            view=view,
+                            out=out)
+    elif "int64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int64)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            isfinite_impl_1d_int64,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_1d_int64,
+                            view=view,
+                            out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0],
+                            isfinite_impl_2d_int64,
                             view=view,
                             out=out)
     return out

@@ -195,6 +195,10 @@ class ViewType:
         return self._scalarfunc(float)
 
 
+    def __int__(self):
+        return self._scalarfunc(int)
+
+
 class View(ViewType):
     def __init__(
         self,
