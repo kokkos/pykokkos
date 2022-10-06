@@ -4,6 +4,7 @@ import pykokkos.kokkos_manager as km
 
 class ExecutionSpace(Enum):
     Cuda = "Cuda"
+    HIP = "HIP"
     OpenMP = "OpenMP"
     Pthreads = "Pthreads"
     Serial = "Serial"

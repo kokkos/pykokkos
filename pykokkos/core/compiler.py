@@ -206,6 +206,9 @@ class Compiler:
         if kokkos.get_device_available("Cuda"):
             return "nvcc"
 
+        if kokkos.get_device_available("HIP"):
+            return "hipcc"
+
         return "g++"
 
     def get_defaults_file(self, main: Path) -> Path:

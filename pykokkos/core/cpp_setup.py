@@ -175,7 +175,7 @@ class CppSetup:
 
         compiler_path: Path
         if compiler != "nvcc":
-            compiler_path = Path("g++")
+            compiler_path = Path(compiler)
         else:
             compiler_path = install_path.parent / "bin/nvcc_wrapper"
 
@@ -210,6 +210,12 @@ class CppSetup:
             if enable_uvm:
                 view_space = "Kokkos::CudaUVMSpace"
 
+        space_value: str
+        if space.value == "HIP":
+            space_value = "Experimental::HIP"
+        else:
+            space_value = space.value
+
         view_layout: str = str(get_default_layout(get_default_memory_space(space)))
         view_layout = view_layout.split(".")[-1]
         view_layout = f"Kokkos::{view_layout}"
@@ -225,7 +231,7 @@ class CppSetup:
         command: List[str] = [f"./{self.script}",
                               compiler,             # What compiler to use
                               self.module_file,     # Compilation target
-                              space.value,          # Execution space
+                              space_value,          # Execution space
                               view_space,           # Argument views memory space
                               view_layout,          # Argument views memory layout
                               precision,            # Default real precision
