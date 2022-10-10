@@ -300,8 +300,8 @@ class View(ViewType):
         if layout is Layout.LayoutDefault:
             layout = get_default_layout(space)
 
-        # only allow CudaSpace view for cupy arrays
-        if (space is MemorySpace.CudaSpace and trait is not trait.Unmanaged) or space is MemorySpace.HIPSpace:
+        # only allow CudaSpace/HIPSpace view for cupy arrays
+        if (space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}) and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
         self.space: MemorySpace = space
