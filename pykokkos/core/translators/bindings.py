@@ -124,7 +124,7 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     return {v.declname: f"pk_d_{v.declname}" for v in members.views \
             if members.views[v] is not None}
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
+def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True) -> str:
     """
     Generate the functor instance
 
@@ -156,26 +156,27 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
     if len(args) == 0:
         args.append("0")
 
-    args.append(Keywords.RandPoolSeed.value)
-    args.append(Keywords.RandPoolNumStates.value)
+    if(with_random_args):
+        args.append(Keywords.RandPoolSeed.value)
+        args.append(Keywords.RandPoolNumStates.value)
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
 
     return mirror_views + constructor
 
-def generate_copy_back(members: PyKokkosMembers) -> str:
+def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[str,str]) -> str:
     """
-    Generate the code that copies back the views
+    Generate the code that does the resize and deep_copy
 
     :param members: an object containing the fields and views
+    :param deep_copy_args: dict of pairs of deep_copy args
     :returns: the source code for instantiating the functor
     """
 
     copy_back: str = ""
 
-    device_views: Dict[str, str] = get_device_views(members)
-    for v, d_v in device_views.items():
+    for v, d_v in deep_copy_args.items():
         view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
         # skip subviews
         if view_type is None:
@@ -200,6 +201,17 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
         copy_back += f"Kokkos::deep_copy({v}, {d_v});"
 
     return copy_back
+
+def generate_copy_back(members: PyKokkosMembers) -> str:
+    """
+    Generate the code that copies back the views
+
+    :param members: an object containing the fields and views
+    :returns: the source code for instantiating the functor
+    """
+    device_views: Dict[str, str] = get_device_views(members)
+
+    return generate_copy_back_from_dict(members,device_views)
 
 def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     """
