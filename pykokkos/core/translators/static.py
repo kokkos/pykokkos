@@ -78,7 +78,7 @@ class StaticTranslator:
 
         cast: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_CAST_"+"_HPP")]
         cast.append(self.generate_cast_includes())
-        cast.append(generate_cast(functor_name,self.pk_members))
+        cast.extend(generate_cast(functor_name,self.pk_members))
         cast.append(generate_include_guard_end())
 
         bindings: List[str] = self.generate_bindings(entity, functor_name, source, workunits)
