@@ -1,4 +1,5 @@
 import ast
+import os
 import re
 import sys
 from typing import Dict, List, Optional, Set, Union
@@ -336,6 +337,8 @@ def cpp_view_type(
         params_ordered.append(params["layout"])
     if "space" in params:
         params_ordered.append(params["space"])
+    if "PK_NO_VIEW_HOOKS" not in os.environ:
+        params_ordered.append("Kokkos::Experimental::DefaultViewHooks")
     if "trait" in params:
         params_ordered.append(params["trait"])
 
