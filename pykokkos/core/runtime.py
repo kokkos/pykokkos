@@ -51,6 +51,22 @@ class Runtime:
         self.execute(workload, module_setup, members, space)
         self.run_callbacks(workload, members)
 
+    def precompile_workunit(
+        self,
+        workunit: Callable[..., None],
+        space: ExecutionSpace
+        ) -> Optional[PyKokkosMembers]:
+        """
+        precompile the workunit
+
+        :param workunit: the workunit function object
+        :param kwargs: the keyword arguments passed to the workunit
+        :returns: the result of the operation (None for parallel_for)
+        """
+
+        module_setup: ModuleSetup = self.get_module_setup(workunit, space)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
+        return members
 
     def run_workunit(
         self,
@@ -78,11 +94,11 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, policy.space, km.is_uvm_enabled())
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit,policy.space)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
+        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
         return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
