@@ -124,7 +124,7 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     return {v.declname: f"pk_d_{v.declname}" for v in members.views \
             if members.views[v] is not None}
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True) -> str:
+def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functorExecSpace: Optional[str] = None) -> str:
     """
     Generate the functor instance
 
@@ -138,19 +138,19 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     for f in members.fields:
         args.append(f.declname)
 
-    exec_space: str = Keywords.DefaultExecSpace.value
-    exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
+    if functorExecSpace is None:
+        exec_space: str = Keywords.DefaultExecSpace.value
+        exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
+    else:
+        exec_space: str = functorExecSpace
+        exec_space_instance: str = f"{exec_space}_instance"
+
     mirror_views: str = f"{exec_space} {exec_space_instance};"
 
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
         args.append(d_v)
-
-        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
-        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
-            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
-        else:
-            mirror_views += f"auto {d_v} = {v};"
+        mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
