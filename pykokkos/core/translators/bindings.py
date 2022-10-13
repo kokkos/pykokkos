@@ -48,7 +48,7 @@ def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
                 return f"Kokkos::{name}"
 
     if location == "functor":
-        return f"ExecutionSpace::memory_space"
+        return f"typename ExecSpace::memory_space"
     if location == "bindings":
         return Keywords.ArgMemSpace.value
 
@@ -383,7 +383,9 @@ def generate_kernel(
         acc = f"{return_type} {Keywords.Accumulator.value} = 0;"
 
     if members.has_real:
-        functor += f"<{real}>"
+        functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
+    else:
+        functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     instance: str = generate_functor_instance(functor, members)
     call: str = generate_call(operation, functor, members, tag, hierarchical)

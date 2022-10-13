@@ -15,11 +15,11 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
         real_str = visitors_util.view_dtypes[precision.name].value
 
     if members.has_real:
-        functor_type = f"{functor}<FunctorExecutionSpace,{real_str}>"
-        template_decl = f"template <class FunctorExecutionSpace,class ArgumentMemorySpace,class {real_str}>"
+        functor_type = f"{functor}<FunctorExecSpace,{real_str}>"
+        template_decl = f"template <class FunctorExecSpace,class ArgumentMemorySpace,class {real_str}>"
     else:
-        functor_type = f"{functor}<ExecutionSpace>"
-        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace>"
+        functor_type = f"{functor}<ExecSpace>"
+        template_decl = f"template <class ExecSpace,class ArgumentMemorySpace>"
 
     cast_source = f"{template_decl} {functor_type} {functor}_from_pyObject(pybind11::object obj) {{"
 
@@ -35,7 +35,7 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
             continue
 
         space: str = "ArgumentMemorySpace"
-        layout: str = f"ExecutionSpace::array_layout"
+        layout: str = f"typename ExecSpace::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout,real=real_str)
 
     #cast arguments into cpp types
@@ -46,7 +46,7 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
             cast_source += f"{param_type} {name} = getattr(obj,\"{name}\").cast<{param_type}>();"
 
 
-    cast_source += generate_functor_instance(functor_type, members, False, "ExecutionSpace")
+    cast_source += generate_functor_instance(functor_type, members, False, "ExecSpace")
     cast_source += f"return {Keywords.Instance.value};"
     cast_source += "}"
 
@@ -60,11 +60,11 @@ def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: O
         real_str = visitors_util.view_dtypes[precision.name].value
 
     if members.has_real:
-        functor_type = f"{functor}<ExecutionSpace,{real_str}>"
-        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace, class {real_str}>"
+        functor_type = f"{functor}<ExecSpace,{real_str}>"
+        template_decl = f"template <class ExecSpace,class ArgumentMemorySpace, class {real_str}>"
     else:
-        functor_type = f"{functor}<ExecutionSpace>"
-        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace>"
+        functor_type = f"{functor}<ExecSpace>"
+        template_decl = f"template <class ExecSpace,class ArgumentMemorySpace>"
 
     cast_source = f"{template_decl} void {functor}_to_pyObject({functor_type}& functor, pybind11::object obj) {{"
 
@@ -80,7 +80,7 @@ def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: O
             continue
 
         space: str = "ArgumentMemorySpace"
-        layout: str = f"ExecutionSpace::array_layout"
+        layout: str = f"typename ExecSpace::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout,real=real_str)
 
     #cast members into cpp types

@@ -17,7 +17,7 @@ def get_view_type(view: cppast.ClassType) -> str:
     """
 
     space: str = get_view_memory_space(view, "functor")
-    layout: str = f"ExecutionSpace::array_layout"
+    layout: str = f"typename ExecSpace::array_layout"
     view_type: str = cpp_view_type(view, space=space, layout=layout)
 
     return view_type
@@ -246,7 +246,7 @@ def generate_functor(
     struct = cppast.RecordDecl(cppast.ClassType(name), decls)
     struct.is_definition = True
 
-    struct.add_template_param("ExecutionSpace")
+    struct.add_template_param("ExecSpace")
     if members.has_real:
         struct.add_template_param(Keywords.RealPrecision.value)
         s = cppast.Serializer()
