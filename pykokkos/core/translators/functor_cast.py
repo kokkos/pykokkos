@@ -8,26 +8,20 @@ from .members import PyKokkosMembers
 from .bindings import generate_functor_instance,generate_copy_back,get_view_memory_space,generate_copy_back_from_dict
 
 
-
-def get_functor_name_and_type(functor: str, members: PyKokkosMembers, real: Optional[str]) -> Tuple[str,str]:
-
-    functor_type = functor
-    functor_name = functor
-    if members.has_real:
-        functor_type += f"<{real}>"
-        functor_name += f"_{real}"
-
-    return functor_type, functor_name
-
 def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision: Optional[DataType]) -> str:
 
     real_str: Optional[str] = None
     if precision is not None:
         real_str = visitors_util.view_dtypes[precision.name].value
 
-    functor_type,functor_name = get_functor_name_and_type(functor,members,real_str)
+    if members.has_real:
+        functor_type = f"{functor}<FunctorExecutionSpace,{real_str}>"
+        template_decl = f"template <class FunctorExecutionSpace,class ArgumentMemorySpace,class {real_str}>"
+    else:
+        functor_type = f"{functor}<ExecutionSpace>"
+        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace>"
 
-    cast_source = f"{functor_type} {functor_name}_from_pyObject(pybind11::object obj) {{"
+    cast_source = f"{template_decl} {functor_type} {functor}_from_pyObject(pybind11::object obj) {{"
 
     # get functor members incl types
     s = cppast.Serializer()
@@ -40,8 +34,8 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
         if t is None:
             continue
 
-        space: str = get_view_memory_space(t, "bindings")
-        layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
+        space: str = "ArgumentMemorySpace"
+        layout: str = f"ExecutionSpace::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout,real=real_str)
 
     #cast arguments into cpp types
@@ -51,7 +45,8 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
         else:
             cast_source += f"{param_type} {name} = getattr(obj,\"{name}\").cast<{param_type}>();"
 
-    cast_source += generate_functor_instance(functor, members,False)
+
+    cast_source += generate_functor_instance(functor_type, members, False, "ExecutionSpace")
     cast_source += f"return {Keywords.Instance.value};"
     cast_source += "}"
 
@@ -64,9 +59,14 @@ def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: O
     if precision is not None:
         real_str = visitors_util.view_dtypes[precision.name].value
 
-    functor_type,functor_name = get_functor_name_and_type(functor,members,real_str)
+    if members.has_real:
+        functor_type = f"{functor}<ExecutionSpace,{real_str}>"
+        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace, class {real_str}>"
+    else:
+        functor_type = f"{functor}<ExecutionSpace>"
+        template_decl = f"template <class ExecutionSpace,class ArgumentMemorySpace>"
 
-    cast_source = f"void {functor_name}_to_pyObject({functor_type}& functor, pybind11::object obj) {{"
+    cast_source = f"{template_decl} void {functor}_to_pyObject({functor_type}& functor, pybind11::object obj) {{"
 
     # get functor members incl types
     s = cppast.Serializer()
@@ -79,8 +79,8 @@ def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: O
         if t is None:
             continue
 
-        space: str = get_view_memory_space(t, "bindings")
-        layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
+        space: str = "ArgumentMemorySpace"
+        layout: str = f"ExecutionSpace::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout,real=real_str)
 
     #cast members into cpp types
