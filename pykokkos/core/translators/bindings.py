@@ -48,7 +48,7 @@ def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
                 return f"Kokkos::{name}"
 
     if location == "functor":
-        return f"{Keywords.DefaultExecSpace.value}::memory_space"
+        return f"ExecutionSpace::memory_space"
     if location == "bindings":
         return Keywords.ArgMemSpace.value
 
