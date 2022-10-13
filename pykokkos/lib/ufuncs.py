@@ -166,13 +166,25 @@ def sqrt(view):
 
 
 @pk.workunit
-def log2_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
-    view[tid] = log2(view[tid]) # type: ignore
+def log2_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = log2(view[tid]) # type: ignore
 
 
 @pk.workunit
-def log2_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
-    view[tid] = log2(view[tid]) # type: ignore
+def log2_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = log2(view[tid][i]) # type: ignore
+
+
+@pk.workunit
+def log2_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = log2(view[tid]) # type: ignore
+
+
+@pk.workunit
+def log2_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)): # type: ignore
+        out[tid][i] = log2(view[tid][i]) # type: ignore
 
 
 def log2(view):
@@ -190,13 +202,26 @@ def log2(view):
         Output view.
 
     """
-    if len(view.shape) > 1:
-        raise NotImplementedError("log2() ufunc only supports 1D views")
-    if str(view.dtype) == "DataType.double":
-        pk.parallel_for(view.shape[0], log2_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float":
-        pk.parallel_for(view.shape[0], log2_impl_1d_float, view=view)
-    return view
+    if len(view.shape) > 2:
+        raise NotImplementedError("log2() ufunc only supports up to 2D views")
+    out = pk.View(view.shape, view.dtype)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        if view.shape == ():
+            # NOTE: is this really worth sending to a kernel?
+            pk.parallel_for(1, log2_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], log2_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], log2_impl_2d_double, view=view, out=out)
+    elif "float" in str(view.dtype):
+        if view.shape == ():
+            # NOTE: is this really worth sending to a kernel?
+            pk.parallel_for(1, log2_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], log2_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], log2_impl_2d_float, view=view, out=out)
+    return out
 
 
 @pk.workunit
