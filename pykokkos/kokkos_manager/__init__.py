@@ -7,6 +7,7 @@ from pykokkos.interface.execution_space import ExecutionSpace
 from pykokkos.interface.data_types import DataTypeClass, double
 
 CONSTANTS: Dict[str, Any] = {
+    "KOKKOS_VERSION": 3.7, # default to 3.7
     "EXECUTION_SPACE": ExecutionSpace.OpenMP,
     "REAL_DTYPE": double,
     "IS_INITIALIZED": False,
@@ -17,6 +18,13 @@ CONSTANTS: Dict[str, Any] = {
     "KOKKOS_GPU_MODULE_LIST": [],
     "DEVICE_ID": 0
 }
+
+def get_kokkos_version() -> float:
+    """
+    Get the version of the installed Kokkos library
+    """
+
+    return CONSTANTS["KOKKOS_VERSION"]
 
 def get_default_space() -> ExecutionSpace:
     """
@@ -178,6 +186,13 @@ def get_num_gpus() -> bool:
     """
 
     return CONSTANTS["NUM_GPUS"]
+
+pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
+if pk_kokkos_version is not None:
+    try:
+        CONSTANTS["KOKKOS_VERSION"] = float(pk_kokkos_version)
+    except ValueError:
+        print(f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {get_kokkos_version()}")
 
 try:
     # Import multiple kokkos libs to support multiple devices per

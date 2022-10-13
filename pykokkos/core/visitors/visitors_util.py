@@ -1,8 +1,10 @@
 import ast
+import os
 import re
 import sys
 from typing import Dict, List, Optional, Set, Union
 
+from pykokkos import kokkos_manager as km
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, Trait
@@ -336,6 +338,8 @@ def cpp_view_type(
         params_ordered.append(params["layout"])
     if "space" in params:
         params_ordered.append(params["space"])
+    if km.get_kokkos_version() >= 3.7:
+        params_ordered.append("Kokkos::Experimental::DefaultViewHooks")
     if "trait" in params:
         params_ordered.append(params["trait"])
 
