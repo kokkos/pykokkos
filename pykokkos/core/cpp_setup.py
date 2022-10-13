@@ -211,7 +211,7 @@ class CppSetup:
                 view_space = "Kokkos::CudaUVMSpace"
         if space is ExecutionSpace.HIP:
             if enable_uvm:
-                view_space = "Kokkos::Experimental::HIPHostPinnedSpace"
+                view_space = "Kokkos::Experimental::HIPManagedSpace"
 
         space_value: str
         if space.value == "HIP":
