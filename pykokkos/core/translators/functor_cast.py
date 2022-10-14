@@ -9,6 +9,15 @@ from .bindings import generate_functor_instance,generate_copy_back,get_view_memo
 
 
 def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision: Optional[DataType]) -> str:
+    """
+    Generates the source code of a c++ template for a "cast" operation from the python object to a c++ functor.
+    DOES NOT CHECK ANY FIELDS/TYPES/ETC
+
+    :param functor: the name of the functor without template args
+    :param members: an object containing the fields and views
+    :param precision: optional argument of type DataType for floatingpoint
+    :returns: the source code of the functor cast
+    """
 
     real_str: Optional[str] = None
     if precision is not None:
@@ -54,6 +63,15 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
 
 
 def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: Optional[DataType]) -> str:
+    """
+    Generates the source code of a c++ template for a "cast" operation from the c++ functor to a python object.
+    DOES NOT CHECK ANY FIELDS/TYPES/ETC
+
+    :param functor: the name of the functor without template args
+    :param members: an object containing the fields and views
+    :param precision: optional argument of type DataType for floatingpoint
+    :returns: the source code of the functor cast
+    """
 
     real_str: Optional[str] = None
     if precision is not None:
@@ -105,6 +123,21 @@ def generate_cast_to_object(functor: str, members: PyKokkosMembers, precision: O
     return cast_source
 
 def generate_cast(functor: str, members: PyKokkosMembers) -> List[str]:
+    """
+    Generates the c++ templates for casting a functor to/from a python object. A pybind11 cast operator would need to know how to
+    construct the python object the functor wants to cast into. This is a problem as we do not know where the user defines 
+    the functor object and I did not want to import the main script into the c++ binding code just to know
+    how to construct the functor object in c++.
+    This is solved by passing in a python object when casting from the c++ object to the python object.
+    This leaves it to the user that calls the cast that the python object actually has all the members the cast assigns to ... 
+    the function has no guarantees or checks, as the interpreter should throw a runtime error if any of the assignments fails,
+    which is as good as it gets.
+    Both "casts" take care of the deep_copy and resize operations. This said, they are more like glorified copy operations
+
+    :param functor: the name of the functor without template arguments
+    :param members: object containing fields and views of the functor
+    :returns: the source code of the cast operators
+    """
 
     source: List[str] = []
     if members.has_real:
