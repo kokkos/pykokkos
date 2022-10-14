@@ -156,7 +156,7 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     if len(args) == 0:
         args.append("0")
 
-    if(with_random_args):
+    if with_random_args:
         args.append(Keywords.RandPoolSeed.value)
         args.append(Keywords.RandPoolNumStates.value)
 
