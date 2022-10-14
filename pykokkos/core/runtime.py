@@ -54,14 +54,14 @@ class Runtime:
     def precompile_workunit(
         self,
         workunit: Callable[..., None],
-        space: ExecutionSpace
+        space: ExecutionSpace = "Default"
         ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
 
         :param workunit: the workunit function object
-        :param kwargs: the keyword arguments passed to the workunit
-        :returns: the result of the operation (None for parallel_for)
+        :param space: the ExecutionSpace for which the bindings are generated
+        :returns: the members the functor is containing
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space)
