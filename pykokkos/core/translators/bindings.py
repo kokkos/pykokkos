@@ -130,6 +130,8 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
 
     :param functor: the name of the functor
     :param members: an object containing the fields and views
+    :param with_random_args: bool indicating if the constructor call should have the random args. default = True
+    :param functorExecSpace: optional parameter of type str that contains the ExecSpace template argument to the functor
     :returns: the source code for instantiating the functor
     """
 
