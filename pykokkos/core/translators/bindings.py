@@ -546,7 +546,9 @@ def bind_main_single(
         real = visitors_util.view_dtypes[precision.name].value
         wrapper_name += f"_{real}"
         kernel_name += f"_{real}"
-        functor += f"<{real}>"
+        functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
+    else:
+        functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     main: List[str] = translate_mains(source, functor, members, pk_import)
     params: Dict[str, str] = get_kernel_params(members, False, True, real)
