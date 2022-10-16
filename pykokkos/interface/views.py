@@ -134,6 +134,12 @@ class ViewType:
 
         self.data[key] = value
 
+    def __bool__(self):
+        # TODO: more complete implementation
+        if self.shape == (1,) or self.shape == ():
+            return bool(self.data)
+
+
     def __len__(self) -> int:
         """
         Implements the len() function
