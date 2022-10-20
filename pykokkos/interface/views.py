@@ -214,7 +214,7 @@ class View(ViewType):
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
         array: Optional[np.ndarray] = None,
-        _cpp_type: str = ""
+        _cpp_type: Optional[str] = None
     ):
         """
         View constructor.
