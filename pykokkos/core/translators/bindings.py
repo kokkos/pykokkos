@@ -124,14 +124,14 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     return {v.declname: f"pk_d_{v.declname}" for v in members.views \
             if members.views[v] is not None}
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functorExecSpace: Optional[str] = None) -> str:
+def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functor_exec_space: Optional[str] = None) -> str:
     """
     Generate the functor instance
 
     :param functor: the name of the functor
     :param members: an object containing the fields and views
     :param with_random_args: bool indicating if the constructor call should have the random args. default = True
-    :param functorExecSpace: optional parameter of type str that contains the ExecSpace template argument to the functor
+    :param functor_exec_space: optional parameter of type str that contains the ExecSpace template argument to the functor
     :returns: the source code for instantiating the functor
     """
 
@@ -140,11 +140,11 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     for f in members.fields:
         args.append(f.declname)
 
-    if functorExecSpace is None:
+    if functor_exec_space is None:
         exec_space: str = Keywords.DefaultExecSpace.value
         exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
     else:
-        exec_space: str = functorExecSpace
+        exec_space: str = functor_exec_space
         exec_space_instance: str = f"{exec_space}_instance"
 
     mirror_views: str = f"{exec_space} {exec_space_instance};"
