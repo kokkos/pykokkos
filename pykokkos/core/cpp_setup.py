@@ -24,8 +24,6 @@ class CppSetup:
 
         :param module: the name of the file containing the compiled Python module
         :param gpu_module_files: the list of names of files containing for each gpu module
-        :param functor: the name of the generated functor file
-        :param bindings: the name of the generated bindings file
         """
 
         self.module_file: str = module_file
