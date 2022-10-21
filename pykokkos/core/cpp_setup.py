@@ -41,6 +41,31 @@ class CppSetup:
 
         self.format: bool = False
 
+    def compile_raw_source(
+        self,
+        output_dir: Path,
+        source: List[str],
+        filename: str,
+        space: ExecutionSpace,
+        enable_uvm: bool,
+        compiler: str
+    ) -> None:
+        """
+        Compiles the generated C++ code
+
+        :param output_dir: the base directory
+        :param source: the translated C++ source
+        :param filename: the name the source is written to
+        :param space: the execution space to compile for
+        :param enable_uvm: whether to enable CudaUVMSpace
+        :param compiler: the compiler name
+        """
+
+        self.initialize_directory(output_dir)
+        self.write_source(output_dir, source, filename)
+        self.copy_script(output_dir)
+        self.invoke_script(output_dir, space, enable_uvm, compiler)
+
     def compile(
         self,
         output_dir: Path,
@@ -99,18 +124,28 @@ class CppSetup:
         functor_cast_path: Path = output_dir.parent / self.functor_cast_file
         bindings_path: Path = output_dir / self.bindings_file
 
-        with open(functor_path, "w") as out:
-            out.write("\n".join(functor))
-        with open(functor_cast_path, "w") as out:
-            out.write("\n".join(functor_cast))
-        with open(bindings_path, "w") as out:
-            out.write("\n".join(bindings))
+        write_raw_source(self,output_dir.parent,functor,self.functor_file)
+        write_raw_source(self,output_dir.parent,functor_cast,self.functor_cast_file)
+        write_raw_source(self,output_dir,bindings,self.bindings_file)
+
+
+    def write_raw_source(self, output_dir: Path, source: List[str], filename: str) -> None:
+        """
+        Writes the generated C++ source code to a file
+
+        :param output_dir: the base directory
+        :param source: the generated C++ source file content
+        :param filename: the filename for the code
+        """
+
+        file_path: Path = output_dir / filename
+
+        with open(file_path, "w") as out:
+            out.write("\n".join(source))
 
         if self.format:
             try:
-                subprocess.run(["clang-format", "-i", functor_path])
-                subprocess.run(["clang-format", "-i", functor_cast_path])
-                subprocess.run(["clang-format", "-i", bindings_path])
+                subprocess.run(["clang-format", "-i", file_path])
             except Exception as ex:
                 print(f"Exception while formatting cpp: {ex}")
 
