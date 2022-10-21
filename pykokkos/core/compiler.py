@@ -200,10 +200,10 @@ class Compiler:
 
     def compile_raw_source(
         self,
-        main: Path,
+        output_dir: Path,
         source: List[str],
         filename: str,
-        module_setup: ModuleSetup,
+        module_file: str,
         space: ExecutionSpace,
         force_uvm: bool
         ) -> None:
@@ -218,9 +218,8 @@ class Compiler:
         :param members: the PyKokkos related members of the entity
         """
 
-        cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
-        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
-        t_start: float = time.perf_counter()
+        cpp_setup = CppSetup(module_file, [])
+        c_start: float = time.perf_counter()
         cpp_setup.compile_raw_source(output_dir, source, filename, space, force_uvm, self.get_compiler())
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
