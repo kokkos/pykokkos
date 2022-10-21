@@ -198,6 +198,33 @@ class Compiler:
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
 
+    def compile_raw_source(
+        self,
+        main: Path,
+        source: List[str],
+        filename: str,
+        module_setup: ModuleSetup,
+        space: ExecutionSpace,
+        force_uvm: bool
+        ) -> None:
+        """
+        Compile the entity
+
+        :param main: the path to the main file in the current PyKokkos application
+        :param source: cpp source of module
+        :param filename: name of the file to store the source in
+        :param space: the execution space to compile for
+        :param force_uvm: whether CudaUVMSpace is enabled
+        :param members: the PyKokkos related members of the entity
+        """
+
+        cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
+        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
+        t_start: float = time.perf_counter()
+        cpp_setup.compile_raw_source(output_dir, source, filename, space, force_uvm, self.get_compiler())
+        c_end: float = time.perf_counter() - c_start
+        self.logger.info(f"compilation {c_end}")
+
     def get_compiler(self) -> str:
         """
         Get the compiler to use based on the machine name
