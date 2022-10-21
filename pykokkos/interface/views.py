@@ -296,6 +296,7 @@ class View(ViewType):
 
         self.shape: Tuple[int] = tuple(shape)
         self.size: int = math.prod(shape)
+        self.ndim: int = len(shape)
         self.dtype: Optional[DataType] = self._get_type(dtype)
         if self.dtype is None:
             sys.exit(f"ERROR: Invalid dtype {dtype}")
@@ -381,6 +382,10 @@ class View(ViewType):
         except TypeError:
             hash_value = hash(self.array.data.tobytes())
         return hash_value
+
+
+    def __index__(self) -> int:
+        return int(self.data[0])
 
 
     @staticmethod
