@@ -57,7 +57,7 @@ class CppSetup:
         """
 
         self.initialize_directory(output_dir)
-        self.write_source(output_dir, source, filename)
+        self.write_raw_source(output_dir, source, filename)
         self.copy_script(output_dir)
         self.invoke_script(output_dir, space, enable_uvm, compiler)
 
