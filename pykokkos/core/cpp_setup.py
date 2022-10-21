@@ -126,9 +126,9 @@ class CppSetup:
         :param bindings_filename: the generated bindings_filename
         """
 
-        write_raw_source(self,output_dir.parent,functor,functor_filename)
-        write_raw_source(self,output_dir.parent,functor_cast,functor_cast_filename)
-        write_raw_source(self,output_dir,bindings,bindings_filename)
+        self.write_raw_source(output_dir.parent,functor,functor_filename)
+        self.write_raw_source(output_dir.parent,functor_cast,functor_cast_filename)
+        self.write_raw_source(output_dir,bindings,bindings_filename)
 
 
     def write_raw_source(self, output_dir: Path, source: List[str], filename: str) -> None:
