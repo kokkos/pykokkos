@@ -18,7 +18,7 @@ class CppSetup:
     Creates the directory to hold the translation and invokes the compiler
     """
 
-    def __init__(self, module_file: str, gpu_module_files: List[str], functor: str,functor_cast: str, bindings: str):
+    def __init__(self, module_file: str, gpu_module_files: List[str]):
         """
         CppSetup constructor
 
@@ -30,9 +30,6 @@ class CppSetup:
 
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
-        self.functor_file: str = functor
-        self.functor_cast_file: str = functor_cast
-        self.bindings_file: str = bindings
 
         self.script: str = "compile.sh"
         self.script_path: Path = Path(__file__).resolve().parent / self.script
@@ -70,8 +67,11 @@ class CppSetup:
         self,
         output_dir: Path,
         functor: List[str],
+        functor_filename: str,
         functor_cast: List[str],
+        functor_cast_filename: str,
         bindings: List[str],
+        bindings_filename: str,
         space: ExecutionSpace,
         enable_uvm: bool,
         compiler: str
@@ -81,13 +81,17 @@ class CppSetup:
 
         :param output_dir: the base directory
         :param functor: the translated C++ functor
+        :param functor_filename: the generated C++ functor filename
+        :param functor_cast: the generated C++ functor_cast
+        :param functor_cast_filename: the generated C++ functor_cast filename
         :param bindings: the generated bindings
+        :param bindings_filename: the generated bindings_filename
         :param space: the execution space to compile for
         :param enable_uvm: whether to enable CudaUVMSpace
         """
 
         self.initialize_directory(output_dir)
-        self.write_source(output_dir, functor, functor_cast, bindings)
+        self.write_source(output_dir, functor,functor_filename, functor_cast, functor_cast_filename, bindings, bindings_filename)
         self.copy_script(output_dir)
         self.invoke_script(output_dir, space, enable_uvm, compiler)
         if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP} and km.is_multi_gpu_enabled():
@@ -111,22 +115,22 @@ class CppSetup:
         except FileExistsError:
             pass
 
-    def write_source(self, output_dir: Path, functor: List[str], functor_cast: List[str], bindings: List[str]) -> None:
+    def write_source(self, output_dir: Path, functor: List[str], functor_filename: str ,functor_cast: List[str], functor_cast_filename: str, bindings: List[str],bindings_filename: str) -> None:
         """
         Writes the generated C++ source code to a file
 
         :param output_dir: the base directory
         :param functor: the generated C++ functor
+        :param functor_filename: the generated C++ functor filename
+        :param functor_cast: the generated C++ functor_cast
+        :param functor_cast_filename: the generated C++ functor_cast filename
         :param bindings: the generated bindings
+        :param bindings_filename: the generated bindings_filename
         """
 
-        functor_path: Path = output_dir.parent / self.functor_file
-        functor_cast_path: Path = output_dir.parent / self.functor_cast_file
-        bindings_path: Path = output_dir / self.bindings_file
-
-        write_raw_source(self,output_dir.parent,functor,self.functor_file)
-        write_raw_source(self,output_dir.parent,functor_cast,self.functor_cast_file)
-        write_raw_source(self,output_dir,bindings,self.bindings_file)
+        write_raw_source(self,output_dir.parent,functor,functor_filename)
+        write_raw_source(self,output_dir.parent,functor_cast,functor_cast_filename)
+        write_raw_source(self,output_dir,bindings,bindings_filename)
 
 
     def write_raw_source(self, output_dir: Path, source: List[str], filename: str) -> None:
