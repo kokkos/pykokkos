@@ -610,7 +610,13 @@ def from_cupy(array) -> ViewType:
     else:
         layout = Layout.LayoutRight
 
-    return from_numpy(np_array, MemorySpace.CudaSpace, layout)
+    memory_space: MemorySpace
+    if km.get_gpu_framework() == "Cuda":
+        memory_space = MemorySpace.CudaSpace
+    elif km.get_gpu_framework() == "HIP":
+        memory_space = MemorySpace.HIPSpace
+
+    return from_numpy(np_array, memory_space, layout)
 
 
 # asarray is required for comformance with the array API:

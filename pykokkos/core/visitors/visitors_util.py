@@ -323,6 +323,8 @@ def cpp_view_type(
             params["layout"] = f"{Keywords.DefaultExecSpace.value}::array_layout"
 
     if space is not None:
+        if space == "Kokkos::HIPSpace":
+            space = "Kokkos::Experimental::HIPSpace"
         params["space"] = space
     elif is_scratch_view:
         params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
