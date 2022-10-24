@@ -16,7 +16,8 @@ CONSTANTS: Dict[str, Any] = {
     "NUM_GPUS": 0,
     "KOKKOS_GPU_MODULE": kokkos,
     "KOKKOS_GPU_MODULE_LIST": [],
-    "DEVICE_ID": 0
+    "DEVICE_ID": 0,
+    "GPU_FRAMEWORK": None
 }
 
 def get_kokkos_version() -> float:
@@ -187,6 +188,15 @@ def get_num_gpus() -> bool:
 
     return CONSTANTS["NUM_GPUS"]
 
+def get_gpu_framework() -> str:
+    """
+    Get the framework used by the GPU
+
+    :returns: the framework as a string
+    """
+
+    return CONSTANTS["GPU_BACKEND"]
+
 pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
 if pk_kokkos_version is not None:
     try:
@@ -223,6 +233,11 @@ try:
     CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
     CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_LIB_INSTANCES
     CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_LIB_INSTANCES[0]
+
+    if kokkos.get_device_available("Cuda"):
+        CONSTANTS["GPU_BACKEND"] = "Cuda"
+    elif kokkos.get_device_available("HIP"):
+        CONSTANTS["GPU_BACKEND"] = "HIP"
 
 except Exception:
     pass

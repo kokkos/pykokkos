@@ -63,7 +63,7 @@ class CppSetup:
         self.write_source(output_dir, functor, bindings)
         self.copy_script(output_dir)
         self.invoke_script(output_dir, space, enable_uvm, compiler)
-        if space is ExecutionSpace.Cuda and km.is_multi_gpu_enabled():
+        if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP} and km.is_multi_gpu_enabled():
             self.copy_multi_gpu_kernel(output_dir)
 
 
