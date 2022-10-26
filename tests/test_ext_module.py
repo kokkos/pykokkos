@@ -1,5 +1,6 @@
 import unittest
 
+from pathlib import Path
 import pykokkos as pk
 
 
@@ -11,14 +12,12 @@ class TestExternalModule(unittest.TestCase):
         self.module_name = "test_ext_module"
         self.source: List[str] = []
 
-        source.append("#include <pybind11/pybind11.h>\n")
-        source.append(f"PYBIND11_MODULE({module_name},m){")
-        source.append(f"m.attr(\"__name__\") = \"{module_name}\";")
-        source.append("m.def(\"get_five\",[](){return 5;});")
-        source.append("}") 
-
-    def test_compile(self):
-        self.ext_module = pk.runtime_singleton.runtime.compile_into_module(path,source,module_name,pk.ExecutionSpace.Default)
+        self.source.append("#include <pybind11/pybind11.h>\n")
+        self.source.append(f"PYBIND11_MODULE({self.module_name},m){{")
+        self.source.append(f"m.attr(\"__name__\") = \"{self.module_name}\";")
+        self.source.append("m.def(\"get_five\",[](){return 5;});")
+        self.source.append("}") 
+        self.ext_module = pk.runtime_singleton.runtime.compile_into_module(self.path,self.source,self.module_name,pk.ExecutionSpace.Default)
 
     def test_call(self):
         self.assertEqual(5, self.ext_module.get_five())
