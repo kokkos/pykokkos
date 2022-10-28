@@ -367,37 +367,396 @@ def log1p(view):
 
 
 @pk.workunit
-def sign_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
+def sign_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     if view[tid] > 0:
-        view[tid] = 1
+        out[tid] = 1
     elif view[tid] == 0:
-        view[tid] = 0
+        out[tid] = 0
     elif view[tid] < 0:
-        view[tid] = -1
+        out[tid] = -1
     else:
-        view[tid] = nan("")
+        out[tid] = nan("")
 
 
 @pk.workunit
-def sign_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
+def sign_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     if view[tid] > 0:
-        view[tid] = 1
+        out[tid] = 1
     elif view[tid] == 0:
-        view[tid] = 0
+        out[tid] = 0
     elif view[tid] < 0:
-        view[tid] = -1
+        out[tid] = -1
     else:
-        view[tid] = nan("")
+        out[tid] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.int8]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+
+@pk.workunit
+def sign_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.int8]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint16]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint16]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+@pk.workunit
+def sign_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint32]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint32]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint64]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint64]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.int16]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.int16]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.int32]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.int32]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.int64]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.int64]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint64]):
+    if view[tid] > 0:
+        out[tid] = 1
+    elif view[tid] == 0:
+        out[tid] = 0
+    elif view[tid] < 0:
+        out[tid] = -1
+    else:
+        out[tid] = nan("")
+
+@pk.workunit
+def sign_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint64]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+@pk.workunit
+def sign_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
+
+
+@pk.workunit
+def sign_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)): # type: ignore
+        if view[tid][i] > 0:
+            out[tid][i] = 1
+        elif view[tid][i] == 0:
+            out[tid][i] = 0
+        elif view[tid][i] < 0:
+            out[tid][i] = -1
+        else:
+            out[tid][i] = nan("")
 
 
 def sign(view):
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for sign() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        pk.parallel_for(view.shape[0], sign_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float":
-        pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view)
-    return view
+    out = pk.View(view.shape, view.dtype)
+    if len(view.shape) > 2:
+        raise NotImplementedError("only 2D views currently supported for sign() ufunc.")
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.double)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_double,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_double, view=view, out=out)
+    elif "float" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.float)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_float,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_float, view=view, out=out)
+    elif "uint32" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint32)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_uint32,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_uint32, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_uint32, view=view, out=out)
+    elif "uint16" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint16)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_uint16,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_uint16, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_uint16, view=view, out=out)
+    elif "int16" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int16)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_int16,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_int16, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_int16, view=view, out=out)
+    elif "int32" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int32)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_int32,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_int32, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_int32, view=view, out=out)
+    elif "uint64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint64)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_uint64,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_uint64, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_uint64, view=view, out=out)
+    elif "int64" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int64)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_int64,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_int64, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_int64, view=view, out=out)
+    elif "uint8" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.uint8)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_uint8,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_uint8, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_uint8, view=view, out=out)
+    elif "int8" in str(view.dtype):
+        if view.shape == ():
+            new_view = pk.View([1], dtype=pk.int8)
+            new_view[:] = view
+            pk.parallel_for(1,
+                            sign_impl_1d_int8,
+                            view=new_view,
+                            out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], sign_impl_1d_int8, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], sign_impl_2d_int8, view=view, out=out)
+    return out
 
 
 @pk.workunit
