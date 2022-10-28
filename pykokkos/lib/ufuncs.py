@@ -635,7 +635,7 @@ def sign_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.
 def sign(view):
     out = pk.View(view.shape, view.dtype)
     if len(view.shape) > 2:
-        raise NotImplementedError("only 2D views currently supported for sign() ufunc.")
+        raise NotImplementedError("only up to 2D views currently supported for sign() ufunc.")
     if "double" in str(view.dtype) or "float64" in str(view.dtype):
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.double)
