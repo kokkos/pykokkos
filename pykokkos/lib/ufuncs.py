@@ -1258,8 +1258,108 @@ def square_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[p
 
 
 @pk.workunit
+def square_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
 def square_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint16]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint16]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint32]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint32]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint64]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint64]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.int8]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.int8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.int16]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.int16]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.int32]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.int32]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
+
+
+@pk.workunit
+def square_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.int64]):
+    out[tid] = view[tid] * view[tid]
+
+
+@pk.workunit
+def square_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.int64]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * view[tid][i]
 
 def square(view):
     """
@@ -1276,23 +1376,79 @@ def square(view):
            Output view.
 
     """
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for square() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        out = pk.View([view.shape[0]], pk.double)
-        pk.parallel_for(
-            view.shape[0],
-            square_impl_1d_double,
-            view=view,
-            out=out)
-
-    elif str(view.dtype) == "DataType.float":
-        out = pk.View([view.shape[0]], pk.float)
-        pk.parallel_for(
-            view.shape[0],
-            square_impl_1d_float,
-            view=view,
-            out=out)
+    if len(view.shape) > 2:
+        raise NotImplementedError("only up to 2D views currently supported for square() ufunc.")
+    out = pk.View(view.shape, view.dtype)
+    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_double, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_double, view=view, out=out)
+    elif "float" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_float, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_float, view=view, out=out)
+    elif "uint8" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_uint8, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_uint8, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_uint8, view=view, out=out)
+    elif "uint16" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_uint16, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_uint16, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_uint16, view=view, out=out)
+    elif "uint32" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_uint32, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_uint32, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_uint32, view=view, out=out)
+    elif "uint64" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_uint64, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_uint64, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_uint64, view=view, out=out)
+    elif "int8" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_int8, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_int8, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_int8, view=view, out=out)
+    elif "int16" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_int16, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_int16, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_int16, view=view, out=out)
+    elif "int32" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_int32, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_int32, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_int32, view=view, out=out)
+    elif "int64" in str(view.dtype):
+        if view.shape == ():
+            pk.parallel_for(1, square_impl_1d_int64, view=view, out=out)
+        elif len(view.shape) == 1:
+            pk.parallel_for(view.shape[0], square_impl_1d_int64, view=view, out=out)
+        elif len(view.shape) == 2:
+            pk.parallel_for(view.shape[0], square_impl_2d_int64, view=view, out=out)
     else:
         raise RuntimeError("Incompatible Types")
     return out
