@@ -104,6 +104,7 @@ math_functions: Set = {
     "pow",
     "radians",
     "remainder",
+    "round",
     "sin",
     "sinh",
     "sqrt",
