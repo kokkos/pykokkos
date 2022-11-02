@@ -1131,6 +1131,11 @@ def positive(view):
 
 
 @pk.workunit
+def power_impl_scalar_double(tid:int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = pow(viewA[0], viewB[tid])
+
+
+@pk.workunit
 def power_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = pow(viewA[tid], viewB[tid])
 
@@ -1168,7 +1173,19 @@ def power(viewA, viewB):
         view_temp[0] = viewB
         viewB = view_temp
 
-    if viewA.rank() == 2:
+    if isinstance(viewA, int):
+        view_temp = pk.View([1], pk.double)
+        view_temp[0] = viewA
+        viewA = view_temp
+
+        out = pk.View([viewB.shape[0]], pk.double)
+        pk.parallel_for(
+            viewB.shape[0],
+            power_impl_scalar_double,
+            viewA=viewA,
+            viewB=viewB,
+            out=out)
+    elif viewA.rank() == 2:
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1176,7 +1193,6 @@ def power(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-
     elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
@@ -2287,6 +2303,9 @@ def transpose_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2
 
 
 def transpose(view):
+    if (view.rank() == 1):
+        return view
+
     if view.rank() == 2:
         if str(view.dtype) == "DataType.double":
             out = pk.View(view.shape[::-1], pk.double)
@@ -2297,8 +2316,77 @@ def transpose(view):
 
 
 @pk.workunit
+def linspace_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = ((view[1] - view[0])/(view[2] - 1))*tid + view[0]
+
+
+def linspace(start, stop, num=50):
+    inp = pk.View([3], pk.double)
+    inp[:] = [start, stop, num]
+
+    out = pk.View([num], pk.double)
+    pk.parallel_for(num, linspace_impl_1d_double, view=inp, out=out)
+    return out
+
+
+def logspace(start, stop, num=50, base=10):
+    y = linspace(start, stop, num)
+
+    return power(base, y)
+
+
+@pk.workunit
+def hstack_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    if tid >= viewA.extent(0):
+        out[tid] = viewB[tid - viewA.extent(0)]
+    else:
+        out[tid] = viewA[tid]
+
+@pk.workunit
+def hstack_impl_2d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(out.extent(1)):
+        if i >= viewA.extent(1):
+            out[tid][i] = viewB[tid][i - viewA.extent(1)]
+        else:
+            out[tid][i] = viewA[tid][i]
+
+
+def hstack(viewA, viewB):
+    if viewA.shape != viewB.shape:
+        raise RuntimeError("All the input view dimensions for the concatenation axis must match exactly")
+
+    if viewA.rank() == 2 and viewB.rank() == 2:
+        if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+            out = pk.View([viewA.shape[0], viewA.shape[1] * 2], pk.double)
+            pk.parallel_for(
+                out.shape[0],
+                hstack_impl_2d_double,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            raise RuntimeError("hstack supports 2D views of type double only")
+    elif viewA.rank() == 1 and viewB.rank() == 1:
+        if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+            out = pk.View([viewA.shape[0] + viewB.shape[0]], pk.double)
+            pk.parallel_for(
+                out.shape[0],
+                hstack_impl_1d_double,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            raise RuntimeError("hstack supports 1D views of type double only")
+    else:
+        raise RuntimeError("hstack supports views of same shape (1D and 2D) only")
+    
+    return out
+
+
+@pk.workunit
 def index_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
     out[tid] = viewA[viewB[tid]]
+
 
 def index(viewA, viewB):
     if viewB.dtype == pk.int32:

@@ -66,3 +66,30 @@ def find_max(viewA):
 
 def searchsorted(view, ele):
     return np.searchsorted(view, ele)
+
+
+@pk.workunit
+def col_impl_2d_double(tid: int, view: pk.View2D[pk.double], col: pk.View1D[pk.int32], out: pk.View1D[pk.double]):
+    out[tid] = view[tid][col[0]]
+
+
+def col(view, col):
+    if view.rank() != 2:
+        raise RuntimeError("Only 2d views are supported for col")
+    
+    view_temp = pk.View([1], pk.int32)
+    view_temp[0] = col
+    col = view_temp
+    
+    if str(view.dtype) == "DataType.double":
+        out = pk.View([view.shape[0]], pk.double)
+        pk.parallel_for(
+            view.shape[0],
+            col_impl_2d_double,
+            view=view,
+            col=col,
+            out=out)
+    else:
+        raise RuntimeError("col support views with type double only")
+
+    return out
