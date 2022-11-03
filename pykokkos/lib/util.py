@@ -93,3 +93,22 @@ def col(view, col):
         raise RuntimeError("col support views with type double only")
 
     return out
+
+@pk.workunit
+def linspace_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = ((view[1] - view[0])/(view[2] - 1))*tid + view[0]
+
+
+def linspace(start, stop, num=50):
+    inp = pk.View([3], pk.double)
+    inp[:] = [start, stop, num]
+
+    out = pk.View([num], pk.double)
+    pk.parallel_for(num, linspace_impl_1d_double, view=inp, out=out)
+    return out
+
+
+def logspace(start, stop, num=50, base=10):
+    y = linspace(start, stop, num)
+
+    return power(base, y)

@@ -51,8 +51,6 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  var,
                                  in1d,
                                  mean,
-                                 linspace,
-                                 logspace,
                                  hstack,
                                  transpose,
                                  index,
@@ -66,7 +64,7 @@ from pykokkos.lib.create import (zeros,
                                  ones_like,
                                  full)
 from pykokkos.lib.manipulate import reshape, ravel, expand_dims
-from pykokkos.lib.util import all, any, sum, find_max, searchsorted, col
+from pykokkos.lib.util import all, any, sum, find_max, searchsorted, col, linspace, logspace
 from pykokkos.lib.constants import e, pi, inf, nan
 
 __array_api_version__ = "2021.12"
