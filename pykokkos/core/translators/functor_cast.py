@@ -55,7 +55,7 @@ def generate_cast_from_object(functor: str, members: PyKokkosMembers, precision:
             cast_source += f"{param_type} {name} = getattr(obj,\"{name}\").cast<{param_type}>();"
 
 
-    cast_source += generate_functor_instance(functor_type, members, False, "ExecSpace")
+    cast_source += generate_functor_instance(functor_type, members, False, "ExecSpace", True)
     cast_source += f"return {Keywords.Instance.value};"
     cast_source += "}"
 

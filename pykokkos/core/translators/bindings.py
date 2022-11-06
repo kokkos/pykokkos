@@ -124,7 +124,7 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     return {v.declname: f"pk_d_{v.declname}" for v in members.views \
             if members.views[v] is not None}
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functor_exec_space: Optional[str] = None) -> str:
+def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functor_exec_space: Optional[str] = None, always_use_kokkos_copy: bool = False) -> str:
     """
     Generate the functor instance
 
@@ -132,6 +132,7 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     :param members: an object containing the fields and views
     :param with_random_args: bool indicating if the constructor call should have the random args. default = True
     :param functor_exec_space: optional parameter of type str that contains the ExecSpace template argument to the functor
+    :param always_use_kokkos_copy: optional parameter specifying if all copies should be done with kokkos functionality
     :returns: the source code for instantiating the functor
     """
 
@@ -152,7 +153,15 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
         args.append(d_v)
-        mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+
+        if always_use_kokkos_copy:
+            view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
+            if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
+                mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+            else:
+                mirror_views += f"auto {d_v} = {v};"
+        else:
+            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
