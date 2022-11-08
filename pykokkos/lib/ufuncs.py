@@ -2303,7 +2303,7 @@ def transpose_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2
 
 
 def transpose(view):
-    if (view.rank() == 1):
+    if view.rank() == 1:
         return view
 
     if view.rank() == 2:
