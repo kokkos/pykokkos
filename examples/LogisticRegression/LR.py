@@ -30,27 +30,26 @@
 
 
 import numbers
-import warnings
-
 import numpy as np
 import pykokkos as pk
-from scipy import optimize
-from joblib import Parallel, effective_n_jobs
+import warnings
 
+from joblib import Parallel, effective_n_jobs
+from scipy import optimize
+from sklearn._loss.loss import HalfBinomialLoss, HalfMultinomialLoss
 from sklearn.linear_model._base import LinearClassifierMixin, SparseCoefMixin, BaseEstimator
 from sklearn.linear_model._linear_loss import LinearModelLoss
 from sklearn.linear_model._sag import sag_solver
-from sklearn._loss.loss import HalfBinomialLoss, HalfMultinomialLoss
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer
 from sklearn.svm._base import _fit_liblinear
-from sklearn.utils import compute_class_weight
 from sklearn.utils import check_random_state
-from sklearn.utils.extmath import softmax
+from sklearn.utils import compute_class_weight
 from sklearn.utils.extmath import row_norms
+from sklearn.utils.extmath import softmax
+from sklearn.utils.fixes import delayed
+from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.optimize import _newton_cg, _check_optimize_result
 from sklearn.utils.validation import check_is_fitted, _check_sample_weight
-from sklearn.utils.multiclass import check_classification_targets
-from sklearn.utils.fixes import delayed
 
 _LOGISTIC_SOLVER_CONVERGENCE_MSG = (
     "Please also refer to the documentation for alternative solver options:\n"
