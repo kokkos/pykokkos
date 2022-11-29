@@ -386,6 +386,10 @@ class View(ViewType):
 
     def __index__(self) -> int:
         return int(self.data[0])
+    
+    
+    def __array__(self, dtype=None):
+        return self.data
 
 
     @staticmethod
