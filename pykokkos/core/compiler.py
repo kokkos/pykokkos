@@ -41,7 +41,9 @@ class Compiler:
         self.bindings_file: str = "bindings.cpp"
         self.defaults_file: str = "defaults.json"
 
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+        loglevel = os.environ.get("PK_LOG_LEVEL", "WARNING")
+        numeric_level = getattr(logging, loglevel.upper(), None)
+        logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
     def compile_sources(
