@@ -204,20 +204,29 @@ if pk_kokkos_version is not None:
     except ValueError:
         print(f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {get_kokkos_version()}")
 
-try:
-    # Import multiple kokkos libs to support multiple devices per
-    # process. This assumes that there are modules named f"gpu{id}"
-    # that can be imported.
-    import atexit
-    import cupy as cp
-    import importlib
-    import sys
+# NOTE: multiple GPU support is almost certainly
+# broken, we can't just assume that there are modules
+# named gpu0, gpu1, and so on...
 
+# Import multiple kokkos libs to support multiple devices per
+# process. This assumes that there are modules named f"gpu{id}"
+# that can be imported.
+import atexit
+import importlib
+import sys
+
+try:
+    import cupy as cp
     NUM_CUDA_GPUS: int = cp.cuda.runtime.getDeviceCount()
     KOKKOS_LIBS: List[str] = [f"gpu{id}" for id in range(NUM_CUDA_GPUS)]
+except ImportError:
+    NUM_CUDA_GPUS = 0
+    KOKKOS_LIBS = []
 
-    KOKKOS_LIB_INSTANCES: List = []
-    for id, lib in enumerate(KOKKOS_LIBS):
+
+KOKKOS_LIB_INSTANCES: List = []
+for id, lib in enumerate(KOKKOS_LIBS):
+    try:
         module = importlib.import_module(lib)
         KOKKOS_LIB_INSTANCES.append(module)
 
@@ -228,16 +237,16 @@ try:
         module.initialize()
         atexit.register(module.finalize)
         sys.argv.pop()
+    except ModuleNotFoundError:
+        pass
 
+if len(KOKKOS_LIB_INSTANCES) > 1:
     CONSTANTS["MULTI_GPU"] = True
     CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
     CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_LIB_INSTANCES
     CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_LIB_INSTANCES[0]
 
-    if kokkos.get_device_available("Cuda"):
-        CONSTANTS["GPU_BACKEND"] = "Cuda"
-    elif kokkos.get_device_available("HIP"):
-        CONSTANTS["GPU_BACKEND"] = "HIP"
-
-except Exception:
-    pass
+if kokkos.get_device_available("Cuda"):
+    CONSTANTS["GPU_BACKEND"] = "Cuda"
+elif kokkos.get_device_available("HIP"):
+    CONSTANTS["GPU_BACKEND"] = "HIP"
