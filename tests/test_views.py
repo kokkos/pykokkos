@@ -301,6 +301,8 @@ class TestViews(unittest.TestCase):
 
     @pytest.mark.skipif(not HAS_CUDA,
                         reason="CUDA/cupy not available")
+    @pytest.mark.xfail(HAS_CUDA,
+                       reason="bool not supported with CUDA/GPUs yet")
     def test_real(self):
         pk.set_default_precision(pk.int32)
         view: pk.View1d = pk.View([self.threads])
