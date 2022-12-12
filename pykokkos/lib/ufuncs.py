@@ -2518,6 +2518,26 @@ def round_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.f
             out[tid][i][j] = round(view[tid][i][j])
 
 def round(view):
+    """
+    Rounds each element of the input view to the nearest integer-valued number.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
     if "int" in str(view.dtype):
         # special case defined in API std
         return view
@@ -2594,6 +2614,27 @@ def trunc_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.f
             out[tid][i][j] = trunc(view[tid][i][j])
 
 def trunc(view):
+    """
+    Rounds each element ``i`` of the input view to the integer-valued number
+    that is closest to but no greater than ``i``.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
     if "int" in str(view.dtype):
         # special case defined in API std
         return view
@@ -2670,6 +2711,27 @@ def ceil_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.fl
             out[tid][i][j] = ceil(view[tid][i][j])
 
 def ceil(view):
+    """
+    Rounds each element of the input view to the smallest (i.e., closest to -infinity)
+    integer-valued number that is not less than a given element.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
     if "int" in str(view.dtype):
         # special case defined in API std
         return view
@@ -2746,6 +2808,27 @@ def floor_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.f
             out[tid][i][j] = floor(view[tid][i][j])
 
 def floor(view):
+    """
+    Rounds each element of the input view to the greatest (i.e., closest to +infinity)
+    integer-valued number that is not greater than a given element.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
     if "int" in str(view.dtype):
         # special case defined in API std
         return view

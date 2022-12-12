@@ -474,3 +474,29 @@ def test_sign_1d_special_cases(in_arr, pk_dtype, numpy_dtype):
     expected = np.sign(in_arr)
     actual = pk.sign(view=view)
     assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("input_dtype", [
+        pk.double, pk.float,
+])
+@pytest.mark.parametrize("pk_ufunc", [
+        pk.floor,
+        pk.round,
+        pk.ceil,
+        pk.trunc,
+])
+@pytest.mark.parametrize("shape", [
+        [1], [1, 1], [1, 1, 1],
+])
+def test_rounding_dtype_preservation(input_dtype, pk_ufunc, shape):
+    # at the time of writing the array API standard
+    # conformance test suite doesn't appear to probe
+    # floating point data types for many of the rounding
+    # functions
+
+    # for now, we simply test data type preservation
+    # of output vs. input so that we flush these codepaths
+    # a bit
+    view = pk.View(shape, input_dtype)
+    actual_dtype = pk_ufunc(view).dtype
+    assert actual_dtype.value == input_dtype.value
