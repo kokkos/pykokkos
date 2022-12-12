@@ -39,8 +39,7 @@ jobs:
           cd /tmp
           git clone https://github.com/data-apis/array-api-tests.git
           cd array-api-tests
-          # see gh-63 for the commit pin
-          git checkout 4d9d7b4b73c
+          git checkout 2022.09.30
           git submodule update --init
           pip install -r requirements.txt
           export ARRAY_API_TESTS_MODULE=pykokkos
