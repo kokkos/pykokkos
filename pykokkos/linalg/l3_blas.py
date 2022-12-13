@@ -5,7 +5,8 @@ import pykokkos as pk
 def dgemm(alpha: float,
           view_a,
           view_b,
-          beta: float = 1.0):
+          beta: float = 0.0,
+          view_c = None):
     """
     Double precision floating point genernal matrix multiplication (GEMM).
 
@@ -17,7 +18,8 @@ def dgemm(alpha: float,
              Shape (m, k)
     view_b : pykokkos view of type double
              Shape (k, n)
-    beta: float
+    beta: float, optional
+    view_c: pykokkos view of type double, optional
 
     Returns
     -------
@@ -48,6 +50,7 @@ def dgemm(alpha: float,
             for k in range(k_a):
                 subresult = view_a[m, k] * view_b[k, n] * alpha
                 C[m, n] += float(subresult) # type: ignore
-            C[m, n] *= beta # type: ignore
+            if view_c is not None:
+                C[m, n] += (view_c[m, n] * beta) # type: ignore
 
     return C
