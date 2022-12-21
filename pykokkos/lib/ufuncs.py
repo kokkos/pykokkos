@@ -1,29 +1,39 @@
+import re
 import math
+from inspect import getmembers, isfunction
 
 import numpy as np
 import pykokkos as pk
+from pykokkos.lib import ufunc_workunits
+
+kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
 
-@pk.workunit
-def reciprocal_impl_1d_double(tid: int, view: pk.View1D[pk.double]):
-    view[tid] = 1 / view[tid] # type: ignore
-
-
-@pk.workunit
-def reciprocal_impl_1d_float(tid: int, view: pk.View1D[pk.float]):
-    view[tid] = 1 / view[tid] # type: ignore
-
-
-@pk.workunit
-def reciprocal_impl_2d_double(tid: int, view: pk.View2D[pk.double]):
-    for i in range(view.extent(1)): # type: ignore
-        view[tid][i] = 1 / view[tid][i] # type: ignore
-
-
-@pk.workunit
-def reciprocal_impl_2d_float(tid: int, view: pk.View2D[pk.float]):
-    for i in range(view.extent(1)): # type: ignore
-        view[tid][i] = 1 / view[tid][i] # type: ignore
+def _ufunc_kernel_dispatcher(tid,
+                             dtype,
+                             ndims,
+                             op,
+                             sub_dispatcher,
+                             **kwargs):
+    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    if ndims == 0:
+        ndims = 1
+    res = dtype_extractor.match(str(dtype))
+    if res is None:
+        # we still do not have consistent dtype handling
+        # so at least two forms of dtypes to contend with
+        dtype_extractor = re.compile(r"dtype\.(\w+)")
+        res = dtype_extractor.match(str(dtype))
+    dtype_str = res.group(1)
+    if dtype_str == "float32":
+        dtype_str = "float"
+    elif dtype_str == "float64":
+        dtype_str = "double"
+    function_name_str = f"{op}_impl_{ndims}d_{dtype_str}"
+    desired_workunit = kernel_dict[function_name_str]
+    # call the kernel
+    ret = sub_dispatcher(tid, desired_workunit, **kwargs)
+    return ret
 
 
 def reciprocal(view):
@@ -46,16 +56,12 @@ def reciprocal(view):
         This function is not designed to work with integers.
 
     """
-    # see gh-29 for some discussion of the dispatching
-    # awkwardness used here
-    if str(view.dtype) == "DataType.double" and len(view.shape) == 1:
-        pk.parallel_for(view.shape[0], reciprocal_impl_1d_double, view=view)
-    elif str(view.dtype) == "DataType.float" and len(view.shape) == 1:
-        pk.parallel_for(view.shape[0], reciprocal_impl_1d_float, view=view)
-    elif str(view.dtype) == "DataType.float" and len(view.shape) == 2:
-        pk.parallel_for(view.shape[0], reciprocal_impl_2d_float, view=view)
-    elif str(view.dtype) == "DataType.double" and len(view.shape) == 2:
-        pk.parallel_for(view.shape[0], reciprocal_impl_2d_double, view=view)
+    _ufunc_kernel_dispatcher(tid=view.shape[0],
+                             dtype=view.dtype.value,
+                             ndims=len(view.shape),
+                             op="reciprocal",
+                             sub_dispatcher=pk.parallel_for,
+                             view=view)
     # NOTE: pretty awkward to both return the view
     # and operate on it in place; the former is closer
     # to NumPy semantics
@@ -939,15 +945,6 @@ def subtract(viewA, viewB):
     return out
 
 
-@pk.workunit
-def matmul_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View2D[pk.double]):
-    acc += viewA[tid] * viewB[0][tid]
-
-
-@pk.workunit
-def matmul_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View2D[pk.float]):
-    acc += viewA[tid] * viewB[0][tid]
-
 def matmul(viewA, viewB):
     """
     1D Matrix Multiplication of compatible views
@@ -969,20 +966,19 @@ def matmul(viewA, viewB):
         raise RuntimeError(
             "Input operand 1 has a mismatch in its core dimension (Size {} is different from {})".format(viewA.shape[0], viewB.shape[0]))
 
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
-        return pk.parallel_reduce(
-            viewA.shape[0],
-            matmul_impl_1d_double,
-            viewA=viewA,
-            viewB=viewB)
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
-        return pk.parallel_reduce(
-            viewA.shape[0],
-            matmul_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB)
-    else:
-        raise RuntimeError("Incompatible Types")
+    a_dtype_str = str(viewA.dtype)
+    b_dtype_str = str(viewB.dtype)
+    if not(a_dtype_str == "DataType.double" and b_dtype_str == "DataType.double"):
+        if not(a_dtype_str == "DataType.float" and b_dtype_str == "DataType.float"):
+            raise RuntimeError("Incompatible Types")
+
+    return _ufunc_kernel_dispatcher(tid=viewA.shape[0],
+                                    dtype=viewA.dtype.value,
+                                    ndims=1,
+                                    op="matmul",
+                                    sub_dispatcher=pk.parallel_reduce,
+                                    viewA=viewA,
+                                    viewB=viewB)
 
 
 @pk.workunit
@@ -2409,319 +2405,35 @@ def isnan(view):
     return out
 
 
-@pk.workunit
-def isinf_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isinf_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint8]):
-    out[tid] = isinf(view[tid])
-
-
-@pk.workunit
-def isinf_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isinf(view[tid][i]) # type: ignore
-
-
 def isinf(view):
-    if len(view.shape) > 2:
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
         raise NotImplementedError("isinf() ufunc only supports up to 2D views")
     out = pk.View([*view.shape], dtype=pk.bool)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_double,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_double,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_double,
-                            view=view,
-                            out=out)
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_float,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_float,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_float,
-                            view=view,
-                            out=out)
-    elif "uint8" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_uint8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_uint8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_uint8,
-                            view=view,
-                            out=out)
-    elif "uint16" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_uint16,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_uint16,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_uint16,
-                            view=view,
-                            out=out)
-    elif "uint32" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_uint32,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_uint32,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_uint32,
-                            view=view,
-                            out=out)
-    elif "uint64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_uint64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_uint64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_uint64,
-                            view=view,
-                            out=out)
-    elif "int8" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_int8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_int8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_int8,
-                            view=view,
-                            out=out)
-    elif "int64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1,
-                            isinf_impl_1d_int64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_1d_int64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isinf_impl_2d_int64,
-                            view=view,
-                            out=out)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="isinf",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
-@pk.workunit
-def equal_impl_1d_double(tid: int,
-                         view1: pk.View1D[pk.double],
-                         view2: pk.View1D[pk.double],
-                         view2_size: int,
-                         view_result: pk.View1D[pk.uint8]):
-    view2_idx: int = 0
-    if view2_size == 1:
-        view2_idx = 0
-    else:
-        view2_idx = tid
-    if view1[tid] == view2[view2_idx]:
-        view_result[tid] = 1
-    else:
-        view_result[tid] = 0
-
-
-@pk.workunit
-def equal_impl_1d_uint16(tid: int,
-                         view1: pk.View1D[pk.uint16],
-                         view2: pk.View1D[pk.uint16],
-                         view2_size: int,
-                         view_result: pk.View1D[pk.uint8]):
-    view2_idx: int = 0
-    if view2_size == 1:
-        view2_idx = 0
-    else:
-        view2_idx = tid
-    if view1[tid] == view2[view2_idx]:
-        view_result[tid] = 1
-    else:
-        view_result[tid] = 0
-
-
-@pk.workunit
-def equal_impl_1d_int16(tid: int,
-                         view1: pk.View1D[pk.int16],
-                         view2: pk.View1D[pk.int16],
-                         view2_size: int,
-                         view_result: pk.View1D[pk.uint8]):
-    view2_idx: int = 0
-    if view2_size == 1:
-        view2_idx = 0
-    else:
-        view2_idx = tid
-    if view1[tid] == view2[view2_idx]:
-        view_result[tid] = 1
-    else:
-        view_result[tid] = 0
-
-
-@pk.workunit
-def equal_impl_1d_int32(tid: int,
-                         view1: pk.View1D[pk.int32],
-                         view2: pk.View1D[pk.int32],
-                         view2_size: int,
-                         view_result: pk.View1D[pk.uint8]):
-    view2_idx: int = 0
-    if view2_size == 1:
-        view2_idx = 0
-    else:
-        view2_idx = tid
-    if view1[tid] == view2[view2_idx]:
-        view_result[tid] = 1
-    else:
-        view_result[tid] = 0
-
-
-@pk.workunit
-def equal_impl_1d_int64(tid: int,
-                         view1: pk.View1D[pk.int64],
-                         view2: pk.View1D[pk.int64],
-                         view2_size: int,
-                         view_result: pk.View1D[pk.uint8]):
-    view2_idx: int = 0
-    if view2_size == 1:
-        view2_idx = 0
-    else:
-        view2_idx = tid
-    if view1[tid] == view2[view2_idx]:
-        view_result[tid] = 1
-    else:
-        view_result[tid] = 0
 
 def equal(view1, view2):
     # TODO: write even more dispatching for cases where view1 and view2
     # have different, but comparable, types (like float32 vs. float64?)
     # this may "explode" without templating
 
+    ndims = len(view2.shape)
+    dtype = view1.dtype
     # array API suite will fail if we check view1.shape here...
-    if len(view2.shape) > 1:
+    if ndims > 1:
         raise NotImplementedError("only 1D views currently supported for equal() ufunc.")
 
     if sum(view1.shape) == 0 or sum(view2.shape) == 0:
@@ -2734,346 +2446,39 @@ def equal(view1, view2):
             raise ValueError("view1 and view2 have incompatible shapes")
 
     view_result = pk.View([*view1.shape], dtype=pk.uint8)
-
-    if ("double" in str(view1.dtype) or "float64" in str(view1.dtype) and
-       ("double" in str(view2.dtype) or "float64" in str(view2.dtype))):
-        pk.parallel_for(view1.size,
-                        equal_impl_1d_double,
-                        view1=view1,
-                        view2=view2,
-                        view2_size=view2.size,
-                        view_result=view_result)
-    elif (("uint16" in str(view1.dtype) or "bool" in str(view1.dtype)) and
-          ("uint16" in str(view2.dtype) or "bool" in str(view2.dtype))):
-        pk.parallel_for(view1.size,
-                        equal_impl_1d_uint16,
-                        view1=view1,
-                        view2=view2,
-                        view2_size=view2.size,
-                        view_result=view_result)
-    elif "int16" in str(view1.dtype) and "int16" in str(view1.dtype):
-        pk.parallel_for(view1.size,
-                        equal_impl_1d_int16,
-                        view1=view1,
-                        view2=view2,
-                        view2_size=view2.size,
-                        view_result=view_result)
-    elif "int32" in str(view1.dtype) and "int32" in str(view1.dtype):
-        pk.parallel_for(view1.size,
-                        equal_impl_1d_int32,
-                        view1=view1,
-                        view2=view2,
-                        view2_size=view2.size,
-                        view_result=view_result)
-    elif "int64" in str(view1.dtype) and "int64" in str(view1.dtype):
-        pk.parallel_for(view1.size,
-                        equal_impl_1d_int64,
-                        view1=view1,
-                        view2=view2,
-                        view2_size=view2.size,
-                        view_result=view_result)
-    else:
-        # TODO: include the view types in the error message
-        raise NotImplementedError("equal ufunc not implemented for this comparison")
-
+    _ufunc_kernel_dispatcher(tid=view1.size,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="equal",
+                             sub_dispatcher=pk.parallel_for,
+                             view_result=view_result,
+                             view1=view1,
+                             view2=view2,
+                             view2_size=view2.size)
     return view_result
 
 
-@pk.workunit
-def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-
-@pk.workunit
-def isfinite_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-@pk.workunit
-def isfinite_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-@pk.workunit
-def isfinite_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
-@pk.workunit
-def isfinite_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint8]):
-    out[tid] = isfinite(view[tid])
-
-
-@pk.workunit
-def isfinite_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint8]):
-    for i in range(view.extent(1)): # type: ignore
-        out[tid][i] = isfinite(view[tid][i]) # type: ignore
-
-
 def isfinite(view):
-    if len(view.shape) > 2:
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
         raise NotImplementedError("isfinite() ufunc only supports up to 2D views")
-    out = pk.View([*view.shape], dtype=pk.uint8)
     if view.size == 0:
         out = pk.View(view.shape, dtype=pk.bool)
         return out
     out = pk.View([*view.shape], dtype=pk.bool)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.double)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_double,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_double,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_double,
-                            view=view,
-                            out=out)
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.float)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_float,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_float,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_float,
-                            view=view,
-                            out=out)
-    elif "uint8" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.uint8)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_uint8,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_uint8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_uint8,
-                            view=view,
-                            out=out)
-    elif "int8" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.int8)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_int8,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_int8,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_int8,
-                            view=view,
-                            out=out)
-    elif "uint16" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.uint16)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_uint16,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_uint16,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_uint16,
-                            view=view,
-                            out=out)
-    elif "int16" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.int16)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_int16,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_int16,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_int16,
-                            view=view,
-                            out=out)
-    elif "uint32" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.uint32)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_uint32,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_uint32,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_uint32,
-                            view=view,
-                            out=out)
-    elif "int32" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.int32)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_int32,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_int32,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_int32,
-                            view=view,
-                            out=out)
-    elif "uint64" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.uint64)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_uint64,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_uint64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_uint64,
-                            view=view,
-                            out=out)
-    elif "int64" in str(view.dtype):
-        if view.shape == ():
-            new_view = pk.View([1], dtype=pk.int64)
-            new_view[:] = view
-            pk.parallel_for(1,
-                            isfinite_impl_1d_int64,
-                            view=new_view,
-                            out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_1d_int64,
-                            view=view,
-                            out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0],
-                            isfinite_impl_2d_int64,
-                            view=view,
-                            out=out)
+    if view.shape == ():
+        new_view = pk.View([1], dtype=dtype)
+        new_view[:] = view
+        view = new_view
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="isfinite",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
