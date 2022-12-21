@@ -18,7 +18,7 @@ class CppSetup:
     Creates the directory to hold the translation and invokes the compiler
     """
 
-    def __init__(self, module_file: str, gpu_module_files: List[str], functor: str, bindings: str):
+    def __init__(self, module_file: str, gpu_module_files: List[str], functor: str,functor_cast: str, bindings: str):
         """
         CppSetup constructor
 
@@ -31,6 +31,7 @@ class CppSetup:
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
         self.functor_file: str = functor
+        self.functor_cast_file: str = functor_cast
         self.bindings_file: str = bindings
 
         self.script: str = "compile.sh"
@@ -44,6 +45,7 @@ class CppSetup:
         self,
         output_dir: Path,
         functor: List[str],
+        functor_cast: List[str],
         bindings: List[str],
         space: ExecutionSpace,
         enable_uvm: bool,
@@ -60,7 +62,7 @@ class CppSetup:
         """
 
         self.initialize_directory(output_dir)
-        self.write_source(output_dir, functor, bindings)
+        self.write_source(output_dir, functor, functor_cast, bindings)
         self.copy_script(output_dir)
         self.invoke_script(output_dir, space, enable_uvm, compiler)
         if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP} and km.is_multi_gpu_enabled():
@@ -84,7 +86,7 @@ class CppSetup:
         except FileExistsError:
             pass
 
-    def write_source(self, output_dir: Path, functor: List[str], bindings: List[str]) -> None:
+    def write_source(self, output_dir: Path, functor: List[str], functor_cast: List[str], bindings: List[str]) -> None:
         """
         Writes the generated C++ source code to a file
 
@@ -94,16 +96,20 @@ class CppSetup:
         """
 
         functor_path: Path = output_dir.parent / self.functor_file
+        functor_cast_path: Path = output_dir.parent / self.functor_cast_file
         bindings_path: Path = output_dir / self.bindings_file
 
         with open(functor_path, "w") as out:
             out.write("\n".join(functor))
+        with open(functor_cast_path, "w") as out:
+            out.write("\n".join(functor_cast))
         with open(bindings_path, "w") as out:
             out.write("\n".join(bindings))
 
         if self.format:
             try:
                 subprocess.run(["clang-format", "-i", functor_path])
+                subprocess.run(["clang-format", "-i", functor_cast_path])
                 subprocess.run(["clang-format", "-i", bindings_path])
             except Exception as ex:
                 print(f"Exception while formatting cpp: {ex}")

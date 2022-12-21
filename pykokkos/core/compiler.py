@@ -38,6 +38,7 @@ class Compiler:
         self.parser_cache: Dict[str, Parser] = {}
 
         self.functor_file: str = "functor.hpp"
+        self.functor_cast_file: str = "functor_cast.hpp"
         self.bindings_file: str = "bindings.cpp"
         self.defaults_file: str = "defaults.json"
 
@@ -180,19 +181,20 @@ class Compiler:
         if module_setup.is_compiled():
             return
 
-        cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files, self.functor_file, self.bindings_file)
-        translator = StaticTranslator(module_setup.name, self.functor_file, members)
+        cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files, self.functor_file,self.functor_cast_file, self.bindings_file)
+        translator = StaticTranslator(module_setup.name, self.functor_file,self.functor_cast_file, members)
 
         t_start: float = time.perf_counter()
         functor: List[str]
         bindings: List[str]
-        functor, bindings = translator.translate(entity, classtypes)
+        cast: List[str]
+        functor, bindings, cast = translator.translate(entity, classtypes)
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
         output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
         c_start: float = time.perf_counter()
-        cpp_setup.compile(output_dir, functor, bindings, space, force_uvm, self.get_compiler())
+        cpp_setup.compile(output_dir, functor, cast, bindings, space, force_uvm, self.get_compiler())
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
 

@@ -17,7 +17,7 @@ def get_view_type(view: cppast.ClassType) -> str:
     """
 
     space: str = get_view_memory_space(view, "functor")
-    layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
+    layout: str = f"typename ExecSpace::array_layout"
     view_type: str = cpp_view_type(view, space=space, layout=layout)
 
     return view_type
@@ -147,6 +147,48 @@ def generate_constructor(
 
     return cppast.ConstructorDecl("", name, params, body)
 
+def generate_constructor_without_rand(
+    name: str,
+    fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+    views: Dict[cppast.DeclRefExpr, cppast.ClassType]
+) -> cppast.ConstructorDecl:
+    """
+    Generate the functor constructor
+
+    :param name: the functor class name
+    :param fields: a dict mapping from field name to type
+    :param views: a dict mapping from view name to type
+    :param random_pool: a tuple of the pool name and type
+    :param has_rand_call: whether the function contains a call to pk.rand()
+    :returns: the cppast representation of the constructor
+    """
+
+    params: List[cppast.ParmVarDecl] = []
+    assignments: List[cppast.AssignOperator] = []
+
+    for n, t in fields.items():
+        params.append(cppast.ParmVarDecl(t, n))
+
+    for n, t in views.items():
+        # skip subviews
+        if t is None:
+            continue
+        view_type: str = get_view_type(t)
+        params.append(cppast.ParmVarDecl(view_type, n))
+
+    # Kokkos fails to compile a functor if there are no parameters in its constructor
+    if len(params) == 0:
+        decl = cppast.DeclRefExpr("pk_field")
+        type = cppast.PrimitiveType(cppast.BuiltinType.INT)
+        params.append(cppast.ParmVarDecl(type, decl))
+
+    assignments.extend(generate_assignments(fields))
+    # skip subviews
+    assignments.extend(generate_assignments({v: views[v] for v in views if views[v]}))
+
+    body = cppast.CompoundStmt(assignments)
+
+    return cppast.ConstructorDecl("", name, params, body)
 
 def generate_functor(
     name: str,
@@ -194,6 +236,7 @@ def generate_functor(
         decls.append(cppast.DeclStmt(cppast.FieldDecl(f"Kokkos::{pool_type}<>", pool_name)))
 
     decls.append(generate_constructor(name, fields, views, random_pool, has_rand_call))
+    decls.append(generate_constructor_without_rand(name, fields, views))
     for _, s in workunits.values():
         decls.append(s)
 
@@ -203,6 +246,7 @@ def generate_functor(
     struct = cppast.RecordDecl(cppast.ClassType(name), decls)
     struct.is_definition = True
 
+    struct.add_template_param("ExecSpace")
     if members.has_real:
         struct.add_template_param(Keywords.RealPrecision.value)
         s = cppast.Serializer()
