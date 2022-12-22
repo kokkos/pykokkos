@@ -9,21 +9,27 @@ from pykokkos.lib import ufunc_workunits
 kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
 
+def _supported_types_check(dtype_str, supported_type_strings):
+    options = ""
+    for type_str in supported_type_strings:
+        options += f".*{type_str}.*|"
+    options = options[:-1]
+    prog = re.compile(f"({options})" )
+    result = prog.match(dtype_str)
+    if result is None:
+        raise NotImplementedError
+
+
 def _ufunc_kernel_dispatcher(tid,
                              dtype,
                              ndims,
                              op,
                              sub_dispatcher,
                              **kwargs):
-    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    dtype_extractor = re.compile(r".*(?:dtype|data_types|DataType)\.(\w+)")
     if ndims == 0:
         ndims = 1
     res = dtype_extractor.match(str(dtype))
-    if res is None:
-        # we still do not have consistent dtype handling
-        # so at least two forms of dtypes to contend with
-        dtype_extractor = re.compile(r"dtype\.(\w+)")
-        res = dtype_extractor.match(str(dtype))
     dtype_str = res.group(1)
     if dtype_str == "float32":
         dtype_str = "float"
@@ -2483,39 +2489,6 @@ def isfinite(view):
                              view=view)
     return out
 
-@pk.workunit
-def round_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = round(view[tid])
-
-
-@pk.workunit
-def round_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
-    for i in range(view.extent(1)):
-        out[tid][i] = round(view[tid][i])
-
-
-@pk.workunit
-def round_impl_3d_double(tid: int, view: pk.View3D[pk.double], out: pk.View3D[pk.double]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = round(view[tid][i][j])
-
-@pk.workunit
-def round_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = round(view[tid])
-
-
-@pk.workunit
-def round_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
-    for i in range(view.extent(1)):
-        out[tid][i] = round(view[tid][i])
-
-
-@pk.workunit
-def round_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.float]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = round(view[tid][i][j])
 
 def round(view):
     """
@@ -2538,80 +2511,31 @@ def round(view):
     If view element ``i`` is already integer-valued, the result is ``i``.
 
     """
-    if "int" in str(view.dtype):
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
         # special case defined in API std
         return view
-    out = pk.View(view.shape, dtype=view.dtype)
-    if len(view.shape) > 3:
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
         raise NotImplementedError("only up to 3D views currently supported for round() ufunc.")
         
-    if "double" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, round_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], round_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], round_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], round_impl_3d_double, view=view, out=out)
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
 
-    elif "float64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, round_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], round_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], round_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], round_impl_3d_double, view=view, out=out)
-
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, round_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], round_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], round_impl_2d_float, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], round_impl_3d_float, view=view, out=out)
-
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="round",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
-@pk.workunit
-def trunc_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = trunc(view[tid])
-
-
-@pk.workunit
-def trunc_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
-    for i in range(view.extent(1)):
-        out[tid][i] = trunc(view[tid][i])
-
-
-@pk.workunit
-def trunc_impl_3d_double(tid: int, view: pk.View3D[pk.double], out: pk.View3D[pk.double]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = trunc(view[tid][i][j])
-
-@pk.workunit
-def trunc_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = trunc(view[tid])
-
-
-@pk.workunit
-def trunc_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
-    for i in range(view.extent(1)):
-        out[tid][i] = trunc(view[tid][i])
-
-
-@pk.workunit
-def trunc_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.float]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = trunc(view[tid][i][j])
 
 def trunc(view):
     """
@@ -2635,80 +2559,31 @@ def trunc(view):
     If view element ``i`` is already integer-valued, the result is ``i``.
 
     """
-    if "int" in str(view.dtype):
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
         # special case defined in API std
         return view
-    out = pk.View(view.shape, dtype=view.dtype)
-    if len(view.shape) > 3:
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
         raise NotImplementedError("only up to 3D views currently supported for trunc() ufunc.")
-        
-    if "double" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, trunc_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], trunc_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], trunc_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], trunc_impl_3d_double, view=view, out=out)
 
-    elif "float64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, trunc_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], trunc_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], trunc_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], trunc_impl_3d_double, view=view, out=out)
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
 
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, trunc_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], trunc_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], trunc_impl_2d_float, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], trunc_impl_3d_float, view=view, out=out)
-
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="trunc",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
-@pk.workunit
-def ceil_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = ceil(view[tid])
-
-
-@pk.workunit
-def ceil_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
-    for i in range(view.extent(1)):
-        out[tid][i] = ceil(view[tid][i])
-
-
-@pk.workunit
-def ceil_impl_3d_double(tid: int, view: pk.View3D[pk.double], out: pk.View3D[pk.double]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = ceil(view[tid][i][j])
-
-@pk.workunit
-def ceil_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = ceil(view[tid])
-
-
-@pk.workunit
-def ceil_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
-    for i in range(view.extent(1)):
-        out[tid][i] = ceil(view[tid][i])
-
-
-@pk.workunit
-def ceil_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.float]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = ceil(view[tid][i][j])
 
 def ceil(view):
     """
@@ -2732,80 +2607,31 @@ def ceil(view):
     If view element ``i`` is already integer-valued, the result is ``i``.
 
     """
-    if "int" in str(view.dtype):
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
         # special case defined in API std
         return view
-    out = pk.View(view.shape, dtype=view.dtype)
-    if len(view.shape) > 3:
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
         raise NotImplementedError("only up to 3D views currently supported for ceil() ufunc.")
-        
-    if "double" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, ceil_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], ceil_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], ceil_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], ceil_impl_3d_double, view=view, out=out)
 
-    elif "float64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, ceil_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], ceil_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], ceil_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], ceil_impl_3d_double, view=view, out=out)
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
 
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, ceil_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], ceil_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], ceil_impl_2d_float, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], ceil_impl_3d_float, view=view, out=out)
-
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="ceil",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
-@pk.workunit
-def floor_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = floor(view[tid])
-
-
-@pk.workunit
-def floor_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
-    for i in range(view.extent(1)):
-        out[tid][i] = floor(view[tid][i])
-
-
-@pk.workunit
-def floor_impl_3d_double(tid: int, view: pk.View3D[pk.double], out: pk.View3D[pk.double]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = floor(view[tid][i][j])
-
-@pk.workunit
-def floor_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = floor(view[tid])
-
-
-@pk.workunit
-def floor_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
-    for i in range(view.extent(1)):
-        out[tid][i] = floor(view[tid][i])
-
-
-@pk.workunit
-def floor_impl_3d_float(tid: int, view: pk.View3D[pk.float], out: pk.View3D[pk.float]):
-    for i in range(view.extent(1)):
-        for j in range(view.extent(2)):
-            out[tid][i][j] = floor(view[tid][i][j])
 
 def floor(view):
     """
@@ -2829,43 +2655,27 @@ def floor(view):
     If view element ``i`` is already integer-valued, the result is ``i``.
 
     """
-    if "int" in str(view.dtype):
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
         # special case defined in API std
         return view
-    out = pk.View(view.shape, dtype=view.dtype)
-    if len(view.shape) > 3:
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
         raise NotImplementedError("only up to 3D views currently supported for floor() ufunc.")
-        
-    if "double" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, floor_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], floor_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], floor_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], floor_impl_3d_double, view=view, out=out)
 
-    elif "float64" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, floor_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], floor_impl_1d_double, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], floor_impl_2d_double, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], floor_impl_3d_double, view=view, out=out)
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
 
-    elif "float" in str(view.dtype):
-        if view.shape == ():
-            pk.parallel_for(1, floor_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], floor_impl_1d_float, view=view, out=out)
-        elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], floor_impl_2d_float, view=view, out=out)
-        elif len(view.shape) == 3:
-            pk.parallel_for(view.shape[0], floor_impl_3d_float, view=view, out=out)
-
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="floor",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
