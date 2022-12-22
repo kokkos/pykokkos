@@ -27,7 +27,7 @@ def main():
     # level kernels/workunits directly
     filtered_function_list = []
     for f in function_list:
-        if not "impl" in f[0] and not "dispatcher" in f[0]:
+        if not "impl" in f[0] and not f[0].startswith("_"):
             filtered_function_list.append(f)
     # TODO: expand types and view dimensions for
     # ufunc pre-compilation as the support
