@@ -2482,3 +2482,39 @@ def isfinite(view):
                              out=out,
                              view=view)
     return out
+
+
+def asin(view):
+    """
+    Calculates an approximation of the principal value of the inverse
+    sine for each element of the input view.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Input view. Should have a floatint-point data type.
+
+    Returns
+    -------
+    y : pykokkos view
+        Output view, containing the inverse sine of each element in the
+        input view. The returned view should have a floating-point data type
+        determined by type promotion rules.
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("asin() ufunc only supports up to 2D views")
+    out = pk.View([*view.shape], dtype=dtype)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="asin",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
