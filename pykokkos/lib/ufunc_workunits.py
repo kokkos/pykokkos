@@ -2,6 +2,28 @@ import pykokkos as pk
 
 
 @pk.workunit
+def asin_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = asin(view[tid])
+
+
+@pk.workunit
+def asin_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)):
+        out[tid][i] = asin(view[tid][i])
+
+
+@pk.workunit
+def asin_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = asin(view[tid])
+
+
+@pk.workunit
+def asin_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[tid][i] = asin(view[tid][i])
+
+
+@pk.workunit
 def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isfinite(view[tid])
 
