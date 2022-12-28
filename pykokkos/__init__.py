@@ -57,7 +57,8 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  isinf,
                                  isnan,
                                  equal,
-                                 isfinite)
+                                 isfinite,
+                                 expm1)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  ones,

@@ -2482,3 +2482,41 @@ def isfinite(view):
                              out=out,
                              view=view)
     return out
+
+
+def expm1(view):
+    """
+    Calculates an approximation to ``exp(x) - 1`` for each element
+    of the input view.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Input view. Should have a floating-point data type.
+
+    Returns
+    -------
+    out : pykokkos view
+           A view containing the evaluated result for each element
+           in the input view. The returned view must have a floating-point
+           data type determined by type promotion rules.
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("expm1() ufunc only supports up to 2D views")
+    if view.size == 0:
+        return view
+    out = pk.View([*view.shape], dtype=dtype)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="expm1",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out

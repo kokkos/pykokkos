@@ -2,6 +2,27 @@ import pykokkos as pk
 
 
 @pk.workunit
+def expm1_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = expm1(view[tid])
+
+
+@pk.workunit
+def expm1_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[tid][i] = expm1(view[tid][i])
+
+@pk.workunit
+def expm1_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = expm1(view[tid])
+
+
+@pk.workunit
+def expm1_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)):
+        out[tid][i] = expm1(view[tid][i])
+
+
+@pk.workunit
 def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isfinite(view[tid])
 
