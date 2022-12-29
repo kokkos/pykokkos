@@ -2,6 +2,116 @@ import pykokkos as pk
 
 
 @pk.workunit
+def isnan_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = isnan(view[tid][i])
+
+
+@pk.workunit
+def isnan_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
+def isnan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
+    out[tid] = isnan(view[tid])
+
+
+@pk.workunit
 def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isfinite(view[tid])
 
