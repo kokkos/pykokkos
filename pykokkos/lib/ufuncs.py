@@ -42,6 +42,50 @@ def _ufunc_kernel_dispatcher(tid,
     return ret
 
 
+def _broadcast_views(view1, view2):
+    # support broadcasting by using the same
+    # shape matching rules as NumPy
+    # TODO: determine if this can be done with
+    # more memory efficiency?
+    if view1.shape != view2.shape:
+        new_shape = np.broadcast_shapes(view1.shape, view2.shape)
+        view1_new = pk.View([*new_shape], dtype=view1.dtype)
+        view1_new[:] = view1
+        view1 = view1_new
+        view2_new = pk.View([*new_shape], dtype=view2.dtype)
+        view2_new[:] = view2
+        view2 = view2_new
+    return view1, view2
+
+
+def _typematch_views(view1, view2):
+    # very crude casting implementation
+    # for binary ufuncs
+    dtype1 = view1.dtype
+    dtype2 = view2.dtype
+    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    res1 = dtype_extractor.match(str(dtype1))
+    res2 = dtype_extractor.match(str(dtype2))
+    effective_dtype = dtype1
+    if res1 is not None and res2 is not None:
+        res1_dtype_str = res1.group(1)
+        res2_dtype_str = res2.group(1)
+        if "int" in res1_dtype_str and "int" in res2_dtype_str:
+            dtype_1_width = int(res1_dtype_str.split("t")[1])
+            dtype_2_width = int(res2_dtype_str.split("t")[1])
+            if dtype_1_width >= dtype_2_width:
+                effective_dtype = dtype1
+                view2_new = pk.View([*view2.shape], dtype=effective_dtype)
+                view2_new[:] = view2
+                view2 = view2_new
+            else:
+                effective_dtype = dtype2
+                view1_new = pk.View([*view1.shape], dtype=effective_dtype)
+                view1_new[:] = view1
+                view1 = view1_new
+    return view1, view2, effective_dtype
+
+
 def reciprocal(view):
     """
     Return the reciprocal of the argument, element-wise.
@@ -2679,3 +2723,57 @@ def floor(view):
                              out=out,
                              view=view)
     return out
+
+
+def bitwise_xor(view1, view2):
+    """
+    Computes the bitwise XOR of the underlying binary representation of each element
+    of the respective input views.
+
+    Parameters
+    ----------
+    view1 : pykokkos view
+           First input view. Should have an integer or boolean data type.
+    view2 : pykokkos view
+           Second input view. Should have an integer or boolean data type.
+
+    Returns
+    -------
+    out : pykokkos view
+         A view containing the element-wise results.
+    """
+    view1, view2 = _broadcast_views(view1, view2)
+    dtype1 = view1.dtype
+    dtype2 = view2.dtype
+    view1, view2, effective_dtype = _typematch_views(view1, view2)
+    ndims = len(view1.shape)
+    if ndims > 5:
+        raise NotImplementedError("bitwise_xor() ufunc only supports up to 5D views")
+    if view1.size == 0:
+        return view1
+    # we can't really handle bool properly
+    # in workunits
+    if dtype1 == pk.bool or dtype2 == pk.bool:
+        ret_bool = True
+        effective_dtype = pk.uint8
+    else:
+        ret_bool = False
+    out = pk.View([*view1.shape], dtype=effective_dtype)
+    if view1.shape == ():
+        tid = 1
+    else:
+        tid = view1.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=effective_dtype,
+                             ndims=ndims,
+                             op="bitwise_xor",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view1=view1,
+                             view2=view2)
+    if ret_bool:
+        new_out = pk.View([*view1.shape], dtype=pk.bool)
+        new_out[:] = out
+        return new_out
+    else:
+        return out
