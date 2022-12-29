@@ -392,6 +392,22 @@ class View(ViewType):
         return self.data
 
 
+    def __lt__(self, other):
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import less
+        if isinstance(other, float):
+            new_other = pk.View((), dtype=pk.double)
+            new_other[:] = other
+        elif isinstance(other, int):
+            new_other = pk.View((), dtype=pk.int64)
+            new_other[:] = other
+        elif isinstance(other, pk.View):
+            new_other = other
+        else:
+            raise ValueError("unexpected types!")
+        return less(self, new_other)
+
+
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
         """
@@ -785,3 +801,9 @@ class ScratchView7D(ScratchView, Generic[T]):
 
 class ScratchView8D(ScratchView, Generic[T]):
     pass
+
+
+def astype(view, dtype):
+    new_view = pk.View([*view.shape], dtype=dtype)
+    new_view[:] = view
+    return new_view
