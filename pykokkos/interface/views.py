@@ -392,6 +392,38 @@ class View(ViewType):
         return self.data
 
 
+    def __le__(self, other):
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import less_equal
+        if isinstance(other, float):
+            new_other = pk.View((), dtype=pk.double)
+            new_other[:] = other
+        elif isinstance(other, int):
+            if 0 <= other <= 255:
+                other_dtype = pk.uint8
+            elif 0 <= other <= 65535:
+                other_dtype = pk.uint16
+            elif 0 <= other <= 4294967295:
+                other_dtype = pk.uint32
+            elif 0 <= other <= 18446744073709551615:
+                other_dtype = pk.uint64
+            elif -128 <= other <= 127:
+                other_dtype = pk.int8
+            elif -32768 <= other <= 32767:
+                other_dtype = pk.int16
+            elif -2147483648 <= other <= 2147483647:
+                other_dtype = pk.int32
+            elif -9223372036854775808 <= other <= 9223372036854775807:
+                other_dtype = pk.int64
+            new_other = pk.View((), dtype=other_dtype)
+            new_other[:] = other
+        elif isinstance(other, pk.View):
+            new_other = other
+        else:
+            raise ValueError("unexpected types!")
+        return less_equal(self, new_other)
+
+
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
         """
@@ -785,3 +817,9 @@ class ScratchView7D(ScratchView, Generic[T]):
 
 class ScratchView8D(ScratchView, Generic[T]):
     pass
+
+
+def astype(view, dtype):
+    new_view = pk.View([*view.shape], dtype=dtype)
+    new_view[:] = view
+    return new_view
