@@ -367,13 +367,43 @@ class View(ViewType):
 
 
     def __eq__(self, other):
-        if not isinstance(other, pk.View) and self.rank() > 0:
-            return [i == other for i in self]
-
-        if self.array == other:
-            return True
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import equal
+        if isinstance(other, float):
+            new_other = pk.View((), dtype=pk.double)
+            new_other[:] = other
+        elif isinstance(other, bool):
+            new_other = pk.View((), dtype=pk.bool)
+            new_other[:] = other
+        elif isinstance(other, int):
+            if self.ndim == 0:
+                ret = pk.View((), dtype=pk.bool)
+                ret[:] = int(self) == other
+                return ret
+            if 0 <= other <= 255:
+                other_dtype = pk.uint8
+            elif 0 <= other <= 65535:
+                other_dtype = pk.uint16
+            elif 0 <= other <= 4294967295:
+                other_dtype = pk.uint32
+            elif 0 <= other <= 18446744073709551615:
+                other_dtype = pk.uint64
+            elif -128 <= other <= 127:
+                other_dtype = pk.int8
+            elif -32768 <= other <= 32767:
+                other_dtype = pk.int16
+            elif -2147483648 <= other <= 2147483647:
+                other_dtype = pk.int32
+            elif -9223372036854775808 <= other <= 9223372036854775807:
+                other_dtype = pk.int64
+            new_other = pk.View((), dtype=other_dtype)
+            new_other[:] = other
+        elif isinstance(other, pk.View):
+            new_other = other
         else:
-            return False
+            raise ValueError("unexpected types!")
+        return equal(self, new_other)
+
 
 
     def __hash__(self):
@@ -785,3 +815,9 @@ class ScratchView7D(ScratchView, Generic[T]):
 
 class ScratchView8D(ScratchView, Generic[T]):
     pass
+
+
+def astype(view, dtype):
+    new_view = pk.View([*view.shape], dtype=dtype)
+    new_view[:] = view
+    return new_view
