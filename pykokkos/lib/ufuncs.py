@@ -2374,30 +2374,23 @@ def index(viewA, viewB):
     return out
 
 
-@pk.workunit
-def isnan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
-    out[tid] = isnan(view[tid])
-
-
-@pk.workunit
-def isnan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.uint8]):
-    out[tid] = isnan(view[tid])
-
-
 def isnan(view):
-    if len(view.shape) > 1:
-        raise NotImplementedError("isnan() ufunc only supports 1D views")
-    out = pk.View([*view.shape], dtype=pk.uint8)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
-        pk.parallel_for(view.shape[0],
-                        isnan_impl_1d_double,
-                        view=view,
-                        out=out)
-    elif "float" in str(view.dtype):
-        pk.parallel_for(view.shape[0],
-                        isnan_impl_1d_float,
-                        view=view,
-                        out=out)
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("isnan() ufunc only supports up to 2D views")
+    out = pk.View([*view.shape], dtype=pk.bool)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="isnan",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
 
