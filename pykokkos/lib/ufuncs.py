@@ -15,15 +15,10 @@ def _ufunc_kernel_dispatcher(tid,
                              op,
                              sub_dispatcher,
                              **kwargs):
-    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    dtype_extractor = re.compile(r".*(?:dtype|data_types|DataType)\.(\w+)")
     if ndims == 0:
         ndims = 1
     res = dtype_extractor.match(str(dtype))
-    if res is None:
-        # we still do not have consistent dtype handling
-        # so at least two forms of dtypes to contend with
-        dtype_extractor = re.compile(r"dtype\.(\w+)")
-        res = dtype_extractor.match(str(dtype))
     dtype_str = res.group(1)
     if dtype_str == "float32":
         dtype_str = "float"
@@ -1051,15 +1046,6 @@ def divide(viewA, viewB):
     return out
 
 
-@pk.workunit
-def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = view[tid] * -1
-
-
-@pk.workunit
-def negative_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = view[tid] * -1
-
 def negative(view):
     """
     Element-wise negative of the view
@@ -1075,16 +1061,22 @@ def negative(view):
            Output view.
 
     """
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for negative() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        out = pk.View([view.shape[0]], pk.double)
-        pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
-        out = pk.View([view.shape[0]], pk.float)
-        pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("only up to 2D views currently supported for negative() ufunc.")
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    out = pk.View([*view.shape], dtype=dtype)
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="negative",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
 
