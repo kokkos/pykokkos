@@ -2,6 +2,72 @@ import pykokkos as pk
 
 
 @pk.workunit
+def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.int8]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.int16]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.int32]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.int64]):
+    out[tid] = view[tid] * -1
+
+
+@pk.workunit
+def negative_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.int8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
+def negative_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.int16]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
+def negative_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.int32]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
+def negative_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.int64]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
+def negative_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
+def negative_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[tid][i] = view[tid][i] * -1
+
+
+@pk.workunit
 def isfinite_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.uint8]):
     out[tid] = isfinite(view[tid])
 

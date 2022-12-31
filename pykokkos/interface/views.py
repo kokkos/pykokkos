@@ -392,6 +392,20 @@ class View(ViewType):
         return self.data
 
 
+    def __gt__(self, other):
+        return np.array(self) > other
+
+
+    def __neg__(self):
+        for idx in range(self.size):
+            self[idx] = self[idx] * -1.0
+        return self
+
+
+    def __mul__(self, other):
+        return pk.from_numpy(np.array(self) * other)
+
+
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
         """
@@ -495,6 +509,10 @@ class Subview(ViewType):
                 return True
             result_of_eq = self.data == other.data
             return result_of_eq
+
+    def __gt__(self, other):
+        if self.size == 1:
+            return self.data > other
 
     def __hash__(self):
         hash_value = hash(self.array)
