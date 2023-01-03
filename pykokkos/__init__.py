@@ -57,7 +57,11 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  isinf,
                                  isnan,
                                  equal,
-                                 isfinite)
+                                 isfinite,
+                                 round,
+                                 trunc,
+                                 ceil,
+                                 floor)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  ones,

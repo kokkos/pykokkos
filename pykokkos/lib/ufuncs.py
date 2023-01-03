@@ -9,21 +9,27 @@ from pykokkos.lib import ufunc_workunits
 kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
 
+def _supported_types_check(dtype_str, supported_type_strings):
+    options = ""
+    for type_str in supported_type_strings:
+        options += f".*{type_str}.*|"
+    options = options[:-1]
+    prog = re.compile(f"({options})" )
+    result = prog.match(dtype_str)
+    if result is None:
+        raise NotImplementedError
+
+
 def _ufunc_kernel_dispatcher(tid,
                              dtype,
                              ndims,
                              op,
                              sub_dispatcher,
                              **kwargs):
-    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    dtype_extractor = re.compile(r".*(?:dtype|data_types|DataType)\.(\w+)")
     if ndims == 0:
         ndims = 1
     res = dtype_extractor.match(str(dtype))
-    if res is None:
-        # we still do not have consistent dtype handling
-        # so at least two forms of dtypes to contend with
-        dtype_extractor = re.compile(r"dtype\.(\w+)")
-        res = dtype_extractor.match(str(dtype))
     dtype_str = res.group(1)
     if dtype_str == "float32":
         dtype_str = "float"
@@ -2478,6 +2484,197 @@ def isfinite(view):
                              dtype=dtype,
                              ndims=ndims,
                              op="isfinite",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
+
+
+def round(view):
+    """
+    Rounds each element of the input view to the nearest integer-valued number.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
+        # special case defined in API std
+        return view
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
+        raise NotImplementedError("only up to 3D views currently supported for round() ufunc.")
+        
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
+
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="round",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
+
+
+def trunc(view):
+    """
+    Rounds each element ``i`` of the input view to the integer-valued number
+    that is closest to but no greater than ``i``.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
+        # special case defined in API std
+        return view
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
+        raise NotImplementedError("only up to 3D views currently supported for trunc() ufunc.")
+
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
+
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="trunc",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
+
+
+def ceil(view):
+    """
+    Rounds each element of the input view to the smallest (i.e., closest to -infinity)
+    integer-valued number that is not less than a given element.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
+        # special case defined in API std
+        return view
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
+        raise NotImplementedError("only up to 3D views currently supported for ceil() ufunc.")
+
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
+
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="ceil",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
+
+
+def floor(view):
+    """
+    Rounds each element of the input view to the greatest (i.e., closest to +infinity)
+    integer-valued number that is not greater than a given element.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have a numeric data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the rounded result for each element in
+         the input view. The returned view must have the same data
+         type as the input view.
+
+    Notes
+    -----
+    If view element ``i`` is already integer-valued, the result is ``i``.
+
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    if "int" in dtype_str:
+        # special case defined in API std
+        return view
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 3:
+        raise NotImplementedError("only up to 3D views currently supported for floor() ufunc.")
+
+    _supported_types_check(dtype_str, {"double", "float64", "float"})
+
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="floor",
                              sub_dispatcher=pk.parallel_for,
                              out=out,
                              view=view)
