@@ -496,6 +496,23 @@ class Subview(ViewType):
             result_of_eq = self.data == other.data
             return result_of_eq
 
+
+    def __add__(self, other):
+        if isinstance(other, float):
+            result = self[0] + other
+            return result
+
+
+    def __mul__(self, other):
+        if isinstance(other, float):
+            result = self[0] * other
+            return result
+        elif isinstance(other, Subview):
+            if self.size == 1 and other.size == 1:
+                result = self[0] * other[0]
+                return result
+
+
     def __hash__(self):
         hash_value = hash(self.array)
         return hash_value
