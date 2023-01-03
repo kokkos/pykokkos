@@ -1,4 +1,5 @@
 import pykokkos as pk
+from pykokkos.linalg import workunits
 
 # Level 3 BLAS functions
 
@@ -45,12 +46,22 @@ def dgemm(alpha: float,
 
     C = pk.View([view_a.shape[0], view_b.shape[1]], dtype=pk.double)
 
-    for m in range(view_a.shape[0]):
-        for n in range(view_b.shape[1]):
-            for k in range(k_a):
-                subresult = view_a[m, k] * view_b[k, n] * alpha
-                C[m, n] += float(subresult) # type: ignore
-            if view_c is not None:
-                C[m, n] += (view_c[m, n] * beta) # type: ignore
-
+    if view_c is None:
+        pk.parallel_for(view_a.shape[0],
+                        workunits.dgemm_impl_no_view_c,
+                        k_a=k_a,
+                        alpha=alpha,
+                        view_a=view_a,
+                        view_b=view_b,
+                        out=C)
+    else:
+        pk.parallel_for(view_a.shape[0],
+                        workunits.dgemm_impl_view_c,
+                        k_a=k_a,
+                        alpha=alpha,
+                        beta=beta,
+                        view_a=view_a,
+                        view_b=view_b,
+                        view_c=view_c,
+                        out=C)
     return C
