@@ -61,7 +61,8 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  round,
                                  trunc,
                                  ceil,
-                                 floor)
+                                 floor,
+                                 bitwise_and)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  ones,
