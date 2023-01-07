@@ -392,6 +392,12 @@ class View(ViewType):
         return self.data
 
 
+    def __invert__(self):
+        # scope to avoid circular import issues
+        from pykokkos.lib.ufuncs import bitwise_invert
+        return bitwise_invert(self)
+
+
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
         """

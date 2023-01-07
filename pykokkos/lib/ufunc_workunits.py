@@ -2,6 +2,115 @@ import pykokkos as pk
 
 
 @pk.workunit
+def bitwise_invert_impl_1d_bool(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    # need special handling until we have genuine
+    # bool support I think
+    if view[tid] == 0:
+        out[tid] = 1
+    else:
+        out[tid] = 0
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_bool(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    # need special handling until we have genuine
+    # bool support I think
+    for i in range(view.extent(1)):
+        if view[tid][i] == 0:
+            out[tid][i] = 1
+        else:
+            out[tid][i] = 0
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_int8(tid: int, view: pk.View2D[pk.int8], out: pk.View2D[pk.int8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_int16(tid: int, view: pk.View2D[pk.int16], out: pk.View2D[pk.int16]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_int32(tid: int, view: pk.View2D[pk.int32], out: pk.View2D[pk.int32]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_int64(tid: int, view: pk.View2D[pk.int64], out: pk.View2D[pk.int64]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_uint8(tid: int, view: pk.View2D[pk.uint8], out: pk.View2D[pk.uint8]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_uint16(tid: int, view: pk.View2D[pk.uint16], out: pk.View2D[pk.uint16]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_uint32(tid: int, view: pk.View2D[pk.uint32], out: pk.View2D[pk.uint32]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_2d_uint64(tid: int, view: pk.View2D[pk.uint64], out: pk.View2D[pk.uint64]):
+    for i in range(view.extent(1)):
+        out[tid][i] = ~view[tid][i]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_uint8(tid: int, view: pk.View1D[pk.uint8], out: pk.View1D[pk.uint8]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_uint16(tid: int, view: pk.View1D[pk.uint16], out: pk.View1D[pk.uint16]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_uint32(tid: int, view: pk.View1D[pk.uint32], out: pk.View1D[pk.uint32]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_uint64(tid: int, view: pk.View1D[pk.uint64], out: pk.View1D[pk.uint64]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_int8(tid: int, view: pk.View1D[pk.int8], out: pk.View1D[pk.int8]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_int16(tid: int, view: pk.View1D[pk.int16], out: pk.View1D[pk.int16]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_int32(tid: int, view: pk.View1D[pk.int32], out: pk.View1D[pk.int32]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
+def bitwise_invert_impl_1d_int64(tid: int, view: pk.View1D[pk.int64], out: pk.View1D[pk.int64]):
+    out[tid] = ~view[tid]
+
+
+@pk.workunit
 def floor_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = floor(view[tid])
 

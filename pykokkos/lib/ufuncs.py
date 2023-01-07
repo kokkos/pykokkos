@@ -2679,3 +2679,41 @@ def floor(view):
                              out=out,
                              view=view)
     return out
+
+
+def bitwise_invert(view):
+    """
+    Inverts (flips) each bit for each element of the input view.
+
+    Parameters
+    ----------
+    view : pykokkos view
+           Should have an integer or boolean data type.
+
+    Returns
+    -------
+    out: pykokkos view
+         A view containing the element-wise results. The returned view
+         must have the same type as the input view.
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    dtype_str = str(dtype)
+    out = pk.View(view.shape, dtype=dtype)
+    if ndims > 2:
+        raise NotImplementedError("only up to 2D views currently supported for bitwise_invert() ufunc.")
+
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    if view.size == 0:
+        return view
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="bitwise_invert",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
