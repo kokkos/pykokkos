@@ -63,13 +63,21 @@ def _typematch_views(view1, view2):
     # for binary ufuncs
     dtype1 = view1.dtype
     dtype2 = view2.dtype
-    dtype_extractor = re.compile(r".*data_types\.(\w+)'>")
+    dtype_extractor = re.compile(r".*(?:data_types|DataType)\.(\w+)")
     res1 = dtype_extractor.match(str(dtype1))
     res2 = dtype_extractor.match(str(dtype2))
     effective_dtype = dtype1
     if res1 is not None and res2 is not None:
         res1_dtype_str = res1.group(1)
         res2_dtype_str = res2.group(1)
+        if res1_dtype_str == "double":
+            res1_dtype_str = "float64"
+        elif res1_dtype_str == "float":
+            res1_dtype_str = "float32"
+        if res2_dtype_str == "double":
+            res2_dtype_str = "float64"
+        elif res2_dtype_str == "float":
+            res2_dtype_str = "float32"
         if (("int" in res1_dtype_str and "int" in res2_dtype_str) or
             ("float" in res1_dtype_str and "float" in res2_dtype_str)):
             dtype_1_width = int(res1_dtype_str.split("t")[1])
