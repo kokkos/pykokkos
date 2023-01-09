@@ -30,7 +30,7 @@ jobs:
           cd /tmp
           git clone https://github.com/kokkos/pykokkos-base.git
           cd pykokkos-base
-          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF
+          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5
       - name: Install pykokkos
         run: |
           python -m pip install .
