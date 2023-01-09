@@ -82,13 +82,30 @@ if __name__ == "__main__":
         counter += 2
 
     print("df:\n", df)
+    ratios = df[df["backend"] == "PyKokkos"].iloc[..., 1:].reset_index(drop=True) / df[df["backend"] == "SciPy"].iloc[..., 1:].reset_index(drop=True)
+    avg_ratios = ratios.mean(axis=0)
+    std_ratios = ratios.std(axis=0)
+
     fig, axes = plt.subplots(nrows=1, ncols=3)
     fig.set_size_inches(12, 5)
     df.boxplot(ax=axes,
                by="backend",
                )
     for ax in axes:
-        ax.set_xlabel("Backend")
+        problem_size = ax.get_title()
+        avg_ratio = avg_ratios[problem_size]
+        std_ratio = std_ratios[problem_size]
+        if avg_ratio == 1:
+            color = "gray"
+            prefix = "(Same Performance)"
+        elif avg_ratio > 1:
+            color = "red"
+            prefix = "(PyKokkos slower by)"
+        elif avg_ratio < 1:
+            color = "green"
+            prefix = "(PyKokkos faster by)"
+        final_ratio = f"{prefix} {avg_ratio:.1f} $\pm$ {std_ratio:.1f} Fold"
+        ax.set_xlabel(final_ratio, color=color)
     axes[0].set_ylabel(f"Time (s) for {num_repeats} DGEMM executions")
     fig.suptitle(f"DGEMM performance boxplots (OMP_NUM_THREADS={num_threads}; {num_global_repeats} trials) for different problem sizes")
     fig.savefig(f"DGEMM_perf_compare_{num_threads}_threads.png", dpi=300)
