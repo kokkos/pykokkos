@@ -373,7 +373,7 @@ def test_multi_array_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     viewB: pk.View1d = pk.View([10], pk_dtype)
     viewB[:] = np.full(10, 5, dtype=numpy_dtype)
 
-    actual = pk_ufunc(viewA=viewA, viewB=viewB)
+    actual = pk_ufunc(viewA, viewB)
 
     assert_allclose(actual, expected)
 
