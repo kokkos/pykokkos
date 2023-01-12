@@ -61,7 +61,8 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  round,
                                  trunc,
                                  ceil,
-                                 floor)
+                                 floor,
+                                 less_equal)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  ones,
@@ -70,6 +71,7 @@ from pykokkos.lib.create import (zeros,
 from pykokkos.lib.manipulate import reshape, ravel, expand_dims
 from pykokkos.lib.util import all, any, sum, find_max, searchsorted, col, linspace, logspace
 from pykokkos.lib.constants import e, pi, inf, nan
+from pykokkos.interface.views import astype
 
 __array_api_version__ = "2021.12"
 
