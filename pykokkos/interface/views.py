@@ -376,6 +376,11 @@ class View(ViewType):
             return False
 
 
+    def __mul__(self, other):
+        if isinstance(other, pk.View):
+            return pk.multiply(self, other)
+
+
     def __hash__(self):
         try:
             hash_value = hash(self.array)
