@@ -9,6 +9,59 @@ from pykokkos.lib import ufunc_workunits
 kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
 
+def _broadcast_views(view1, view2):
+    # support broadcasting by using the same
+    # shape matching rules as NumPy
+    # TODO: determine if this can be done with
+    # more memory efficiency?
+    if view1.shape != view2.shape:
+        new_shape = np.broadcast_shapes(view1.shape, view2.shape)
+        view1_new = pk.View([*new_shape], dtype=view1.dtype)
+        view1_new[:] = view1
+        view1 = view1_new
+        view2_new = pk.View([*new_shape], dtype=view2.dtype)
+        view2_new[:] = view2
+        view2 = view2_new
+    return view1, view2
+
+
+def _typematch_views(view1, view2):
+    # very crude casting implementation
+    # for binary ufuncs
+    dtype1 = view1.dtype
+    dtype2 = view2.dtype
+    dtype_extractor = re.compile(r".*(?:data_types|DataType)\.(\w+)")
+    res1 = dtype_extractor.match(str(dtype1))
+    res2 = dtype_extractor.match(str(dtype2))
+    effective_dtype = dtype1
+    if res1 is not None and res2 is not None:
+        res1_dtype_str = res1.group(1)
+        res2_dtype_str = res2.group(1)
+        if res1_dtype_str == "double":
+            res1_dtype_str = "float64"
+        elif res1_dtype_str == "float":
+            res1_dtype_str = "float32"
+        if res2_dtype_str == "double":
+            res2_dtype_str = "float64"
+        elif res2_dtype_str == "float":
+            res2_dtype_str = "float32"
+        if (("int" in res1_dtype_str and "int" in res2_dtype_str) or
+            ("float" in res1_dtype_str and "float" in res2_dtype_str)):
+            dtype_1_width = int(res1_dtype_str.split("t")[1])
+            dtype_2_width = int(res2_dtype_str.split("t")[1])
+            if dtype_1_width >= dtype_2_width:
+                effective_dtype = dtype1
+                view2_new = pk.View([*view2.shape], dtype=effective_dtype)
+                view2_new[:] = view2
+                view2 = view2_new
+            else:
+                effective_dtype = dtype2
+                view1_new = pk.View([*view1.shape], dtype=effective_dtype)
+                view1_new[:] = view1
+                view1 = view1_new
+    return view1, view2, effective_dtype
+
+
 def _supported_types_check(dtype_str, supported_type_strings):
     options = ""
     for type_str in supported_type_strings:
@@ -2678,4 +2731,47 @@ def floor(view):
                              sub_dispatcher=pk.parallel_for,
                              out=out,
                              view=view)
+    return out
+
+
+def remainder(view1, view2):
+    """
+    Returns the remainder of division for each element ``x1_i`` of the input view
+    ``view1`` and the respective element ``x2_i`` of the input view ``view2``.
+
+    Parameters
+    ----------
+    view1 : pykokkos view
+           Dividend input array. Should have a real-valued data type.
+    view2 : pykokkos view
+           Divisor input array. Must be broadcasting-compatible with ``view1``. Should have a real-valued data type.
+
+    Returns
+    -------
+    out : pykokkos view
+         A view containing the element-wise results. Each element-wise result must have the same sign
+         as the respective element ``x2_i``. The returned view must have a data type determined
+         by Type Promotion Rules.
+    """
+    view1, view2 = _broadcast_views(view1, view2)
+    view1, view2, effective_dtype = _typematch_views(view1, view2)
+    ndims_1 = len(view1.shape)
+    ndims_2 = len(view2.shape)
+    if ndims_1 > 5 or ndims_2 > 5:
+        raise NotImplementedError("remainder() ufunc only supports up to 5D views")
+    if view1.size == 0:
+        return pk.View([*view1.shape], dtype=effective_dtype)
+    out = pk.View([*view1.shape], dtype=effective_dtype)
+    if view1.shape == ():
+        tid = 1
+    else:
+        tid = view1.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=effective_dtype,
+                             ndims=ndims_1,
+                             op="remainder",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view1=view1,
+                             view2=view2)
     return out
