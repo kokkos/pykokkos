@@ -90,6 +90,7 @@ def _ufunc_kernel_dispatcher(tid,
         dtype_str = "double"
     function_name_str = f"{op}_impl_{ndims}d_{dtype_str}"
     desired_workunit = kernel_dict[function_name_str]
+    print("desired_workunit:", desired_workunit)
     # call the kernel
     ret = sub_dispatcher(tid, desired_workunit, **kwargs)
     return ret
@@ -2753,10 +2754,14 @@ def remainder(view1, view2):
          as the respective element ``x2_i``. The returned view must have a data type determined
          by Type Promotion Rules.
     """
+    print("remainder received view1, view2:", view1, view2)
+    print("remainder received view1.dtype, view2.dtype:", view1.dtype, view2.dtype)
+    print("remainder received view1.shape, view2.shape:", view1.shape, view2.shape)
     view1, view2 = _broadcast_views(view1, view2)
     view1, view2, effective_dtype = _typematch_views(view1, view2)
     ndims_1 = len(view1.shape)
     ndims_2 = len(view2.shape)
+    print("ndims_1, ndims_2:", ndims_1, ndims_2)
     if ndims_1 > 5 or ndims_2 > 5:
         raise NotImplementedError("remainder() ufunc only supports up to 5D views")
     if view1.size == 0:

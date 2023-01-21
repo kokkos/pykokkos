@@ -156,7 +156,9 @@ def remainder_impl_5d_uint32(tid: int,
         for j in range(view1.extent(2)):
             for k in range(view1.extent(3)):
                 for l in range(view1.extent(4)):
-                    if (view1[tid][i][j][k][l] == view2[tid][i][j][k][l]) or view2[tid][i][j][k][l] == 0:
+                    if (view2[tid][i][j][k][l] > view1[tid][i][j][k][l]):
+                        out[tid][i][j][k][l] = view1[tid][i][j][k][l]
+                    elif (view1[tid][i][j][k][l] == view2[tid][i][j][k][l]) or view2[tid][i][j][k][l] == 0:
                         out[tid][i][j][k][l] = 0
                     else:
                         out[tid][i][j][k][l] = ((view1[tid][i][j][k][l] % view2[tid][i][j][k][l]) + view2[tid][i][j][k][l]) % view2[tid][i][j][k][l]
@@ -260,7 +262,9 @@ def remainder_impl_4d_uint32(tid: int,
     for i in range(view1.extent(1)):
         for j in range(view1.extent(2)):
             for k in range(view1.extent(3)):
-                if (view1[tid][i][j][k] == view2[tid][i][j][k]) or view2[tid][i][j][k] == 0:
+                if (view2[tid][i][j][k] > view1[tid][i][j][k]):
+                    out[tid][i][j][k] = view1[tid][i][j][k]
+                elif (view1[tid][i][j][k] == view2[tid][i][j][k]) or view2[tid][i][j][k] == 0:
                     out[tid][i][j][k] = 0
                 else:
                     out[tid][i][j][k] = ((view1[tid][i][j][k] % view2[tid][i][j][k]) + view2[tid][i][j][k]) % view2[tid][i][j][k]
@@ -329,7 +333,9 @@ def remainder_impl_3d_uint32(tid: int,
                               out: pk.View3D[pk.uint32]):
     for i in range(view1.extent(1)):
         for j in range(view1.extent(2)):
-            if (view1[tid][i][j] == view2[tid][i][j]) or view2[tid][i][j] == 0:
+            if (view2[tid][i][j] > view1[tid][i][j]):
+                out[tid][i][j] = view1[tid][i][j]
+            elif (view1[tid][i][j] == view2[tid][i][j]) or view2[tid][i][j] == 0:
                 out[tid][i][j] = 0
             else:
                 out[tid][i][j] = ((view1[tid][i][j] % view2[tid][i][j]) + view2[tid][i][j]) % view2[tid][i][j]
@@ -424,6 +430,8 @@ def remainder_impl_2d_uint32(tid: int,
     for i in range(view1.extent(1)):
         if (view1[tid][i] == view2[tid][i]) or view2[tid][i] == 0:
             out[tid][i] = 0
+        elif view2[tid][i] > view1[tid][i]:
+            out[tid][i] = view1[tid][i]
         else:
             out[tid][i] = ((view1[tid][i] % view2[tid][i]) + view2[tid][i]) % view2[tid][i]
             if out[tid][i] < 0 and view2[tid][i] > 0:
@@ -454,11 +462,14 @@ def remainder_impl_2d_float(tid: int,
                               view2: pk.View2D[pk.float],
                               out: pk.View2D[pk.float]):
     for i in range(view1.extent(1)):
-        out[tid][i] = fmod(fmod(view1[tid][i], view2[tid][i]) + view2[tid][i], view2[tid][i])
-        if out[tid][i] < 0 and view2[tid][i] > 0:
-            out[tid][i] = -1 * out[tid][i]
-        elif out[tid][i] > 0 and view2[tid][i] < 0:
-            out[tid][i] = -1 * out[tid][i]
+        if view1[tid][i] > 0 and view2[tid][i] < 0:
+            out[tid][i] = view1[tid][i] + view2[tid][i]
+        else:
+            out[tid][i] = fmod(view1[tid][i], view2[tid][i])
+            if out[tid][i] < 0 and view2[tid][i] > 0:
+                out[tid][i] = out[tid][i] + view2[tid][i]
+            elif out[tid][i] > 0 and view2[tid][i] < 0:
+                out[tid][i] = -1 * out[tid][i]
 
 
 @pk.workunit
@@ -467,11 +478,14 @@ def remainder_impl_2d_double(tid: int,
                               view2: pk.View2D[pk.double],
                               out: pk.View2D[pk.double]):
     for i in range(view1.extent(1)):
-        out[tid][i] = fmod(fmod(view1[tid][i], view2[tid][i]) + view2[tid][i], view2[tid][i])
-        if out[tid][i] < 0 and view2[tid][i] > 0:
-            out[tid][i] = -1 * out[tid][i]
-        elif out[tid][i] > 0 and view2[tid][i] < 0:
-            out[tid][i] = -1 * out[tid][i]
+        if view1[tid][i] > 0 and view2[tid][i] < 0:
+            out[tid][i] = view1[tid][i] + view2[tid][i]
+        else:
+            out[tid][i] = fmod(view1[tid][i], view2[tid][i])
+            if out[tid][i] < 0 and view2[tid][i] > 0:
+                out[tid][i] = out[tid][i] + view2[tid][i]
+            elif out[tid][i] > 0 and view2[tid][i] < 0:
+                out[tid][i] = -1 * out[tid][i]
 
 
 @pk.workunit
@@ -490,11 +504,14 @@ def remainder_impl_1d_float(tid: int,
                               view1: pk.View1D[pk.float],
                               view2: pk.View1D[pk.float],
                               out: pk.View1D[pk.float]):
-    out[tid] = fmod(fmod(view1[tid], view2[tid]) + view2[tid], view2[tid])
-    if out[tid] < 0 and view2[tid] > 0:
-        out[tid] = -1 * out[tid]
-    elif out[tid] > 0 and view2[tid] < 0:
-        out[tid] = -1 * out[tid]
+    if view1[tid] > 0 and view2[tid] < 0:
+        out[tid] = view1[tid] + view2[tid]
+    else:
+        out[tid] = fmod(view1[tid], view2[tid])
+        if out[tid] < 0 and view2[tid] > 0:
+            out[tid] = out[tid] + view2[tid]
+        elif out[tid] > 0 and view2[tid] < 0:
+            out[tid] = -1 * out[tid]
 
 
 @pk.workunit
@@ -502,11 +519,14 @@ def remainder_impl_1d_double(tid: int,
                               view1: pk.View1D[pk.double],
                               view2: pk.View1D[pk.double],
                               out: pk.View1D[pk.double]):
-    out[tid] = fmod(fmod(view1[tid], view2[tid]) + view2[tid], view2[tid])
-    if out[tid] < 0 and view2[tid] > 0:
-        out[tid] = -1 * out[tid]
-    elif out[tid] > 0 and view2[tid] < 0:
-        out[tid] = -1 * out[tid]
+    if view1[tid] > 0 and view2[tid] < 0:
+        out[tid] = view1[tid] + view2[tid]
+    else:
+        out[tid] = fmod(view1[tid], view2[tid])
+        if out[tid] < 0 and view2[tid] > 0:
+            out[tid] = out[tid] + view2[tid]
+        elif out[tid] > 0 and view2[tid] < 0:
+            out[tid] = -1 * out[tid]
 
 
 @pk.workunit
