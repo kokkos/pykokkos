@@ -1792,16 +1792,6 @@ def cos(view):
     return out
 
 
-@pk.workunit
-def tan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = tan(view[tid])
-
-
-@pk.workunit
-def tan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = tan(view[tid])
-
-
 def tan(view):
     """
     Element-wise tangent of the view
@@ -1817,16 +1807,22 @@ def tan(view):
            Output view.
 
     """
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for tan() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        out = pk.View([view.shape[0]], pk.double)
-        pk.parallel_for(view.shape[0], tan_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
-        out = pk.View([view.shape[0]], pk.float)
-        pk.parallel_for(view.shape[0], tan_impl_1d_float, view=view, out=out)
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("tan() ufunc only supports up to 2D views")
+    out = pk.View([*view.shape], dtype=dtype)
+    if view.shape == ():
+        tid = 1
     else:
-        raise NotImplementedError
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="tan",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
     return out
 
 
