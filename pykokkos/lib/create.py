@@ -27,6 +27,17 @@ def ones_like(x, /, *, dtype=None, device=None):
     return view
 
 
+def zeros_like(x, /, *, dtype=None, device=None):
+    if dtype is None:
+        dtype = x.dtype
+    # NOTE: at the moment PyKokkos automatically
+    # zeros out allocated memory, but this may not
+    # always be the case if we want to support an
+    # efficient empty() implementation
+    view: pk.View = pk.View([*x.shape], dtype=dtype)
+    return view
+
+
 def full(shape, fill_value, *, dtype=None, device=None):
     if dtype is None:
         dtype = fill_value.dtype
