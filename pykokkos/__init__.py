@@ -38,6 +38,7 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  sin,
                                  cos,
                                  tan,
+                                 tanh,
                                  logical_and,
                                  logical_or,
                                  logical_xor,
@@ -64,6 +65,7 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  floor)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
+                                 zeros_like,
                                  ones,
                                  ones_like,
                                  full)

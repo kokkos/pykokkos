@@ -2675,3 +2675,37 @@ def floor(view):
                              out=out,
                              view=view)
     return out
+
+
+def tanh(view):
+    """
+    Calculates an approximation to the hyperbolic tangent for each element x_i of the input view.
+
+    Parameters
+    ----------
+    view : pykokkos view
+            Input view whose elements each represent a hyperbolic angle. Should have a floating-point data type.
+
+    Returns
+    -------
+    y : pykokkos view
+        A view containing the hyperbolic tangent of each element in the input view. The returned view must
+        have a floating-point data type determined by type promotion rules.
+    """
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("tanh() ufunc only supports up to 2D views")
+    out = pk.View([*view.shape], dtype=dtype)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(tid=tid,
+                             dtype=dtype,
+                             ndims=ndims,
+                             op="tanh",
+                             sub_dispatcher=pk.parallel_for,
+                             out=out,
+                             view=view)
+    return out
