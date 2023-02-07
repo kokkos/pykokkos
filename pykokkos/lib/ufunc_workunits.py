@@ -2,6 +2,28 @@ import pykokkos as pk
 
 
 @pk.workunit
+def exp_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
+    out[tid] = exp(view[tid])
+
+
+@pk.workunit
+def exp_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View2D[pk.double]):
+    for i in range(view.extent(1)):
+        out[tid][i] = exp(view[tid][i])
+
+
+@pk.workunit
+def exp_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
+    out[tid] = exp(view[tid])
+
+
+@pk.workunit
+def exp_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
+    for i in range(view.extent(1)):
+        out[tid][i] = exp(view[tid][i])
+
+
+@pk.workunit
 def sin_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = sin(view[tid])
 
@@ -21,6 +43,7 @@ def sin_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.flo
 def sin_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
     for i in range(view.extent(1)):
         out[tid][i] = sin(view[tid][i])
+
 
 @pk.workunit
 def tan_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
@@ -42,6 +65,7 @@ def tan_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.flo
 def tan_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.float]):
     for i in range(view.extent(1)):
         out[tid][i] = tan(view[tid][i])
+
 
 @pk.workunit
 def tanh_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
