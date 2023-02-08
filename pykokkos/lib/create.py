@@ -49,8 +49,11 @@ def full(shape, fill_value, *, dtype=None, device=None):
         elif isinstance(fill_value, float):
             dtype = pk.float64
     if not isinstance(shape, pk.View):
-        view = pk.View([*shape], dtype=dtype)
+        try:
+            view = pk.View(shape, dtype=dtype)
+        except TypeError:
+            view = pk.View([shape], dtype=dtype)
     else:
-        view = pk.View([shape], dtype=dtype)
+        view = pk.View([*shape], dtype=dtype)
     view[:] = fill_value
     return view
