@@ -40,10 +40,20 @@ def zeros_like(x, /, *, dtype=None, device=None):
 
 def full(shape, fill_value, *, dtype=None, device=None):
     if dtype is None:
-        dtype = fill_value.dtype
-    try:
-        view: pk.View = pk.View([*shape], dtype=dtype)
-    except TypeError:
-        view: pk.View = pk.View([shape], dtype=dtype)
+        if isinstance(fill_value, pk.View):
+            dtype = fill_value.dtype
+        elif isinstance(fill_value, bool):
+            dtype = pk.uint8
+        elif isinstance(fill_value, int):
+            dtype = pk.int64
+        elif isinstance(fill_value, float):
+            dtype = pk.float64
+    if not isinstance(shape, pk.View):
+        try:
+            view = pk.View(shape, dtype=dtype)
+        except TypeError:
+            view = pk.View([shape], dtype=dtype)
+    else:
+        view = pk.View([*shape], dtype=dtype)
     view[:] = fill_value
     return view
