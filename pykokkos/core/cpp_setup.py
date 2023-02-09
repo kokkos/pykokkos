@@ -243,11 +243,16 @@ class CppSetup:
                               compute_capability,   # Device compute capability
                               lib_suffix,           # The libkokkos* suffix identifying the gpu
                               str(compiler_path)]   # The path to the compiler to use
-        compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
+
+        if True:
+            command = [string if string != '' else "' '" for string in command]
+            command: Str = "script --log-io compile.out --return --command " + "\""+" ".join(command) + "\""
+
+        compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False, shell=True)
 
         if compile_result.returncode != 0:
             print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed")
+            print(f"C++ compilation in {output_dir} failed. For colored compiler output run 'cat {output_dir}/compile.out'")
             sys.exit(1)
 
         patchelf: List[str] = ["patchelf",
