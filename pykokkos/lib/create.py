@@ -47,3 +47,12 @@ def full(shape, fill_value, *, dtype=None, device=None):
         view: pk.View = pk.View([shape], dtype=dtype)
     view[:] = fill_value
     return view
+
+
+def full_like(x, /, fill_value, *, dtype=None, device=None):
+    if dtype is None:
+        dtype = x.dtype
+    shape = x.shape
+    view: pk.View = pk.View([*shape], dtype=dtype)
+    view[:] = fill_value
+    return view
