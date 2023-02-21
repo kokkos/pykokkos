@@ -145,7 +145,7 @@ def parallel_for(*args, **kwargs) -> None:
     if cache_key in workunit_cache:
         dead_obj = 0
         func, newargs = workunit_cache[cache_key]
-        for arg in newargs.values():
+        for key, arg in newargs.items():
             # see gh-34
             # reject cache retrieval when an object in the
             # cache has a reference count of 0 (presumably
@@ -154,7 +154,11 @@ def parallel_for(*args, **kwargs) -> None:
             # Python objects)
             # NOTE: is the cache genuinely useful now though?
             ref_count = len(gc.get_referrers(arg))
-            if ref_count == 0:
+            # we also can't safely retrieve from the cache
+            # for user-defined workunit components
+            # because they may depend on class instance state
+            # per gh-173
+            if ref_count == 0 or not key.startswith("pk_"):
                 dead_obj += 1
                 break
         if not dead_obj:
