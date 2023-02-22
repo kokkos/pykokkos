@@ -68,10 +68,12 @@ from pykokkos.lib.create import (zeros,
                                  zeros_like,
                                  ones,
                                  ones_like,
-                                 full)
+                                 full,
+                                 full_like)
 from pykokkos.lib.manipulate import reshape, ravel, expand_dims
 from pykokkos.lib.util import all, any, sum, find_max, searchsorted, col, linspace, logspace
 from pykokkos.lib.constants import e, pi, inf, nan
+from pykokkos.interface.views import astype
 
 __array_api_version__ = "2021.12"
 
