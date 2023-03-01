@@ -90,12 +90,12 @@ def _typematch_views(view1, view2):
             if dtype_1_width >= dtype_2_width:
                 effective_dtype = dtype1
                 view2_new = pk.View([*view2.shape], dtype=effective_dtype)
-                view2_new[:] = view2
+                view2_new[:] = view2.data
                 view2 = view2_new
             else:
                 effective_dtype = dtype2
                 view1_new = pk.View([*view1.shape], dtype=effective_dtype)
-                view1_new[:] = view1
+                view1_new[:] = view1.data
                 view1 = view1_new
     return view1, view2, effective_dtype
 
@@ -1152,15 +1152,6 @@ def negative(view):
     return out
 
 
-@pk.workunit
-def positive_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D[pk.double]):
-    out[tid] = view[tid]
-
-
-@pk.workunit
-def positive_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
-    out[tid] = view[tid]
-
 def positive(view):
     """
     Element-wise positive of the view;
@@ -1177,16 +1168,11 @@ def positive(view):
            Output view.
 
     """
-    if len(view.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for positive() ufunc.")
-    if str(view.dtype) == "DataType.double":
-        out = pk.View([view.shape[0]], pk.double)
-        pk.parallel_for(view.shape[0], positive_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
-        out = pk.View([view.shape[0]], pk.float)
-        pk.parallel_for(view.shape[0], positive_impl_1d_float, view=view, out=out)
+    if view.shape == ():
+        out = pk.View((), dtype=view.dtype)
     else:
-        raise NotImplementedError
+        out = pk.View([*view.shape], dtype=view.dtype)
+    out[...] = view
     return out
 
 
@@ -2442,6 +2428,10 @@ def isnan(view):
         tid = 1
     else:
         tid = view.shape[0]
+    if view.ndim == 0:
+        new_view = pk.View([1], dtype=view.dtype)
+        new_view[0] = view
+        view = new_view
     _ufunc_kernel_dispatcher(tid=tid,
                              dtype=dtype,
                              ndims=ndims,
@@ -2493,7 +2483,9 @@ def equal(view1, view2):
            Output view.
     """
     if view1.size == 0 and view2.size == 0:
-        return pk.View((), dtype=pk.bool)
+        ret =  pk.View((), dtype=pk.bool)
+        ret[...] = 1
+        return ret
     view1, view2 = _broadcast_views(view1, view2)
     dtype1 = view1.dtype
     dtype2 = view2.dtype
@@ -2506,6 +2498,14 @@ def equal(view1, view2):
         tid = 1
     else:
         tid = view1.shape[0]
+    if isinstance(view1, pk.Subview):
+        new_view = pk.View((), dtype=view1.dtype)
+        new_view[:] = view1.data
+        view1 = new_view
+    if isinstance(view2, pk.Subview):
+        new_view = pk.View((), dtype=view2.dtype)
+        new_view[:] = view2.data
+        view2 = new_view
     _ufunc_kernel_dispatcher(tid=tid,
                              dtype=effective_dtype,
                              ndims=ndims,
