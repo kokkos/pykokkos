@@ -139,3 +139,16 @@ def test_dgemm_input_handling():
         dgemm(alpha=alpha,
               view_a=view_a,
               view_b=view_b)
+
+
+def test_dgemm_tiled():
+    a = np.ones((4, 4))
+    b = np.ones((4, 4))
+    expected = np.full((4, 4), 5)
+    actual_c = dgemm(alpha=1.0,
+          view_a=pk.from_numpy(a),
+          view_b=pk.from_numpy(b),
+          beta=0.0,
+          view_c=None,
+          tiled=True)
+    assert_allclose(actual_c, expected)
