@@ -195,6 +195,17 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
             return cppast.ClassType(type_name)
 
+    if isinstance(annotation, ast.Index):
+        # ast.Index has been deprecated since Python 3.9;
+        # this module attempts to shim around it, but we're
+        # still getting issues in gh-181 with Python 3.8
+
+        # we should probably drop support for Python 3.8 soon anyway
+        # per NEP29, but for now we attempt to handle ast.Index
+
+        # should convert to ast.Name:
+        annotation = annotation.value
+
     if isinstance(annotation, ast.Name):
         type_name: str = annotation.id
 
