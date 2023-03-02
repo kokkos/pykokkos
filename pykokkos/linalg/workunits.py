@@ -39,6 +39,7 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
 
     # for now, let's assume a 2x2 tiling arrangement and
     # that `view_a`, `view_b`, and `out` views are all 4 x 4 matrices
+    tile_size: int = 4
 
     # start off by getting a global thread id
     global_tid: int = team_member.league_rank() * team_member.team_size() + team_member.team_rank()
@@ -74,3 +75,6 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
         column = team_member.team_rank()
     # TODO: assign actual value here
     out[row][column] = 5
+
+    # start setting up the scratch (shared) memory for each team
+    scratch_mem: pk.ScratchView1D[double] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
