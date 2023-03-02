@@ -15,7 +15,8 @@ def pretty_print(node):
 
 allowed_types: Dict[str, str] = {
     "int": "int",
-    "float": "double",
+    "float": "float",
+    "double": "double",
     "bool": "bool",
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
 }
