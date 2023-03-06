@@ -17,7 +17,7 @@ class TestExternalModule(unittest.TestCase):
         self.source.append(f"m.attr(\"__name__\") = \"{self.module_name}\";")
         self.source.append("m.def(\"get_five\",[](){return 5;});")
         self.source.append("}") 
-        self.ext_module = pk.runtime_singleton.runtime.compile_into_module(self.path,self.source,self.module_name,pk.ExecutionSpace.Default)
+        self.ext_module = pk.compile_into_module(self.path,self.source,self.module_name)
 
     def test_call(self):
         self.assertEqual(5, self.ext_module.get_five())
