@@ -1,7 +1,7 @@
 from pykokkos.runtime import runtime_singleton
 from .execution_space import ExecutionSpace
 
-def compile_into_module(path: str, source: str, module_name: str, executionSpace: ExecutionSpace = ExecutionSpace.Default):
+def compile_into_module(path: Path, source: List[str], module_name: str, executionSpace: ExecutionSpace = ExecutionSpace.Default):
     """
     Takes a c++ pybind11 source as a string and compiles it into a python module. The resulting python module is returned upon success
 
