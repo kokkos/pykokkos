@@ -53,6 +53,8 @@ from .views import (
     asarray, result_type,
 )
 
+from .ext_module import compile_into_module
+
 
 def fence():
     pass

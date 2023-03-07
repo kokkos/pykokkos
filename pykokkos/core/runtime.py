@@ -1,8 +1,10 @@
 import importlib.util
 import sys
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
+import sysconfig
 
 import numpy as np
+from pathlib import Path
 
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
@@ -67,6 +69,21 @@ class Runtime:
         module_setup: ModuleSetup = self.get_module_setup(workunit, space)
         members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
         return members
+
+    def compile_into_module(
+        self,
+        main: Path,
+        source: List[str],
+        module_name: str,
+        space: ExecutionSpace
+        ):
+
+        filename: str = module_name+".cpp"
+        module_path: Path = ModuleSetup.get_main_dir(main) / f"{module_name}" / space.value
+        suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
+        module_lib_name: str = f"{module_name}{suffix}"
+        self.compiler.compile_raw_source(module_path,source,filename,module_lib_name,space,km.is_uvm_enabled())
+        return self.import_module(module_name,module_path / module_lib_name)
 
     def run_workunit(
         self,
