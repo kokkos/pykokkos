@@ -1,5 +1,7 @@
 from pykokkos.runtime import runtime_singleton
 from .execution_space import ExecutionSpace
+from pathlib import Path
+from typing import List
 
 def compile_into_module(path: Path, source: List[str], module_name: str, executionSpace: ExecutionSpace = ExecutionSpace.Default):
     """
