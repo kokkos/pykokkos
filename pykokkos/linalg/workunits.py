@@ -39,7 +39,7 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
 
     # for now, let's assume a 2x2 tiling arrangement and
     # that `view_a`, `view_b`, and `out` views are all 4 x 4 matrices
-    tile_size: int = 4
+    tile_size: int = 4 # this is really just the team size...
 
     # start off by getting a global thread id
     global_tid: int = team_member.league_rank() * team_member.team_size() + team_member.team_rank()
@@ -73,8 +73,23 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
         column = team_member.team_rank()
     elif team_member.league_rank() == 3 and team_member.team_rank() >= 2:
         column = team_member.team_rank()
-    # TODO: assign actual value here
-    out[row][column] = 5
 
     # start setting up the scratch (shared) memory for each team
-    scratch_mem: pk.ScratchView1D[double] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
+    scratch_mem_a: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
+    scratch_mem_b: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
+    tmp: float = 0
+    # each thread should load a single element into the local
+    # shared memory from A and B, which will then be shared with other members
+    # of the team
+    scratch_mem_a[team_member.team_rank()] = view_a[row][column]
+    scratch_mem_b[team_member.team_rank()] = view_b[row][column]
+    # sync threads to ensure memory is ready for shared
+    # usage in the team
+    team_member.team_barrier()
+
+    for k in range(0, 2):
+        tmp += scratch_mem_a[0] * scratch_mem_b[0]
+        tmp += scratch_mem_a[1] * scratch_mem_b[2]
+
+    # TODO: assign actual value here
+    out[row][column] = tmp

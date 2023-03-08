@@ -141,14 +141,41 @@ def test_dgemm_input_handling():
               view_b=view_b)
 
 
-def test_dgemm_tiled():
-    a = np.ones((4, 4))
-    b = np.ones((4, 4))
-    expected = np.full((4, 4), 5)
-    actual_c = dgemm(alpha=1.0,
-          view_a=pk.from_numpy(a),
-          view_b=pk.from_numpy(b),
-          beta=0.0,
-          view_c=None,
-          tiled=True)
+@pytest.mark.parametrize("alpha, a, b, expected", [
+    (1.0,
+     np.ones((4, 4)),
+     np.ones((4, 4)),
+     np.full((4, 4), 4),
+    ),
+    (1.0,
+    np.eye(4, 4),
+    np.array([[0, 6, 5, 0],
+             [9, 2, 2, 1],
+             [3, 1, 3, 8],
+             [4, 9, 4, 2]], dtype=float),
+    np.array([[0, 6, 5, 0],
+             [9, 2, 2, 1],
+             [3, 1, 3, 8],
+             [4, 9, 4, 2]], dtype=float),
+    ),
+    (1.0,
+    np.ones((4, 4)),
+    np.array([[0, 6, 5, 0],
+             [9, 2, 2, 1],
+             [3, 1, 3, 8],
+             [4, 9, 4, 2]], dtype=float),
+    np.array([[16., 18., 14., 11.],
+              [16., 18., 14., 11.],
+              [16., 18., 14., 11.],
+              [16., 18., 14., 11.]], dtype=float)
+
+    ),
+    ])
+def test_dgemm_tiled(alpha, a, b, expected):
+    actual_c = dgemm(alpha=alpha,
+                     view_a=pk.from_numpy(a),
+                     view_b=pk.from_numpy(b),
+                     beta=0.0,
+                     view_c=None,
+                     tiled=True)
     assert_allclose(actual_c, expected)
