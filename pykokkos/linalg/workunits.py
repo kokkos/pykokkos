@@ -43,36 +43,13 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
 
     # start off by getting a global thread id
     global_tid: int = team_member.league_rank() * team_member.team_size() + team_member.team_rank()
-    printf("global tid: %d\n", global_tid)
     # TODO: should be a simple equation for row/column indices
     # in output, right?? not this conditional mess...
     # assume data layout is in "C" order in memory
-    row: int = 0
-    column: int = 0
-    if team_member.league_rank() < 2 and team_member.team_rank() < 2:
-        row = 0
-    elif team_member.league_rank() < 2 and team_member.team_rank() >= 2:
-        row = 1
-    elif team_member.league_rank() >= 2 and team_member.team_rank() < 2:
-        row = 2
-    else:
-        row = 3
-    if team_member.league_rank() == 0 and team_member.team_rank() < 2:
-        column = team_member.team_rank()
-    elif team_member.league_rank() == 2 and team_member.team_rank() < 2:
-        column = team_member.team_rank()
-    elif team_member.league_rank() == 1 and team_member.team_rank() < 2:
-        column = 2 + team_member.team_rank()
-    elif team_member.league_rank() == 3 and team_member.team_rank() < 2:
-        column = 2 + team_member.team_rank()
-    elif team_member.league_rank() == 0 and team_member.team_rank() >= 2:
-        column = team_member.team_rank() - 2
-    elif team_member.league_rank() == 2 and team_member.team_rank() >= 2:
-        column = team_member.team_rank() - 2
-    elif team_member.league_rank() == 1 and team_member.team_rank() >= 2:
-        column = team_member.team_rank()
-    elif team_member.league_rank() == 3 and team_member.team_rank() >= 2:
-        column = team_member.team_rank()
+    row: int = global_tid / 4
+    column: int = team_member.team_rank()
+
+    #printf("global_tid, row, column, and element from a: %d: (%d, %d), %f\n", global_tid, row, column, view_a[row][column])
 
     # start setting up the scratch (shared) memory for each team
     scratch_mem_a: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
