@@ -73,7 +73,7 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
         team_member.team_barrier()
 
         for k in range(2):
-            a_index = tx + (k * 2)
+            a_index = k + ((team_member.team_rank() // 2) * 2)
             b_index = ty + (k * 2)
             tmp += scratch_mem_a[a_index] * scratch_mem_b[b_index]
             team_member.team_barrier()

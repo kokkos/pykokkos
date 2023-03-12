@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pykokkos as pk
 from pykokkos.linalg import workunits
 
@@ -8,7 +10,7 @@ def dgemm(alpha: float,
           view_b,
           beta: float = 0.0,
           view_c = None,
-          tiled=False):
+          tile_width: Optional[int] = None):
     """
     Double precision floating point genernal matrix multiplication (GEMM).
 
@@ -22,10 +24,8 @@ def dgemm(alpha: float,
              Shape (k, n)
     beta: float, optional
     view_c: pykokkos view of type double, optional
-    tiled: bool, optional
-        whether to use tiled matrix multiplication
-        (currently only supports 2x2 tiles and 4x4 matrices with
-         no C view)
+    tile_width: int, optional
+        Number of elements along a dimension of the square tiles.
 
     Returns
     -------
@@ -51,7 +51,7 @@ def dgemm(alpha: float,
 
     C = pk.View([view_a.shape[0], view_b.shape[1]], dtype=pk.double)
 
-    if not tiled:
+    if not tile_width:
         if view_c is None:
             pk.parallel_for(view_a.shape[0],
                             workunits.dgemm_impl_no_view_c,
@@ -71,12 +71,13 @@ def dgemm(alpha: float,
                             view_c=view_c,
                             out=C)
     else:
-        # 2 x 2 tiled matrix multiplication on 4x4 matrices
-        # TODO: generalize a bit, but assume rows and columns are
-        # powers of 2
+        # limited tiling support--only (some) convenient powers of two
+        # allowed for now...
+        # TODO: league and team size requests outside of these
+        # values can segfault...
         pk.parallel_for("tiled_matmul",
-                pk.TeamPolicy(league_size=4, # four 2 x 2 blocks hard-coded for now
-                              team_size=4), # 2 x 2 tiles (threads) hardcoded for now
+                pk.TeamPolicy(league_size=4,
+                              team_size=tile_width ** 2),
                         workunits.dgemm_impl_tiled_no_view_c,
                         k_a=k_a,
                         alpha=alpha,

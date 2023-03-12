@@ -3,6 +3,7 @@ from pykokkos.linalg.l3_blas import dgemm
 
 import numpy as np
 from numpy.testing import assert_allclose
+import scipy
 import pytest
 
 
@@ -172,10 +173,33 @@ def test_dgemm_input_handling():
     ),
     ])
 def test_dgemm_tiled(alpha, a, b, expected):
+    # expected values hardcoded from SciPy output
     actual_c = dgemm(alpha=alpha,
                      view_a=pk.from_numpy(a),
                      view_b=pk.from_numpy(b),
                      beta=0.0,
                      view_c=None,
-                     tiled=True)
+                     tile_width=2)
+    assert_allclose(actual_c, expected)
+
+
+@pytest.mark.parametrize("input_width, tile_width", [
+    (4, 2),
+    ])
+@pytest.mark.parametrize("seed", [
+    100787, 90, 10,
+    ])
+def test_dgemm_square_tiled_vs_scipy(input_width, tile_width, seed):
+    rng = np.random.default_rng(seed)
+    a = rng.integers(low=0, high=10, size=(input_width, input_width)).astype(float)
+    b = rng.integers(low=0, high=19, size=(input_width, input_width)).astype(float)
+    expected = scipy.linalg.blas.dgemm(alpha=1.0,
+                                       a=a,
+                                       b=b)
+    actual_c = dgemm(alpha=1.0,
+                     view_a=pk.from_numpy(a),
+                     view_b=pk.from_numpy(b),
+                     beta=0.0,
+                     view_c=None,
+                     tile_width=tile_width)
     assert_allclose(actual_c, expected)
