@@ -75,8 +75,9 @@ def dgemm(alpha: float,
         # allowed for now...
         # TODO: league and team size requests outside of these
         # values can segfault...
+        league_size = int(C.size / (tile_width ** 2))
         pk.parallel_for("tiled_matmul",
-                pk.TeamPolicy(league_size=4,
+                pk.TeamPolicy(league_size=league_size,
                               team_size=tile_width ** 2),
                         workunits.dgemm_impl_tiled_no_view_c,
                         k_a=k_a,

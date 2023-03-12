@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --upgrade numpy mypy cmake pytest pybind11 scikit-build patchelf
+          python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf
       - name: Install pykokkos-base
         run: |
           cd /tmp
