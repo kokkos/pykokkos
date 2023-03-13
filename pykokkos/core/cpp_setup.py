@@ -244,7 +244,8 @@ class CppSetup:
                               lib_suffix,           # The libkokkos* suffix identifying the gpu
                               str(compiler_path)]   # The path to the compiler to use
 
-        if True:
+        if sys.platform == "linux" or sys.platform == "linux2":
+            #on linux we can color the output otherwise this is not implemented
             command = [string if string != '' else "''" for string in command]
             command: Str = "script --log-io compile.out --return --command " + "\""+" ".join(command) + "\""
 
@@ -252,7 +253,7 @@ class CppSetup:
 
         if compile_result.returncode != 0:
             print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed. For colored compiler output run 'cat {output_dir}/compile.out'")
+            print(f"C++ compilation in {output_dir} failed. For colored compiler output (on linux) run 'cat {output_dir}/compile.out'")
             sys.exit(1)
 
         patchelf: List[str] = ["patchelf",
