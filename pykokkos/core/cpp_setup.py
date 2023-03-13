@@ -245,7 +245,7 @@ class CppSetup:
                               str(compiler_path)]   # The path to the compiler to use
 
         if True:
-            command = [string if string != '' else "' '" for string in command]
+            command = [string if string != '' else "''" for string in command]
             command: Str = "script --log-io compile.out --return --command " + "\""+" ".join(command) + "\""
 
         compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False, shell=True)
