@@ -328,10 +328,14 @@ class CppSetup:
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:
         """
-        Check if an entity is compiled
+        Check if an entity is compiled. It does this via checking if any .so file exists.
 
         :param output_dir: the directory containing the compiled entity
-        :returns: true if compiled
+        :returns: true if any .so object exists
         """
+        so_files = output_dir.glob("*.so")
+        contains_so_files = False
+        for file in so_files:
+            contains_so_files = file.is_file()
 
-        return output_dir.is_dir()
+        return contains_so_files
