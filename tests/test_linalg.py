@@ -184,8 +184,10 @@ def test_dgemm_tiled(alpha, a, b, expected):
 
 
 @pytest.mark.parametrize("input_width, tile_width", [
-    (4, 2),
-    #(8, 2),
+    (2 ** 2, 2),
+    (2 ** 3, 2),
+    (2 ** 5, 2),
+    (2 ** 7, 2),
     ])
 @pytest.mark.parametrize("seed", [
     100787, 90, 10,

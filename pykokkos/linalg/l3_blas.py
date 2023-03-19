@@ -10,6 +10,7 @@ def dgemm(alpha: float,
           view_b,
           beta: float = 0.0,
           view_c = None,
+          league_size: int = 4,
           tile_width: Optional[int] = None):
     """
     Double precision floating point genernal matrix multiplication (GEMM).
@@ -73,10 +74,6 @@ def dgemm(alpha: float,
     else:
         # limited tiling support--only (some) convenient powers of two
         # allowed for now...
-        # TODO: league and team size requests outside of these
-        # values can segfault...
-        league_size = int(C.size / (tile_width ** 2))
-        print("league_size:", league_size)
         pk.parallel_for("tiled_matmul",
                 pk.TeamPolicy(league_size=league_size,
                               team_size=tile_width ** 2),

@@ -39,15 +39,14 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
 
     # for now, let's assume a 2x2 tiling arrangement and
     # that `view_a`, `view_b`, and `out` views are all 4 x 4 matrices
-    tile_size: int = 4 # this is really just the team size...
-    width: int = 4
+    width: int = out.extent(1)
 
     # start off by getting a global thread id
     global_tid: int = team_member.league_rank() * team_member.team_size() + team_member.team_rank()
 
     # TODO: I have no idea how to get 2D scratch memory views?
-    scratch_mem_a: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
-    scratch_mem_b: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), tile_size)
+    scratch_mem_a: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), team_member.team_size())
+    scratch_mem_b: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), team_member.team_size())
     # in a 4 x 4 matrix with 2 x 2 tiling the leagues
     # and teams have matching row/col assignment approaches
     bx: int = team_member.league_rank() / 2
@@ -67,15 +66,18 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
     a_index: int = 0
     b_index: int = 0
 
-    for i in range(out.extent(1) / 2):
-        scratch_mem_a[team_member.team_rank()] = view_a[row][i * 2 + ty]
-        scratch_mem_b[team_member.team_rank()] = view_b[i * 2 + tx][col]
-        team_member.team_barrier()
+    for row_factor in range(0, width, team_member.team_size()):
+        for col_factor in range(0, width, team_member.team_size()):
+            tmp = 0
+            for i in range(width / 2):
+                scratch_mem_a[team_member.team_rank()] = view_a[row + row_factor][i * 2 + ty]
+                scratch_mem_b[team_member.team_rank()] = view_b[i * 2 + tx][col + col_factor]
+                team_member.team_barrier()
 
-        for k in range(2):
-            a_index = k + ((team_member.team_rank() // 2) * 2)
-            b_index = ty + (k * 2)
-            tmp += scratch_mem_a[a_index] * scratch_mem_b[b_index]
-            team_member.team_barrier()
+                for k in range(2):
+                    a_index = k + ((team_member.team_rank() // 2) * 2)
+                    b_index = ty + (k * 2)
+                    tmp += scratch_mem_a[a_index] * scratch_mem_b[b_index]
+                    team_member.team_barrier()
 
-    out[row][col] = tmp
+                out[row + row_factor][col + col_factor] = tmp
