@@ -192,7 +192,10 @@ def test_dgemm_tiled(alpha, a, b, expected):
 @pytest.mark.parametrize("seed", [
     100787, 90, 10,
     ])
-def test_dgemm_square_tiled_vs_scipy(input_width, tile_width, seed):
+@pytest.mark.parametrize("league_size", [
+    1, 4,
+    ])
+def test_dgemm_square_tiled_vs_scipy(input_width, tile_width, seed, league_size):
     rng = np.random.default_rng(seed)
     a = rng.integers(low=0, high=10, size=(input_width, input_width)).astype(float)
     b = rng.integers(low=0, high=19, size=(input_width, input_width)).astype(float)
@@ -204,5 +207,6 @@ def test_dgemm_square_tiled_vs_scipy(input_width, tile_width, seed):
                      view_b=pk.from_numpy(b),
                      beta=0.0,
                      view_c=None,
+                     league_size=league_size,
                      tile_width=tile_width)
     assert_allclose(actual_c, expected)

@@ -10,6 +10,8 @@ def dgemm(alpha: float,
           view_b,
           beta: float = 0.0,
           view_c = None,
+          # TODO: league_size support is pretty limited/confusing
+          # at the moment...
           league_size: int = 4,
           tile_width: Optional[int] = None):
     """
@@ -74,6 +76,12 @@ def dgemm(alpha: float,
     else:
         # limited tiling support--only (some) convenient powers of two
         # allowed for now...
+        # limited league size support for now as well...
+        if league_size == 1:
+            slide_factor = 0
+        else:
+            slide_factor = int(league_size / 4)
+
         pk.parallel_for("tiled_matmul",
                 pk.TeamPolicy(league_size=league_size,
                               team_size=tile_width ** 2),
@@ -82,5 +90,6 @@ def dgemm(alpha: float,
                         alpha=alpha,
                         view_a=view_a,
                         view_b=view_b,
-                        out=C)
+                        out=C,
+                        slide_factor=slide_factor)
     return C

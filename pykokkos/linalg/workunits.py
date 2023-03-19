@@ -34,7 +34,8 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
                                alpha: float,
                                view_a: pk.View2D[pk.double],
                                view_b: pk.View2D[pk.double],
-                               out: pk.View2D[pk.double]):
+                               out: pk.View2D[pk.double],
+                               slide_factor: int):
     # early attempt at tiled matrix multiplication in PyKokkos
 
     # for now, let's assume a 2x2 tiling arrangement and
@@ -66,8 +67,15 @@ def dgemm_impl_tiled_no_view_c(team_member: pk.TeamMember,
     a_index: int = 0
     b_index: int = 0
 
-    for row_factor in range(0, width, team_member.team_size()):
-        for col_factor in range(0, width, team_member.team_size()):
+    # TODO: league size support is limited for now, probably
+    # only some convenient factors of the total matrix size
+    slide_size: int = 0
+    if slide_factor == 0:
+        slide_size = 2
+    else:
+        slide_size = 4 * slide_factor
+    for row_factor in range(0, width, slide_size):
+        for col_factor in range(0, width, slide_size):
             tmp = 0
             for i in range(width / 2):
                 scratch_mem_a[team_member.team_rank()] = view_a[row + row_factor][i * 2 + ty]
