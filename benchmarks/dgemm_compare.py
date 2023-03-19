@@ -3,6 +3,7 @@ Record DGEMM performance.
 """
 
 import os
+import shutil
 import time
 
 import pykokkos as pk
@@ -38,6 +39,10 @@ if __name__ == "__main__":
     num_threads = os.environ.get("OMP_NUM_THREADS")
     if num_threads is None:
         raise ValueError("must set OMP_NUM_THREADS for benchmarks!")
+
+    cwd = os.getcwd()
+    shutil.rmtree(os.path.join(cwd, "pk_cpp"),
+                  ignore_errors=True)
 
     df = pd.DataFrame(np.full(shape=(num_global_repeats, 2), fill_value=np.nan),
                       columns=["scenario", "time (s)"])
