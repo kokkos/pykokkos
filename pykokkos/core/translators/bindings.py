@@ -154,7 +154,7 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     for v, d_v in device_views.items():
         args.append(d_v)
 
-        if always_use_kokkos_copy:
+        if not always_use_kokkos_copy:
             view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
             if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
                 mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
