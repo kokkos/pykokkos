@@ -288,7 +288,7 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
 
     args: List[str] = [Keywords.KernelName.value]
 
-    tag_name: str = tag.declname
+    tag_name: str = tag.declname+"_tag"
     if is_hierarchical:
         args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
     else:

@@ -23,3 +23,23 @@ def test_gh_173():
     w.size = 10
     pk.parallel_for(1, w.store_result)
     assert w.result[0] == 10
+
+
+
+@pk.workunit
+def sin(tid: int, view: pk.View1D[pk.double]):
+    view[tid] = sin(view[tid])
+
+
+def test_gh_192_1():
+    #Regression Test to check if workunits can have the same name as functions called within
+    #this previously errored out in the compilation stage as we used tags with the name of the workunit.
+    #The error originated from the compiler using the tag's ctor call instead of the function that we wanted to use in the workunit 
+    v = pk.View([10], dtype=pk.float64)
+    pk.parallel_for(1, sin, view=v)
+
+def test_gh_192_2():
+    #the same has to hold if we manually specify a policy
+    v = pk.View([10], dtype=pk.float64)
+    policy = pk.RangePolicy(pk.ExecutionSpace.Default,0,1)
+    pk.parallel_for(policy,sin,view=v)
