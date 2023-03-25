@@ -35,7 +35,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             if operation is None:
                 self.error(node.args, "Incorrect types in workunit definition")
 
-            tag_type = cppast.ClassType(f"const {node.name}")
+            tag_type = cppast.ClassType(f"const {node.name}_tag")
             tag_type.is_reference = True
             tag = cppast.ParmVarDecl(tag_type, cppast.DeclRefExpr(""))
 

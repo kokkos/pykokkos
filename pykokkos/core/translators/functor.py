@@ -215,7 +215,7 @@ def generate_functor(
 
     # Create the tags needed to call individual workunits. Tags in Kokkos are empty structs.
     for n in workunits:
-        tag = cppast.RecordDecl(cppast.ClassType(n.declname), [])
+        tag = cppast.RecordDecl(cppast.ClassType(n.declname+"_tag"), [])
         tag.is_definition = True
         decls.append(tag)
 
