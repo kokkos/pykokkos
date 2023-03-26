@@ -14,9 +14,6 @@ from pykokkos.linalg.l3_blas import dgemm as pk_dgemm
 import numpy as np
 from numpy.testing import assert_allclose
 from scipy.linalg.blas import dgemm as scipy_dgemm
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
 
