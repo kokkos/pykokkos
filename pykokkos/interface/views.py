@@ -422,6 +422,10 @@ class View(ViewType):
         return self.data
 
 
+    def __pos__(self):
+        return pk.positive(self)
+
+
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
         """
@@ -520,11 +524,42 @@ class Subview(ViewType):
         return base_view
 
     def __eq__(self, other):
-        if isinstance(other, View):
-            if len(self.data) == 0 and len(other.data) == 0:
-                return True
-            result_of_eq = self.data == other.data
-            return result_of_eq
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import equal
+        if isinstance(other, float):
+            new_other = pk.View((), dtype=pk.double)
+            new_other[:] = other
+        elif isinstance(other, bool):
+            new_other = pk.View((), dtype=pk.bool)
+            new_other[:] = other
+        elif isinstance(other, int):
+            if self.ndim == 0:
+                ret = pk.View((), dtype=pk.bool)
+                ret[:] = int(self) == other
+                return ret
+            if 0 <= other <= 255:
+                other_dtype = pk.uint8
+            elif 0 <= other <= 65535:
+                other_dtype = pk.uint16
+            elif 0 <= other <= 4294967295:
+                other_dtype = pk.uint32
+            elif 0 <= other <= 18446744073709551615:
+                other_dtype = pk.uint64
+            elif -128 <= other <= 127:
+                other_dtype = pk.int8
+            elif -32768 <= other <= 32767:
+                other_dtype = pk.int16
+            elif -2147483648 <= other <= 2147483647:
+                other_dtype = pk.int32
+            elif -9223372036854775808 <= other <= 9223372036854775807:
+                other_dtype = pk.int64
+            new_other = pk.View((), dtype=other_dtype)
+            new_other[:] = other
+        elif isinstance(other, pk.Subview):
+            new_other = other
+        else:
+            raise ValueError("unexpected types!")
+        return equal(self, new_other)
 
 
     def __add__(self, other):
