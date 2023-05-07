@@ -125,47 +125,47 @@ def parallel_for(*args, **kwargs) -> None:
         workunit
     """
 
-    args_to_hash: List = []
-    args_not_to_hash: Dict = {}
-    for k, v in kwargs.items():
-        if not isinstance(v, int):
-            args_to_hash.append(v)
-        else:
-            args_not_to_hash[k] = v
+    # args_to_hash: List = []
+    # args_not_to_hash: Dict = {}
+    # for k, v in kwargs.items():
+    #     if not isinstance(v, int):
+    #         args_to_hash.append(v)
+    #     else:
+    #         args_not_to_hash[k] = v
 
-    # Hash the workunit
-    for a in args:
-        if callable(a):
-            args_to_hash.append(a.__name__)
-            break
+    # # Hash the workunit
+    # for a in args:
+    #     if callable(a):
+    #         args_to_hash.append(a.__name__)
+    #         break
 
-    to_hash = frozenset(args_to_hash)
-    cache_key: int = hash(to_hash)
+    # to_hash = frozenset(args_to_hash)
+    # cache_key: int = hash(to_hash)
 
-    if cache_key in workunit_cache:
-        dead_obj = 0
-        func, newargs = workunit_cache[cache_key]
-        for key, arg in newargs.items():
-            # see gh-34
-            # reject cache retrieval when an object in the
-            # cache has a reference count of 0 (presumably
-            # only possible because of the C++/pybind11 infra;
-            # normally a refcount of 1 is the lowest for pure
-            # Python objects)
-            # NOTE: is the cache genuinely useful now though?
-            ref_count = len(gc.get_referrers(arg))
-            # we also can't safely retrieve from the cache
-            # for user-defined workunit components
-            # because they may depend on class instance state
-            # per gh-173
-            if ref_count == 0 or not key.startswith("pk_"):
-                dead_obj += 1
-                break
-        if not dead_obj:
-            args = newargs
-            args.update(args_not_to_hash)
-            func(**args)
-            return
+    # if cache_key in workunit_cache:
+    #     dead_obj = 0
+    #     func, newargs = workunit_cache[cache_key]
+    #     for key, arg in newargs.items():
+    #         # see gh-34
+    #         # reject cache retrieval when an object in the
+    #         # cache has a reference count of 0 (presumably
+    #         # only possible because of the C++/pybind11 infra;
+    #         # normally a refcount of 1 is the lowest for pure
+    #         # Python objects)
+    #         # NOTE: is the cache genuinely useful now though?
+    #         ref_count = len(gc.get_referrers(arg))
+    #         # we also can't safely retrieve from the cache
+    #         # for user-defined workunit components
+    #         # because they may depend on class instance state
+    #         # per gh-173
+    #         if ref_count == 0 or not key.startswith("pk_"):
+    #             dead_obj += 1
+    #             break
+    #     if not dead_obj:
+    #         args = newargs
+    #         args.update(args_not_to_hash)
+    #         func(**args)
+    #         return
 
     handled_args: HandledArgs = handle_args(True, args)
     func, args = runtime_singleton.runtime.run_workunit(
@@ -175,7 +175,7 @@ def parallel_for(*args, **kwargs) -> None:
         "for",
         **kwargs)
 
-    workunit_cache[cache_key] = (func, args)
+    # workunit_cache[cache_key] = (func, args)
     func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
