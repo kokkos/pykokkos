@@ -434,7 +434,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
         """
 
         policy_constructor = self.get_policy_constructor(policy)
-        policy_constructor.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}"))
+        policy_constructor.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}_tag"))
 
         return policy
 

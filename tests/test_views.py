@@ -9,6 +9,7 @@ except ImportError:
     HAS_CUDA = False
 
 import numpy as np
+from numpy.testing import assert_allclose, assert_equal
 import pykokkos as pk
 
 
@@ -300,6 +301,8 @@ class TestViews(unittest.TestCase):
 
     @pytest.mark.skipif(not HAS_CUDA,
                         reason="CUDA/cupy not available")
+    @pytest.mark.xfail(HAS_CUDA,
+                       reason="bool not supported with CUDA/GPUs yet")
     def test_real(self):
         pk.set_default_precision(pk.int32)
         view: pk.View1d = pk.View([self.threads])
@@ -331,6 +334,69 @@ def test_sizes(input_arr, view_dims, view_type):
     view: view_type = pk.View(view_dims)
     view[:] = input_arr
     assert view.size == expected_size
+
+
+@pytest.mark.parametrize("const", [pk.e, pk.pi, pk.inf, pk.nan])
+@pytest.mark.parametrize("pk_dtype, np_dtype", [
+    (None, None),
+    (pk.float32, np.float32),
+    (pk.float64, np.float64),
+    (pk.double, np.float64),
+    (pk.int64, np.int64),
+    (pk.int32, np.int32),
+    ])
+def test_asarray_consts_vs_numpy(const, np_dtype, pk_dtype):
+    actual = pk.asarray(const)
+    numpy_val = np.asarray(const)
+    assert_allclose(actual, numpy_val)
+    # we compare dtype "strings" because our type system
+    # needs a ton of work still...
+    pk_type_string = str(actual.dtype).split(".")[-1][:-2]
+    numpy_type_string = str(numpy_val.dtype)
+    assert pk_type_string == numpy_type_string
+    # none of the final types for these float
+    # constants should ever be allowed to be ints
+    assert not "int" in pk_type_string
+
+
+
+@pytest.mark.parametrize("pk_dtype, np_dtype", [
+    (pk.uint8, np.uint8),
+    (pk.uint16, np.uint16),
+    (pk.uint32, np.uint32),
+    (pk.uint64, np.uint64),
+    ])
+def test_unsigned_int_overflow(pk_dtype, np_dtype):
+    # test for gh-86
+    actual = pk.View([1], dtype=pk_dtype)
+    actual[:] = -1
+    expected = np.array(-1, dtype=np_dtype)
+    assert_equal(actual, expected)
+
+
+@pytest.mark.parametrize("pk_dtype, pk_dtype2, expected_promo", [
+    (pk.uint8, pk.uint16, pk.uint16),
+    (pk.uint64, pk.uint8, pk.uint64),
+    (pk.float32, pk.float64, pk.float64),
+    ])
+def test_result_type_supported(pk_dtype, pk_dtype2, expected_promo):
+    # some basic behavior should already be covered
+    # by:
+    # array_api_tests/test_data_type_functions.py::test_result_type
+    actual = pk.result_type(pk_dtype, pk_dtype2)
+    assert actual == expected_promo
+
+
+@pytest.mark.parametrize("pk_dtype, pk_dtype2", [
+    (pk.from_numpy(np.array([0])), pk.uint16),
+    (pk.uint64, pk.int8),
+    (pk.float32, pk.int64),
+    ])
+def test_result_type_unsupported(pk_dtype, pk_dtype2):
+    # support for views (arrays) and mixed type
+    # categories is not yet available
+    with pytest.raises(NotImplementedError):
+        pk.result_type(pk_dtype, pk_dtype2)
 
 
 if __name__ == '__main__':

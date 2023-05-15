@@ -12,7 +12,9 @@ from .atomic.atomic_op import (
 from .bin_sort import BinSort, BinOp, BinOp1D, BinOp3D
 from .data_types import (
     DataType, DataTypeClass,
+    int8,
     int16, int32, int64,
+    uint8,
     uint16, uint32, uint64,
     float, double, real,
     float32, float64, bool,
@@ -25,7 +27,7 @@ from .execution_policy import (
     ExecutionPolicy, RangePolicy, MDRangePolicy, TeamPolicy,
     TeamThreadRange, ThreadVectorRange, Iterate, Rank
 )
-from .execution_space import ExecutionSpace
+from .execution_space import ExecutionSpace, is_host_execution_space
 from .layout import Layout, get_default_layout
 from .hierarchical import (
     AUTO, TeamMember, PerTeam, PerThread, single
@@ -48,8 +50,10 @@ from .views import (
     ScratchView3D, ScratchView4D, ScratchView5D,
     ScratchView6D, ScratchView7D, ScratchView8D,
     from_cupy, from_numpy,
-    asarray,
+    asarray, result_type,
 )
+
+from .ext_module import compile_into_module
 
 
 def fence():

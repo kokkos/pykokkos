@@ -12,15 +12,24 @@ from pykokkos.core.visitors import (
 
 from .bindings import bind_main, bind_workunits
 from .functor import generate_functor
+from .functor_cast import generate_cast
 from .members import PyKokkosMembers
 from .symbols_pass import SymbolsPass
+
+def generate_include_guard_start(symbol_name: str):
+    include_guard: str = f"#ifndef {symbol_name}\n"
+    include_guard += f"#define {symbol_name}\n"
+    return include_guard
+
+def generate_include_guard_end() -> str:
+    return "\n#endif"
 
 class StaticTranslator:
     """
     Translates a PyKokkos workload to C++ using static analysis only
     """
 
-    def __init__(self, module: str, functor: str, pk_members: PyKokkosMembers):
+    def __init__(self, module: str, functor: str,functor_cast: str, pk_members: PyKokkosMembers):
         """
         StaticTranslator Constructor
 
@@ -33,6 +42,7 @@ class StaticTranslator:
 
         self.module_file: str = module
         self.functor_file: str = functor
+        self.functor_cast: str = functor_cast
         self.pk_members: PyKokkosMembers = pk_members
 
     def translate(
@@ -68,17 +78,23 @@ class StaticTranslator:
 
         struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
 
+        cast: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_CAST_"+"_HPP")]
+        cast.append(self.generate_cast_includes())
+        cast.extend(generate_cast(functor_name,self.pk_members))
+        cast.append(generate_include_guard_end())
+
         bindings: List[str] = self.generate_bindings(entity, functor_name, source, workunits)
 
         s = cppast.Serializer()
-        functor: List[str] = [self.generate_header()]
+        functor: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_HPP")]
         functor.extend([s.serialize(c) for c in classtypes])
         functor.append(s.serialize(struct))
+        functor.append(generate_include_guard_end())
 
         bindings.insert(0, self.generate_includes())
         bindings.insert(0, self.generate_header())
 
-        return functor, bindings
+        return functor, bindings, cast
 
     @staticmethod
     def add_parent_refs(classdef: ast.ClassDef) -> ast.ClassDef:
@@ -220,6 +236,28 @@ class StaticTranslator:
     def generate_includes(self) -> str:
         """
         Generate the list of include statements
+
+        :returns: the includes as a string
+        """
+
+        headers: List[str] = [
+            "pybind11/pybind11.h",
+            "Kokkos_Core.hpp",
+            "Kokkos_Random.hpp",
+            "Kokkos_Sort.hpp",
+            "fstream",
+            "iostream",
+            "cmath",
+            self.functor_file,
+            self.functor_cast
+        ]
+        headers = [f"#include <{h}>\n" for h in headers]
+
+        return "".join(headers)
+
+    def generate_cast_includes(self) -> str:
+        """
+        Generate the list of include statements for the cast header file
 
         :returns: the includes as a string
         """

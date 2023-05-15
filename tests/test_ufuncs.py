@@ -301,6 +301,15 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.log1p, np.log1p),
         (pk.sqrt, np.sqrt),
         (pk.sign, np.sign),
+        (pk.negative, np.negative),
+        (pk.positive, np.positive),
+        (pk.square, np.square),
+        (pk.sin, np.sin),
+        (pk.cos, np.cos),
+        (pk.tan, np.tan),
+        (pk.logical_not, np.logical_not),
+        (pk.exp, np.exp),
+        (pk.exp2, np.exp2),
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
@@ -319,11 +328,87 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
     actual = pk_ufunc(view=view)
     # log10 single-precision needs relaxed tol
     # for now
-    if numpy_ufunc == np.log10 and numpy_dtype == np.float32:
+    if numpy_ufunc in {np.log10, np.cos, np.tan} and numpy_dtype == np.float32:
         assert_allclose(actual, expected, rtol=1.5e-7)
     else:
         assert_allclose(actual, expected)
 
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.add, np.add),
+        (pk.subtract, np.subtract),
+        (pk.multiply, np.multiply),
+        (pk.divide, np.divide),
+        (pk.power, np.power),
+        (pk.fmod, np.fmod),
+        (pk.greater, np.greater),
+        (pk.logaddexp, np.logaddexp),
+        (pk.floor_divide, np.floor_divide),
+        (pk.true_divide, np.true_divide),
+        (pk.logaddexp2, np.logaddexp2),
+        (pk.logical_and, np.logical_and),
+        (pk.logical_or, np.logical_or),
+        (pk.logical_xor, np.logical_xor),
+        (pk.fmax, np.fmax),
+        (pk.fmin, np.fmin),
+
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_multi_array_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    pk_dtype,
+                                    numpy_dtype):
+
+    # test the multi array ufuncs we have exposed 
+    # in the pk namespace vs. their NumPy equivalents
+    expected = numpy_ufunc(
+        np.arange(10, dtype=numpy_dtype),
+        np.full(10, 5, dtype=numpy_dtype))
+
+    viewA: pk.View1d = pk.View([10], pk_dtype)
+    viewA[:] = np.arange(10, dtype=numpy_dtype)
+    viewB: pk.View1d = pk.View([10], pk_dtype)
+    viewB[:] = np.full(10, 5, dtype=numpy_dtype)
+
+    actual = pk_ufunc(viewA=viewA, viewB=viewB)
+
+    assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.matmul, np.matmul),
+])
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
+])
+def test_matmul_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    pk_dtype,
+                                    numpy_dtype):
+    expected = numpy_ufunc(
+        np.arange(10, dtype=numpy_dtype),
+        np.full((10, 1), 2, dtype=numpy_dtype))
+
+
+    viewA = pk.View([10], pk_dtype)
+    viewB = pk.View([10, 1], pk_dtype)
+    viewA[:] = np.arange(10, dtype=numpy_dtype)
+    viewB[:] = np.full((10, 1), 2, dtype=numpy_dtype)
+
+    with pytest.raises(RuntimeError) as e_info:
+        viewC = pk.View([11], pk_dtype)
+        viewC[:] = np.arange(11, dtype=numpy_dtype)
+        pk_ufunc(viewC, viewB)
+
+    assert e_info.value.args[0] == "Input operand 1 has a mismatch in its core dimension (Size 11 is different from 10)"
+
+    actual = pk_ufunc(viewA, viewB)
+
+    assert_allclose(actual, expected)
 
 @pytest.mark.parametrize("arr", [
     np.array([4, -1, np.inf]),
@@ -389,3 +474,29 @@ def test_sign_1d_special_cases(in_arr, pk_dtype, numpy_dtype):
     expected = np.sign(in_arr)
     actual = pk.sign(view=view)
     assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize("input_dtype", [
+        pk.double, pk.float,
+])
+@pytest.mark.parametrize("pk_ufunc", [
+        pk.floor,
+        pk.round,
+        pk.ceil,
+        pk.trunc,
+])
+@pytest.mark.parametrize("shape", [
+        [1], [1, 1], [1, 1, 1],
+])
+def test_rounding_dtype_preservation(input_dtype, pk_ufunc, shape):
+    # at the time of writing the array API standard
+    # conformance test suite doesn't appear to probe
+    # floating point data types for many of the rounding
+    # functions
+
+    # for now, we simply test data type preservation
+    # of output vs. input so that we flush these codepaths
+    # a bit
+    view = pk.View(shape, input_dtype)
+    actual_dtype = pk_ufunc(view).dtype
+    assert actual_dtype.value == input_dtype.value

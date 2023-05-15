@@ -48,7 +48,7 @@ def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
                 return f"Kokkos::{name}"
 
     if location == "functor":
-        return f"{Keywords.DefaultExecSpace.value}::memory_space"
+        return f"typename ExecSpace::memory_space"
     if location == "bindings":
         return Keywords.ArgMemSpace.value
 
@@ -124,12 +124,15 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     return {v.declname: f"pk_d_{v.declname}" for v in members.views \
             if members.views[v] is not None}
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
+def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functor_exec_space: Optional[str] = None, always_use_kokkos_copy: bool = False) -> str:
     """
     Generate the functor instance
 
     :param functor: the name of the functor
     :param members: an object containing the fields and views
+    :param with_random_args: bool indicating if the constructor call should have the random args. default = True
+    :param functor_exec_space: optional parameter of type str that contains the ExecSpace template argument to the functor
+    :param always_use_kokkos_copy: optional parameter specifying if all copies should be done with kokkos functionality
     :returns: the source code for instantiating the functor
     """
 
@@ -138,44 +141,53 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers) -> str:
     for f in members.fields:
         args.append(f.declname)
 
-    exec_space: str = Keywords.DefaultExecSpace.value
-    exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
+    if functor_exec_space is None:
+        exec_space: str = Keywords.DefaultExecSpace.value
+        exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
+    else:
+        exec_space: str = functor_exec_space
+        exec_space_instance: str = f"{exec_space}_instance"
+
     mirror_views: str = f"{exec_space} {exec_space_instance};"
 
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
         args.append(d_v)
 
-        view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
-        if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
-            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+        if not always_use_kokkos_copy:
+            view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
+            if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
+                mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+            else:
+                mirror_views += f"auto {d_v} = {v};"
         else:
-            mirror_views += f"auto {d_v} = {v};"
+            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
         args.append("0")
 
-    args.append(Keywords.RandPoolSeed.value)
-    args.append(Keywords.RandPoolNumStates.value)
+    if with_random_args:
+        args.append(Keywords.RandPoolSeed.value)
+        args.append(Keywords.RandPoolNumStates.value)
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
 
     return mirror_views + constructor
 
-def generate_copy_back(members: PyKokkosMembers) -> str:
+def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[str,str]) -> str:
     """
-    Generate the code that copies back the views
+    Generate the code that does the resize and deep_copy
 
     :param members: an object containing the fields and views
+    :param deep_copy_args: dict of pairs of deep_copy args
     :returns: the source code for instantiating the functor
     """
 
     copy_back: str = ""
 
-    device_views: Dict[str, str] = get_device_views(members)
-    for v, d_v in device_views.items():
+    for v, d_v in deep_copy_args.items():
         view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
         # skip subviews
         if view_type is None:
@@ -200,6 +212,17 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
         copy_back += f"Kokkos::deep_copy({v}, {d_v});"
 
     return copy_back
+
+def generate_copy_back(members: PyKokkosMembers) -> str:
+    """
+    Generate the code that copies back the views
+
+    :param members: an object containing the fields and views
+    :returns: the source code for instantiating the functor
+    """
+    device_views: Dict[str, str] = get_device_views(members)
+
+    return generate_copy_back_from_dict(members,device_views)
 
 def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     """
@@ -265,11 +288,11 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
 
     args: List[str] = [Keywords.KernelName.value]
 
-    tag_name: str = tag.declname
+    tag_name: str = tag.declname+"_tag"
     if is_hierarchical:
         args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
     else:
-        args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
+        args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
 
     args.append(Keywords.Instance.value)
 
@@ -371,7 +394,9 @@ def generate_kernel(
         acc = f"{return_type} {Keywords.Accumulator.value} = 0;"
 
     if members.has_real:
-        functor += f"<{real}>"
+        functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
+    else:
+        functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     instance: str = generate_functor_instance(functor, members)
     call: str = generate_call(operation, functor, members, tag, hierarchical)
@@ -532,7 +557,9 @@ def bind_main_single(
         real = visitors_util.view_dtypes[precision.name].value
         wrapper_name += f"_{real}"
         kernel_name += f"_{real}"
-        functor += f"<{real}>"
+        functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
+    else:
+        functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     main: List[str] = translate_mains(source, functor, members, pk_import)
     params: Dict[str, str] = get_kernel_params(members, False, True, real)

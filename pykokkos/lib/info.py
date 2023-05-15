@@ -23,19 +23,41 @@ def iinfo(type_or_arr):
     # so we can run the array API tests,
     # and effectively just copies return
     # values from the NumPy equivalent
+    if "uint32" in str(type_or_arr):
+        return info_type_attrs(bits=32,
+                               min=0,
+                               max=4294967295)
     if "int32" in str(type_or_arr):
         return info_type_attrs(bits=32,
                                max=2147483647,
                                min=-2147483648)
+    elif "uint16" in str(type_or_arr):
+        # iinfo(min=0, max=65535, dtype=uint16)
+        return info_type_attrs(bits=16,
+                               min=0,
+                               max=65535)
     elif "int16" in str(type_or_arr):
         # iinfo(min=-32768, max=32767, dtype=int16)
         return info_type_attrs(bits=16,
                                min=-32768,
                                max=32767)
+    elif "uint64" in str(type_or_arr):
+        # iinfo(min=0, max=18446744073709551615, dtype=uint64)
+        return info_type_attrs(bits=64,
+                               min=0,
+                               max=18446744073709551615)
     elif "int64" in str(type_or_arr):
         return info_type_attrs(bits=64,
                                min=-9223372036854775808,
                                max=9223372036854775807)
+    elif "uint8" in str(type_or_arr):
+        return info_type_attrs(bits=8,
+                               min=0,
+                               max=255)
+    elif "int8" in str(type_or_arr):
+        return info_type_attrs(bits=8,
+                               min=-128,
+                               max=127)
 
 
 def finfo(type_or_arr):

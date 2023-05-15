@@ -1,8 +1,10 @@
 import ast
+import os
 import re
 import sys
 from typing import Dict, List, Optional, Set, Union
 
+from pykokkos import kokkos_manager as km
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, Trait
@@ -13,16 +15,19 @@ def pretty_print(node):
 
 allowed_types: Dict[str, str] = {
     "int": "int",
-    "float": "double",
+    "float": "float",
+    "double": "double",
     "bool": "bool",
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
 }
 
 # Maps from the DataType enum to cppast
 view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
+    "int8": cppast.BuiltinType.INT8,
     "int16": cppast.BuiltinType.INT16,
     "int32": cppast.BuiltinType.INT32,
     "int64": cppast.BuiltinType.INT64,
+    "uint8": cppast.BuiltinType.UINT8,
     "uint16": cppast.BuiltinType.UINT16,
     "uint32": cppast.BuiltinType.UINT32,
     "uint64": cppast.BuiltinType.UINT64,
@@ -84,6 +89,8 @@ math_functions: Set = {
     "expm1",
     "fabs",
     "floor",
+    "fmax",
+    "fmin",
     "fmod",
     "hypot",
     "isfinite",
@@ -98,6 +105,7 @@ math_functions: Set = {
     "pow",
     "radians",
     "remainder",
+    "round",
     "sin",
     "sinh",
     "sqrt",
@@ -186,6 +194,17 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
                 type_name = allowed_types[type_name]
 
             return cppast.ClassType(type_name)
+
+    if isinstance(annotation, ast.Index):
+        # ast.Index has been deprecated since Python 3.9;
+        # this module attempts to shim around it, but we're
+        # still getting issues in gh-181 with Python 3.8
+
+        # we should probably drop support for Python 3.8 soon anyway
+        # per NEP29, but for now we attempt to handle ast.Index
+
+        # should convert to ast.Name:
+        annotation = annotation.value
 
     if isinstance(annotation, ast.Name):
         type_name: str = annotation.id
@@ -290,8 +309,8 @@ def cpp_view_type(
         parameter: str = s.serialize(t)
 
         if parameter in ("int", "double", "float",
-                            "int16_t", "int32_t", "int64_t",
-                            "uint16_t", "uint32_t", "uint64_t"):
+                            "int8_t", "int16_t", "int32_t", "int64_t",
+                            "uint8_t", "uint16_t", "uint32_t", "uint64_t"):
             datatype: str = parameter + "*" * rank
             params["dtype"] = datatype
 
@@ -317,6 +336,8 @@ def cpp_view_type(
             params["layout"] = f"{Keywords.DefaultExecSpace.value}::array_layout"
 
     if space is not None:
+        if space == "Kokkos::HIPSpace":
+            space = "Kokkos::Experimental::HIPSpace"
         params["space"] = space
     elif is_scratch_view:
         params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
@@ -332,6 +353,8 @@ def cpp_view_type(
         params_ordered.append(params["layout"])
     if "space" in params:
         params_ordered.append(params["space"])
+    if km.get_kokkos_version() >= 3.7:
+        params_ordered.append("Kokkos::Experimental::DefaultViewHooks")
     if "trait" in params:
         params_ordered.append(params["trait"])
 
