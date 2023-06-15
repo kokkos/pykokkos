@@ -76,8 +76,8 @@ class ModuleSetup:
         self,
         entity: Union[Callable[..., None], type, None],
         space: ExecutionSpace,
-        entity_name: Optional[str]=None,
-        entity_path: Optional[str]=None
+        # entity_name: Optional[str]=None,
+        # entity_path: Optional[str]=None
     ):
         """
         ModuleSetup constructor
@@ -89,9 +89,9 @@ class ModuleSetup:
 
         self.metadata: EntityMetadata
         
-        for_pkc: bool = entity is None
-        if for_pkc:
-            self.metadata = EntityMetadata(None, entity_name, entity_path)
+        isEntityNone: bool = entity is None
+        if isEntityNone:
+            self.metadata = EntityMetadata(None, None, None)
         else:
             self.metadata = get_metadata(entity)
 
