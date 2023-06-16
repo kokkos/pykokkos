@@ -76,15 +76,11 @@ class ModuleSetup:
         self,
         entity: Union[Callable[..., None], type, None],
         space: ExecutionSpace,
-        # entity_name: Optional[str]=None,
-        # entity_path: Optional[str]=None
     ):
         """
         ModuleSetup constructor
 
         :param entity: the functor/workunit/workload
-        :param entity_name: optionally provide the entity name (only set for pkc)
-        :param entity_path: optionally provide the entity path (only set for pkc)
         """
 
         self.metadata: EntityMetadata
