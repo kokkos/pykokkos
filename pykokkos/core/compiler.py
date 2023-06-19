@@ -47,68 +47,6 @@ class Compiler:
         logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
-    def compile_sources(
-        self,
-        main: Path,
-        sources: List[str],
-        spaces: List[ExecutionSpace],
-        force_uvm: bool,
-        defaults: CompilationDefaults,
-        verbose: bool
-    ) -> None:
-        """
-        Compile all entities in every source file
-
-        :param main: the path to the main file in the current PyKokkos application
-        :param sources: the list of paths to source files
-        :param spaces: the list of execution spaces to compile for
-        :param force_uvm: whether CudaUVMSpace is enabled
-        :param defaults: the default values for execution space and force_uvm
-        :param verbose: print files discovered
-        """
-
-        # Remove the .py suffix
-        main = main.with_suffix("")
-        self.write_defaults(main, defaults)
-
-        for path in sources:
-            parser = Parser(path)
-            
-            self.logger.info("Path %s", path)
-            self.logger.info("%d workloads", len(parser.workloads))
-            self.logger.info("%d functors", len(parser.functors))
-            self.logger.info("%d workunits", len(parser.workunits))
-            self.logger.info("%d classtypes", len(parser.classtypes))
-
-            classtypes: List[PyKokkosEntity] = parser.get_classtypes()
-            self.compile_entities(main, parser.workloads, classtypes, spaces, force_uvm, verbose)
-            self.compile_entities(main, parser.functors, classtypes, spaces, force_uvm, verbose)
-            self.compile_entities(main, parser.workunits, classtypes, spaces, force_uvm, verbose)
-    
-    def compile_entities(
-        self,
-        main: Path,
-        entities: Dict[str, PyKokkosEntity],
-        classtypes: List[PyKokkosEntity],
-        spaces: List[ExecutionSpace],
-        force_uvm: bool,
-        verbose: bool
-    ) -> None:
-        """
-        Compile all entities in a single source file
-
-        :param main: the path to the main file in the current PyKokkos application
-        :param entities: a dictionary of entities
-        :param classtypes: the list of parsed classtypes being compiled
-        :param spaces: the list of execution spaces to compile for
-        :param force_uvm: whether CudaUVMSpace is enabled
-        :param verbose: print entities discovered
-        """
-
-        for e in entities.values():
-            for space in spaces:
-                module_setup = ModuleSetup(None, space, e.name.declname, e.path)
-                self.compile_entity(main, module_setup, e, classtypes, space, force_uvm)
 
     def compile_object(
         self,
