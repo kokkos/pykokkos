@@ -1,4 +1,7 @@
+from typing import Optional
+
 import pykokkos as pk
+from pykokkos.linalg import workunits
 
 # Level 3 BLAS functions
 
@@ -6,7 +9,11 @@ def dgemm(alpha: float,
           view_a,
           view_b,
           beta: float = 0.0,
-          view_c = None):
+          view_c = None,
+          # TODO: league_size support is pretty limited/confusing
+          # at the moment...
+          league_size: int = 4,
+          tile_width: Optional[int] = None):
     """
     Double precision floating point genernal matrix multiplication (GEMM).
 
@@ -20,6 +27,8 @@ def dgemm(alpha: float,
              Shape (k, n)
     beta: float, optional
     view_c: pykokkos view of type double, optional
+    tile_width: int, optional
+        Number of elements along a dimension of the square tiles.
 
     Returns
     -------
@@ -45,12 +54,42 @@ def dgemm(alpha: float,
 
     C = pk.View([view_a.shape[0], view_b.shape[1]], dtype=pk.double)
 
-    for m in range(view_a.shape[0]):
-        for n in range(view_b.shape[1]):
-            for k in range(k_a):
-                subresult = view_a[m, k] * view_b[k, n] * alpha
-                C[m, n] += float(subresult) # type: ignore
-            if view_c is not None:
-                C[m, n] += (view_c[m, n] * beta) # type: ignore
+    if not tile_width:
+        if view_c is None:
+            pk.parallel_for(view_a.shape[0],
+                            workunits.dgemm_impl_no_view_c,
+                            k_a=k_a,
+                            alpha=alpha,
+                            view_a=view_a,
+                            view_b=view_b,
+                            out=C)
+        else:
+            pk.parallel_for(view_a.shape[0],
+                            workunits.dgemm_impl_view_c,
+                            k_a=k_a,
+                            alpha=alpha,
+                            beta=beta,
+                            view_a=view_a,
+                            view_b=view_b,
+                            view_c=view_c,
+                            out=C)
+    else:
+        # limited tiling support--only (some) convenient powers of two
+        # allowed for now...
+        # limited league size support for now as well...
+        if league_size == 1:
+            slide_factor = 0
+        else:
+            slide_factor = int(league_size / 4)
 
+        pk.parallel_for("tiled_matmul",
+                pk.TeamPolicy(league_size=league_size,
+                              team_size=tile_width ** 2),
+                        workunits.dgemm_impl_tiled_no_view_c,
+                        k_a=k_a,
+                        alpha=alpha,
+                        view_a=view_a,
+                        view_b=view_b,
+                        out=C,
+                        slide_factor=slide_factor)
     return C

@@ -1,81 +1,111 @@
 """
-Compare DGEMM performance with SciPy
-(i.e., a wheel with OpenBLAS 0.3.18)
+Record DGEMM performance.
 """
+
+import os
+import shutil
+import time
+import argparse
+import socket
 
 import pykokkos as pk
 from pykokkos.linalg.l3_blas import dgemm as pk_dgemm
 
 import numpy as np
+from numpy.testing import assert_allclose
 from scipy.linalg.blas import dgemm as scipy_dgemm
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm
+
+
+def setup_data(mode):
+    rng = np.random.default_rng(18898787)
+    a = rng.random((square_matrix_width, square_matrix_width)).astype(float)
+    b = rng.random((square_matrix_width, square_matrix_width)).astype(float)
+    if "pykokkos" in mode:
+        view_a = pk.View([square_matrix_width, square_matrix_width], dtype=pk.float64)
+        view_b = pk.View([square_matrix_width, square_matrix_width], dtype=pk.float64)
+        view_a[:] = a
+        view_b[:] = b
+        return view_a, view_b
+    else:
+        return a, b
+
+
+def time_dgemm(expected, mode, league_size=4, tile_width=2):
+    start = time.perf_counter()
+    if mode == "pykokkos_no_tiling":
+        actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None)
+    elif mode == "pykokkos_with_tiling":
+        actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None, league_size=4, tile_width=2)
+    elif mode == "scipy":
+        actual = scipy_dgemm(alpha, a, b)
+    else:
+        raise ValueError(f"Unknown timing mode: {mode}")
+    # include check for correctness inside the
+    # timer code block to prevent i.e., async GPU
+    # execution; just be careful to select matrix sizes
+    # large enough that the assertion isn't slower than the
+    # DGEMM
+    assert_allclose(actual, expected)
+    end = time.perf_counter()
+    dgemm_time_sec = end - start
+    return dgemm_time_sec
 
 
 if __name__ == "__main__":
-    import timeit
-    num_repeats = 50
-    results = {"PyKokkos": {},
-               "SciPy": {}}
-    alpha, a, b, c, beta = (3.6,
-                            np.array([[8, 7, 1, 200, 55.3],
-                                      [99.2, 1.11, 2.02, 17.7, 900.2],
-                                      [5.01, 15.21, 22.07, 1.09, 22.22],
-                                      [1, 2, 3, 4, 5]], dtype=np.float64),
-                            np.array([[9, 0, 2, 19],
-                                      [77, 100, 4, 19],
-                                      [1, 500, 9, 19],
-                                      [226.68, 11.61, 12.12, 19],
-                                      [17.7, 200.10, 301.17, 20]], dtype=np.float64),
-                            np.ones((4, 4)) * 3.3,
-                            4.3)
-    for system_size in ["small", "medium", "large"]:
-        print("-" * 20)
-        print(f"system size: {system_size}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--num-global-repeats', default=5)
+    parser.add_argument('-m', '--mode', default="scipy")
+    parser.add_argument('-p', '--power-of-two', default=10)
+    parser.add_argument('-w', '--tile-width', default=2)
+    parser.add_argument('-l', '--league-size', default=4)
+    parser.add_argument('-s', '--space', default="OpenMP")
+    args = parser.parse_args()
+    hostname = socket.gethostname()
 
-        if system_size == "medium":
-            a_new = np.tile(a, (10, 0))
-            b_new = np.tile(b, (0, 10))
-            c_new = np.ones((40, 40)) * 3.3
-        elif system_size == "large":
-            a_new = np.tile(a, (40, 0))
-            b_new = np.tile(b, (0, 40))
-            c_new = np.ones((160, 160)) * 3.3
-        else:
-            a_new = a
-            b_new = b
-            c_new = c
+    if args.space == "OpenMP":
+        space = pk.ExecutionSpace.OpenMP
+    elif args.space == "Cuda":
+        space = pk.ExecutionSpace.Cuda
+    else:
+        raise ValueError(f"Invalid execution space specified: {args.space}")
+    pk.set_default_space(space)
 
-        view_a = pk.from_numpy(a_new)
-        view_b = pk.from_numpy(b_new)
-        view_c = pk.from_numpy(c_new)
-        pk_dgemm_time_sec = timeit.timeit("pk_dgemm(alpha, view_a, view_b, beta, view_c)",
-                                          globals=globals(),
-                                          number=num_repeats)
-        results["PyKokkos"][system_size] = pk_dgemm_time_sec
-        print(f"PyKokkos DGEMM execution time (s) for {num_repeats} repeats: {pk_dgemm_time_sec}")
-        scipy_dgemm_time_sec = timeit.timeit("scipy_dgemm(alpha, a_new, b_new, beta, c_new)",
-                                             globals=globals(),
-                                             number=num_repeats)
-        results["SciPy"][system_size] = scipy_dgemm_time_sec
-        print(f"SciPy DGEMM execution time (s) for {num_repeats} repeats: {scipy_dgemm_time_sec}")
-        ratio = pk_dgemm_time_sec / scipy_dgemm_time_sec
-        if ratio == 1:
-            print("PyKokkos DGEMM timing is identical to SciPy")
-        elif ratio > 1:
-            print(f"PyKokkos DGEMM timing is slower than SciPy with ratio: {ratio:.2f} fold")
-        else:
-            print(f"PyKokkos DGEMM timing is faster than SciPy with ratio: {ratio:.2f} fold")
-        print("-" * 20)
-    df = pd.DataFrame.from_dict(results)
-    print("df:\n", df)
-    fig, ax = plt.subplots()
-    df.plot.bar(ax=ax,
-                rot=0,
-                logy=True,
-                xlabel="Problem Size",
-                ylabel=f"log of time (s) for {num_repeats} repeats",
-                title="DGEMM Performance Comparison with timeit")
-    fig.savefig("DGEMM_perf_compare.png", dpi=300)
+
+    num_global_repeats = int(args.num_global_repeats)
+    square_matrix_width = 2 ** int(args.power_of_two)
+
+
+    num_threads = os.environ.get("OMP_NUM_THREADS")
+    if num_threads is None:
+        raise ValueError("must set OMP_NUM_THREADS for benchmarks!")
+
+    space_name = str(space).split(".")[1]
+    scenario_name = f"{hostname}_dgemm_{args.mode}_{num_threads}_OMP_threads_{space_name}_execution_space_{square_matrix_width}_square_matrix_width_{args.league_size}_league_size"
+
+    cwd = os.getcwd()
+    shutil.rmtree(os.path.join(cwd, "pk_cpp"),
+                  ignore_errors=True)
+
+    df = pd.DataFrame(np.full(shape=(num_global_repeats, 2), fill_value=np.nan),
+                      columns=["scenario", "time (s)"])
+    df["scenario"] = df["scenario"].astype(str)
+    print("df before trials:\n", df)
+
+    alpha = 1.0
+    a, b = setup_data(mode=args.mode)
+    expected = scipy_dgemm(alpha, a, b)
+    counter = 0
+    for global_repeat in tqdm(range(1, num_global_repeats + 1)):
+        dgemm_time_sec = time_dgemm(expected, mode=args.mode, league_size=args.league_size, tile_width=args.tile_width)
+        df.iloc[counter, 0] = f"{scenario_name}"
+        df.iloc[counter, 1] = dgemm_time_sec
+        counter += 1
+
+    print("df after trials:\n", df)
+
+    filename = f"{scenario_name}.parquet.gzip"
+    df.to_parquet(filename,
+                  engine="pyarrow",
+                  compression="gzip")
