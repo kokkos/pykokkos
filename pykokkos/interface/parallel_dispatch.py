@@ -1,4 +1,5 @@
 import gc
+import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -106,7 +107,11 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     if isinstance(policy, int):
         policy = RangePolicy(km.get_default_space(), 0, policy)
 
-    return HandledArgs(name, policy, workunit, view, initial_value)
+    handled_args_obj = HandledArgs(name, policy, workunit, view, initial_value)
+    # if isinstance(policy, RangePolicy):
+    #     print("RANGE POLICY DETECTED with", policy.begin, policy.end)
+    print(handled_args_obj)
+    return handled_args_obj
 
 
 def parallel_for(*args, **kwargs) -> None:
@@ -168,6 +173,22 @@ def parallel_for(*args, **kwargs) -> None:
     #         return
 
     handled_args: HandledArgs = handle_args(True, args)
+    print("----------- PARALLEL FOR -----------------------")
+    print("-----KWARGS", **kwargs)
+    print("-----Workunit", handled_args.workunit)
+    print("attributes for workload", (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation)
+
+    # creating experimental logic to set annotation from the value passed
+    if isinstance(handled_args.policy, RangePolicy):
+        # The values provided must be int for Range policy (finite iterations)
+        print("FOUND RANGE POLICY")
+        # if there is no annotation provided set it manually
+        if (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation is inspect._empty:
+            print("NO ANNOTATION PROVIDED BY USER")
+            
+
+    print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
+    print("----------- END -----------------------\n")
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
