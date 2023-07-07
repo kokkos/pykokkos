@@ -93,6 +93,9 @@ class Parser:
         :param name: the name of the functor
         :returns: the PyKokkosEntity representation of the entity
         """
+        print("functors:", self.functors.keys())
+        print("workloads:", self.workloads.keys())
+        print("workunits:", self.workunits.keys())
 
         if name in self.workloads:
             return self.workloads[name]
@@ -122,6 +125,7 @@ class Parser:
             check_entity = self.is_classtype
 
         for i, node in enumerate(self.tree.body):
+            print(check_entity)
             if check_entity(node, self.pk_import):
                 start: int = node.lineno - 1
 
@@ -129,7 +133,8 @@ class Parser:
                     stop: int = self.tree.body[i + 1].lineno - 1
                 except IndexError:
                     stop = len(self.lines)
-
+                
+                print("getting entity:", self.lines[start:stop])
                 name: str = node.name
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity

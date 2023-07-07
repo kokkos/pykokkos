@@ -1,5 +1,6 @@
 import gc
 import inspect
+import functools
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -114,6 +115,25 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     return handled_args_obj
 
 
+def change_types(workunit):
+
+    @functools.wraps(workunit)
+    def wrapper(*args, **kwargs):
+        return workunit(*args, **kwargs)
+
+    params = list(inspect.signature(workunit).parameters.values())
+    print(params)
+    for i in range(len(params)):
+        params[i] = params[i].replace(annotation=int)
+        print(params[i])
+    print(params)
+    
+    o_signature = inspect.signature(workunit)
+    n_signature = o_signature.replace(parameters=tuple(params))
+    wrapper.__signature__ = n_signature
+
+    return wrapper
+
 def parallel_for(*args, **kwargs) -> None:
     """
     Run a parallel for loop
@@ -184,8 +204,37 @@ def parallel_for(*args, **kwargs) -> None:
         print("FOUND RANGE POLICY")
         # if there is no annotation provided set it manually
         if (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation is inspect._empty:
+        # if (True):
             print("NO ANNOTATION PROVIDED BY USER")
+
+            # replace signature
+            # print("-----------Before:")
+            # for ele in inspect.getmembers(handled_args.workunit):
+            #     print(ele)
+            print("----------- END OF MEMBERS")
+
+
+            handled_args.workunit = change_types(handled_args.workunit)
+
+            # manual
+            # params = list(inspect.signature(handled_args.workunit).parameters.values())
+            # print(params)
+            # for i in range(len(params)):
+            #     params[i] = params[i].replace(annotation=int)
+            #     print(params[i])
+            # print(params)
             
+            # o_signature = inspect.signature(handled_args.workunit)
+            # n_signature = o_signature.replace(parameters=tuple(params))
+            # handled_args.workunit.__signature__ = n_signature
+
+
+            # print("-----------After:")
+            # for ele in inspect.getmembers(handled_args.workunit):
+            #     print(ele)
+            print("----------- END OF MEMBERS")
+            print("Actual Signature:", inspect.signature(handled_args.workunit))
+
 
     print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
     print("----------- END -----------------------\n")
