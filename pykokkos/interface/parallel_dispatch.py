@@ -114,7 +114,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     print(handled_args_obj)
     return handled_args_obj
 
-
+#! Added to change param annotations 
 def change_types(workunit):
 
     @functools.wraps(workunit)
@@ -213,7 +213,7 @@ def parallel_for(*args, **kwargs) -> None:
             #     print(ele)
             print("----------- END OF MEMBERS")
 
-
+            #! Changing types
             handled_args.workunit = change_types(handled_args.workunit)
 
             # manual

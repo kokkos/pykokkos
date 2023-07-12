@@ -115,6 +115,8 @@ class Parser:
         entities: Dict[str, PyKokkosEntity] = {}
         check_entity: Callable[[ast.stmt], bool]
 
+        print("STYLE: ", style, end="\n")
+
         if style is PyKokkosStyles.workload:
             check_entity = self.is_workload
         elif style is PyKokkosStyles.functor:
@@ -125,8 +127,15 @@ class Parser:
             check_entity = self.is_classtype
 
         for i, node in enumerate(self.tree.body):
-            print(check_entity)
+            if style is PyKokkosStyles.functor:
+                print("entity check:", check_entity)
+                print(ast.dump(node))
+                print()
             if check_entity(node, self.pk_import):
+                # print("---> TRUE")
+                # print(ast.dump(node))
+                # print()
+
                 start: int = node.lineno - 1
 
                 try:
@@ -159,7 +168,7 @@ class Parser:
                 if (attribute.value.id == pk_import
                         and Decorator.is_kokkos_classtype(attribute.attr)):
                     return True
-
+        
         return False
 
     @staticmethod
