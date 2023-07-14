@@ -11,7 +11,7 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
-    RandomPool, RangePolicy, TeamPolicy, View, ViewType,
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes,
     is_host_execution_space
 )
 import pykokkos.kokkos_manager as km
@@ -45,7 +45,7 @@ class Runtime:
             return
 
         module_setup: ModuleSetup = self.get_module_setup(workload, space)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), None)
 
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
@@ -56,7 +56,8 @@ class Runtime:
     def precompile_workunit(
         self,
         workunit: Callable[..., None],
-        space: ExecutionSpace = "Default"
+        space: ExecutionSpace = "Default",
+        updated_types: Optional[List[UpdatedTypes]] = None
         ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
@@ -67,7 +68,7 @@ class Runtime:
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled())
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
         return members
 
     def compile_into_module(
@@ -88,6 +89,7 @@ class Runtime:
     def run_workunit(
         self,
         name: Optional[str],
+        updated_types: Optional[List[UpdatedTypes]],
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
         operation: Optional[str] = None,
@@ -111,12 +113,12 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit,policy.space)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit,policy.space,updated_types)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
-        print("RUNNING WORKUNIT:", name)
+        print(">>>>>>> RUNNING WORKUNIT:", name)
         return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:

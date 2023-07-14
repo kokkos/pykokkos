@@ -25,6 +25,17 @@ class HandledArgs:
     view: Optional[ViewType]
     initial_value: Union[int, float]
 
+@dataclass
+class UpdatedTypes:
+    """
+    Class for storing inferred type annotation information 
+    (Making Pykokkos more pythonic by automatically inferring types)
+    """
+
+    workunit: Callable
+    inferred_types: Dict[str, type]
+
+
 
 def check_policy(policy: Any) -> None:
     """
@@ -193,6 +204,7 @@ def parallel_for(*args, **kwargs) -> None:
     #         return
 
     handled_args: HandledArgs = handle_args(True, args)
+    updated_types: Optional[List[UpdatedTypes]] = None
     print("----------- PARALLEL FOR -----------------------")
     print("-----KWARGS", **kwargs)
     print("-----Workunit", handled_args.workunit)
@@ -202,6 +214,9 @@ def parallel_for(*args, **kwargs) -> None:
     if isinstance(handled_args.policy, RangePolicy):
         # The values provided must be int for Range policy (finite iterations)
         print("FOUND RANGE POLICY")
+        print("---printing annotations:", handled_args.workunit.__annotations__)
+        print("---printing signature", inspect.signature(handled_args.workunit))
+
         # if there is no annotation provided set it manually
         if (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation is inspect._empty:
         # if (True):
@@ -213,8 +228,15 @@ def parallel_for(*args, **kwargs) -> None:
             #     print(ele)
             print("----------- END OF MEMBERS")
 
+            #! LOGIC FOR INFERRING THE CORRECT PARAMETERS AND THEIR MISSING TYPES GOES HERE: TODO
             #! Changing types
-            handled_args.workunit = change_types(handled_args.workunit)
+            # handled_args.workunit = change_types(handled_args.workunit)
+            # handled_args.workunit.__annotations__["i"] = int
+            print("---printing annotations again:", handled_args.workunit.__annotations__)
+            print("---printing signature again", inspect.signature(handled_args.workunit))
+            #! Creating new object to store the correct type
+            updated_types = [UpdatedTypes(workunit=handled_args.workunit, inferred_types={'i':int})]
+
 
             # manual
             # params = list(inspect.signature(handled_args.workunit).parameters.values())
@@ -237,9 +259,11 @@ def parallel_for(*args, **kwargs) -> None:
 
 
     print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
+    print("name of workunit", handled_args.workunit.__name__)
     print("----------- END -----------------------\n")
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
+        updated_types,
         handled_args.policy,
         handled_args.workunit,
         "for",
@@ -282,6 +306,7 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     handled_args: HandledArgs = handle_args(True, args)
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
+        None,
         handled_args.policy,
         handled_args.workunit,
         operation,

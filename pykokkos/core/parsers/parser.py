@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, Union
 
 from pykokkos.core import cppast
-from pykokkos.interface import Decorator
+from pykokkos.interface import Decorator, UpdatedTypes
 
 class PyKokkosStyles(Enum):
     """
@@ -116,7 +116,7 @@ class Parser:
         check_entity: Callable[[ast.stmt], bool]
 
         print("STYLE: ", style, end="\n")
-
+        print("PATH: ", self.path)
         if style is PyKokkosStyles.workload:
             check_entity = self.is_workload
         elif style is PyKokkosStyles.functor:
@@ -129,7 +129,7 @@ class Parser:
         for i, node in enumerate(self.tree.body):
             if style is PyKokkosStyles.functor:
                 print("entity check:", check_entity)
-                print(ast.dump(node))
+                print(ast.dump(node)[0:50])
                 print()
             if check_entity(node, self.pk_import):
                 # print("---> TRUE")
@@ -143,13 +143,51 @@ class Parser:
                 except IndexError:
                     stop = len(self.lines)
                 
-                print("getting entity:", self.lines[start:stop])
                 name: str = node.name
+                print("getting entity:", name, ":",self.lines[start:stop])
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
 
+
+
+    def fix_types(self, entity: PyKokkosEntity, updated_types: List[UpdatedTypes]):
+        
+        check_entity: Callable[[ast.stmt], bool]
+        style: PyKokkosStyles = entity.style
+
+        if style is PyKokkosStyles.workload:
+            check_entity = self.is_workload
+        elif style is PyKokkosStyles.functor:
+            check_entity = self.is_functor
+        elif style is PyKokkosStyles.workunit:
+            check_entity = self.is_workunit
+        elif style is PyKokkosStyles.classtype:
+            check_entity = self.is_classtype
+        
+        for i, node in enumerate(self.tree.body):
+            
+            if check_entity(node, self.pk_import):
+                units = node.body
+                for unit in units:
+                    for update_obj in updated_types:
+                        if update_obj.workunit.__name__ == unit.name:
+                            print(ast.dump(unit), "\n\n")
+
+                            for arg_obj in unit.args.args:
+                                for update_arg, update_type in update_obj.inferred_types.items():
+                                    if update_arg == arg_obj.arg:
+                                        print("Changing to", update_type.__name__)
+                                        arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
+                                        print(arg_obj)
+
+                            # change the types to those of dictionaries, just args for now
+                            update_obj.inferred_types
+
+            
+# FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])
+# FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i', annotation=Name(id='int', ctx=Load()))], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())]) 
     @staticmethod
     def is_classtype(node: ast.stmt, pk_import: str) -> bool:
         """

@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace
+from pykokkos.interface import ExecutionSpace, UpdatedTypes
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
@@ -52,7 +52,8 @@ class Compiler:
         self,
         module_setup: ModuleSetup,
         space: ExecutionSpace,
-        force_uvm: bool
+        force_uvm: bool,
+        updated_types: Optional[List[UpdatedTypes]],
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -76,14 +77,18 @@ class Compiler:
 
         parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
-
         members: PyKokkosMembers
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
             members = self.extract_members(metadata)
             self.members[hash] = members
-
+        
+        print("PYK_ENTITY MEMBERS: ", members.pk_workunits)
+        # TODO: FIX TYPES HERE
+        print("Change types to", updated_types)
+        if updated_types is not None:
+            parser.fix_types(entity, updated_types)
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
 
         return members
