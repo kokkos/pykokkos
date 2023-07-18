@@ -8,7 +8,7 @@ from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
 
 from .views import ViewType
-from .execution_policy import ExecutionPolicy, RangePolicy
+from .execution_policy import *
 from .execution_space import ExecutionSpace
 
 workunit_cache: Dict[int, Callable] = {}
@@ -34,6 +34,7 @@ class UpdatedTypes:
 
     workunit: Callable
     inferred_types: Dict[str, type]
+    is_arg: set[str]
 
 
 
@@ -119,31 +120,70 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     if isinstance(policy, int):
         policy = RangePolicy(km.get_default_space(), 0, policy)
 
-    handled_args_obj = HandledArgs(name, policy, workunit, view, initial_value)
-    # if isinstance(policy, RangePolicy):
-    #     print("RANGE POLICY DETECTED with", policy.begin, policy.end)
-    print(handled_args_obj)
-    return handled_args_obj
+    return HandledArgs(name, policy, workunit, view, initial_value)
 
-#! Added to change param annotations 
-def change_types(workunit):
 
-    @functools.wraps(workunit)
-    def wrapper(*args, **kwargs):
-        return workunit(*args, **kwargs)
-
-    params = list(inspect.signature(workunit).parameters.values())
-    print(params)
-    for i in range(len(params)):
-        params[i] = params[i].replace(annotation=int)
-        print(params[i])
-    print(params)
+def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> UpdatedTypes:
     
-    o_signature = inspect.signature(workunit)
-    n_signature = o_signature.replace(parameters=tuple(params))
-    wrapper.__signature__ = n_signature
+    param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+    print("_____ PARAM VALUES:", param_list)
+    updated_types: UpdatedTypes = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
+    
+    policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
+    
+    # accumulator 
+    if parallel_type == "parallel_reduce":
+        policy_params += 1
 
-    return wrapper
+    for i in range(policy_params):
+        # Check policy type
+        param = param_list[i]
+        if param.annotation is inspect._empty:
+            # Check policy and apply annotation(s)
+            
+            if isinstance(handled_args.policy, RangePolicy) or isinstance(handled_args.policy, TeamThreadRange):
+                # only expects one param
+                if i == 0:
+                    updated_types.inferred_types[param.name] = int
+                    updated_types.is_arg.add(param.name)
+            
+            elif isinstance(handled_args.policy, TeamPolicy):
+                if i == 0:
+                    updated_types.inferred_types[param.name] = 'pk.TeamMember'
+                    updated_types.is_arg.add(param.name)
+            
+            elif isinstance(handled_args.policy, MDRangePolicy):
+                total_dims = len(handled_args.policy.begin) 
+                if i < total_dims:
+                    updated_types.inferred_types[param.name] = int
+                    updated_types.is_arg.add(param.name)
+            else:
+                raise ValueError("Automatic annotations not supported for this policy")
+            
+            if i == policy_params - 1 and parallel_type == "parallel_reduce":
+                updated_types.inferred_types[param.name] = 'pk.Acc[float]'
+                updated_types.is_arg.add(param.name)
+    
+
+    if len(param_list) == policy_params:
+        return updated_types
+
+    # Handling other arguments
+    value_idx: int = 3 if handled_args.name != None else 2
+    print("___ OTHER ARGS __", args[value_idx:])
+
+    assert(len(param_list) - policy_params == len(args) - value_idx, "Unannotated arguments mismatch")
+
+    for i in range(policy_params, len(param_list)):
+        param = param_list[i]
+        value = args[value_idx]
+        updated_types.inferred_types[param.name] = type(value).__name__
+        updated_types.is_arg.add(param.name)
+
+
+    return updated_types
+            
+
 
 def parallel_for(*args, **kwargs) -> None:
     """
@@ -204,66 +244,20 @@ def parallel_for(*args, **kwargs) -> None:
     #         return
 
     handled_args: HandledArgs = handle_args(True, args)
-    updated_types: Optional[List[UpdatedTypes]] = None
+    
     print("----------- PARALLEL FOR -----------------------")
     print("-----KWARGS", **kwargs)
     print("-----Workunit", handled_args.workunit)
     print("attributes for workload", (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation)
-
-    # creating experimental logic to set annotation from the value passed
-    if isinstance(handled_args.policy, RangePolicy):
-        # The values provided must be int for Range policy (finite iterations)
-        print("FOUND RANGE POLICY")
-        print("---printing annotations:", handled_args.workunit.__annotations__)
-        print("---printing signature", inspect.signature(handled_args.workunit))
-
-        # if there is no annotation provided set it manually
-        if (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation is inspect._empty:
-        # if (True):
-            print("NO ANNOTATION PROVIDED BY USER")
-
-            # replace signature
-            # print("-----------Before:")
-            # for ele in inspect.getmembers(handled_args.workunit):
-            #     print(ele)
-            print("----------- END OF MEMBERS")
-
-            #! LOGIC FOR INFERRING THE CORRECT PARAMETERS AND THEIR MISSING TYPES GOES HERE: TODO
-            #! Changing types
-            # handled_args.workunit = change_types(handled_args.workunit)
-            # handled_args.workunit.__annotations__["i"] = int
-            print("---printing annotations again:", handled_args.workunit.__annotations__)
-            print("---printing signature again", inspect.signature(handled_args.workunit))
-            #! Creating new object to store the correct type
-            updated_types = [UpdatedTypes(workunit=handled_args.workunit, inferred_types={'i':int})]
-
-
-            # manual
-            # params = list(inspect.signature(handled_args.workunit).parameters.values())
-            # print(params)
-            # for i in range(len(params)):
-            #     params[i] = params[i].replace(annotation=int)
-            #     print(params[i])
-            # print(params)
-            
-            # o_signature = inspect.signature(handled_args.workunit)
-            # n_signature = o_signature.replace(parameters=tuple(params))
-            # handled_args.workunit.__signature__ = n_signature
-
-
-            # print("-----------After:")
-            # for ele in inspect.getmembers(handled_args.workunit):
-            #     print(ele)
-            print("----------- END OF MEMBERS")
-            print("Actual Signature:", inspect.signature(handled_args.workunit))
-
-
     print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
     print("name of workunit", handled_args.workunit.__name__)
     print("----------- END -----------------------\n")
+
+    updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args)
+    
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
-        updated_types,
+        [updated_types],
         handled_args.policy,
         handled_args.workunit,
         "for",

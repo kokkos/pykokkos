@@ -84,9 +84,9 @@ class Compiler:
             members = self.extract_members(metadata)
             self.members[hash] = members
         
-        print("PYK_ENTITY MEMBERS: ", members.pk_workunits)
-        # TODO: FIX TYPES HERE
-        print("Change types to", updated_types)
+        # print("PYK_ENTITY MEMBERS: ", members.pk_workunits)
+        # # TODO: FIX TYPES HERE
+        # print("Change types to", updated_types)
         if updated_types is not None:
             parser.fix_types(entity, updated_types)
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)

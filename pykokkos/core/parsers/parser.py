@@ -93,9 +93,9 @@ class Parser:
         :param name: the name of the functor
         :returns: the PyKokkosEntity representation of the entity
         """
-        print("functors:", self.functors.keys())
-        print("workloads:", self.workloads.keys())
-        print("workunits:", self.workunits.keys())
+        # print("functors:", self.functors.keys())
+        # print("workloads:", self.workloads.keys())
+        # print("workunits:", self.workunits.keys())
 
         if name in self.workloads:
             return self.workloads[name]
@@ -115,8 +115,8 @@ class Parser:
         entities: Dict[str, PyKokkosEntity] = {}
         check_entity: Callable[[ast.stmt], bool]
 
-        print("STYLE: ", style, end="\n")
-        print("PATH: ", self.path)
+        # print("STYLE: ", style, end="\n")
+        # print("PATH: ", self.path)
         if style is PyKokkosStyles.workload:
             check_entity = self.is_workload
         elif style is PyKokkosStyles.functor:
@@ -127,10 +127,10 @@ class Parser:
             check_entity = self.is_classtype
 
         for i, node in enumerate(self.tree.body):
-            if style is PyKokkosStyles.functor:
-                print("entity check:", check_entity)
-                print(ast.dump(node)[0:50])
-                print()
+            # if style is PyKokkosStyles.functor:
+            #     print("entity check:", check_entity)
+            #     print(ast.dump(node)[0:50])
+            #     print()
             if check_entity(node, self.pk_import):
                 # print("---> TRUE")
                 # print(ast.dump(node))
@@ -144,7 +144,7 @@ class Parser:
                     stop = len(self.lines)
                 
                 name: str = node.name
-                print("getting entity:", name, ":",self.lines[start:stop])
+                # print("getting entity:", name, ":",self.lines[start:stop])
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
@@ -173,14 +173,14 @@ class Parser:
                 for unit in units:
                     for update_obj in updated_types:
                         if update_obj.workunit.__name__ == unit.name:
-                            print(ast.dump(unit), "\n\n")
+                            # print(ast.dump(unit), "\n\n")
 
                             for arg_obj in unit.args.args:
                                 for update_arg, update_type in update_obj.inferred_types.items():
                                     if update_arg == arg_obj.arg:
-                                        print("Changing to", update_type.__name__)
+                                        # print("Changing to", update_type.__name__)
                                         arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
-                                        print(arg_obj)
+                                        # print(arg_obj)
 
                             # change the types to those of dictionaries, just args for now
                             update_obj.inferred_types
