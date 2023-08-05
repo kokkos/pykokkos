@@ -587,7 +587,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     Create a PyKokkos View from a numpy array
 
     :param array: the numpy array
-    :param layout: an optional argument for memory space (used by from_cupy)
+    :param space: an optional argument for memory space (used by from_cupy)
     :param layout: an optional argument for layout (used by from_cupy)
     :returns: a PyKokkos View wrapping the array
     """
