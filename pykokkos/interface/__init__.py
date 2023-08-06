@@ -49,7 +49,7 @@ from .views import (
     ScratchView, ScratchView1D, ScratchView2D,
     ScratchView3D, ScratchView4D, ScratchView5D,
     ScratchView6D, ScratchView7D, ScratchView8D,
-    from_cupy, from_numpy,
+    from_cupy, from_numpy, from_array,
     asarray, result_type,
 )
 
