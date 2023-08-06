@@ -15,6 +15,8 @@ import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 
+import logging
+
 from .data_types import (
     DataType, DataTypeClass,
     real,
@@ -704,6 +706,50 @@ def from_cupy(array) -> ViewType:
 
     return from_numpy(np_array, memory_space, layout)
 
+def is_array(array) -> bool:
+    """
+    Check if an object conforms to enough numpy array standards to be treated as an array
+    Using the function from_cupy() as a standard for bare minimum needed to
+    to convert any array into a numpy array
+
+    :param array: the array of unknown type
+    :returns: a true/false if object is an array
+    """
+    
+    required_attr = ["dtype", "data", "shape", "flags"]
+    test_attr = dir(array)
+
+    if(not set(required_attr).issubset(set(test_attr))):
+      return False
+    
+    for d in required_attr:
+      if callable(getattr(array, d, None)):
+        return False
+
+      return True
+
+def from_array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
+    """
+    Create a PyKokkos View from a generic array
+
+    :param array: the array of unknown type
+    :param space: an optional argument for memory space (used by from_cupy)
+    :param layout: an optional argument for layout (used by from_cupy)
+    :returns: a PyKokkos View wrapping the array
+    """
+
+    if isinstance(array, np.ndarray):
+      return from_numpy(array, space, layout)
+    if is_array(array):
+      return from_cupy(array)
+
+    try:
+      _array = np.asarray(array)
+    except Exception as e: 
+        logging.error("%s: Could not convert array to View", e)
+        raise ValueError
+
+    return from_numpy(_array, space, layout)
 
 # asarray is required for comformance with the array API:
 # https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
