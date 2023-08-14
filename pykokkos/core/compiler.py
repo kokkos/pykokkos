@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 import sys
 import time
+import ast
 from typing import Dict, List, Optional
-
+from copy import deepcopy
 from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace, UpdatedTypes
@@ -65,30 +66,55 @@ class Compiler:
         """
 
         metadata = module_setup.metadata
+        print("--- MODULE METADATA:", metadata)
 
         hash: str = self.members_hash(metadata.path, metadata.name)
+        #! FIX LATER: COMMENTED TO REMOVE CACHE
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
 
-        self.is_compiled_cache[module_setup.output_dir] = True
+        self.is_compiled_cache[module_setup.output_dir] = False #! CHANGE BACK TO TRUE
 
         parser = self.get_parser(metadata.path)
+
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
         members: PyKokkosMembers
-        if hash in self.members: # True if compiled with another execution space
-            members = self.members[hash]
-        else:
-            members = self.extract_members(metadata)
-            self.members[hash] = members
+        #! Change back
+        # if hash in self.members: # True if compiled with another execution space
+        #     members = self.members[hash]
+        # else:
+        members = self.extract_members(metadata)
+        self.members[hash] = members
         
         # print("PYK_ENTITY MEMBERS: ", members.pk_workunits)
+        for mem in members.pk_workunits.values():
+            print("-----Entity member: ", ast.dump(mem), end="\n\n")
+
         # # TODO: FIX TYPES HERE
         # print("Change types to", updated_types)
         if updated_types is not None:
+            
+            #* Fixing types
             parser.fix_types(entity, updated_types)
+            
+            # #* Adjusting members to only compile the current
+            # members_copy = deepcopy(members)
+            # for key, value in members.pk_workunits.items():
+            #     print(key.declname)
+            #     # print(value.name)
+            #     for update in updated_types:
+            #         if update is not None:
+            #             # print(update.workunit.__name__)
+            #             if key.declname != update.workunit.__name__:
+            #                 print(">>> REMOVING from internal dict:", key.declname)
+            #                 del members_copy.pk_workunits[key]
+
+            # members = members_copy
+            # self.members[hash] = members    
+            
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
 
         return members
@@ -273,7 +299,9 @@ class Compiler:
         :param output_dir: the location of the compiled entity
         :returns: True if output_dir exists
         """
-
+        #! Change back
+        return False
+    
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]
 
@@ -289,7 +317,7 @@ class Compiler:
         :param path: the path to the file
         :returns: the Parser object
         """
-
+        #! CHANGE BACK
         if path in self.parser_cache:
             return self.parser_cache[path]
 

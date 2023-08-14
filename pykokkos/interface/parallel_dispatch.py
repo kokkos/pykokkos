@@ -126,8 +126,9 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> UpdatedTypes:
     
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
-    print("_____ PARAM VALUES:", param_list)
-    updated_types: UpdatedTypes = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
+    print("_____ PARAM VALUES:", param_list) 
+    #! Should you be always setting this?
+    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
     
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
     
@@ -139,6 +140,9 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> Upd
         # Check policy type
         param = param_list[i]
         if param.annotation is inspect._empty:
+            print("!!! ANNOTATION IS NOT PROVIDED")
+            if updated_types is None:
+                updated_types: UpdatedTypes = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
             # Check policy and apply annotation(s)
             
             if isinstance(handled_args.policy, RangePolicy) or isinstance(handled_args.policy, TeamThreadRange):
@@ -163,7 +167,11 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> Upd
             if i == policy_params - 1 and parallel_type == "parallel_reduce":
                 updated_types.inferred_types[param.name] = 'pk.Acc[float]'
                 updated_types.is_arg.add(param.name)
-    
+
+
+    if updated_types is None:
+        return None
+
 
     if len(param_list) == policy_params:
         return updated_types

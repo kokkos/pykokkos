@@ -18,7 +18,7 @@ class Workload:
         self.y[i] = 1
 
     @pk.workunit
-    def x_init(self, i: int):
+    def x_init(self, i):
         self.x[i] = 1
 
     @pk.workunit

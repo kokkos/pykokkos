@@ -33,7 +33,7 @@ class WorkunitVisitor(PyKokkosVisitor):
         else:
             operation: Optional[str] = self.get_operation_type(node)
             if operation is None:
-                self.error(node.args, "Incorrect types in workunit definition")
+                self.error(node.args, "Incorrect types in workunit definition: " + node.name)
 
             tag_type = cppast.ClassType(f"const {node.name}_tag")
             tag_type.is_reference = True
