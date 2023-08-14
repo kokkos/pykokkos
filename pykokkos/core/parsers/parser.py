@@ -5,6 +5,9 @@ from typing import Callable, Dict, List, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.interface import Decorator, UpdatedTypes
+from pykokkos.core.visitors import RemoveTransformer
+from copy import deepcopy
+
 
 class PyKokkosStyles(Enum):
     """
@@ -40,7 +43,7 @@ class Parser:
 
         :param path: the path to the file
         """
-
+        print("--------------------------------->> PARSER INITIALIZED!")
         self.lines: List[str]
         self.tree: ast.Module
         with open(path, "r") as f:
@@ -93,9 +96,9 @@ class Parser:
         :param name: the name of the functor
         :returns: the PyKokkosEntity representation of the entity
         """
-        # print("functors:", self.functors.keys())
-        # print("workloads:", self.workloads.keys())
-        # print("workunits:", self.workunits.keys())
+        print("functors:", self.functors.keys())
+        print("workloads:", self.workloads.keys())
+        print("workunits:", self.workunits.keys())
 
         if name in self.workloads:
             return self.workloads[name]
@@ -144,14 +147,14 @@ class Parser:
                     stop = len(self.lines)
                 
                 name: str = node.name
-                # print("getting entity:", name, ":",self.lines[start:stop])
+                print("getting entity:", name, ":",self.lines[start:stop])
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
 
 
-
+    # @Hannan updating this to remove other workunit nodes from the AST 
     def fix_types(self, entity: PyKokkosEntity, updated_types: List[UpdatedTypes]):
         
         check_entity: Callable[[ast.stmt], bool]
@@ -165,27 +168,62 @@ class Parser:
             check_entity = self.is_workunit
         elif style is PyKokkosStyles.classtype:
             check_entity = self.is_classtype
-        
-        for i, node in enumerate(self.tree.body):
-            
+
+        # REMOVING NODES NOT NEEDED FROM AST
+        working_tree = deepcopy(self.tree)
+        for node in self.tree.body:
             if check_entity(node, self.pk_import):
                 units = node.body
                 for unit in units:
+                    print(">>>>>> Scanning to remove:", unit.name)
                     for update_obj in updated_types:
-                        if update_obj.workunit.__name__ == unit.name:
-                            # print(ast.dump(unit), "\n\n")
+                        if update_obj is not None and unit.name != "__init__" and unit.name != update_obj.workunit.__name__:
+                            print("REMOVING FROM AST: ", unit.name)
+                            transformer = RemoveTransformer(unit)
+                            working_tree = transformer.visit(working_tree)
+        self.tree = working_tree
+        print()
+
+        # Changing annotations for the needed workunit definitions
+        for i, node in enumerate(self.tree.body):
+            if check_entity(node, self.pk_import):
+                units = node.body
+                for unit in units:
+                    print(">>>>> Scanning to change types:", unit.name)
+                    for update_obj in updated_types:
+                     
+                        if update_obj is not None and update_obj.workunit.__name__ == unit.name:
+                            print("Needs modification:", ast.dump(unit))
 
                             for arg_obj in unit.args.args:
                                 for update_arg, update_type in update_obj.inferred_types.items():
                                     if update_arg == arg_obj.arg:
-                                        # print("Changing to", update_type.__name__)
+                                        print("Changing to", update_type.__name__)
                                         arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
-                                        # print(arg_obj)
+                                        print(arg_obj.arg, arg_obj.annotation.id)
+                                    # change the types to those of dictionaries, just args for now
+                                    # update_obj.inferred_types
+        print()
+        # Checking to ensure changes reflect in the AST
+        for i, node in enumerate(self.tree.body):       
+            if check_entity(node, self.pk_import):
+                units = node.body
+                for unit in units:
+                    for update_obj in updated_types:
+                        if update_obj is not None and update_obj.workunit.__name__ != unit.name:
+                            print(unit.name, "EXISTS IN AST")
+                        if update_obj is not None and update_obj.workunit.__name__ == unit.name:
+                            for arg_obj in unit.args.args:
+                                for update_arg, update_type in update_obj.inferred_types.items():
+                                    if update_arg == arg_obj.arg:
+                                        print(arg_obj.arg, arg_obj.annotation.id)
+                                        print("Modified:", ast.dump(unit), "\n\n")
+                                    # change the types to those of dictionaries, just args for now
+                                    # update_obj.inferred_types
 
-                            # change the types to those of dictionaries, just args for now
-                            update_obj.inferred_types
 
-            
+
+
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i', annotation=Name(id='int', ctx=Load()))], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())]) 
     @staticmethod
