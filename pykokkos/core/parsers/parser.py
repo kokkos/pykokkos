@@ -170,6 +170,7 @@ class Parser:
             check_entity = self.is_classtype
 
         # REMOVING NODES NOT NEEDED FROM AST
+        entity_tree = Union[ast.ClassDef, ast.FunctionDef]
         working_tree = deepcopy(self.tree)
         for node in self.tree.body:
             if check_entity(node, self.pk_import):
@@ -207,6 +208,7 @@ class Parser:
         # Checking to ensure changes reflect in the AST
         for i, node in enumerate(self.tree.body):       
             if check_entity(node, self.pk_import):
+                entity_tree = node
                 units = node.body
                 for unit in units:
                     for update_obj in updated_types:
@@ -221,8 +223,8 @@ class Parser:
                                     # change the types to those of dictionaries, just args for now
                                     # update_obj.inferred_types
 
-
-
+        # print("returning: \n", ast.dump(entity_tree))
+        return entity_tree
 
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i', annotation=Name(id='int', ctx=Load()))], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())]) 

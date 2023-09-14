@@ -69,7 +69,8 @@ class Compiler:
         print("--- MODULE METADATA:", metadata)
 
         hash: str = self.members_hash(metadata.path, metadata.name)
-        #! FIX LATER: COMMENTED TO REMOVE CACHE
+        
+        #! Change back: Always false, never true
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 self.members[hash] = self.extract_members(metadata)
@@ -98,7 +99,7 @@ class Compiler:
         if updated_types is not None:
             
             #* Fixing types
-            parser.fix_types(entity, updated_types)
+            entity.AST = parser.fix_types(entity, updated_types)
             
             # #* Adjusting members to only compile the current
             # members_copy = deepcopy(members)
@@ -114,9 +115,14 @@ class Compiler:
 
             # members = members_copy
             # self.members[hash] = members    
-            
-        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
+        # entity = parser.get_entity(metadata.name)
+        # print(ast.dump(entity.AST))
 
+        #! Has to be redone: members now have updated ASSubT
+        members = self.extract_members(metadata)
+        self.members[hash] = members
+
+        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
         return members
 
     def compile_entity(
@@ -152,12 +158,16 @@ class Compiler:
 
         cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
         translator = StaticTranslator(module_setup.name, self.functor_file,self.functor_cast_file, members)
-
         t_start: float = time.perf_counter()
         functor: List[str]
         bindings: List[str]
         cast: List[str]
+        print("????????????????????????????????????????? HERE1")
+
         functor, bindings, cast = translator.translate(entity, classtypes)
+
+        print("????????????????????????????????????????? HERE2")
+
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
@@ -277,7 +287,7 @@ class Compiler:
         :returns: the PyKokkosMembers object
         """
 
-        parser = self.get_parser(metadata.path)
+        parser = self.get_parser(metadata.path, True)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
         entity.AST = StaticTranslator.add_parent_refs(entity.AST)
@@ -300,7 +310,7 @@ class Compiler:
         :returns: True if output_dir exists
         """
         #! Change back
-        return False
+        # return False
     
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]
@@ -310,7 +320,7 @@ class Compiler:
 
         return is_compiled
 
-    def get_parser(self, path: str) -> Parser:
+    def get_parser(self, path: str, just_extract: bool = False) -> Parser:
         """
         Get the parser for a particular file
 
@@ -318,9 +328,10 @@ class Compiler:
         :returns: the Parser object
         """
         #! CHANGE BACK
-        if path in self.parser_cache:
+        if path in self.parser_cache and just_extract:
             return self.parser_cache[path]
 
+        print("---------------------->> NEW PARSER CREATED")
         parser = Parser(path)
         self.parser_cache[path] = parser
 

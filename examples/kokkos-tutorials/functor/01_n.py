@@ -19,7 +19,7 @@ class Workload:
 
     @pk.workunit
     def x_init(self, i):
-        self.x[i] = 1
+        self.x[i] = 2
 
     @pk.workunit
     def matrix_init(self, j: int):
@@ -44,7 +44,7 @@ def run() -> None:
 
     p = pk.RangePolicy(pk.get_default_space(), 0, N)
     w = Workload(N, M)
-    pk.parallel_for(p, w.y_init)
+    # pk.parallel_for(p, w.y_init)
     pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), w.x_init)
     pk.parallel_for(p, w.matrix_init)
 

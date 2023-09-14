@@ -1,6 +1,7 @@
 import gc
 import inspect
 import functools
+import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -79,6 +80,8 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     view: Optional[ViewType] = None
     initial_value: Union[int, float] = 0
 
+    print("handle_args arguments: ", *args)
+
     if len(unpacked) == 2:
         policy = unpacked[0]
         workunit = unpacked[1]
@@ -123,15 +126,16 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 
-def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> UpdatedTypes:
+def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> UpdatedTypes:
     
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+    args_list = list(*args)
     print("_____ PARAM VALUES:", param_list) 
     #! Should you be always setting this?
     updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
     
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
-    
+    print("Policy Params:", policy_params)
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
@@ -140,7 +144,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> Upd
         # Check policy type
         param = param_list[i]
         if param.annotation is inspect._empty:
-            print("!!! ANNOTATION IS NOT PROVIDED")
+            print("[!!!] ANNOTATION IS NOT PROVIDED for policy param: ", param)
             if updated_types is None:
                 updated_types: UpdatedTypes = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
             # Check policy and apply annotation(s)
@@ -176,19 +180,46 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args) -> Upd
     if len(param_list) == policy_params:
         return updated_types
 
+    # Handle Kwargs
+    print("KWARGS RECEIVED: ", passed_kwargs)
+    if len(passed_kwargs.keys()):
+        # add value to arguments so the value can be assessed
+        for param in param_list[policy_params:]:
+            if param.name in passed_kwargs:
+                args_list.append(passed_kwargs[param.name])
+    
+
     # Handling other arguments
-    value_idx: int = 3 if handled_args.name != None else 2
-    print("___ OTHER ARGS __", args[value_idx:])
+    print("handled args name:", handled_args.name)
+    print(args_list)
+    value_idx: int = 3 if handled_args.name != None else 2 
+    print("___ OTHER ARGS ___", args_list[value_idx:])
 
-    assert(len(param_list) - policy_params == len(args) - value_idx, "Unannotated arguments mismatch")
 
+
+    print(len(args_list) - value_idx)
+    assert (len(param_list) - policy_params) == len(args_list) - value_idx, f"Unannotated arguments mismatch {len(param_list) - policy_params} != {len(args_list) - value_idx}"
+    
+    # At this point there must more arguments to the workunit that may not have their types annotated
+    # These parameters may also not have raw values associated in the stand alone format -> infer types from the parameter list
+
+
+    for i in range(policy_params , len(param_list)):
+        # Check policy type
+        param = param_list[i]
+        if param.annotation is inspect._empty:
+            print("[!!!] ANNOTATION IS NOT PROVIDED PARAM", param)
+
+    args = list(*args)
     for i in range(policy_params, len(param_list)):
         param = param_list[i]
-        value = args[value_idx]
+        print("Current param:", param)
+        value = args_list[value_idx+i-policy_params]
+        print("Type:", type(value))
         updated_types.inferred_types[param.name] = type(value).__name__
         updated_types.is_arg.add(param.name)
 
-
+    sys.exit(1)
     return updated_types
             
 
@@ -251,17 +282,20 @@ def parallel_for(*args, **kwargs) -> None:
     #         func(**args)
     #         return
 
+
+
     handled_args: HandledArgs = handle_args(True, args)
     
     print("----------- PARALLEL FOR -----------------------")
-    print("-----KWARGS", **kwargs)
+    print("-----KWARGS", kwargs)
+    print("-----ARGS", args)
     print("-----Workunit", handled_args.workunit)
     print("attributes for workload", (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation)
     print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
     print("name of workunit", handled_args.workunit.__name__)
     print("----------- END -----------------------\n")
 
-    updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args)
+    updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
     
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,

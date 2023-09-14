@@ -68,13 +68,15 @@ class StaticTranslator:
 
         source: Tuple[List[str], int] = entity.source
         functor_name: str = f"pk_functor_{entity.name.declname}"
-
+        print("AM HERE1")
         classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
+        print("AM HERE2")
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
         has_rand_call: bool
         workunits, has_rand_call = self.translate_workunits(source)
+        print("AM HERE3")
 
         struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
 
@@ -207,11 +209,13 @@ class StaticTranslator:
             self.pk_members.fields, self.pk_members.pk_functions,
             self.pk_members.classtype_methods, self.pk_import, debug=True)
 
+        print("Visitor initialzied")
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 
         has_rand_call: bool = False
         for n, w in self.pk_members.pk_workunits.items():
             try:
+                print("Visiting:", ast.dump(w), "\n")
                 workunits[n] = node_visitor.visit(w)
                 has_rand_call = has_rand_call or node_visitor.has_rand_call
                 if node_visitor.has_rand_call:
