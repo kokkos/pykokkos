@@ -210,16 +210,14 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         if param.annotation is inspect._empty:
             print("[!!!] ANNOTATION IS NOT PROVIDED PARAM", param)
 
-    args = list(*args)
-    for i in range(policy_params, len(param_list)):
-        param = param_list[i]
-        print("Current param:", param)
-        value = args_list[value_idx+i-policy_params]
-        print("Type:", type(value))
-        updated_types.inferred_types[param.name] = type(value).__name__
-        updated_types.is_arg.add(param.name)
+            print("Current param:", param)
+            value = args_list[value_idx+i-policy_params]
+            print("DIRS:", dir(value))
+            print("Type:", value.layout)
+            updated_types.inferred_types[param.name] = type(value).__name__
+            updated_types.is_arg.add(param.name)
 
-    sys.exit(1)
+
     return updated_types
             
 

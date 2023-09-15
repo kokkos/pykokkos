@@ -67,7 +67,6 @@ class Compiler:
 
         metadata = module_setup.metadata
         print("--- MODULE METADATA:", metadata)
-
         hash: str = self.members_hash(metadata.path, metadata.name)
         
         #! Change back: Always false, never true
@@ -80,24 +79,30 @@ class Compiler:
         self.is_compiled_cache[module_setup.output_dir] = False #! CHANGE BACK TO TRUE
 
         parser = self.get_parser(metadata.path)
+        print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
 
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
         members: PyKokkosMembers
+
         #! Change back
         # if hash in self.members: # True if compiled with another execution space
         #     members = self.members[hash]
         # else:
+    
         members = self.extract_members(metadata)
+        print("----- COMPILER DUMPING TREE3", ast.dump(parser.tree))
+
+
         self.members[hash] = members
         
-        # print("PYK_ENTITY MEMBERS: ", members.pk_workunits)
+        print("PYK_ENTITY MEMBERS: ", ast.dump(entity.AST))
         for mem in members.pk_workunits.values():
             print("-----Entity member: ", ast.dump(mem), end="\n\n")
 
         # # TODO: FIX TYPES HERE
         # print("Change types to", updated_types)
         if updated_types is not None:
-            
+            print("Sending entity tree",ast.dump(entity.AST))
             #* Fixing types
             entity.AST = parser.fix_types(entity, updated_types)
             
@@ -290,13 +295,17 @@ class Compiler:
         parser = self.get_parser(metadata.path, True)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
+
         entity.AST = StaticTranslator.add_parent_refs(entity.AST)
+
         classtypes = parser.get_classtypes()
         for c in classtypes:
             c.AST = StaticTranslator.add_parent_refs(c.AST)
 
+
         members = PyKokkosMembers()
         members.extract(entity, classtypes)
+        print("----- COMPILER DUMPING TREE2", ast.dump(parser.tree))
 
         return members
 
@@ -310,7 +319,7 @@ class Compiler:
         :returns: True if output_dir exists
         """
         #! Change back
-        # return False
+        return False
     
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]

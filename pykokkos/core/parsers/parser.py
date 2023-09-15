@@ -50,6 +50,8 @@ class Parser:
             self.lines = f.readlines()
             self.tree = ast.parse("".join(self.lines))
 
+        print("--!!!!!--- PARSER DUMPING FRESH:", ast.dump(self.tree) )
+
         self.path: str = path
         self.pk_import: str = self.get_import()
         self.workloads: Dict[str, PyKokkosEntity] = {}
@@ -169,61 +171,71 @@ class Parser:
         elif style is PyKokkosStyles.classtype:
             check_entity = self.is_classtype
 
-        # REMOVING NODES NOT NEEDED FROM AST
+        #* REMOVING NODES NOT NEEDED FROM AST
         entity_tree = Union[ast.ClassDef, ast.FunctionDef]
         working_tree = deepcopy(self.tree)
+        print("---- BODY DUMP", ast.dump(self.tree))
+        print("___ BEFORE REMOVE: ", self.tree.body)
         for node in self.tree.body:
             if check_entity(node, self.pk_import):
-                units = node.body
-                for unit in units:
-                    print(">>>>>> Scanning to remove:", unit.name)
-                    for update_obj in updated_types:
-                        if update_obj is not None and unit.name != "__init__" and unit.name != update_obj.workunit.__name__:
-                            print("REMOVING FROM AST: ", unit.name)
-                            transformer = RemoveTransformer(unit)
-                            working_tree = transformer.visit(working_tree)
+                unit = node
+                print("--- NODE", ast.dump(node))
+
+                # #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
+                # for unit in units:
+                #     print(unit, "\n")
+                print(">>>>>> Scanning to remove:", unit.name)
+                for update_obj in updated_types:
+                    if update_obj is not None and unit.name != "__init__" and unit.name != update_obj.workunit.__name__:
+                        print("REMOVING FROM AST: ", unit.name)
+                        transformer = RemoveTransformer(unit)
+                        working_tree = transformer.visit(working_tree)
         self.tree = working_tree
+        print("____ AFTER REMOVE: ", self.tree.body)
+
         print()
 
         # Changing annotations for the needed workunit definitions
         for i, node in enumerate(self.tree.body):
             if check_entity(node, self.pk_import):
-                units = node.body
-                for unit in units:
-                    print(">>>>> Scanning to change types:", unit.name)
-                    for update_obj in updated_types:
-                     
-                        if update_obj is not None and update_obj.workunit.__name__ == unit.name:
-                            print("Needs modification:", ast.dump(unit))
+                unit = node
+                # #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
+                # for unit in units:
+                print(">>>>> Scanning to change types:", unit.name)
+                for update_obj in updated_types:
+                    
+                    if update_obj is not None and update_obj.workunit.__name__ == unit.name:
+                        print("Needs modification:", ast.dump(unit))
 
-                            for arg_obj in unit.args.args:
-                                for update_arg, update_type in update_obj.inferred_types.items():
-                                    if update_arg == arg_obj.arg:
-                                        print("Changing to", update_type.__name__)
-                                        arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
-                                        print(arg_obj.arg, arg_obj.annotation.id)
-                                    # change the types to those of dictionaries, just args for now
-                                    # update_obj.inferred_types
+                        for arg_obj in unit.args.args:
+                            for update_arg, update_type in update_obj.inferred_types.items():
+                                if update_arg == arg_obj.arg:
+                                    print("Changing to", update_type.__name__)
+                                    arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
+                                    print(arg_obj.arg, arg_obj.annotation.id)
+                                # change the types to those of dictionaries, just args for now
+                                # update_obj.inferred_types
         print()
         # Checking to ensure changes reflect in the AST
         for i, node in enumerate(self.tree.body):       
             if check_entity(node, self.pk_import):
                 entity_tree = node
-                units = node.body
-                for unit in units:
-                    for update_obj in updated_types:
-                        if update_obj is not None and update_obj.workunit.__name__ != unit.name:
-                            print(unit.name, "EXISTS IN AST")
-                        if update_obj is not None and update_obj.workunit.__name__ == unit.name:
-                            for arg_obj in unit.args.args:
-                                for update_arg, update_type in update_obj.inferred_types.items():
-                                    if update_arg == arg_obj.arg:
-                                        print(arg_obj.arg, arg_obj.annotation.id)
-                                        print("Modified:", ast.dump(unit), "\n\n")
-                                    # change the types to those of dictionaries, just args for now
-                                    # update_obj.inferred_types
+                unit = node
+                #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
+                # for unit in units:
+                for update_obj in updated_types:
+                    if update_obj is not None and update_obj.workunit.__name__ != unit.name:
+                        print(unit.name, "EXISTS IN AST")
+                    if update_obj is not None and update_obj.workunit.__name__ == unit.name:
+                        for arg_obj in unit.args.args:
+                            for update_arg, update_type in update_obj.inferred_types.items():
+                                if update_arg == arg_obj.arg:
+                                    print(arg_obj.arg, arg_obj.annotation.id)
+                                    print("Modified:", ast.dump(unit), "\n\n")
+                                # change the types to those of dictionaries, just args for now
+                                # update_obj.inferred_types
 
-        # print("returning: \n", ast.dump(entity_tree))
+        print("returning: \n", ast.dump(entity_tree))
         return entity_tree
 
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])

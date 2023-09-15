@@ -64,6 +64,7 @@ class StaticTranslator:
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
 
+        print("AM HERE0")
         self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source
