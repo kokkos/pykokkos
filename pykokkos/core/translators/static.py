@@ -64,20 +64,16 @@ class StaticTranslator:
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
 
-        print("AM HERE0")
         self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source
         functor_name: str = f"pk_functor_{entity.name.declname}"
-        print("AM HERE1")
         classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
-        print("AM HERE2")
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
         has_rand_call: bool
         workunits, has_rand_call = self.translate_workunits(source)
-        print("AM HERE3")
 
         struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
 

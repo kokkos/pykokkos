@@ -66,7 +66,7 @@ class Compiler:
         """
 
         metadata = module_setup.metadata
-        print("--- MODULE METADATA:", metadata)
+        print("[MODULE METADATA: compile_object]", metadata)
         hash: str = self.members_hash(metadata.path, metadata.name)
         
         #! Change back: Always false, never true
@@ -79,7 +79,7 @@ class Compiler:
         self.is_compiled_cache[module_setup.output_dir] = False #! CHANGE BACK TO TRUE
 
         parser = self.get_parser(metadata.path)
-        print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
+        # print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
 
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
         members: PyKokkosMembers
@@ -89,20 +89,20 @@ class Compiler:
         #     members = self.members[hash]
         # else:
     
-        members = self.extract_members(metadata)
-        print("----- COMPILER DUMPING TREE3", ast.dump(parser.tree))
+        # members = self.extract_members(metadata)
+        # print("----- COMPILER DUMPING TREE3", ast.dump(parser.tree))
 
 
-        self.members[hash] = members
+        # self.members[hash] = members
         
-        print("PYK_ENTITY MEMBERS: ", ast.dump(entity.AST))
-        for mem in members.pk_workunits.values():
-            print("-----Entity member: ", ast.dump(mem), end="\n\n")
+        print("\n[PYK_ENTITY MEMBERS: compile_object]:", ast.dump(entity.AST), "\n")
+        # for mem in members.pk_workunits.values():
+        #     print("-----Entity member: ", ast.dump(mem), end="\n\n")
 
         # # TODO: FIX TYPES HERE
         # print("Change types to", updated_types)
         if updated_types is not None:
-            print("Sending entity tree",ast.dump(entity.AST))
+            print("\nSending entity tree to fix_types...",ast.dump(entity.AST))
             #* Fixing types
             entity.AST = parser.fix_types(entity, updated_types)
             
@@ -123,7 +123,6 @@ class Compiler:
         # entity = parser.get_entity(metadata.name)
         # print(ast.dump(entity.AST))
 
-        #! Has to be redone: members now have updated ASSubT
         members = self.extract_members(metadata)
         self.members[hash] = members
 
@@ -167,11 +166,11 @@ class Compiler:
         functor: List[str]
         bindings: List[str]
         cast: List[str]
-        print("????????????????????????????????????????? HERE1")
+        # print("????????????????????????????????????????? HERE1")
 
         functor, bindings, cast = translator.translate(entity, classtypes)
 
-        print("????????????????????????????????????????? HERE2")
+        # print("????????????????????????????????????????? HERE2")
 
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
@@ -304,8 +303,9 @@ class Compiler:
 
 
         members = PyKokkosMembers()
+        # print("----- COMPILER DUMPING TREE2", ast.dump(parser.tree))
+
         members.extract(entity, classtypes)
-        print("----- COMPILER DUMPING TREE2", ast.dump(parser.tree))
 
         return members
 

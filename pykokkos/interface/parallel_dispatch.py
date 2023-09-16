@@ -130,12 +130,12 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
-    print("_____ PARAM VALUES:", param_list) 
+    print("\t[get_annotations] PARAM VALUES:", param_list) 
     #! Should you be always setting this?
     updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
     
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
-    print("Policy Params:", policy_params)
+    print("\t[get_annotations] POLICY PARAMS:", policy_params)
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
@@ -144,7 +144,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         # Check policy type
         param = param_list[i]
         if param.annotation is inspect._empty:
-            print("[!!!] ANNOTATION IS NOT PROVIDED for policy param: ", param)
+            print("\t\t[!!!] ANNOTATION IS NOT PROVIDED for policy param: ", param)
             if updated_types is None:
                 updated_types: UpdatedTypes = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
             # Check policy and apply annotation(s)
@@ -181,7 +181,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         return updated_types
 
     # Handle Kwargs
-    print("KWARGS RECEIVED: ", passed_kwargs)
+    print("\t[get_annotations] KWARGS RECEIVED: ", passed_kwargs)
     if len(passed_kwargs.keys()):
         # add value to arguments so the value can be assessed
         for param in param_list[policy_params:]:
@@ -190,10 +190,10 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     
 
     # Handling other arguments
-    print("handled args name:", handled_args.name)
+    # print("handled args name:", handled_args.name) # prints the profiling label
     print(args_list)
     value_idx: int = 3 if handled_args.name != None else 2 
-    print("___ OTHER ARGS ___", args_list[value_idx:])
+    print("\t[get_annotations] ___ OTHER ARGS ___", args_list[value_idx:])
 
 
 
@@ -208,12 +208,11 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         # Check policy type
         param = param_list[i]
         if param.annotation is inspect._empty:
-            print("[!!!] ANNOTATION IS NOT PROVIDED PARAM", param)
+            print("\t\t[!!!] ANNOTATION IS NOT PROVIDED PARAM", param)
 
-            print("Current param:", param)
             value = args_list[value_idx+i-policy_params]
-            print("DIRS:", dir(value))
-            print("Type:", value.layout)
+            # print("DIRS:", dir(value))
+            # print("Type:", value.layout)
             updated_types.inferred_types[param.name] = type(value).__name__
             updated_types.is_arg.add(param.name)
 
@@ -284,7 +283,7 @@ def parallel_for(*args, **kwargs) -> None:
 
     handled_args: HandledArgs = handle_args(True, args)
     
-    print("----------- PARALLEL FOR -----------------------")
+    print("\n----------- PARALLEL FOR -----------------------")
     print("-----KWARGS", kwargs)
     print("-----ARGS", args)
     print("-----Workunit", handled_args.workunit)

@@ -50,7 +50,6 @@ class Parser:
             self.lines = f.readlines()
             self.tree = ast.parse("".join(self.lines))
 
-        print("--!!!!!--- PARSER DUMPING FRESH:", ast.dump(self.tree) )
 
         self.path: str = path
         self.pk_import: str = self.get_import()
@@ -174,12 +173,12 @@ class Parser:
         #* REMOVING NODES NOT NEEDED FROM AST
         entity_tree = Union[ast.ClassDef, ast.FunctionDef]
         working_tree = deepcopy(self.tree)
-        print("---- BODY DUMP", ast.dump(self.tree))
-        print("___ BEFORE REMOVE: ", self.tree.body)
+        # print("---- BODY DUMP", ast.dump(self.tree))
+        # print("___ BEFORE REMOVE: ", self.tree.body)
         for node in self.tree.body:
             if check_entity(node, self.pk_import):
                 unit = node
-                print("--- NODE", ast.dump(node))
+                # print("--- NODE", ast.dump(node))
 
                 # #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
                 # for unit in units:
@@ -191,7 +190,7 @@ class Parser:
                         transformer = RemoveTransformer(unit)
                         working_tree = transformer.visit(working_tree)
         self.tree = working_tree
-        print("____ AFTER REMOVE: ", self.tree.body)
+        # print("____ AFTER REMOVE: ", self.tree.body)
 
         print()
 
@@ -235,7 +234,7 @@ class Parser:
                                 # change the types to those of dictionaries, just args for now
                                 # update_obj.inferred_types
 
-        print("returning: \n", ast.dump(entity_tree))
+        print("[FIX TYPES RETURN] returning: \n", ast.dump(entity_tree), "\n")
         return entity_tree
 
 # FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])
