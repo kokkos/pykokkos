@@ -14,7 +14,7 @@ def matrix_init(j, M: int, A: pk.View1D[pk.double]):
         A[j * M + i] = 1
 
 @pk.workunit
-def yAx(j:int, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View1D[pk.double]):
+def yAx(j, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View1D[pk.double]):
     temp2: float = 0
     for i in range(M):
         temp2 += A[j * M + i] * x[i]

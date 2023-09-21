@@ -136,6 +136,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
     print("\t[get_annotations] POLICY PARAMS:", policy_params)
+    
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
@@ -216,6 +217,8 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             updated_types.inferred_types[param.name] = type(value).__name__
             updated_types.is_arg.add(param.name)
 
+
+    print("RETURNING UPDATED TYPES", updated_types)
 
     return updated_types
             
@@ -337,9 +340,24 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         return func(**args)
 
     handled_args: HandledArgs = handle_args(True, args)
+
+    #* Inferring missing data types
+
+    print("\n----------- PARALLEL REDUCE -----------------------")
+    print("-----KWARGS", kwargs)
+    print("-----ARGS", args)
+    print("-----Workunit", handled_args.workunit)
+    print("attributes for workload", (list(inspect.signature(handled_args.workunit).parameters.values())[0]).annotation)
+    print("attributes for policy", handled_args.policy.begin, handled_args.policy.end)
+    print("name of workunit", handled_args.workunit.__name__)
+    print("----------- END -----------------------\n")
+
+    updated_types: UpdatedTypes = get_annotations("parallel_reduce", handled_args, args, passed_kwargs=kwargs)
+
+
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
-        None,
+        [updated_types],
         handled_args.policy,
         handled_args.workunit,
         operation,
