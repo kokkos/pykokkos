@@ -169,8 +169,9 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             else:
                 raise ValueError("Automatic annotations not supported for this policy")
             
+            # last policy param for parallel reduce is always the accumulator; the default type is float
             if i == policy_params - 1 and parallel_type == "parallel_reduce":
-                updated_types.inferred_types[param.name] = 'pk.Acc[float]'
+                updated_types.inferred_types[param.name] = "Acc:float"
                 updated_types.is_arg.add(param.name)
 
 
@@ -239,6 +240,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
 
     print("RETURNING UPDATED TYPES", updated_types)
+    # sys.exit()
     return updated_types
             
 

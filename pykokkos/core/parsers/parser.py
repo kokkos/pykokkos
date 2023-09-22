@@ -214,7 +214,7 @@ class Parser:
                                     # case statements
                                     if "int" in update_type:
                                         arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-                                        print(arg_obj.arg, arg_obj.annotation.id)
+                                        
                                     
                                         #todo expand on this
                                     if "View" in update_type:
@@ -245,7 +245,26 @@ class Parser:
                                             ),
                                             ctx = ast.Load()
                                         )
-                                        print(arg_obj.arg, arg_obj.annotation)
+
+                                    if "Acc" in update_type:
+                                        # update_type = Acc:float
+                                        dtype = update_type.split(":")[1]
+                                        # Subscript(
+                                        #    value=Attribute(
+                                        #           value=Name(id='pk', ctx=Load()), 
+                                        #           attr='Acc', 
+                                        #           ctx=Load()), 
+                                        #     slice=Name(id='float', ctx=Load())
+                                        arg_obj.annotation = ast.Subscript(
+                                                value = ast.Attribute(
+                                                    value = ast.Name(id="pk", ctx=ast.Load()),
+                                                    attr = "Acc",
+                                                    ctx = ast.Load()
+                                            ),
+                                            slice = ast.Name(id = dtype, ctx = ast.Load()),
+                                            ctx = ast.Load()
+                                        )
+                                    print(arg_obj.arg, arg_obj.annotation)
                                 # change the types to those of dictionaries, just args for now
                                 # update_obj.inferred_types
         print()
