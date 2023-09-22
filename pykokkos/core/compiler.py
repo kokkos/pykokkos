@@ -95,7 +95,7 @@ class Compiler:
 
         # self.members[hash] = members
         
-        print("\n[PYK_ENTITY MEMBERS: compile_object]:", ast.dump(entity.AST), "\n")
+        # print("\n[PYK_ENTITY MEMBERS: compile_object]:", ast.dump(entity.AST), "\n")
         # for mem in members.pk_workunits.values():
         #     print("-----Entity member: ", ast.dump(mem), end="\n\n")
 
@@ -104,9 +104,10 @@ class Compiler:
         if updated_types is not None:
             print("\nSending entity tree to fix_types...",ast.dump(entity.AST))
             #* Fixing types
+
             entity.AST = parser.fix_types(entity, updated_types)
             
-            # #* Adjusting members to only compile the current
+            # #* Adjusting members to only compile the current -- this code wont be needed as we are getting rid of functors
             # members_copy = deepcopy(members)
             # for key, value in members.pk_workunits.items():
             #     print(key.declname)
@@ -125,7 +126,8 @@ class Compiler:
 
         members = self.extract_members(metadata)
         self.members[hash] = members
-
+        
+        # sys.exit()
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
         return members
 

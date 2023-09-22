@@ -78,7 +78,7 @@ class PyKokkosMembers:
 
             self.fields, self.views = self.get_params(AST, source, param_begin, pk_import)
             self.fix_params(AST, param_begin)
-            print("[DUMPING FROM EXTRACT: members.py]: -------\n", ast.dump(AST), "\n")
+            # print("[DUMPING FROM EXTRACT: members.py]: -------\n", ast.dump(AST), "\n")
         
 
         self.real_dtype_views = self.get_real_views()

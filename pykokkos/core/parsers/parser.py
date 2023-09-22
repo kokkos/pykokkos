@@ -170,7 +170,7 @@ class Parser:
         elif style is PyKokkosStyles.classtype:
             check_entity = self.is_classtype
 
-        #* REMOVING NODES NOT NEEDED FROM AST
+        #*1 REMOVING NODES NOT NEEDED FROM AST
         entity_tree = Union[ast.ClassDef, ast.FunctionDef]
         working_tree = deepcopy(self.tree)
         # print("---- BODY DUMP", ast.dump(self.tree))
@@ -194,7 +194,7 @@ class Parser:
 
         print()
 
-        # Changing annotations for the needed workunit definitions
+        #*2 Changing annotations for the needed workunit definitions
         for i, node in enumerate(self.tree.body):
             if check_entity(node, self.pk_import):
                 unit = node
@@ -209,13 +209,47 @@ class Parser:
                         for arg_obj in unit.args.args:
                             for update_arg, update_type in update_obj.inferred_types.items():
                                 if update_arg == arg_obj.arg:
-                                    print("Changing to", update_type.__name__)
-                                    arg_obj.annotation = ast.Name(id="int", ctx=ast.Load())
-                                    print(arg_obj.arg, arg_obj.annotation.id)
+                                    print("Changing to", update_type)
+
+                                    # case statements
+                                    if "int" in update_type:
+                                        arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
+                                        print(arg_obj.arg, arg_obj.annotation.id)
+                                    
+                                        #todo expand on this
+                                    if "View" in update_type:
+                                        # update_type = View1D:double
+                                        view_type, dtype = update_type.split(':')
+                                        # View1D annotation=
+                                        # Subscript(
+                                        #     value=Attribute(
+                                        #           value=Name(id='pk', ctx=Load()), 
+                                        #           attr='View1D', 
+                                        #           ctx=Load()), 
+                                        #     slice=Attribute(
+                                        #           value=Name(id='pk', ctx=Load()), 
+                                        #           attr='double', 
+                                        #           ctx=Load()), 
+                                        #     ctx=Load()
+                                        #     )
+                                        arg_obj.annotation = ast.Subscript(
+                                            value = ast.Attribute(
+                                                value = ast.Name(id="pk", ctx=ast.Load()),
+                                                attr = view_type,
+                                                ctx = ast.Load()
+                                            ),
+                                            slice = ast.Attribute(
+                                                value = ast.Name(id="pk", ctx=ast.Load()),
+                                                attr = dtype,
+                                                ctx = ast.Load()
+                                            ),
+                                            ctx = ast.Load()
+                                        )
+                                        print(arg_obj.arg, arg_obj.annotation)
                                 # change the types to those of dictionaries, just args for now
                                 # update_obj.inferred_types
         print()
-        # Checking to ensure changes reflect in the AST
+        #*3 Checking to ensure changes reflect in the AST
         for i, node in enumerate(self.tree.body):       
             if check_entity(node, self.pk_import):
                 entity_tree = node
@@ -229,7 +263,7 @@ class Parser:
                         for arg_obj in unit.args.args:
                             for update_arg, update_type in update_obj.inferred_types.items():
                                 if update_arg == arg_obj.arg:
-                                    print(arg_obj.arg, arg_obj.annotation.id)
+                                    print(arg_obj.arg, arg_obj.annotation)
                                     print("Modified:", ast.dump(unit), "\n\n")
                                 # change the types to those of dictionaries, just args for now
                                 # update_obj.inferred_types

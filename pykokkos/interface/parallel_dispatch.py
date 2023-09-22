@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
 
-from .views import ViewType
+from .views import ViewType, View
 from .execution_policy import *
 from .execution_space import ExecutionSpace
 
@@ -153,7 +153,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             if isinstance(handled_args.policy, RangePolicy) or isinstance(handled_args.policy, TeamThreadRange):
                 # only expects one param
                 if i == 0:
-                    updated_types.inferred_types[param.name] = int
+                    updated_types.inferred_types[param.name] = "int"
                     updated_types.is_arg.add(param.name)
             
             elif isinstance(handled_args.policy, TeamPolicy):
@@ -164,7 +164,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             elif isinstance(handled_args.policy, MDRangePolicy):
                 total_dims = len(handled_args.policy.begin) 
                 if i < total_dims:
-                    updated_types.inferred_types[param.name] = int
+                    updated_types.inferred_types[param.name] = "int"
                     updated_types.is_arg.add(param.name)
             else:
                 raise ValueError("Automatic annotations not supported for this policy")
@@ -214,12 +214,31 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             value = args_list[value_idx+i-policy_params]
             # print("DIRS:", dir(value))
             # print("Type:", value.layout)
-            updated_types.inferred_types[param.name] = type(value).__name__
+            # Note: view class has the following constructor: 
+            # def __init__(
+            #     self,
+            #     shape: Union[List[int], Tuple[int]],
+            #     dtype: Union[DataTypeClass, type] = real,
+            #     space: MemorySpace = MemorySpace.MemorySpaceDefault,
+            #     layout: Layout = Layout.LayoutDefault,
+            #     trait: Trait = Trait.TraitDefault,
+            #     array: Optional[np.ndarray] = None
+            # )
+
+            param_type = type(value).__name__
+
+            if isinstance(value, View):
+                print("FOUND VIEW")
+                print(value.shape, value.dtype, value.space)
+                print(len(value.shape), value.dtype.name)
+                # if this is a 1D view
+                param_type = "View"+str(len(value.shape))+"D:"+str(value.dtype.name)
+
+            updated_types.inferred_types[param.name] = param_type
             updated_types.is_arg.add(param.name)
 
 
     print("RETURNING UPDATED TYPES", updated_types)
-
     return updated_types
             
 

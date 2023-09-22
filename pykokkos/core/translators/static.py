@@ -206,13 +206,11 @@ class StaticTranslator:
             self.pk_members.fields, self.pk_members.pk_functions,
             self.pk_members.classtype_methods, self.pk_import, debug=True)
 
-        print("Visitor initialzied")
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 
         has_rand_call: bool = False
         for n, w in self.pk_members.pk_workunits.items():
             try:
-                print("Visiting:", ast.dump(w), "\n")
                 workunits[n] = node_visitor.visit(w)
                 has_rand_call = has_rand_call or node_visitor.has_rand_call
                 if node_visitor.has_rand_call:
