@@ -283,19 +283,14 @@ class TestViews(unittest.TestCase):
         np_arr = np.zeros((self.threads, 2)).astype(np.int32)
         cp_arr = cp.zeros((self.threads, 2)).astype(np.int32)
         list_arr = list(np_arr)
-        test_arr = cp.zeros((self.threads, 2)).astype(np.int32)
 
         np_view = pk.from_numpy(np_arr)
         cp_view = pk.from_cupy(cp_arr)
         list_view = pk.from_array(list_arr)
 
-        #print(cp_view) # why is this segfaulting?????
-
         pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=np_view)
         pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, self.threads), addition_cp, cp_arr=cp_view)
         pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=list_view)
-        # needs more integration
-        #pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, self.threads), addition_cp, cp_arr=test_arr)
 
         for i in range(self.threads):
             self.assertEqual(1, np_arr[i][0])
@@ -305,15 +300,12 @@ class TestViews(unittest.TestCase):
 
             self.assertEqual(1, cp_arr[i][0])
             self.assertEqual(2, cp_arr[i][1])
-            #self.assertEqual(1, cp_view[i][0]) # and this too I guess
 
             self.assertEqual(1, list_arr[i][0])
             self.assertEqual(2, list_arr[i][1])
             self.assertEqual(1, list_view[i][0])
             self.assertEqual(2, list_view[i][1])
 
-            #self.assertEqual(1, test_arr[i][0])
-            #self.assertEqual(2, test_arr[i][1])
 
     @pytest.mark.skipif(not HAS_CUDA,
                         reason="CUDA/cupy not available")
