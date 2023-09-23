@@ -91,9 +91,11 @@ class ViewsTestFunctor:
 
         np_arr = np.zeros((threads, 2)).astype(np.int32)
         cp_arr = cp.zeros((threads, 2)).astype(np.int32)
+        list_arr = list(np_arr) #using numpy to get around the type issue
 
-        self.np_view: pk.View2D[int] = pk.from_numpy(np_arr)
-        self.cp_view: pk.View2D[int] = pk.from_cupy(cp_arr)
+        self.np_view: pk.View2D[int] = pk.from_array(np_arr)
+        self.cp_view: pk.View2D[int] = pk.from_array(cp_arr)
+        self.list_view: pk.View2D[int] = pk.from_array(list_arr)
 
     @pk.workunit
     def v1d(self, tid: int) -> None:
@@ -282,7 +284,7 @@ class TestViews(unittest.TestCase):
     def test_arrays(self):
         np_arr = np.zeros((self.threads, 2)).astype(np.int32)
         cp_arr = cp.zeros((self.threads, 2)).astype(np.int32)
-        list_arr = list(np_arr)
+        list_arr = list(np_arr) #using numpy to get around the type issue
 
         np_view = pk.from_numpy(np_arr)
         cp_view = pk.from_cupy(cp_arr)
@@ -396,7 +398,7 @@ def test_result_type_supported(pk_dtype, pk_dtype2, expected_promo):
 
 
 @pytest.mark.parametrize("pk_dtype, pk_dtype2", [
-    (pk.from_numpy(np.array([0])), pk.uint16),
+    (pk.from_array(np.array([0])), pk.uint16),
     (pk.uint64, pk.int8),
     (pk.float32, pk.int64),
     ])
