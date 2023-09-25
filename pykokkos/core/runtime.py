@@ -162,7 +162,6 @@ class Runtime:
             device_id: int = km.get_device_id()
             module_path = module_setup.gpu_module_paths[device_id]
 
-        #! Check how the wrappers are setup
         module = self.import_module(module_setup.name, module_path)
 
         args: Dict[str, Any] = self.get_arguments(entity, members, policy, **kwargs)
@@ -194,9 +193,9 @@ class Runtime:
         # if hashed_name in sys.modules:
         #     return sys.modules[hashed_name]
 
-        print("Creating spec from file:", module_name, module_path,"\n")
+        # print("Creating spec from file:", module_name, module_path,"\n")
         spec = importlib.util.spec_from_file_location(module_name, module_path)
-        print(spec, "\n")
+        # print(spec, "\n")
         module = importlib.util.module_from_spec(spec)
         #! Change back
         # sys.modules[hashed_name] = module
@@ -273,7 +272,7 @@ class Runtime:
         if members.has_real:
             precision: str = self.get_precision(members, args)
             wrapper += f"_{precision}"
-        print("Module attributes: ", dir(module))
+
         func = getattr(module, wrapper)
 
         if return_wrapper:

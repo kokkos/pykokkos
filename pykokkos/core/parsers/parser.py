@@ -43,7 +43,6 @@ class Parser:
 
         :param path: the path to the file
         """
-        print("--------------------------------->> PARSER INITIALIZED!")
         self.lines: List[str]
         self.tree: ast.Module
         with open(path, "r") as f:
@@ -97,9 +96,7 @@ class Parser:
         :param name: the name of the functor
         :returns: the PyKokkosEntity representation of the entity
         """
-        print("functors:", self.functors.keys())
-        print("workloads:", self.workloads.keys())
-        print("workunits:", self.workunits.keys())
+
 
         if name in self.workloads:
             return self.workloads[name]
@@ -119,8 +116,6 @@ class Parser:
         entities: Dict[str, PyKokkosEntity] = {}
         check_entity: Callable[[ast.stmt], bool]
 
-        # print("STYLE: ", style, end="\n")
-        # print("PATH: ", self.path)
         if style is PyKokkosStyles.workload:
             check_entity = self.is_workload
         elif style is PyKokkosStyles.functor:
@@ -131,167 +126,139 @@ class Parser:
             check_entity = self.is_classtype
 
         for i, node in enumerate(self.tree.body):
-            # if style is PyKokkosStyles.functor:
-            #     print("entity check:", check_entity)
-            #     print(ast.dump(node)[0:50])
-            #     print()
             if check_entity(node, self.pk_import):
-                # print("---> TRUE")
-                # print(ast.dump(node))
-                # print()
 
                 start: int = node.lineno - 1
-
                 try:
                     stop: int = self.tree.body[i + 1].lineno - 1
                 except IndexError:
                     stop = len(self.lines)
                 
                 name: str = node.name
-                print("getting entity:", name, ":",self.lines[start:stop])
+                # print("getting entity:", name, ":",self.lines[start:stop])
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
 
 
-    # @Hannan updating this to remove other workunit nodes from the AST 
-    def fix_types(self, entity: PyKokkosEntity, updated_types: List[UpdatedTypes]):
+    # @HannanNaeem updating this to remove other workunit nodes from the AST 
+    def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
         
         check_entity: Callable[[ast.stmt], bool]
         style: PyKokkosStyles = entity.style
 
-        if style is PyKokkosStyles.workload:
-            check_entity = self.is_workload
-        elif style is PyKokkosStyles.functor:
-            check_entity = self.is_functor
-        elif style is PyKokkosStyles.workunit:
-            check_entity = self.is_workunit
-        elif style is PyKokkosStyles.classtype:
-            check_entity = self.is_classtype
-
+        # only supports standalone workunits, return the entity AST as it is
+        if style is not PyKokkosStyles.workunit or updated_types == None:
+            return entity.AST
+        
+        check_entity = self.is_workunit
+        
         #*1 REMOVING NODES NOT NEEDED FROM AST
         entity_tree = Union[ast.ClassDef, ast.FunctionDef]
+        # We keep a working tree as nodes will be removed
         working_tree = deepcopy(self.tree)
-        # print("---- BODY DUMP", ast.dump(self.tree))
-        # print("___ BEFORE REMOVE: ", self.tree.body)
+
         for node in self.tree.body:
             if check_entity(node, self.pk_import):
                 unit = node
-                # print("--- NODE", ast.dump(node))
-
-                # #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
-                # for unit in units:
-                #     print(unit, "\n")
-                print(">>>>>> Scanning to remove:", unit.name)
-                for update_obj in updated_types:
-                    if update_obj is not None and unit.name != "__init__" and unit.name != update_obj.workunit.__name__:
-                        print("REMOVING FROM AST: ", unit.name)
-                        transformer = RemoveTransformer(unit)
-                        working_tree = transformer.visit(working_tree)
+                if unit.name != "__init__" and unit.name != updated_types.workunit.__name__:
+                    transformer = RemoveTransformer(unit)
+                    working_tree = transformer.visit(working_tree)
+        del self.tree
         self.tree = working_tree
-        # print("____ AFTER REMOVE: ", self.tree.body)
 
-        print()
+
+        entity_tree: ast.AST = None
 
         #*2 Changing annotations for the needed workunit definitions
-        for i, node in enumerate(self.tree.body):
+        for node in self.tree.body:
+
+            # At this point there will be only one such node that needs annotation changes
             if check_entity(node, self.pk_import):
-                unit = node
-                # #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
-                # for unit in units:
-                print(">>>>> Scanning to change types:", unit.name)
-                for update_obj in updated_types:
+                
+                if updated_types.workunit.__name__ == node.name:
                     
-                    if update_obj is not None and update_obj.workunit.__name__ == unit.name:
-                        print("Needs modification:", ast.dump(unit))
+                    entity_tree = node
 
-                        for arg_obj in unit.args.args:
-                            for update_arg, update_type in update_obj.inferred_types.items():
-                                if update_arg == arg_obj.arg:
-                                    print("Changing to", update_type)
+                    for arg_obj in node.args.args:
+                        if arg_obj.arg in updated_types.inferred_types:
+                            update_type = updated_types.inferred_types[arg_obj.arg]
 
-                                    # case statements
-                                    if "int" in update_type:
-                                        arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-                                        
-                                    
-                                        #todo expand on this
-                                    if "View" in update_type:
-                                        # update_type = View1D:double
-                                        view_type, dtype = update_type.split(':')
-                                        # View1D annotation=
-                                        # Subscript(
-                                        #     value=Attribute(
-                                        #           value=Name(id='pk', ctx=Load()), 
-                                        #           attr='View1D', 
-                                        #           ctx=Load()), 
-                                        #     slice=Attribute(
-                                        #           value=Name(id='pk', ctx=Load()), 
-                                        #           attr='double', 
-                                        #           ctx=Load()), 
-                                        #     ctx=Load()
-                                        #     )
-                                        arg_obj.annotation = ast.Subscript(
-                                            value = ast.Attribute(
-                                                value = ast.Name(id="pk", ctx=ast.Load()),
-                                                attr = view_type,
-                                                ctx = ast.Load()
-                                            ),
-                                            slice = ast.Attribute(
-                                                value = ast.Name(id="pk", ctx=ast.Load()),
-                                                attr = dtype,
-                                                ctx = ast.Load()
-                                            ),
+                            # case statements
+                            if "int" in update_type:
+                                arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
+                                
+                            
+                                #todo expand on this
+                            elif "View" in update_type:
+                                # update_type = View1D:double
+                                view_type, dtype = update_type.split(':')
+                                # View1D annotation=
+                                # Subscript(
+                                #     value=Attribute(
+                                #           value=Name(id='pk', ctx=Load()), 
+                                #           attr='View1D', 
+                                #           ctx=Load()), 
+                                #     slice=Attribute(
+                                #           value=Name(id='pk', ctx=Load()), 
+                                #           attr='double', 
+                                #           ctx=Load()), 
+                                #     ctx=Load()
+                                #     )
+                                arg_obj.annotation = ast.Subscript(
+                                    value = ast.Attribute(
+                                        value = ast.Name(id="pk", ctx=ast.Load()),
+                                        attr = view_type,
+                                        ctx = ast.Load()
+                                    ),
+                                    slice = ast.Attribute(
+                                        value = ast.Name(id="pk", ctx=ast.Load()),
+                                        attr = dtype,
+                                        ctx = ast.Load()
+                                    ),
+                                    ctx = ast.Load()
+                                )
+
+                            elif "Acc" in update_type:
+                                # update_type = Acc:float
+                                dtype = update_type.split(":")[1]
+                                # Subscript(
+                                #    value=Attribute(
+                                #           value=Name(id='pk', ctx=Load()), 
+                                #           attr='Acc', 
+                                #           ctx=Load()), 
+                                #     slice=Name(id='float', ctx=Load())
+                                arg_obj.annotation = ast.Subscript(
+                                        value = ast.Attribute(
+                                            value = ast.Name(id="pk", ctx=ast.Load()),
+                                            attr = "Acc",
                                             ctx = ast.Load()
-                                        )
+                                    ),
+                                    slice = ast.Name(id = dtype, ctx = ast.Load()),
+                                    ctx = ast.Load()
+                                )
+                            
+                            elif "pk.TeamMember" in update_type:
+                                # Attribute(
+                                #   value=Name(
+                                #       id='pk', 
+                                #       ctx=Load()), 
+                                #   attr='TeamMember', 
+                                #   ctx=Load())
+                                arg_obj.annotation = ast.Attribute(
+                                    value = ast.Name(id = "pk", ctx = ast.Load()),
+                                    attr = "TeamMember",
+                                    ctx = ast.Load()
+                                )
+                            else:
+                                raise ValueError("ERROR: Unsupported type inference")
 
-                                    if "Acc" in update_type:
-                                        # update_type = Acc:float
-                                        dtype = update_type.split(":")[1]
-                                        # Subscript(
-                                        #    value=Attribute(
-                                        #           value=Name(id='pk', ctx=Load()), 
-                                        #           attr='Acc', 
-                                        #           ctx=Load()), 
-                                        #     slice=Name(id='float', ctx=Load())
-                                        arg_obj.annotation = ast.Subscript(
-                                                value = ast.Attribute(
-                                                    value = ast.Name(id="pk", ctx=ast.Load()),
-                                                    attr = "Acc",
-                                                    ctx = ast.Load()
-                                            ),
-                                            slice = ast.Name(id = dtype, ctx = ast.Load()),
-                                            ctx = ast.Load()
-                                        )
-                                    print(arg_obj.arg, arg_obj.annotation)
-                                # change the types to those of dictionaries, just args for now
-                                # update_obj.inferred_types
-        print()
-        #*3 Checking to ensure changes reflect in the AST
-        for i, node in enumerate(self.tree.body):       
-            if check_entity(node, self.pk_import):
-                entity_tree = node
-                unit = node
-                #! This for loop is not needed for standalone:  need one further level for functors where unit is a value in node.body
-                # for unit in units:
-                for update_obj in updated_types:
-                    if update_obj is not None and update_obj.workunit.__name__ != unit.name:
-                        print(unit.name, "EXISTS IN AST")
-                    if update_obj is not None and update_obj.workunit.__name__ == unit.name:
-                        for arg_obj in unit.args.args:
-                            for update_arg, update_type in update_obj.inferred_types.items():
-                                if update_arg == arg_obj.arg:
-                                    print(arg_obj.arg, arg_obj.annotation)
-                                    print("Modified:", ast.dump(unit), "\n\n")
-                                # change the types to those of dictionaries, just args for now
-                                # update_obj.inferred_types
-
-        print("[FIX TYPES RETURN] returning: \n", ast.dump(entity_tree), "\n")
+        # debug print
+        # print("[FIX TYPES RETURN] returning: \n", ast.dump(entity_tree), "\n")
         return entity_tree
 
-# FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())])
-# FunctionDef(name='y_init', args=arguments(posonlyargs=[], args=[arg(arg='self'), arg(arg='i', annotation=Name(id='int', ctx=Load()))], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Subscript(value=Attribute(value=Name(id='self', ctx=Load()), attr='y', ctx=Load()), slice=Name(id='i', ctx=Load()), ctx=Store())], value=Constant(value=1))], decorator_list=[Attribute(value=Name(id='pk', ctx=Load()), attr='workunit', ctx=Load())]) 
+
     @staticmethod
     def is_classtype(node: ast.stmt, pk_import: str) -> bool:
         """

@@ -54,7 +54,7 @@ class Compiler:
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
-        updated_types: Optional[List[UpdatedTypes]],
+        updated_types: Optional[UpdatedTypes],
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -66,7 +66,6 @@ class Compiler:
         """
 
         metadata = module_setup.metadata
-        print("[MODULE METADATA: compile_object]", metadata)
         hash: str = self.members_hash(metadata.path, metadata.name)
         
         #! Change back: Always false, never true
@@ -84,50 +83,21 @@ class Compiler:
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
         members: PyKokkosMembers
 
+
+        if updated_types is not None:
+            #* Fixing types
+            entity.AST = parser.fix_types(entity, updated_types)
+            
+
         #! Change back
         # if hash in self.members: # True if compiled with another execution space
         #     members = self.members[hash]
         # else:
-    
-        # members = self.extract_members(metadata)
-        # print("----- COMPILER DUMPING TREE3", ast.dump(parser.tree))
-
-
-        # self.members[hash] = members
-        
-        # print("\n[PYK_ENTITY MEMBERS: compile_object]:", ast.dump(entity.AST), "\n")
-        # for mem in members.pk_workunits.values():
-        #     print("-----Entity member: ", ast.dump(mem), end="\n\n")
-
-        # # TODO: FIX TYPES HERE
-        # print("Change types to", updated_types)
-        if updated_types is not None:
-            print("\nSending entity tree to fix_types...",ast.dump(entity.AST))
-            #* Fixing types
-
-            entity.AST = parser.fix_types(entity, updated_types)
-            
-            # #* Adjusting members to only compile the current -- this code wont be needed as we are getting rid of functors
-            # members_copy = deepcopy(members)
-            # for key, value in members.pk_workunits.items():
-            #     print(key.declname)
-            #     # print(value.name)
-            #     for update in updated_types:
-            #         if update is not None:
-            #             # print(update.workunit.__name__)
-            #             if key.declname != update.workunit.__name__:
-            #                 print(">>> REMOVING from internal dict:", key.declname)
-            #                 del members_copy.pk_workunits[key]
-
-            # members = members_copy
-            # self.members[hash] = members    
-        # entity = parser.get_entity(metadata.name)
-        # print(ast.dump(entity.AST))
 
         members = self.extract_members(metadata)
         self.members[hash] = members
         
-        # sys.exit()
+
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
         return members
 
@@ -168,11 +138,9 @@ class Compiler:
         functor: List[str]
         bindings: List[str]
         cast: List[str]
-        # print("????????????????????????????????????????? HERE1")
 
         functor, bindings, cast = translator.translate(entity, classtypes)
 
-        # print("????????????????????????????????????????? HERE2")
 
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
@@ -342,7 +310,6 @@ class Compiler:
         if path in self.parser_cache and just_extract:
             return self.parser_cache[path]
 
-        print("---------------------->> NEW PARSER CREATED")
         parser = Parser(path)
         self.parser_cache[path] = parser
 

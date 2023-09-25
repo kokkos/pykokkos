@@ -13,7 +13,6 @@ class RemoveTransformer(NodeTransformer):
     def visit_FunctionDef(self, node: FunctionDef) -> Any:
         
         if node.name == self.remove_this.name:
-            print("> REMOVING FROM AST:", node.name)
             return None
         
         return node

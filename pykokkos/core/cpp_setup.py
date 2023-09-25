@@ -59,7 +59,6 @@ class CppSetup:
         self.initialize_directory(output_dir)
         self.write_raw_source(output_dir, source, filename)
         self.copy_script(output_dir)
-        print("[----------------] Invoking compilation script, compile raw sources")
         self.invoke_script(output_dir, space, enable_uvm, compiler)
 
     def compile(
@@ -92,7 +91,6 @@ class CppSetup:
         self.initialize_directory(output_dir)
         self.write_source(output_dir, functor,functor_filename, functor_cast, functor_cast_filename, bindings, bindings_filename)
         self.copy_script(output_dir)
-        print("[----------------] Invoking compilation script, compile")
         self.invoke_script(output_dir, space, enable_uvm, compiler)
         if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP} and km.is_multi_gpu_enabled():
             self.copy_multi_gpu_kernel(output_dir)
@@ -305,7 +303,6 @@ class CppSetup:
             print(patchelf_result.stderr.decode("utf-8"))
             print(f"patchelf failed")
             sys.exit(1)
-        print("COMPILATION SUCCESSFULL -- > _|")
 
     def copy_multi_gpu_kernel(self, output_dir: Path) -> None:
         """
