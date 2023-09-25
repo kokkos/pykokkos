@@ -189,16 +189,16 @@ class Runtime:
 
         hashed_name: str = module_name.replace("kernel", f"kernel_{km.get_device_id()}")
 
-        #! Change back
-        # if hashed_name in sys.modules:
-        #     return sys.modules[hashed_name]
+        #! Changed back
+        if hashed_name in sys.modules:
+            return sys.modules[hashed_name]
 
-        # print("Creating spec from file:", module_name, module_path,"\n")
+
         spec = importlib.util.spec_from_file_location(module_name, module_path)
-        # print(spec, "\n")
+
         module = importlib.util.module_from_spec(spec)
-        #! Change back
-        # sys.modules[hashed_name] = module
+        #! Changed back
+        sys.modules[hashed_name] = module
         spec.loader.exec_module(module)
 
         return module

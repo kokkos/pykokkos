@@ -155,18 +155,18 @@ class Parser:
         check_entity = self.is_workunit
         
         #*1 REMOVING NODES NOT NEEDED FROM AST
-        entity_tree = Union[ast.ClassDef, ast.FunctionDef]
-        # We keep a working tree as nodes will be removed
-        working_tree = deepcopy(self.tree)
+        # entity_tree = Union[ast.ClassDef, ast.FunctionDef]
+        # # We keep a working tree as nodes will be removed
+        # working_tree = deepcopy(self.tree)
 
-        for node in self.tree.body:
-            if check_entity(node, self.pk_import):
-                unit = node
-                if unit.name != "__init__" and unit.name != updated_types.workunit.__name__:
-                    transformer = RemoveTransformer(unit)
-                    working_tree = transformer.visit(working_tree)
-        del self.tree
-        self.tree = working_tree
+        # for node in self.tree.body:
+        #     if check_entity(node, self.pk_import):
+        #         unit = node
+        #         if unit.name != "__init__" and unit.name != updated_types.workunit.__name__:
+        #             transformer = RemoveTransformer(unit)
+        #             working_tree = transformer.visit(working_tree)
+        # del self.tree
+        # self.tree = working_tree
 
 
         entity_tree: ast.AST = None

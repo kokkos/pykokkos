@@ -68,14 +68,13 @@ class Compiler:
         metadata = module_setup.metadata
         hash: str = self.members_hash(metadata.path, metadata.name)
         
-        #! Change back: Always false, never true
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
 
-        self.is_compiled_cache[module_setup.output_dir] = False #! CHANGE BACK TO TRUE
+        self.is_compiled_cache[module_setup.output_dir] = True #! CHANGED BACK TO TRUE
 
         parser = self.get_parser(metadata.path)
         # print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
@@ -89,13 +88,13 @@ class Compiler:
             entity.AST = parser.fix_types(entity, updated_types)
             
 
-        #! Change back
-        # if hash in self.members: # True if compiled with another execution space
-        #     members = self.members[hash]
-        # else:
+        #! Changed back
+        if hash in self.members: # True if compiled with another execution space
+            members = self.members[hash]
+        else:
 
-        members = self.extract_members(metadata)
-        self.members[hash] = members
+            members = self.extract_members(metadata)
+            self.members[hash] = members
         
 
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
@@ -288,8 +287,8 @@ class Compiler:
         :param output_dir: the location of the compiled entity
         :returns: True if output_dir exists
         """
-        #! Change back
-        return False
+        #! Changed back
+        # return False
     
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]
@@ -306,8 +305,8 @@ class Compiler:
         :param path: the path to the file
         :returns: the Parser object
         """
-        #! CHANGE BACK
-        if path in self.parser_cache and just_extract:
+        #! Change back --- just_extract
+        if path in self.parser_cache:
             return self.parser_cache[path]
 
         parser = Parser(path)
