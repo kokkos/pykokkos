@@ -15,8 +15,6 @@ import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 
-import logging
-
 from .data_types import (
     DataType, DataTypeClass,
     real,
@@ -29,6 +27,8 @@ from .data_types import (
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
 from .hierarchical import TeamMember
+
+ARRAY_REQ_ATTR = ["dtype", "data", "shape", "flags"]
 
 class Trait(Enum):
     Atomic = kokkos.Atomic
@@ -589,8 +589,8 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     Create a PyKokkos View from a numpy array
 
     :param array: the numpy array
-    :param space: an optional argument for memory space (used by from_cupy)
-    :param layout: an optional argument for layout (used by from_cupy)
+    :param space: an optional argument for memory space (used by from_array)
+    :param layout: an optional argument for layout (used by from_array)
     :returns: a PyKokkos View wrapping the array
     """
 
@@ -651,11 +651,11 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
 
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
-def from_cupy(array) -> ViewType:
+def from_array(array) -> ViewType:
     """
-    Create a PyKokkos View from a cupy array
+    Create a PyKokkos View from a cupy (or other numpy-like) array
 
-    :param array: the cupy array
+    :param array: the numpy-like array
     """
 
     np_dtype = array.dtype.type
@@ -709,50 +709,43 @@ def from_cupy(array) -> ViewType:
 def is_array(array) -> bool:
     """
     Check if an object conforms to enough numpy array standards to be treated as an array
-    Using the function from_cupy() as a standard for bare minimum needed to
+    Using the function from_array() as a standard for bare minimum needed to
     to convert any array into a numpy array
 
     :param array: the array of unknown type
-    :returns: a true/false if object is an array
+    :returns: a true/false if object is an array-like struct
     """
     
-    required_attr = ["dtype", "data", "shape", "flags"]
     test_attr = dir(array)
 
-    if(not set(required_attr).issubset(set(test_attr))):
-      return False
-    
-    for d in required_attr:
-      if callable(getattr(array, d, None)):
+    if(not set(ARRAY_REQ_ATTR).issubset(set(test_attr))):
         return False
+    
+    for d in ARRAY_REQ_ATTR:
+        if callable(getattr(array, d, None)):
+            return False
 
-      return True
+    return True
 
-def from_array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
+def array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
     """
     Create a PyKokkos View from a generic array
 
-    :param array: the array of unknown type
-    :param space: an optional argument for memory space (used by from_cupy)
-    :param layout: an optional argument for layout (used by from_cupy)
+    :param array: the data (array?) of unknown type
+    :param space: an optional argument for memory space (used by from_array)
+    :param layout: an optional argument for layout (used by from_array)
     :returns: a PyKokkos View wrapping the array
     """
 
+    # if numpy array, use from_numpy()
     if isinstance(array, np.ndarray):
-      return from_numpy(array, space, layout)
-    # test if the input array can duck-type to a
-    # numpy array sufficient to our purpose
+        return from_numpy(array, space, layout)
+    # test if the input array can duck-type to a numpy-like array
+    # and run from_array to preprocess the array to numpy
     if is_array(array):
-      return from_cupy(array)
-
-    try:
-      # try converting the input array to numpy and using that route to convert
-      _array = np.asarray(array)
-    except Exception as e: 
-        logging.error("%s: Could not convert array to View", e)
-        raise ValueError
-
-    return from_numpy(_array, space, layout)
+        return from_array(array)
+    # try converting the input data to numpy and using that route to convert
+    return from_numpy(np.asarray(array), space, layout)
 
 # asarray is required for comformance with the array API:
 # https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api

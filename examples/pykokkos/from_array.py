@@ -4,13 +4,13 @@ import pykokkos as pk
 
 @pk.workunit(np_arr = pk.ViewTypeInfo(space=pk.HostSpace))
 def addition_np(i: int, np_arr: pk.View2D[int]):
-    np_arr[i][0] += 1
-    np_arr[i][1] += 2
+    np_arr[i][0] += 1*i
+    np_arr[i][1] += 2*i
 
 @pk.workunit(cp_arr = pk.ViewTypeInfo(space=pk.CudaSpace, layout=pk.LayoutRight))
 def addition_cp(i: int, cp_arr: pk.View2D[int]):
-    cp_arr[i][0] += 1
-    cp_arr[i][1] += 2
+    cp_arr[i][0] += 1*i
+    cp_arr[i][1] += 2*i
 
 size = 10
 
@@ -24,9 +24,9 @@ print(f"before {np_arr=}")
 print(f"before {cp_arr=}")
 print(f"before {list_arr=}")
 
-np_view = pk.from_numpy(np_arr)
-cp_view = pk.from_cupy(cp_arr)
-list_view = pk.from_array(list_arr)
+np_view = pk.array(np_arr)
+cp_view = pk.array(cp_arr)
+list_view = pk.array(list_arr)
 
 pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, size), addition_np, np_arr=np_view)
 pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, size), addition_cp, cp_arr=cp_view)

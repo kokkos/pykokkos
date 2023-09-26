@@ -21,12 +21,12 @@ def reduction_cp(i: int, acc: pk.Acc[int], cp_arr: pk.View1D[int]):
     acc += cp_arr[i]
 
 pk.set_device_id(1)
-cp_view_0 = pk.from_array(cp_arr_1)
+cp_view_0 = pk.array(cp_arr_1)
 result_0 = pk.parallel_reduce(pk.RangePolicy(pk.Cuda, 0, size), reduction_cp, cp_arr=cp_view_0)
 print(result_0)
 
 pk.set_device_id(0)
-cp_view_1 = pk.from_array(cp_arr_0)
+cp_view_1 = pk.array(cp_arr_0)
 result_1 = pk.parallel_reduce(pk.RangePolicy(pk.Cuda, 0, size), reduction_cp, cp_arr=cp_view_1)
 
 print(f"Reducing array 0: {result_0}")

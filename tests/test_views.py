@@ -91,11 +91,11 @@ class ViewsTestFunctor:
 
         np_arr = np.zeros((threads, 2)).astype(np.int32)
         cp_arr = cp.zeros((threads, 2)).astype(np.int32)
-        list_arr = list(np_arr) #using numpy to get around the type issue
+        list_arr = [np.array([0, 0], dtype=np.int32)] * threads
 
-        self.np_view: pk.View2D[int] = pk.from_array(np_arr)
-        self.cp_view: pk.View2D[int] = pk.from_array(cp_arr)
-        self.list_view: pk.View2D[int] = pk.from_array(list_arr)
+        self.np_view: pk.View2D[int] = pk.array(np_arr)
+        self.cp_view: pk.View2D[int] = pk.array(cp_arr)
+        self.list_view: pk.View2D[int] = pk.array(list_arr)
 
     @pk.workunit
     def v1d(self, tid: int) -> None:
@@ -284,15 +284,17 @@ class TestViews(unittest.TestCase):
     def test_arrays(self):
         np_arr = np.zeros((self.threads, 2)).astype(np.int32)
         cp_arr = cp.zeros((self.threads, 2)).astype(np.int32)
-        list_arr = list(np_arr) #using numpy to get around the type issue
+        list_arr = [np.array([0, 0], dtype=np.int32)] * self.threads
 
-        np_view = pk.from_numpy(np_arr)
-        cp_view = pk.from_cupy(cp_arr)
-        list_view = pk.from_array(list_arr)
+        np_view = pk.array(np_arr)
+        cp_view = pk.array(cp_arr)
+        list_view = pk.array(list_arr)
 
         pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=np_view)
         pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, self.threads), addition_cp, cp_arr=cp_view)
         pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=list_view)
+
+        list_arr = [[(list_view[i][j]) for j in range(2)] for i in range(self.threads)]
 
         for i in range(self.threads):
             self.assertEqual(1, np_arr[i][0])
@@ -303,10 +305,11 @@ class TestViews(unittest.TestCase):
             self.assertEqual(1, cp_arr[i][0])
             self.assertEqual(2, cp_arr[i][1])
 
-            self.assertEqual(1, list_arr[i][0])
-            self.assertEqual(2, list_arr[i][1])
             self.assertEqual(1, list_view[i][0])
             self.assertEqual(2, list_view[i][1])
+            self.assertEqual(1, list_arr[i][0])
+            self.assertEqual(2, list_arr[i][1])
+
 
 
     @pytest.mark.skipif(not HAS_CUDA,
@@ -398,7 +401,7 @@ def test_result_type_supported(pk_dtype, pk_dtype2, expected_promo):
 
 
 @pytest.mark.parametrize("pk_dtype, pk_dtype2", [
-    (pk.from_array(np.array([0])), pk.uint16),
+    (pk.array(np.array([0])), pk.uint16),
     (pk.uint64, pk.int8),
     (pk.float32, pk.int64),
     ])
