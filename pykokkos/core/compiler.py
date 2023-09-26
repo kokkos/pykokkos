@@ -67,19 +67,25 @@ class Compiler:
 
         metadata = module_setup.metadata
         hash: str = self.members_hash(metadata.path, metadata.name)
+        parser = self.get_parser(metadata.path)
+        entity: PyKokkosEntity = parser.get_entity(metadata.name)
+
         
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
+                if updated_types is not None:
+                #* Fixing types
+                    parser.fix_types(entity, updated_types)
+                # before we hit extract members 
                 self.members[hash] = self.extract_members(metadata)
+                print("[CACHING]", hash, " : ", self.members[hash])
 
             return self.members[hash]
 
         self.is_compiled_cache[module_setup.output_dir] = True #! CHANGED BACK TO TRUE
 
-        parser = self.get_parser(metadata.path)
         # print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
 
-        entity: PyKokkosEntity = parser.get_entity(metadata.name)
         members: PyKokkosMembers
 
 
@@ -87,17 +93,20 @@ class Compiler:
             #* Fixing types
             entity.AST = parser.fix_types(entity, updated_types)
             
-
         #! Changed back
         if hash in self.members: # True if compiled with another execution space
+            print("\n[CACHE HIT] setting members: ", self.members[hash])
             members = self.members[hash]
         else:
-
             members = self.extract_members(metadata)
+
             self.members[hash] = members
+            print("[CACHING2]", hash, " : ", self.members[hash])
         
 
+
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
+
         return members
 
     def compile_entity(
@@ -270,7 +279,6 @@ class Compiler:
         for c in classtypes:
             c.AST = StaticTranslator.add_parent_refs(c.AST)
 
-
         members = PyKokkosMembers()
         # print("----- COMPILER DUMPING TREE2", ast.dump(parser.tree))
 
@@ -311,5 +319,6 @@ class Compiler:
 
         parser = Parser(path)
         self.parser_cache[path] = parser
+        print("----NEW Parser")
 
         return parser
