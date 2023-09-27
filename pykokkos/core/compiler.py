@@ -5,9 +5,7 @@ import os
 from pathlib import Path
 import sys
 import time
-import ast
 from typing import Dict, List, Optional
-from copy import deepcopy
 from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace, UpdatedTypes
@@ -78,13 +76,11 @@ class Compiler:
                     parser.fix_types(entity, updated_types)
                 # before we hit extract members 
                 self.members[hash] = self.extract_members(metadata)
-                print("[CACHING]", hash, " : ", self.members[hash])
+
 
             return self.members[hash]
 
         self.is_compiled_cache[module_setup.output_dir] = True #! CHANGED BACK TO TRUE
-
-        # print("----- COMPILER DUMPING TREE", ast.dump(parser.tree))
 
         members: PyKokkosMembers
 
@@ -95,13 +91,11 @@ class Compiler:
             
         #! Changed back
         if hash in self.members: # True if compiled with another execution space
-            print("\n[CACHE HIT] setting members: ", self.members[hash])
             members = self.members[hash]
         else:
             members = self.extract_members(metadata)
-
             self.members[hash] = members
-            print("[CACHING2]", hash, " : ", self.members[hash])
+
         
 
 
@@ -269,7 +263,7 @@ class Compiler:
         :returns: the PyKokkosMembers object
         """
 
-        parser = self.get_parser(metadata.path, True)
+        parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
 
@@ -280,8 +274,6 @@ class Compiler:
             c.AST = StaticTranslator.add_parent_refs(c.AST)
 
         members = PyKokkosMembers()
-        # print("----- COMPILER DUMPING TREE2", ast.dump(parser.tree))
-
         members.extract(entity, classtypes)
 
         return members
@@ -306,19 +298,18 @@ class Compiler:
 
         return is_compiled
 
-    def get_parser(self, path: str, just_extract: bool = False) -> Parser:
+    def get_parser(self, path: str) -> Parser:
         """
         Get the parser for a particular file
 
         :param path: the path to the file
         :returns: the Parser object
         """
-        #! Change back --- just_extract
+        #! Changed back
         if path in self.parser_cache:
             return self.parser_cache[path]
 
         parser = Parser(path)
         self.parser_cache[path] = parser
-        print("----NEW Parser")
 
         return parser
