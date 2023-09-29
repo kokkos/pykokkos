@@ -48,9 +48,10 @@ if __name__ == "__main__":
             b_new = b
             c_new = c
 
-        view_a = pk.from_numpy(a_new)
-        view_b = pk.from_numpy(b_new)
-        view_c = pk.from_numpy(c_new)
+        view_a = pk.array(a_new)
+        view_b = pk.array(b_new)
+        view_c = pk.array(c_new)
+
         pk_dgemm_time_sec = timeit.timeit("pk_dgemm(alpha, view_a, view_b, beta, view_c)",
                                           globals=globals(),
                                           number=num_repeats)

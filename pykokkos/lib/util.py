@@ -9,12 +9,12 @@ import numpy as np
 
 def all(x, /, *, axis=None, keepdims=False):
     np_result = np.all(x)
-    ret_val = pk.from_numpy(np_result)
+    ret_val = pk.array(np_result)
     return ret_val
 
 
 def any(x, /, *, axis=None, keepdims=False):
-    return pk.View(pk.from_numpy(np.any(x)))
+    return pk.View(pk.array(np.any(x)))
 
 
 @pk.workunit
