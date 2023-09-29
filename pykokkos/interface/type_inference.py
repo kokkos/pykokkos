@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy
 from .views import View, ViewType
-
+from .layout import Layout
 @dataclass
 class HandledArgs:
     """
@@ -28,7 +28,7 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     is_arg: set[str]
-
+    layout_change: Dict[str, str]
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
     """
@@ -107,8 +107,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     # print("\t[get_annotations] PARAM VALUES:", param_list)
     # print("\t[get_annotations] handled_args view:", handled_args.view)
 
-    #! Should you be always setting this?
-    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set())
+    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set(), layout_change={})
     
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
     # print("\t[get_annotations] POLICY PARAMS:", policy_params)
@@ -172,12 +171,16 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
 
     for i in range(policy_params , len(param_list)):
-        # Check policy type
-        param = param_list[i]
-        if param.annotation is inspect._empty:
-            # print("\t\t[!!!] ANNOTATION IS NOT PROVIDED PARAM", param)
 
-            value = args_list[value_idx+i-policy_params]
+        param = param_list[i]
+        value = args_list[value_idx + i - policy_params]
+
+
+        if isinstance(value, View) and value.layout == Layout.LayoutRight:
+            updated_types.layout_change[param.name] = "LayoutRight"
+
+
+        if param.annotation is inspect._empty:
 
             param_type = type(value).__name__
 
@@ -188,6 +191,5 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             updated_types.is_arg.add(param.name)
 
     if not len(updated_types.inferred_types): return None
-    # print("RETURNING UPDATED TYPES", updated_types)
 
     return updated_types

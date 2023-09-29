@@ -135,14 +135,14 @@ class Parser:
                     stop = len(self.lines)
                 
                 name: str = node.name
-                # print("getting entity:", name, ":",self.lines[start:stop])
+
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
 
 
-    # @HannanNaeem updating this to remove other workunit nodes from the AST 
+    # @HannanNaeem
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
         
         check_entity: Callable[[ast.stmt], bool]
@@ -154,7 +154,7 @@ class Parser:
         
         check_entity = self.is_workunit
         
-        #*1 REMOVING NODES NOT NEEDED FROM AST
+        #*1 REMOVING NODES NOT NEEDED FROM AST (If needed in future)
         # entity_tree = Union[ast.ClassDef, ast.FunctionDef]
         # # We keep a working tree as nodes will be removed
         # working_tree = deepcopy(self.tree)
@@ -170,7 +170,6 @@ class Parser:
 
 
         entity_tree: ast.AST = None
-
         #*2 Changing annotations for the needed workunit definitions
         for node in self.tree.body:
 
@@ -178,14 +177,17 @@ class Parser:
             if check_entity(node, self.pk_import):
                 
                 if updated_types.workunit.__name__ == node.name:
-                    
                     entity_tree = node
+
+                    # if modifications to layout decorator is needed
+                    if len(updated_types.layout_change):
+                        node.decorator_list = self.fix_viewlayout(node, updated_types.layout_change)
 
                     for arg_obj in node.args.args:
                         if arg_obj.arg in updated_types.inferred_types:
                             update_type = updated_types.inferred_types[arg_obj.arg]
 
-                            # case statements
+                            # case statements TODO ADD supports for primitives
                             if "int" in update_type:
                                 arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
                                 
@@ -253,11 +255,63 @@ class Parser:
                                 )
                             else:
                                 raise ValueError("ERROR: Unsupported type inference")
+                            
+                    break
 
-        # debug print
-        # print("[FIX TYPES RETURN] returning: \n", ast.dump(entity_tree), "\n")
         return entity_tree
 
+
+    def fix_viewlayout(self, node : ast.AST, layout_change: Dict[str, str]):
+
+        if len(node.decorator_list) and isinstance(node.decorator_list[0], ast.Call):
+            # check first if the layout decorator was provided by user
+            call_obj = node.decorator_list[0]
+            for keyword_obj in call_obj.keywords:
+                if keyword_obj.arg in layout_change:
+                    # user provided
+                    del layout_change[keyword_obj.arg]
+        
+        if len(layout_change):
+            # fix the decorator_list
+            #check if call obj exists
+            call_obj = None
+            if isinstance(node.decorator_list[0], ast.Call):
+                call_obj = node.decorator_list[0]
+            else:
+                call_obj= ast.Call()
+                call_obj.func = ast.Attribute(value=ast.Name(id='pk', ctx=ast.Load()), attr='workunit', ctx=ast.Load())
+                call_obj.args = []
+                call_obj.keywords = []
+
+            for view, layout in layout_change.items():
+                call_obj.keywords.append(
+                    ast.keyword(
+                        arg=view, 
+                        value=ast.Call(
+                            func=ast.Attribute(
+                                value=ast.Name(id='pk', ctx=ast.Load()), 
+                                attr='ViewTypeInfo', ctx=ast.Load()
+                            ), 
+                            args=[], 
+                            keywords=[
+                                ast.keyword(
+                                    arg='layout', 
+                                    value=ast.Attribute(
+                                        value=ast.Attribute(
+                                            value=ast.Name(id='pk', ctx=ast.Load()), 
+                                            attr='Layout', ctx=ast.Load()), 
+                                        attr= layout, ctx=ast.Load()
+                                        )
+                                )
+                            ]
+                        )
+                    )
+                )
+            
+            return [call_obj]
+        
+        # no change needed
+        return node.decorator_list
 
     @staticmethod
     def is_classtype(node: ast.stmt, pk_import: str) -> bool:
