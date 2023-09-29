@@ -103,24 +103,22 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
-
-    # print("\t[get_annotations] PARAM VALUES:", param_list)
-    # print("\t[get_annotations] handled_args view:", handled_args.view)
-
     updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set(), layout_change={})
-    
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
-    # print("\t[get_annotations] POLICY PARAMS:", policy_params)
+
     
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
+    # accumulator + lass_pass
+    if parallel_type == "parallel_scan":
+        policy_params += 2
 
+    # Handling policy parameters
     for i in range(policy_params):
-        # Check policy type
+
         param = param_list[i]
         if param.annotation is inspect._empty:
-            # print("\t\t[!!!] ANNOTATION IS NOT PROVIDED for policy param: ", param)
 
             # Check policy and apply annotation(s)
             
@@ -143,9 +141,13 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             else:
                 raise ValueError("Automatic annotations not supported for this policy")
             
-            # last policy param for parallel reduce is always the accumulator; the default type is float
-            if i == policy_params - 1 and parallel_type == "parallel_reduce":
-                updated_types.inferred_types[param.name] = "Acc:float"
+            # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
+            if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
+                updated_types.inferred_types[param.name] = "Acc:double"
+                updated_types.is_arg.add(param.name)
+
+            if i == policy_params - 1 and parallel_type == "parallel_scan":
+                updated_types.inferred_types[param.name] = "bool"
                 updated_types.is_arg.add(param.name)
 
 

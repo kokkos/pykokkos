@@ -168,7 +168,8 @@ class Parser:
         # del self.tree
         # self.tree = working_tree
 
-
+        # For now, just so we can raise an error instead of unexpectedly crashing
+        primitives_supported = ["int", "bool", "float", "double"]
         entity_tree: ast.AST = None
         #*2 Changing annotations for the needed workunit definitions
         for node in self.tree.body:
@@ -188,10 +189,9 @@ class Parser:
                             update_type = updated_types.inferred_types[arg_obj.arg]
 
                             # case statements TODO ADD supports for primitives
-                            if "int" in update_type:
+                            if update_type in primitives_supported:
                                 arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-                                
-                            
+                                                           
                                 #todo expand on this
                             elif "View" in update_type:
                                 # update_type = View1D:double
