@@ -1,6 +1,6 @@
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Union
 
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km

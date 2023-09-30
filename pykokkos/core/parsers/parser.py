@@ -5,9 +5,6 @@ from typing import Callable, Dict, List, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.interface import Decorator, UpdatedTypes
-from pykokkos.core.visitors import RemoveTransformer
-from copy import deepcopy
-
 
 class PyKokkosStyles(Enum):
     """
@@ -159,20 +156,6 @@ class Parser:
             return entity.AST
         
         check_entity = self.is_workunit
-        
-        #*1 REMOVING NODES NOT NEEDED FROM AST (If needed in future)
-        # entity_tree = Union[ast.ClassDef, ast.FunctionDef]
-        # # We keep a working tree as nodes will be removed
-        # working_tree = deepcopy(self.tree)
-
-        # for node in self.tree.body:
-        #     if check_entity(node, self.pk_import):
-        #         unit = node
-        #         if unit.name != "__init__" and unit.name != updated_types.workunit.__name__:
-        #             transformer = RemoveTransformer(unit)
-        #             working_tree = transformer.visit(working_tree)
-        # del self.tree
-        # self.tree = working_tree
 
         # For now, just so we can raise an error instead of unexpectedly crashing
         primitives_supported = ["int", "bool", "float"]
@@ -194,26 +177,13 @@ class Parser:
                     if arg_obj.arg in updated_types.inferred_types:
                         update_type = updated_types.inferred_types[arg_obj.arg]
 
-                        # case statements TODO ADD supports for primitives
                         if update_type in primitives_supported:
                             arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
                                                         
-                            #todo expand on this
                         elif "View" in update_type:
                             # update_type = View1D:double
                             view_type, dtype = update_type.split(':')
-                            # View1D annotation=
-                            # Subscript(
-                            #     value=Attribute(
-                            #           value=Name(id='pk', ctx=Load()), 
-                            #           attr='View1D', 
-                            #           ctx=Load()), 
-                            #     slice=Attribute(
-                            #           value=Name(id='pk', ctx=Load()), 
-                            #           attr='double', 
-                            #           ctx=Load()), 
-                            #     ctx=Load()
-                            #     )
+
                             arg_obj.annotation = ast.Subscript(
                                 value = ast.Attribute(
                                     value = ast.Name(id="pk", ctx=ast.Load()),
@@ -229,14 +199,9 @@ class Parser:
                             )
 
                         elif "Acc" in update_type:
-                            # update_type = Acc:float
+
                             dtype = update_type.split(":")[1]
-                            # Subscript(
-                            #    value=Attribute(
-                            #           value=Name(id='pk', ctx=Load()), 
-                            #           attr='Acc', 
-                            #           ctx=Load()), 
-                            #     slice=Name(id='float', ctx=Load())
+
                             arg_obj.annotation = ast.Subscript(
                                     value = ast.Attribute(
                                         value = ast.Name(id="pk", ctx=ast.Load()),
@@ -248,12 +213,7 @@ class Parser:
                             )
                         
                         elif "pk.TeamMember" in update_type:
-                            # Attribute(
-                            #   value=Name(
-                            #       id='pk', 
-                            #       ctx=Load()), 
-                            #   attr='TeamMember', 
-                            #   ctx=Load())
+
                             arg_obj.annotation = ast.Attribute(
                                 value = ast.Name(id = "pk", ctx = ast.Load()),
                                 attr = "TeamMember",
