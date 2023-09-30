@@ -192,17 +192,12 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             param_type = type(value).__name__
 
             if isinstance(value, View):
-                view_dtype = None
-                if isinstance(value.dtype, DataType):
-                    view_dtype = str(value.dtype.name)
-
-                elif isinstance(value.dtype, type):
-                    view_dtype = str(value.dtype)
-                else:
+                view_dtype = get_pk_datatype(value.dtype)
+                if not view_dtype:
                     raise TypeError("Cannot infer datatype for view:", param.name)
                 
                 param_type = "View"+str(len(value.shape))+"D:"+view_dtype
-                
+            
 
             updated_types.inferred_types[param.name] = param_type 
             updated_types.is_arg.add(param.name)
@@ -210,3 +205,17 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     if not len(updated_types.inferred_types): return None
 
     return updated_types
+
+
+def get_pk_datatype(value):
+    '''
+    returns the type of custom pkDataTypes as string
+    '''
+    dtype = None
+    if isinstance(value, DataType):
+        dtype = str(value.name)
+
+    elif inspect.isclass(value) and issubclass(value, DataTypeClass):
+        dtype = str(value.__name__)
+
+    return dtype
