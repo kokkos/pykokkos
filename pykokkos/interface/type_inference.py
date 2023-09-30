@@ -29,7 +29,8 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     is_arg: set[str]
-    layout_change: Dict[str, str]
+    layout_change: Dict[str, str] # if layout for a view is not Layout.Default it will be stored here
+
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
     """
@@ -95,12 +96,16 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 
 
 def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> UpdatedTypes:
-    
-    # parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
-    # handled_args: Processed arguments passed to the dispatch
-    # args: raw arguments passed to the dispatch
-    # passed_kwargs: raw keyword arguments passed to the dispatch
+    '''
+    parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
+    handled_args: Processed arguments passed to the dispatch
+    args: raw arguments passed to the dispatch
+    passed_kwargs: raw keyword arguments passed to the dispatch
 
+    This function will infer first, the datatypes of policy arguments, and then any additional arguments
+    For readability: params/parameters will refer to the workunit signature
+                    args/argument will refer to the actual raw values passed during execution
+    '''
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
@@ -170,7 +175,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     assert (len(param_list) - policy_params) == len(args_list) - value_idx, f"Unannotated arguments mismatch {len(param_list) - policy_params} != {len(args_list) - value_idx}"
     
     # At this point there must more arguments to the workunit that may not have their types annotated
-    # These parameters may also not have raw values associated in the stand alone format -> infer types from the parameter list
+    # These parameters may also not have raw values associated in the stand alone format -> infer types from the argument list
 
 
     for i in range(policy_params , len(param_list)):

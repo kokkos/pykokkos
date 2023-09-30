@@ -142,8 +142,14 @@ class Parser:
         return entities
 
 
-    # @HannanNaeem
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
+
+        '''
+        updatedTypes: object that contains info about inferred types
+
+        This method will walk the ast for a workunit and add any mission annotations
+        This method will also invoke fix_viewlayouts that will add missing decorators for user specified layouts
+        '''
         
         check_entity: Callable[[ast.stmt], bool]
         style: PyKokkosStyles = entity.style

@@ -80,24 +80,19 @@ class Compiler:
 
             return self.members[hash]
 
-        self.is_compiled_cache[module_setup.output_dir] = True #! CHANGED BACK TO TRUE
+        self.is_compiled_cache[module_setup.output_dir] = True
 
         members: PyKokkosMembers
-
 
         if updated_types is not None:
             #* Fixing types
             entity.AST = parser.fix_types(entity, updated_types)
             
-        #! Changed back
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
             members = self.extract_members(metadata)
             self.members[hash] = members
-
-        
-
 
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
 
@@ -287,8 +282,6 @@ class Compiler:
         :param output_dir: the location of the compiled entity
         :returns: True if output_dir exists
         """
-        #! Changed back
-        # return False
     
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]
@@ -305,7 +298,7 @@ class Compiler:
         :param path: the path to the file
         :returns: the Parser object
         """
-        #! Changed back
+
         if path in self.parser_cache:
             return self.parser_cache[path]
 

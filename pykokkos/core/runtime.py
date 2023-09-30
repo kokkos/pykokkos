@@ -118,7 +118,6 @@ class Runtime:
             raise RuntimeError("ERROR: members cannot be none")
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
-        # print(">>>>>>> RUNNING WORKUNIT:", name)
         return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
@@ -189,15 +188,13 @@ class Runtime:
 
         hashed_name: str = module_name.replace("kernel", f"kernel_{km.get_device_id()}")
 
-        #! Changed back
+
         if hashed_name in sys.modules:
             return sys.modules[hashed_name]
 
-
         spec = importlib.util.spec_from_file_location(module_name, module_path)
-
         module = importlib.util.module_from_spec(spec)
-        #! Changed back
+
         sys.modules[hashed_name] = module
         spec.loader.exec_module(module)
 
