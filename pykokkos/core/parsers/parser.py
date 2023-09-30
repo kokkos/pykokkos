@@ -169,112 +169,116 @@ class Parser:
         # self.tree = working_tree
 
         # For now, just so we can raise an error instead of unexpectedly crashing
-        primitives_supported = ["int", "bool", "float", "double"]
+        primitives_supported = ["int", "bool", "float"]
         entity_tree: ast.AST = None
+        
         #*2 Changing annotations for the needed workunit definitions
         for node in self.tree.body:
 
-            # At this point there will be only one such node that needs annotation changes
-            if check_entity(node, self.pk_import):
+            # Check for the workunit we need
+            if check_entity(node, self.pk_import) and updated_types.workunit.__name__ == node.name:
                 
-                if updated_types.workunit.__name__ == node.name:
-                    entity_tree = node
+                entity_tree = node
 
-                    # if modifications to layout decorator is needed
-                    if len(updated_types.layout_change):
-                        node.decorator_list = self.fix_viewlayout(node, updated_types.layout_change)
+                # if modifications to layout decorator is needed
+                if len(updated_types.layout_change):
+                    node.decorator_list = self.fix_viewlayout(node, updated_types.layout_change)
 
-                    for arg_obj in node.args.args:
-                        if arg_obj.arg in updated_types.inferred_types:
-                            update_type = updated_types.inferred_types[arg_obj.arg]
+                for arg_obj in node.args.args:
+                    if arg_obj.arg in updated_types.inferred_types:
+                        update_type = updated_types.inferred_types[arg_obj.arg]
 
-                            # case statements TODO ADD supports for primitives
-                            if update_type in primitives_supported:
-                                arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-                                                           
-                                #todo expand on this
-                            elif "View" in update_type:
-                                # update_type = View1D:double
-                                view_type, dtype = update_type.split(':')
-                                # View1D annotation=
-                                # Subscript(
-                                #     value=Attribute(
-                                #           value=Name(id='pk', ctx=Load()), 
-                                #           attr='View1D', 
-                                #           ctx=Load()), 
-                                #     slice=Attribute(
-                                #           value=Name(id='pk', ctx=Load()), 
-                                #           attr='double', 
-                                #           ctx=Load()), 
-                                #     ctx=Load()
-                                #     )
-                                arg_obj.annotation = ast.Subscript(
+                        # case statements TODO ADD supports for primitives
+                        if update_type in primitives_supported:
+                            arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
+                                                        
+                            #todo expand on this
+                        elif "View" in update_type:
+                            # update_type = View1D:double
+                            view_type, dtype = update_type.split(':')
+                            # View1D annotation=
+                            # Subscript(
+                            #     value=Attribute(
+                            #           value=Name(id='pk', ctx=Load()), 
+                            #           attr='View1D', 
+                            #           ctx=Load()), 
+                            #     slice=Attribute(
+                            #           value=Name(id='pk', ctx=Load()), 
+                            #           attr='double', 
+                            #           ctx=Load()), 
+                            #     ctx=Load()
+                            #     )
+                            arg_obj.annotation = ast.Subscript(
+                                value = ast.Attribute(
+                                    value = ast.Name(id="pk", ctx=ast.Load()),
+                                    attr = view_type,
+                                    ctx = ast.Load()
+                                ),
+                                slice = ast.Attribute(
+                                    value = ast.Name(id="pk", ctx=ast.Load()),
+                                    attr = dtype,
+                                    ctx = ast.Load()
+                                ),
+                                ctx = ast.Load()
+                            )
+
+                        elif "Acc" in update_type:
+                            # update_type = Acc:float
+                            dtype = update_type.split(":")[1]
+                            # Subscript(
+                            #    value=Attribute(
+                            #           value=Name(id='pk', ctx=Load()), 
+                            #           attr='Acc', 
+                            #           ctx=Load()), 
+                            #     slice=Name(id='float', ctx=Load())
+                            arg_obj.annotation = ast.Subscript(
                                     value = ast.Attribute(
                                         value = ast.Name(id="pk", ctx=ast.Load()),
-                                        attr = view_type,
+                                        attr = "Acc",
                                         ctx = ast.Load()
-                                    ),
-                                    slice = ast.Attribute(
-                                        value = ast.Name(id="pk", ctx=ast.Load()),
-                                        attr = dtype,
-                                        ctx = ast.Load()
-                                    ),
-                                    ctx = ast.Load()
-                                )
-
-                            elif "Acc" in update_type:
-                                # update_type = Acc:float
-                                dtype = update_type.split(":")[1]
-                                # Subscript(
-                                #    value=Attribute(
-                                #           value=Name(id='pk', ctx=Load()), 
-                                #           attr='Acc', 
-                                #           ctx=Load()), 
-                                #     slice=Name(id='float', ctx=Load())
-                                arg_obj.annotation = ast.Subscript(
-                                        value = ast.Attribute(
-                                            value = ast.Name(id="pk", ctx=ast.Load()),
-                                            attr = "Acc",
-                                            ctx = ast.Load()
-                                    ),
-                                    slice = ast.Name(id = dtype, ctx = ast.Load()),
-                                    ctx = ast.Load()
-                                )
-                            
-                            elif "pk.TeamMember" in update_type:
-                                # Attribute(
-                                #   value=Name(
-                                #       id='pk', 
-                                #       ctx=Load()), 
-                                #   attr='TeamMember', 
-                                #   ctx=Load())
-                                arg_obj.annotation = ast.Attribute(
-                                    value = ast.Name(id = "pk", ctx = ast.Load()),
-                                    attr = "TeamMember",
-                                    ctx = ast.Load()
-                                )
-                            else:
-                                raise ValueError("ERROR: Unsupported type inference")
-                            
-                    break
+                                ),
+                                slice = ast.Name(id = dtype, ctx = ast.Load()),
+                                ctx = ast.Load()
+                            )
+                        
+                        elif "pk.TeamMember" in update_type:
+                            # Attribute(
+                            #   value=Name(
+                            #       id='pk', 
+                            #       ctx=Load()), 
+                            #   attr='TeamMember', 
+                            #   ctx=Load())
+                            arg_obj.annotation = ast.Attribute(
+                                value = ast.Name(id = "pk", ctx = ast.Load()),
+                                attr = "TeamMember",
+                                ctx = ast.Load()
+                            )
+                        else:
+                            raise ValueError("ERROR: Unsupported type inference")
+                        
+                break
 
         return entity_tree
 
 
     def fix_viewlayout(self, node : ast.AST, layout_change: Dict[str, str]):
+        '''
+        node: ast object for the workunit
+        layout_change: Dict that stores view variable identifier as keys against the layout type
 
+        This function returns the modified workunit ast with corrent layout decorators
+        '''
         if len(node.decorator_list) and isinstance(node.decorator_list[0], ast.Call):
-            # check first if the layout decorator was provided by user
             call_obj = node.decorator_list[0]
             for keyword_obj in call_obj.keywords:
                 if keyword_obj.arg in layout_change:
-                    # user provided
+                    # user provided do not modify
                     del layout_change[keyword_obj.arg]
         
         if len(layout_change):
-            # fix the decorator_list
-            #check if call obj exists
+
             call_obj = None
+
             if isinstance(node.decorator_list[0], ast.Call):
                 call_obj = node.decorator_list[0]
             else:

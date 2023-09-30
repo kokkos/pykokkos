@@ -5,6 +5,7 @@ import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy
 from .views import View, ViewType
 from .layout import Layout
+from .data_types import DataType, DataTypeClass
 @dataclass
 class HandledArgs:
     """
@@ -143,7 +144,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
             
             # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
             if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
-                updated_types.inferred_types[param.name] = "Acc:double"
+                updated_types.inferred_types[param.name] = "Acc:float"
                 updated_types.is_arg.add(param.name)
 
             if i == policy_params - 1 and parallel_type == "parallel_scan":
@@ -178,18 +179,27 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         value = args_list[value_idx + i - policy_params]
 
 
-        if isinstance(value, View) and value.layout == Layout.LayoutRight:
-            updated_types.layout_change[param.name] = "LayoutRight"
-
+        if isinstance(value, View) and value.layout != Layout.LayoutDefault:
+            updated_types.layout_change[param.name] = "LayoutRight" if value.layout == Layout.LayoutRight else "LayoutLeft"
 
         if param.annotation is inspect._empty:
 
             param_type = type(value).__name__
 
             if isinstance(value, View):
-                param_type = "View"+str(len(value.shape))+"D:"+str(value.dtype.name)
+                view_dtype = None
+                if isinstance(value.dtype, DataType):
+                    view_dtype = str(value.dtype.name)
 
-            updated_types.inferred_types[param.name] = param_type
+                elif isinstance(value.dtype, type):
+                    view_dtype = str(value.dtype)
+                else:
+                    raise TypeError("Cannot infer datatype for view:", param.name)
+                
+                param_type = "View"+str(len(value.shape))+"D:"+view_dtype
+                
+
+            updated_types.inferred_types[param.name] = param_type 
             updated_types.is_arg.add(param.name)
 
     if not len(updated_types.inferred_types): return None
