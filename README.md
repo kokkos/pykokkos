@@ -46,6 +46,27 @@ pip install --user -e .
 ```
 
 Note that `cupy` is only required if CUDA is enabled in pykokkos-base.
+In some cases, this might result in a `cupy` import error inside
+`pykokkos` similar to the following
+
+```
+ImportError:
+================================================================
+Failed to import CuPy.
+
+Original error:
+  ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.11/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
+```
+
+This is due to a mismatch in `libstdc++.so` versions between the
+system library which `pykokkos-base` depends on and the library in the
+conda environment which `cupy` depends on. This can be solved by
+setting the `LD_PRELOAD` environment variable to force loading of the
+correct library like so
+
+```bash
+export LD_PRELOAD=/PATH/TO/ENV/lib/libstdc++.so.6
+```
 
 To verify that `pykokkos` has been installed correctly, install
 `pytest` and run the tests:
