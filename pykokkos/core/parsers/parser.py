@@ -129,7 +129,7 @@ class Parser:
                     stop: int = self.tree.body[i + 1].lineno - 1
                 except IndexError:
                     stop = len(self.lines)
-                
+
                 name: str = node.name
 
                 entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
