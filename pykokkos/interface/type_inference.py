@@ -1,5 +1,4 @@
 import inspect
-import numpy as np
 from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union
 import pykokkos.kokkos_manager as km
@@ -171,9 +170,12 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     value_idx: int = 3 if handled_args.name != None else 2 
 
     assert (len(param_list) - policy_params) == len(args_list) - value_idx, f"Unannotated arguments mismatch {len(param_list) - policy_params} != {len(args_list) - value_idx}"
-    
+
     # At this point there must more arguments to the workunit that may not have their types annotated
     # These parameters may also not have raw values associated in the stand alone format -> infer types from the argument list
+
+    # DataType class has all supported pk datatypes, we ignore class members starting with __
+    supported_np_dtypes = [attr for attr in dir(DataType) if not attr.startswith("__")]
 
     for i in range(policy_params , len(param_list)):
         param = param_list[i]
@@ -182,29 +184,34 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         if isinstance(value, View) and value.layout != Layout.LayoutDefault:
             updated_types.layout_change[param.name] = "LayoutRight" if value.layout == Layout.LayoutRight else "LayoutLeft"
 
-        if param.annotation is inspect._empty:
+        if param.annotation is not inspect._empty:
+            continue
 
-            param_type = type(value).__name__
+        param_type = type(value).__name__
 
-            # switch integer values over 31 bits (signed positive value) to pk.int64
-            if param_type == "int" and value.bit_length() > 31:
-                param_type = "numpy:int64"
+        # switch integer values over 31 bits (signed positive value) to pk.int64
+        if param_type == "int" and value.bit_length() > 31:
+            param_type = "numpy:int64"
 
-            # check if package name is numpy (handling numpy primitives)
-            pckg_name = type(value).__module__
-            if pckg_name == "numpy":
-                # numpy:<type>, Will switch to pk.<type> in parser.fix_types
-                param_type = pckg_name +":"+ param_type
+        # check if package name is numpy (handling numpy primitives)
+        pckg_name = type(value).__module__
 
-            if isinstance(value, View):
-                view_dtype = get_pk_datatype(value.dtype)
-                if not view_dtype:
-                    raise TypeError("Cannot infer datatype for view:", param.name)
-                
-                param_type = "View"+str(len(value.shape))+"D:"+view_dtype
-            
-            updated_types.inferred_types[param.name] = param_type 
-            updated_types.is_arg.add(param.name)
+        if pckg_name == "numpy":
+            if param_type not in supported_np_dtypes:
+                raise TypeError(f"Numpy type {param_type} is unsupported")
+
+            # numpy:<type>, Will switch to pk.<type> in parser.fix_types
+            param_type = pckg_name +":"+ param_type
+
+        if isinstance(value, View):
+            view_dtype = get_pk_datatype(value.dtype)
+            if not view_dtype:
+                raise TypeError("Cannot infer datatype for view:", param.name)
+
+            param_type = "View"+str(len(value.shape))+"D:"+view_dtype
+
+        updated_types.inferred_types[param.name] = param_type 
+        updated_types.is_arg.add(param.name)
 
     if not len(updated_types.inferred_types): return None
 
