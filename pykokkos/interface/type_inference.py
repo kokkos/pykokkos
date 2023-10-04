@@ -113,7 +113,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     args_list = list(*args)
     updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set(), layout_change={})
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
-    
+
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
@@ -132,12 +132,12 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
                 if i == 0:
                     updated_types.inferred_types[param.name] = "int"
                     updated_types.is_arg.add(param.name)
-            
+
             elif isinstance(handled_args.policy, TeamPolicy):
                 if i == 0:
                     updated_types.inferred_types[param.name] = 'pk.TeamMember'
                     updated_types.is_arg.add(param.name)
-            
+
             elif isinstance(handled_args.policy, MDRangePolicy):
                 total_dims = len(handled_args.policy.begin) 
                 if i < total_dims:
@@ -145,7 +145,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
                     updated_types.is_arg.add(param.name)
             else:
                 raise ValueError("Automatic annotations not supported for this policy")
-            
+
             # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
             if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
                 updated_types.inferred_types[param.name] = "Acc:double"

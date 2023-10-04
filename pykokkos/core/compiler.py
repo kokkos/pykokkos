@@ -87,7 +87,7 @@ class Compiler:
 
         if types_inferred:
             entity.AST = parser.fix_types(entity, updated_types)
-            
+ 
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
@@ -136,7 +136,6 @@ class Compiler:
         cast: List[str]
 
         functor, bindings, cast = translator.translate(entity, classtypes)
-
 
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
@@ -259,7 +258,6 @@ class Compiler:
 
         parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
-
 
         entity.AST = StaticTranslator.add_parent_refs(entity.AST)
 

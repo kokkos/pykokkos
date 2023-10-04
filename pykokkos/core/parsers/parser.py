@@ -139,14 +139,13 @@ class Parser:
 
 
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
-
         '''
         updatedTypes: object that contains info about inferred types
 
         This method will walk the ast for a workunit and add any mission annotations
         This method will also invoke fix_viewlayouts that will add missing decorators for user specified layouts
         '''
-        
+
         style: PyKokkosStyles = entity.style
         assert style is PyKokkosStyles.workunit and updated_types is not None
 
@@ -238,7 +237,7 @@ class Parser:
         assert len(node.decorator_list), "Decorator cannot be missing for pykokkos workunit"
         # Decorator list will have ast.Call object as first element if user has provided layout decorators
         is_layout_given: bool = isinstance(node.decorator_list[0], ast.Call)
-        
+
         if is_layout_given:
             # Filter out layouts already given by user
             layout_change = self.filter_layout_change(node, layout_change)
