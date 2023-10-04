@@ -10,7 +10,6 @@ from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace, UpdatedTypes
 import pykokkos.kokkos_manager as km
-import ast
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
 
