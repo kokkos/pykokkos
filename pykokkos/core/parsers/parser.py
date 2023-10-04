@@ -68,10 +68,10 @@ class Parser:
         """
 
         package: str = "pykokkos"
-        for node in self.tree.body:
-            if isinstance(node, ast.Import):
-                if node.names[0].name == package:
-                    alias: ast.alias = node.names[0]
+        for entity_tree in self.tree.body:
+            if isinstance(entity_tree, ast.Import):
+                if entity_tree.names[0].name == package:
+                    alias: ast.alias = entity_tree.names[0]
                     package = alias.name if alias.asname is None else alias.asname
 
         return package
@@ -93,7 +93,6 @@ class Parser:
         :param name: the name of the functor
         :returns: the PyKokkosEntity representation of the entity
         """
-
 
         if name in self.workloads:
             return self.workloads[name]
@@ -122,18 +121,18 @@ class Parser:
         elif style is PyKokkosStyles.classtype:
             check_entity = self.is_classtype
 
-        for i, node in enumerate(self.tree.body):
-            if check_entity(node, self.pk_import):
+        for i, entity_tree in enumerate(self.tree.body):
+            if check_entity(entity_tree, self.pk_import):
 
-                start: int = node.lineno - 1
+                start: int = entity_tree.lineno - 1
                 try:
                     stop: int = self.tree.body[i + 1].lineno - 1
                 except IndexError:
                     stop = len(self.lines)
                 
-                name: str = node.name
+                name: str = entity_tree.name
 
-                entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
+                entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), entity_tree, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
@@ -148,108 +147,110 @@ class Parser:
         This method will also invoke fix_viewlayouts that will add missing decorators for user specified layouts
         '''
         
-        check_entity: Callable[[ast.stmt], bool]
         style: PyKokkosStyles = entity.style
-
-        # only supports standalone workunits, return the entity AST as it is
-        if style is not PyKokkosStyles.workunit or updated_types == None:
-            return entity.AST
-        
-        check_entity = self.is_workunit
+        assert style is PyKokkosStyles.workunit and updated_types is not None
 
         # For now, just so we can raise an error instead of unexpectedly crashing
         primitives_supported = ["int", "bool", "float"]
-        entity_tree: ast.AST = None
-        
-        #*2 Changing annotations for the needed workunit definitions
-        for node in self.tree.body:
 
-            # Check for the workunit we need
-            if check_entity(node, self.pk_import) and updated_types.workunit.__name__ == node.name:
-                
-                entity_tree = node
+        entity_tree: ast.AST = entity.AST
 
-                # if modifications to layout decorator is needed
-                if len(updated_types.layout_change):
-                    node.decorator_list = self.fix_viewlayout(node, updated_types.layout_change)
+        # if modifications to layout decorator is needed
+        if len(updated_types.layout_change):
+            entity_tree.decorator_list = self.fix_view_layout(entity_tree, updated_types.layout_change)
 
-                for arg_obj in node.args.args:
-                    if arg_obj.arg in updated_types.inferred_types:
-                        update_type = updated_types.inferred_types[arg_obj.arg]
+        for arg_obj in entity_tree.args.args:
+            # Type already provided by the user
+            if arg_obj.arg not in updated_types.inferred_types:
+                continue
 
-                        if update_type in primitives_supported:
-                            arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-                                                        
-                        elif "View" in update_type:
-                            # update_type = View1D:double
-                            view_type, dtype = update_type.split(':')
+            update_type = updated_types.inferred_types[arg_obj.arg]
 
-                            arg_obj.annotation = ast.Subscript(
-                                value = ast.Attribute(
-                                    value = ast.Name(id="pk", ctx=ast.Load()),
-                                    attr = view_type,
-                                    ctx = ast.Load()
-                                ),
-                                slice = ast.Attribute(
-                                    value = ast.Name(id="pk", ctx=ast.Load()),
-                                    attr = dtype,
-                                    ctx = ast.Load()
-                                ),
-                                ctx = ast.Load()
-                            )
+            if update_type in primitives_supported:
+                arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
 
-                        elif "Acc" in update_type:
+            elif "numpy:" in update_type:
+                # update_type = numpy:int64
+                dtype = update_type.split(':')[1]
+                # Change numpy.<type> to equivalent pk.<type>
+                arg_obj.annotation = ast.Attribute(
+                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                    attr = dtype,
+                    ctx = ast.Load()
+                )
 
-                            dtype = update_type.split(":")[1]
+            elif "View" in update_type:
+                # update_type = View1D:double
+                view_type, dtype = update_type.split(':')
 
-                            arg_obj.annotation = ast.Subscript(
-                                    value = ast.Attribute(
-                                        value = ast.Name(id="pk", ctx=ast.Load()),
-                                        attr = "Acc",
-                                        ctx = ast.Load()
-                                ),
-                                slice = ast.Name(id = dtype, ctx = ast.Load()),
-                                ctx = ast.Load()
-                            )
-                        
-                        elif "pk.TeamMember" in update_type:
+                arg_obj.annotation = ast.Subscript(
+                    value = ast.Attribute(
+                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                        attr = view_type,
+                        ctx = ast.Load()
+                    ),
+                    slice = ast.Attribute(
+                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                        attr = dtype,
+                        ctx = ast.Load()
+                    ),
+                    ctx = ast.Load()
+                )
 
-                            arg_obj.annotation = ast.Attribute(
-                                value = ast.Name(id = "pk", ctx = ast.Load()),
-                                attr = "TeamMember",
-                                ctx = ast.Load()
-                            )
-                        else:
-                            raise ValueError("ERROR: Unsupported type inference")
-                        
-                break
+            elif "Acc:" in update_type:
+                dtype = update_type.split(":")[1]
 
+                arg_obj.annotation = ast.Subscript(
+                        value = ast.Attribute(
+                            value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                            attr = "Acc",
+                            ctx = ast.Load()
+                    ),
+                    slice = ast.Attribute(
+                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                        attr = dtype,
+                        ctx=ast.Load(),
+                    ),
+                    ctx = ast.Load()
+                )
+
+            elif "pk.TeamMember" in update_type: #"pk.TeamMember" is hard-set in get_annotations
+                arg_obj.annotation = ast.Attribute(
+                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                    attr = "TeamMember",
+                    ctx = ast.Load()
+                )
+            else:
+                raise ValueError(f"Type inference for {update_type} is not supported")
+
+        assert entity_tree is not None
         return entity_tree
 
 
-    def fix_viewlayout(self, node : ast.AST, layout_change: Dict[str, str]):
+    def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
         '''
         node: ast object for the workunit
         layout_change: Dict that stores view variable identifier as keys against the layout type
 
         This function returns the modified workunit ast with corrent layout decorators
         '''
-        if len(node.decorator_list) and isinstance(node.decorator_list[0], ast.Call):
-            call_obj = node.decorator_list[0]
-            for keyword_obj in call_obj.keywords:
-                if keyword_obj.arg in layout_change:
-                    # user provided do not modify
-                    del layout_change[keyword_obj.arg]
-        
-        if len(layout_change):
 
+        assert len(node.decorator_list), "Decorator cannot be missing for pykokkos workunit"
+        # Decorator list will have ast.Call object as first element if user has provided layout decorators
+        is_layout_given: bool = isinstance(node.decorator_list[0], ast.Call)
+        
+        if is_layout_given:
+            # Filter out layouts already given by user
+            layout_change = self.filter_layout_change(node, layout_change)
+
+        if len(layout_change):
             call_obj = None
 
-            if isinstance(node.decorator_list[0], ast.Call):
+            if is_layout_given: # preserve the existing call object
                 call_obj = node.decorator_list[0]
-            else:
+            else: 
                 call_obj= ast.Call()
-                call_obj.func = ast.Attribute(value=ast.Name(id='pk', ctx=ast.Load()), attr='workunit', ctx=ast.Load())
+                call_obj.func = ast.Attribute(value=ast.Name(id=self.pk_import, ctx=ast.Load()), attr='workunit', ctx=ast.Load())
                 call_obj.args = []
                 call_obj.keywords = []
 
@@ -259,7 +260,7 @@ class Parser:
                         arg=view, 
                         value=ast.Call(
                             func=ast.Attribute(
-                                value=ast.Name(id='pk', ctx=ast.Load()), 
+                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
                                 attr='ViewTypeInfo', ctx=ast.Load()
                             ), 
                             args=[], 
@@ -268,7 +269,7 @@ class Parser:
                                     arg='layout', 
                                     value=ast.Attribute(
                                         value=ast.Attribute(
-                                            value=ast.Name(id='pk', ctx=ast.Load()), 
+                                            value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
                                             attr='Layout', ctx=ast.Load()), 
                                         attr= layout, ctx=ast.Load()
                                         )
@@ -277,11 +278,23 @@ class Parser:
                         )
                     )
                 )
-            
+
             return [call_obj]
-        
+
         # no change needed
         return node.decorator_list
+
+    @staticmethod
+    def filter_layout_change(node: ast.AST, working_dict: Dict[str, str]) -> Dict[str, str]:
+        #MARK ADD DOCSTRING
+        call_obj = node.decorator_list[0]
+        # iterating over view layout decorators in signature (of workunit)
+        for keyword_obj in call_obj.keywords:
+            if keyword_obj.arg in working_dict:
+                # user provided layout decorator for this view, remove from working dict
+                del working_dict[keyword_obj.arg]
+
+        return working_dict
 
     @staticmethod
     def is_classtype(node: ast.stmt, pk_import: str) -> bool:
@@ -301,7 +314,7 @@ class Parser:
                 if (attribute.value.id == pk_import
                         and Decorator.is_kokkos_classtype(attribute.attr)):
                     return True
-        
+
         return False
 
     @staticmethod

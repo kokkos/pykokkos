@@ -6,11 +6,11 @@ from pathlib import Path
 import sys
 import time
 from typing import Dict, List, Optional
-from pykokkos.core.parsers import Parser, PyKokkosEntity
+from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace, UpdatedTypes
 import pykokkos.kokkos_manager as km
-
+import ast
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
 
@@ -68,15 +68,16 @@ class Compiler:
         parser = self.get_parser(metadata.path)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
-        
+        types_inferred: bool = updated_types is not None
+
+        if types_inferred and entity.style is not PyKokkosStyles.workunit:
+            raise Exception(f"Types are required for style: {entity.style}")
+
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
-                if updated_types is not None:
-                #* Fixing types
+                if types_inferred:
                     parser.fix_types(entity, updated_types)
-                # before we hit extract members 
                 self.members[hash] = self.extract_members(metadata)
-
 
             return self.members[hash]
 
@@ -84,8 +85,7 @@ class Compiler:
 
         members: PyKokkosMembers
 
-        if updated_types is not None:
-            #* Fixing types
+        if types_inferred:
             entity.AST = parser.fix_types(entity, updated_types)
             
         if hash in self.members: # True if compiled with another execution space
@@ -95,7 +95,6 @@ class Compiler:
             self.members[hash] = members
 
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
-
         return members
 
     def compile_entity(

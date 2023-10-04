@@ -361,7 +361,7 @@ class Runtime:
         """
 
         fields: Dict[str, Any] = {}
-        for key, value in members.items():
+        for key, value in members.items(): #MARK
             if type(value) in (int, float, bool, np.int32, np.int64, np.uint32):
                 fields[key] = value
 

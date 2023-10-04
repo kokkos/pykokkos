@@ -7,4 +7,3 @@ from .parameter_visitor import ParameterVisitor
 from .pykokkos_visitor import PyKokkosVisitor
 from .visitors_util import cpp_view_type
 from .workunit_visitor import WorkunitVisitor
-from .workunit_transformer import RemoveTransformer
