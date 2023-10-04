@@ -220,8 +220,10 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
 def get_pk_datatype(value):
     '''
-    returns the type of custom pkDataTypes as string
+    value: value whose datatype is to be determined
+    returns the type of custom pkDataType as string
     '''
+    
     dtype = None
     if isinstance(value, DataType):
         dtype = str(value.name)

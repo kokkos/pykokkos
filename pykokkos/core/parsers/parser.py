@@ -140,10 +140,11 @@ class Parser:
 
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
         '''
-        updatedTypes: object that contains info about inferred types
+        Inject (into the entity AST,) the missing annotations for datatypes that have been inferred 
 
-        This method will walk the ast for a workunit and add any mission annotations
-        This method will also invoke fix_viewlayouts that will add missing decorators for user specified layouts
+        entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated
+        updated_types: UpdatedTypes object that contains info about inferred types for this entity
+        returns: the updated entity AST after injecting correct annotations (from updated_types) for datatypes
         '''
 
         style: PyKokkosStyles = entity.style
@@ -228,10 +229,10 @@ class Parser:
 
     def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
         '''
-        node: ast object for the workunit
-        layout_change: Dict that stores view variable identifier as keys against the layout type
+        Add (to the node AST) the missing layout decorators for pykokkos views
 
-        This function returns the modified workunit ast with corrent layout decorators
+        node: ast object for the entity
+        layout_change: Dict that maps [view -> layout]
         '''
 
         assert len(node.decorator_list), "Decorator cannot be missing for pykokkos workunit"
