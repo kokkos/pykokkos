@@ -286,7 +286,14 @@ class Parser:
 
     @staticmethod
     def filter_layout_change(node: ast.AST, working_dict: Dict[str, str]) -> Dict[str, str]:
-        #MARK ADD DOCSTRING
+        '''
+        Filter out (from the working dict) the views whose layouts decorators user has already provided
+
+        node: AST of pykokkos entity to work with
+        working_dict: map of view -> layout
+        returns updated working dict
+        '''
+
         call_obj = node.decorator_list[0]
         # iterating over view layout decorators in signature (of workunit)
         for keyword_obj in call_obj.keywords:
