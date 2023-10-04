@@ -97,8 +97,6 @@ def parallel_for(*args, **kwargs) -> None:
     #         func(**args)
     #         return
 
-
-
     handled_args: HandledArgs = handle_args(True, args)
 
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
@@ -149,7 +147,6 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     #* Inferring missing data types
     updated_types: UpdatedTypes = get_annotations("parallel_"+operation, handled_args, args, passed_kwargs=kwargs)
-
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,

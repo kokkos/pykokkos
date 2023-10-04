@@ -48,7 +48,6 @@ class PyKokkosMembers:
         source: Tuple[List[str], int] = entity.source
         pk_import: str = entity.pk_import
 
-
         if entity.style is PyKokkosStyles.workload:
             self.pk_mains = self.get_decorated_functions(AST, Decorator.KokkosMain)
             self.fields = self.get_fields(AST, source, pk_import)
@@ -77,8 +76,6 @@ class PyKokkosMembers:
 
             self.fields, self.views = self.get_params(AST, source, param_begin, pk_import)
             self.fix_params(AST, param_begin)
-
-        
 
         self.real_dtype_views = self.get_real_views()
         if len(self.real_dtype_views) != 0:

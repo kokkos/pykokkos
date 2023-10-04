@@ -188,7 +188,6 @@ class Runtime:
 
         hashed_name: str = module_name.replace("kernel", f"kernel_{km.get_device_id()}")
 
-
         if hashed_name in sys.modules:
             return sys.modules[hashed_name]
 
@@ -361,7 +360,7 @@ class Runtime:
         """
 
         fields: Dict[str, Any] = {}
-        for key, value in members.items(): #MARK
+        for key, value in members.items():
             if type(value) in (int, float, bool, np.int32, np.int64, np.uint32):
                 fields[key] = value
 

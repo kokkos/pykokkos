@@ -278,7 +278,7 @@ class Compiler:
         :param output_dir: the location of the compiled entity
         :returns: True if output_dir exists
         """
-    
+
         if output_dir in self.is_compiled_cache:
             return self.is_compiled_cache[output_dir]
 

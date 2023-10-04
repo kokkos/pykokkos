@@ -181,5 +181,5 @@ class ModuleSetup:
         """
         Check if this module is compiled for its execution space
         """
-        
+
         return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space))
