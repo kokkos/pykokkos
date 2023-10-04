@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import dataclass
-from typing import  Callable, Dict, Optional, Tuple, Union
+from typing import  Callable, Dict, Optional, Tuple, Union, List, Any
 import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy
 from .views import View, ViewType
@@ -95,18 +95,15 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 
-def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> UpdatedTypes:
+def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> Optional[UpdatedTypes]:
     '''
+    Infer the datatypes for arguments passed against workunit parameters
+
     parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
     handled_args: Processed arguments passed to the dispatch
     args: raw arguments passed to the dispatch
     passed_kwargs: raw keyword arguments passed to the dispatch
-
     returns: UpdateTypes object or None if there are no annotations to be inferred
-
-    This function will infer first, the datatypes of policy arguments, and then any additional arguments
-    For readability: params/parameters will refer to the workunit signature
-                    args/argument will refer to the actual raw values passed during execution
     '''
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
@@ -122,51 +119,22 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         policy_params += 2
 
     # Handling policy parameters
-    for i in range(policy_params):
-        param = param_list[i]
+    updated_types = infer_policy_args(param_list, policy_params, handled_args.policy, parallel_type, updated_types)
 
-        if param.annotation is inspect._empty:
-            # Check policy and apply annotation(s)
-            if isinstance(handled_args.policy, RangePolicy) or isinstance(handled_args.policy, TeamThreadRange):
-                # only expects one param
-                if i == 0:
-                    updated_types.inferred_types[param.name] = "int"
-                    updated_types.is_arg.add(param.name)
-
-            elif isinstance(handled_args.policy, TeamPolicy):
-                if i == 0:
-                    updated_types.inferred_types[param.name] = 'pk.TeamMember'
-                    updated_types.is_arg.add(param.name)
-
-            elif isinstance(handled_args.policy, MDRangePolicy):
-                total_dims = len(handled_args.policy.begin) 
-                if i < total_dims:
-                    updated_types.inferred_types[param.name] = "int"
-                    updated_types.is_arg.add(param.name)
-            else:
-                raise ValueError("Automatic annotations not supported for this policy")
-
-            # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
-            if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
-                updated_types.inferred_types[param.name] = "Acc:double"
-                updated_types.is_arg.add(param.name)
-
-            if i == policy_params - 1 and parallel_type == "parallel_scan":
-                updated_types.inferred_types[param.name] = "bool"
-                updated_types.is_arg.add(param.name)
-
+    # Policy parameters are the only parameters
     if len(param_list) == policy_params:
         if not len(updated_types.inferred_types): return None
         return updated_types
 
     # Handle Keyword args, make sure they are treated by queuing them in args
-    if len(passed_kwargs.keys()):
+    if len(passed_kwargs):
         # add value to arguments list so the value can be assessed
         for param in param_list[policy_params:]:
             if param.name in passed_kwargs:
                 args_list.append(passed_kwargs[param.name])
 
     # Handling arguments other than policy args, they begin at value_idx in args list
+    # e.g idx=3 -> parallel_for("label", policy, workunit, <other args>...) or if name ("label") is missing: 2 
     value_idx: int = 3 if handled_args.name != None else 2 
 
     assert (len(param_list) - policy_params) == len(args_list) - value_idx, f"Unannotated arguments mismatch {len(param_list) - policy_params} != {len(args_list) - value_idx}"
@@ -174,12 +142,91 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     # At this point there must more arguments to the workunit that may not have their types annotated
     # These parameters may also not have raw values associated in the stand alone format -> infer types from the argument list
 
+    updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, updated_types)
+
+    if not len(updated_types.inferred_types): return None
+    return updated_types
+
+def infer_policy_args(
+    param_list: List[inspect.Parameter],
+    policy_params: int,
+    policy: ExecutionPolicy,
+    parallel_type: str,
+    updated_types: UpdatedTypes
+    ) -> UpdatedTypes:
+    '''
+    Infer the types of policy arguments
+
+    param_list: list of parameter objects that are present in the workunit signature
+    policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
+    policy: the pykokkos execution policy for workunit
+    parallel_type: "parallel_for" or "parallel_reduce" or "parallel_scan"
+    updated_types: UpdatedTypes object to store inferred types information
+    returns: Updated UpdatedTypes object with inferred types
+    '''
+
+    for i in range(policy_params):
+        param = param_list[i]
+
+        if param.annotation is not inspect._empty:
+            continue
+
+        # Check policy and apply annotation(s)
+        if isinstance(policy, RangePolicy) or isinstance(policy, TeamThreadRange):
+            # only expects one param
+            if i == 0:
+                updated_types.inferred_types[param.name] = "int"
+                updated_types.is_arg.add(param.name)
+
+        elif isinstance(policy, TeamPolicy):
+            if i == 0:
+                updated_types.inferred_types[param.name] = 'TeamMember'
+                updated_types.is_arg.add(param.name)
+
+        elif isinstance(policy, MDRangePolicy):
+            total_dims = len(policy.begin) 
+            if i < total_dims:
+                updated_types.inferred_types[param.name] = "int"
+                updated_types.is_arg.add(param.name)
+        else:
+            raise ValueError("Automatic annotations not supported for this policy")
+
+        # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
+        if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
+            updated_types.inferred_types[param.name] = "Acc:double"
+            updated_types.is_arg.add(param.name)
+
+        if i == policy_params - 1 and parallel_type == "parallel_scan":
+            updated_types.inferred_types[param.name] = "bool"
+            updated_types.is_arg.add(param.name)
+
+    return updated_types
+
+
+def infer_other_args(
+    param_list: List[inspect.Parameter], 
+    policy_params: int,
+    args_list: List[Any],
+    start_idx: int,
+    updated_types: UpdatedTypes
+    ) -> UpdatedTypes:
+    '''
+    Infer the types of arguments (after the policy arguments)
+
+    param_list: list of parameter objects that are present in the workunit signature
+    policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
+    args_list: List of arguments passed to the parallel dispactch (e.g args for parallal_for())
+    start_idx: The index for the first non policy argument in args_list
+    updated_types: UpdatedTypes object to store inferred types information
+    returns: Updated UpdatedTypes object with inferred types
+    '''
+
     # DataType class has all supported pk datatypes, we ignore class members starting with __
     supported_np_dtypes = [attr for attr in dir(DataType) if not attr.startswith("__")]
 
     for i in range(policy_params , len(param_list)):
         param = param_list[i]
-        value = args_list[value_idx + i - policy_params]
+        value = args_list[start_idx + i - policy_params]
 
         if isinstance(value, View) and value.layout != Layout.LayoutDefault:
             updated_types.layout_change[param.name] = "LayoutRight" if value.layout == Layout.LayoutRight else "LayoutLeft"
@@ -213,8 +260,6 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         updated_types.inferred_types[param.name] = param_type 
         updated_types.is_arg.add(param.name)
 
-    if not len(updated_types.inferred_types): return None
-
     return updated_types
 
 
@@ -223,7 +268,7 @@ def get_pk_datatype(value):
     value: value whose datatype is to be determined
     returns the type of custom pkDataType as string
     '''
-    
+
     dtype = None
     if isinstance(value, DataType):
         dtype = str(value.name)

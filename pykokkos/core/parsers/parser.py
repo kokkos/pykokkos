@@ -68,10 +68,10 @@ class Parser:
         """
 
         package: str = "pykokkos"
-        for entity_tree in self.tree.body:
-            if isinstance(entity_tree, ast.Import):
-                if entity_tree.names[0].name == package:
-                    alias: ast.alias = entity_tree.names[0]
+        for node in self.tree.body:
+            if isinstance(node, ast.Import):
+                if node.names[0].name == package:
+                    alias: ast.alias = node.names[0]
                     package = alias.name if alias.asname is None else alias.asname
 
         return package
@@ -121,18 +121,18 @@ class Parser:
         elif style is PyKokkosStyles.classtype:
             check_entity = self.is_classtype
 
-        for i, entity_tree in enumerate(self.tree.body):
-            if check_entity(entity_tree, self.pk_import):
+        for i, node in enumerate(self.tree.body):
+            if check_entity(node, self.pk_import):
 
-                start: int = entity_tree.lineno - 1
+                start: int = node.lineno - 1
                 try:
                     stop: int = self.tree.body[i + 1].lineno - 1
                 except IndexError:
                     stop = len(self.lines)
                 
-                name: str = entity_tree.name
+                name: str = node.name
 
-                entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), entity_tree, (self.lines[start:stop], start), self.path, self.pk_import)
+                entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
@@ -214,7 +214,7 @@ class Parser:
                     ctx = ast.Load()
                 )
 
-            elif "pk.TeamMember" in update_type: #"pk.TeamMember" is hard-set in get_annotations
+            elif "TeamMember" in update_type: #"pk.TeamMember" is hard-set in get_annotations
                 arg_obj.annotation = ast.Attribute(
                     value = ast.Name(id=self.pk_import, ctx=ast.Load()),
                     attr = "TeamMember",
