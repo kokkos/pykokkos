@@ -1,11 +1,11 @@
 import pykokkos as pk
 
 @pk.workunit
-def init(i: int, view: pk.View1D[pk.int32]):
+def init(i, view):
     view[i] = i
 
 @pk.workunit
-def scan(i: int, acc: pk.Acc[pk.double], last_pass: bool, view: pk.View1D[pk.int32]):
+def scan(i, acc, last_pass, view):
     acc += view[i]
     if last_pass:
         view[i] = acc

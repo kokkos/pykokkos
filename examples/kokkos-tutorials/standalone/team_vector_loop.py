@@ -8,7 +8,7 @@ from parse_args import parse_args
     y=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
-def yAx(team_member: pk.TeamMember, acc: pk.Acc[float], N:int, M: int, y: pk.View2D[pk.double], x: pk.View2D[pk.double], A: pk.View3D[pk.double]):
+def yAx(team_member, acc, N, M, y, x, A):
     e: int = team_member.league_rank()
 
     def team_reduce(j: int, team_acc: pk.Acc[float]):

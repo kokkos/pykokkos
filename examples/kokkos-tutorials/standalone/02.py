@@ -5,7 +5,7 @@ import pykokkos as pk
 from parse_args import parse_args
 
 @pk.workunit
-def yAx(j: int, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View2D[pk.double]):
+def yAx(j, acc, M, y, x, A):
     temp2: float = 0
     for i in range(M):
         temp2 += A[j][i] * x[i]

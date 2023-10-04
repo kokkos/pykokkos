@@ -4,11 +4,8 @@ import pykokkos as pk
 
 from parse_args import parse_args
 
-@pk.workunit(
-    y=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
-def yAx(team_member: pk.TeamMember, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View2D[pk.double]):
+@pk.workunit
+def yAx(team_member, acc, M, y, x, A):
     j: int = team_member.league_rank()
 
     def inner_reduce(i: int, inner_acc: pk.Acc[float]):

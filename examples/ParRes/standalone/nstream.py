@@ -4,15 +4,15 @@ import argparse
 import sys
 
 @pk.workunit
-def init_view(i: int, inp: pk.View1D[pk.double], init: float):
+def init_view(i, inp, init):
     inp[i] = init
 
 @pk.workunit
-def nstream( i: int, A: pk.View1D[pk.double], B: pk.View1D[pk.double], C: pk.View1D[pk.double], scalar: float):
+def nstream( i, A, B, C, scalar):
     A[i] += B[i] + scalar * C[i]
 
 @pk.workunit
-def res_reduce(i: int, acc: pk.Acc[pk.double], A: pk.View1D[pk.double]):
+def res_reduce(i, acc, A):
     acc += abs(A[i])
 
 

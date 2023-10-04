@@ -12,23 +12,23 @@ def init_arrays(index: int, a: pk.View1D[pk.double], b: pk.View1D[pk.double], c:
     c[index] = initC
 
 @pk.workunit
-def copy(index: int, a: pk.View1D[pk.double], c: pk.View1D[pk.double]):
+def copy(index, a, c):
     c[index] = a[index]
 
 @pk.workunit
-def mul(index: int, b: pk.View1D[pk.double], scalar: float, c: pk.View1D[pk.double]):
+def mul(index, b, scalar, c):
     b[index] = scalar * c[index]
 
 @pk.workunit
-def add(index: int, a: pk.View1D[pk.double], b: pk.View1D[pk.double], c: pk.View1D[pk.double]):
+def add(index, a, b, c):
     c[index] = a[index] + b[index]
 
 @pk.workunit
-def triad(index: int, a: pk.View1D[pk.double], b: pk.View1D[pk.double], c: pk.View1D[pk.double], scalar: float):
+def triad(index, a, b, c, scalar):
     a[index] = b[index] + scalar * c[index]
 
 @pk.workunit
-def dot(index: int, acc: pk.Acc[float], a: pk.View1D[pk.double], b: pk.View1D[pk.double]):
+def dot(index, acc, a, b):
     acc += a[index] * b[index]
 
 

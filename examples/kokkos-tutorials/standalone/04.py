@@ -6,16 +6,16 @@ from parse_args import parse_args
 
 
 @pk.workunit
-def y_init(i: int, y: pk.View1D[pk.double]):
+def y_init(i, y):
     y[i] = 1
 
 @pk.workunit
-def matrix_init(j: int, M: int, A: pk.View2D[pk.double]):
+def matrix_init(j, M, A):
     for i in range(M):
         A[j][i] = 1
 
 @pk.workunit
-def yAx(j: int, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View2D[pk.double]):
+def yAx(j, acc, M, y, x, A):
     temp2: float = 0
     for i in range(M):
         temp2 += A[j][i] * x[i]
