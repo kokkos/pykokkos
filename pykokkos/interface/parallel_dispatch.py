@@ -110,6 +110,8 @@ def parallel_for(*args, **kwargs) -> None:
         **kwargs)
 
     # workunit_cache[cache_key] = (func, args)
+    print(args)
+    
     func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:

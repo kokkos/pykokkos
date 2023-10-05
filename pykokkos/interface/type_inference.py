@@ -145,6 +145,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, updated_types)
 
     if not len(updated_types.inferred_types): return None
+    print(updated_types.inferred_types)
     return updated_types
 
 def infer_policy_args(
