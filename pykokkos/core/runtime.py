@@ -57,7 +57,7 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace = "Default",
-        updated_types: Optional[List[UpdatedTypes]] = None
+        updated_types: Optional[UpdatedTypes] = None
         ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
@@ -67,7 +67,7 @@ class Runtime:
         :returns: the members the functor is containing
         """
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, space)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
         members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
         return members
 
@@ -89,9 +89,9 @@ class Runtime:
     def run_workunit(
         self,
         name: Optional[str],
-        updated_types: Optional[List[UpdatedTypes]],
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
+        updated_types: Optional[UpdatedTypes] = None,
         operation: Optional[str] = None,
         initial_value: Union[float, int] = 0,
         **kwargs
@@ -103,6 +103,7 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
+        :param updated_types: UpdatedTypes object with type inferrence information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
         :returns: the result of the operation (None for parallel_for)
@@ -117,7 +118,7 @@ class Runtime:
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space, updated_types)
         return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
@@ -361,7 +362,9 @@ class Runtime:
 
         fields: Dict[str, Any] = {}
         for key, value in members.items():
-            if type(value) in (int, float, bool, np.int32, np.int64, np.uint32):
+            if type(value) in (int, float, bool, np.int8, np.int16, 
+                               np.int32, np.int64, np.uint8, np.uint16, 
+                               np.uint32, np.uint64):
                 fields[key] = value
 
         return fields
@@ -414,28 +417,41 @@ class Runtime:
             callback = getattr(workload, name.declname)
             callback()
 
-    def get_module_setup(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> ModuleSetup:
+    def get_module_setup(
+        self,
+        entity: Union[object, Callable[..., None]],
+        space: ExecutionSpace,
+        updated_types: Optional[UpdatedTypes] = None
+        ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
         :param entity: the workload or workunit object
         :param space: the execution space
+        :updated_types: Object with information about inferred types (if any)
         :returns: the ModuleSetup object
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
-
-        module_setup_id = self.get_module_setup_id(entity, space)
+        types_signature: str = None
+        if updated_types is not None:
+            types_signature = self.get_types_sig(updated_types.inferred_types, updated_types.layout_change)
+        module_setup_id = self.get_module_setup_id(entity, space, types_signature)
 
         if module_setup_id in self.module_setups:
             return self.module_setups[module_setup_id]
 
-        module_setup = ModuleSetup(entity, space)
+        module_setup = ModuleSetup(entity, space, types_signature)
         self.module_setups[module_setup_id] = module_setup
 
         return module_setup
 
-    def get_module_setup_id(self, entity: Union[object, Callable[..., None]], space: ExecutionSpace) -> Tuple:
+    def get_module_setup_id(
+        self,
+        entity: Union[object, Callable[..., None]],
+        space: ExecutionSpace,
+        types_signature: Optional[str] = None
+        ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
         combination. For workunits, the idenitifier is just the
@@ -444,6 +460,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
+        :param types_signature: optional identifier string for inferred types of parameters
         :returns: a unique tuple per entity and space
         """
 
@@ -458,10 +475,31 @@ class Runtime:
             functor_type: Type = type(entity.__self__)
             module_setup_id: Tuple[Callable, str, str, ExecutionSpace] = (
                 type(functor_type), functor_type.__module__, entity.__name__, space)
-        else:
+        elif types_signature is None:
             module_setup_id: Tuple[Callable, ExecutionSpace] = (entity, space)
+        else:
+            module_setup_id: Tuple[Callable, ExecutionSpace, str] = (entity, space, types_signature)
 
         return module_setup_id
+
+    def get_types_sig(self, inferred_types: Dict[str, str], inferred_layouts: Dict[str, str]) -> str:
+        '''
+        :param inferred_types: Dict that stores arg name against its inferred type
+        :param inferred_layouts: Dict that stores view name against its inferred layout
+        :returns: a string representing inferred types
+        '''
+
+        signature:str = ""
+        for name, i_type in inferred_types.items():
+            signature += i_type
+            if "View" in i_type and name in inferred_layouts:
+                signature += inferred_layouts[name]
+        signature = signature.replace("View:", "")
+        signature = signature.replace("Acc:", "" )
+        signature = signature.replace("LayoutRight", "R")
+        signature = signature.replace("LayoutLeft", "L")
+        signature = signature.replace(":", "")
+        return signature
 
     def get_randpool_args(self, members: Dict[str, type]) -> Dict[str, int]:
         """

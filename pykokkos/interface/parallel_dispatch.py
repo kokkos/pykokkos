@@ -100,18 +100,16 @@ def parallel_for(*args, **kwargs) -> None:
     handled_args: HandledArgs = handle_args(True, args)
 
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
-    
+
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
-        updated_types,
         handled_args.policy,
         handled_args.workunit,
+        updated_types,
         "for",
         **kwargs)
 
     # workunit_cache[cache_key] = (func, args)
-    print(args)
-    
     func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
@@ -152,9 +150,9 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
-        updated_types,
         handled_args.policy,
         handled_args.workunit,
+        updated_types,
         operation,
         **kwargs)
 

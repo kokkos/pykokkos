@@ -139,7 +139,7 @@ class Compiler:
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
-        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
+        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space, module_setup.types_signature)
         c_start: float = time.perf_counter()
         cpp_setup.compile(output_dir, functor, self.functor_file, cast, self.functor_cast_file, bindings, self.bindings_file, space, force_uvm, self.get_compiler())
         c_end: float = time.perf_counter() - c_start

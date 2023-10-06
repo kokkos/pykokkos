@@ -8,10 +8,6 @@ def init_view(i, view, init):
     view[i] = init
 
 @pk.workunit
-def init_view8(i: int, view: pk.View1D[pk.int8], init: pk.int8):
-    view[i] = init
-
-@pk.workunit
 def reduce(i, acc, view):
     acc += view[i]
 
@@ -57,7 +53,7 @@ class TestTypeInference(unittest.TestCase):
 
     def test_simple_parallelfor(self):
         expected_result: float = 1.0
-        n =1
+        n=1.0
         pk.parallel_for(self.range_policy, init_view, view=self.view1D, init=n)
         for i in range(0, self.threads):
             self.assertEqual(expected_result, self.view1D[i])
@@ -87,14 +83,13 @@ class TestTypeInference(unittest.TestCase):
 
     def test_np_int8(self):
         n = np.int8(2**7 -1)
-        n = 1
         int8_view = pk.View([self.threads], pk.int8)
         pk.parallel_for(self.range_policy, init_view, view=int8_view, init=n)
         self.assertEqual(int8_view[0], n)
 
 
 if __name__ == "__main__":
-    # unittest.main()
-    test = TestTypeInference()
-    test.setUp()
-    test.test_np_int8()
+    unittest.main()
+    # test = TestTypeInference()
+    # test.setUp()
+    # test.test_np_int8()
