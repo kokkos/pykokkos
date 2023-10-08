@@ -4,8 +4,32 @@ import pykokkos as pk
 
 # workunits
 @pk.workunit
-def init_view(i, view: pk.View1D[pk.int64], init: pk.int64):
+def init_view(i, view, init):
     view[i] = init
+
+@pk.workunit
+def init_all_views(i, view1D, view2D, view3D, max_dim, init):
+    # 1D
+    view1D[i] = init
+    # 2D
+    for j in range(max_dim):
+        view2D[i][j] = init
+        # 3D
+        for k in range(max_dim):
+            view3D[i][j][k] = init
+
+@pk.workunit
+def team_reduce(team_member, acc, M, y, x, A):
+    j: int = team_member.league_rank()
+
+    def inner_reduce(i: int, inner_acc: pk.Acc[float]):
+        inner_acc += A[j][i] * x[i]
+
+    temp2: float = pk.parallel_reduce(
+        pk.TeamThreadRange(team_member, M), inner_reduce)
+
+    if team_member.team_rank() == 0:
+        acc += y[j] * temp2
 
 @pk.workunit
 def reduce(i, acc, view):
@@ -46,7 +70,10 @@ class TestTypeInference(unittest.TestCase):
         self.np_u64: np.uint64 = np.uint64(2**64 -1)
 
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
+        self.team_policy =  pk.TeamPolicy(self.threads, "auto", space=pk.get_default_space())
         self.view1D: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32)
+        self.view2D: pk.View2D[pk.int32] = pk.View([self.threads, self.threads], pk.int32)
+        self.view3D: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32)
 
     def test_simple_parallelfor(self):
         expected_result: float = 1.0
@@ -71,6 +98,14 @@ class TestTypeInference(unittest.TestCase):
         for i in range(0, self.threads):
             self.assertEqual(expect_result[i], self.view1D[i])
 
+    def test_reduceandfor_labels(self):
+        # reduce and scan share the same dispatch
+        expect_result: float = self.threads
+        n = 1
+        pk.parallel_for("test_for", self.range_policy, init_view, view=self.view1D, init=n)
+        result = pk.parallel_reduce("test_reduce", self.range_policy, reduce, view=self.view1D)
+        self.assertEqual(expect_result, result)
+        
     def test_view_np_int8(self):
         int8_view = pk.View([self.threads], pk.int8)
         pk.parallel_for(self.range_policy, init_view, view=int8_view, init=self.np_i8)
@@ -179,17 +214,32 @@ class TestTypeInference(unittest.TestCase):
         self.assertEqual(np.float32(result), np.inf) # should overflow: ignore warning
         self.assertEqual(np.float64(result), result) # should be fine
 
+    def test_all_Ds(self):
+        expect_result = 1
+        pk.parallel_for(self.range_policy, init_all_views, view1D=self.view1D, view2D=self.view2D, view3D=self.view3D, max_dim=self.threads, init=expect_result)
+        for i in range(self.threads):
+            self.assertEqual(self.view1D[i], expect_result)
+            for j in range(self.threads):
+                self.assertEqual(self.view2D[i][j], expect_result)
+                for k in range(self.threads):
+                    self.assertEqual(self.view3D[i][j][k], expect_result)
+
+    def test_team_policy(self):
+        # running team policy example
+        y: pk.View1D = pk.View([self.threads], pk.double)
+        x: pk.View1D = pk.View([self.threads], pk.double)
+        A: pk.View2D = pk.View([self.threads, self.threads], pk.double)
+
+        for i in range(self.threads):
+            y[i] = 1
+            x[i] = 1
+            for j in range(self.threads):
+                A[j][i] = 1
+
+        p = self.team_policy
+        result = pk.parallel_reduce(p, team_reduce, M=self.threads, y=y, x=x, A=A)
+        expected_result = self.threads * self.threads
+        self.assertEqual(result, expected_result)
 
 if __name__ == "__main__":
-    # unittest.main()
-    test = TestTypeInference()
-    test.setUp()
-    # test.test_simple_parallelfor()
-    # test.test_np_int8()
-    # test.test_all_numpyints()
-    # test.test_simple_parallelreduce()
-    # test.test_all_numpyuints()
-    # test.test_numpy_doubles()
-    # test.test_view_np_uint32()
-    # test.test_acc64()
-    test.test_view_np_int64()
+    unittest.main()

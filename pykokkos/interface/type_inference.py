@@ -259,7 +259,7 @@ def infer_other_args(
             param_type = "View"+str(len(value.shape))+"D:"+view_dtype
 
         updated_types.inferred_types[param.name] = param_type 
-    print(updated_types.inferred_types)
+
     return updated_types
 
 
