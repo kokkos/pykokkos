@@ -51,8 +51,7 @@ class Compiler:
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
-        updated_types: Optional[UpdatedTypes],
-        types_signature: Optional[str] = None,
+        updated_types: Optional[UpdatedTypes] = None,
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -61,12 +60,12 @@ class Compiler:
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
         :param updated_types: Object with with inferred types
-        :param types_signature: Identifier signature of inferred parameter types
         :returns: the PyKokkos members obtained during translation
         """
 
         metadata = module_setup.metadata
         parser = self.get_parser(metadata.path)
+        types_signature = None if updated_types is None else updated_types.types_signature
         hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 

@@ -68,10 +68,8 @@ class Runtime:
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
-        types_signature: str = None
-        if updated_types is not None:
-            types_signature = self.get_types_sig(updated_types.inferred_types, updated_types.layout_change)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types, types_signature)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
+
         return members
 
     def compile_into_module(
@@ -436,9 +434,8 @@ class Runtime:
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
-        types_signature: str = None
-        if updated_types is not None:
-            types_signature = self.get_types_sig(updated_types.inferred_types, updated_types.layout_change)
+        types_signature: str = None if updated_types is None else updated_types.types_signature
+
         module_setup_id = self.get_module_setup_id(entity, space, types_signature)
 
         if module_setup_id in self.module_setups:
@@ -484,27 +481,6 @@ class Runtime:
             module_setup_id: Tuple[Callable, ExecutionSpace, str] = (entity, space, types_signature)
 
         return module_setup_id
-
-    def get_types_sig(self, inferred_types: Dict[str, str], inferred_layouts: Dict[str, str]) -> str:
-        '''
-        :param inferred_types: Dict that stores arg name against its inferred type
-        :param inferred_layouts: Dict that stores view name against its inferred layout
-        :returns: a string representing inferred types
-        '''
-
-        signature:str = ""
-        for name, i_type in inferred_types.items():
-            signature += i_type
-            if "View" in i_type and name in inferred_layouts:
-                signature += inferred_layouts[name]
-        # Compacting
-        signature = signature.replace("View", "")
-        signature = signature.replace("Acc:", "" )
-        signature = signature.replace("numpy:", "np")
-        signature = signature.replace("LayoutRight", "R")
-        signature = signature.replace("LayoutLeft", "L")
-        signature = signature.replace(":", "")
-        return signature
 
     def get_randpool_args(self, members: Dict[str, type]) -> Dict[str, int]:
         """

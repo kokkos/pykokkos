@@ -31,6 +31,7 @@ class UpdatedTypes:
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     param_list: List[str]
     layout_change: Dict[str, str] # if layout for a view is not Layout.Default it will be stored here
+    types_signature: str # unique string identifer for inferred paramater types
 
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
@@ -108,7 +109,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
-    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, param_list=param_list, layout_change={})
+    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, param_list=param_list, layout_change={}, types_signature=None)
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
 
     # accumulator 
@@ -145,6 +146,8 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, handled_args.policy.space, updated_types)
 
     if not len(updated_types.inferred_types): return None
+
+    updated_types.types_signature = get_types_sig(updated_types.inferred_types, updated_types.layout_change)
     return updated_types
 
 def infer_policy_args(
@@ -282,3 +285,25 @@ def get_pk_datatype(value):
         dtype = "float"
 
     return dtype
+
+
+def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, str]) -> str:
+    '''
+    :param inferred_types: Dict that stores arg name against its inferred type
+    :param inferred_layouts: Dict that stores view name against its inferred layout
+    :returns: a string representing inferred types
+    '''
+
+    signature:str = ""
+    for name, i_type in inferred_types.items():
+        signature += i_type
+        if "View" in i_type and name in inferred_layouts:
+            signature += inferred_layouts[name]
+    # Compacting
+    signature = signature.replace("View", "")
+    signature = signature.replace("Acc:", "" )
+    signature = signature.replace("numpy:", "np")
+    signature = signature.replace("LayoutRight", "R")
+    signature = signature.replace("LayoutLeft", "L")
+    signature = signature.replace(":", "")
+    return signature
