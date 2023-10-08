@@ -2,9 +2,9 @@ import inspect
 from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List, Any
 import pykokkos.kokkos_manager as km
-from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy
+from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
 from .views import View, ViewType
-from .layout import Layout
+from .layout import Layout, get_default_layout
 from .data_types import DataType, DataTypeClass
 
 @dataclass
@@ -29,7 +29,7 @@ class UpdatedTypes:
 
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
-    is_arg: set[str]
+    param_list: List[str]
     layout_change: Dict[str, str] # if layout for a view is not Layout.Default it will be stored here
 
 
@@ -108,7 +108,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
-    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, is_arg=set(), layout_change={})
+    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, param_list=param_list, layout_change={})
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
 
     # accumulator 
@@ -142,7 +142,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     # At this point there must more arguments to the workunit that may not have their types annotated
     # These parameters may also not have raw values associated in the stand alone format -> infer types from the argument list
 
-    updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, updated_types)
+    updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, handled_args.policy.space, updated_types)
 
     if not len(updated_types.inferred_types): return None
     return updated_types
@@ -176,29 +176,24 @@ def infer_policy_args(
             # only expects one param
             if i == 0:
                 updated_types.inferred_types[param.name] = "int"
-                updated_types.is_arg.add(param.name)
 
         elif isinstance(policy, TeamPolicy):
             if i == 0:
                 updated_types.inferred_types[param.name] = 'TeamMember'
-                updated_types.is_arg.add(param.name)
 
         elif isinstance(policy, MDRangePolicy):
             total_dims = len(policy.begin) 
             if i < total_dims:
                 updated_types.inferred_types[param.name] = "int"
-                updated_types.is_arg.add(param.name)
         else:
             raise ValueError("Automatic annotations not supported for this policy")
 
         # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
         if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
             updated_types.inferred_types[param.name] = "Acc:double"
-            updated_types.is_arg.add(param.name)
 
         if i == policy_params - 1 and parallel_type == "parallel_scan":
             updated_types.inferred_types[param.name] = "bool"
-            updated_types.is_arg.add(param.name)
 
     return updated_types
 
@@ -208,6 +203,7 @@ def infer_other_args(
     policy_params: int,
     args_list: List[Any],
     start_idx: int,
+    space: ExecutionSpace,
     updated_types: UpdatedTypes
     ) -> UpdatedTypes:
     '''
@@ -221,15 +217,16 @@ def infer_other_args(
     returns: Updated UpdatedTypes object with inferred types
     '''
 
-    # DataType class has all supported pk datatypes, we ignore class members starting with __
-    supported_np_dtypes = [attr for attr in dir(DataType) if not attr.startswith("__")]
+    # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicates
+    supported_np_dtypes = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
 
     for i in range(policy_params , len(param_list)):
         param = param_list[i]
         value = args_list[start_idx + i - policy_params]
 
-        if isinstance(value, View) and value.layout != Layout.LayoutDefault:
-            updated_types.layout_change[param.name] = "LayoutRight" if value.layout == Layout.LayoutRight else "LayoutLeft"
+        if isinstance(value, View):
+            inferred_layout = value.layout if value.layout is not Layout.LayoutDefault else get_default_layout(space)
+            updated_types.layout_change[param.name] = "LayoutRight" if inferred_layout == Layout.LayoutRight else "LayoutLeft"
 
         if param.annotation is not inspect._empty:
             continue
@@ -245,8 +242,12 @@ def infer_other_args(
 
         if pckg_name == "numpy":
             if param_type not in supported_np_dtypes:
-                raise TypeError(f"Numpy type {param_type} is unsupported")
-
+                err_str = f"Numpy type {param_type} is unsupported"
+                raise TypeError(err_str)
+            if param_type == "float64":
+                param_type = "double"
+            if param_type == "float32":
+                param_type = "float"
             # numpy:<type>, Will switch to pk.<type> in parser.fix_types
             param_type = pckg_name +":"+ param_type
 
@@ -258,8 +259,7 @@ def infer_other_args(
             param_type = "View"+str(len(value.shape))+"D:"+view_dtype
 
         updated_types.inferred_types[param.name] = param_type 
-        updated_types.is_arg.add(param.name)
-
+    print(updated_types.inferred_types)
     return updated_types
 
 
@@ -275,5 +275,10 @@ def get_pk_datatype(value):
 
     elif inspect.isclass(value) and issubclass(value, DataTypeClass):
         dtype = str(value.__name__)
+
+    if dtype == "float64":
+        dtype = "double"
+    if dtype == "float32":
+        dtype = "float"
 
     return dtype

@@ -52,6 +52,7 @@ class Compiler:
         space: ExecutionSpace,
         force_uvm: bool,
         updated_types: Optional[UpdatedTypes],
+        types_signature: Optional[str] = None,
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -59,12 +60,14 @@ class Compiler:
         :param entity_object: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
+        :param updated_types: Object with with inferred types
+        :param types_signature: Identifier signature of inferred parameter types
         :returns: the PyKokkos members obtained during translation
         """
 
         metadata = module_setup.metadata
-        hash: str = self.members_hash(metadata.path, metadata.name)
         parser = self.get_parser(metadata.path)
+        hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
         types_inferred: bool = updated_types is not None
@@ -75,7 +78,7 @@ class Compiler:
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 if types_inferred:
-                    parser.fix_types(entity, updated_types)
+                    entity.AST = parser.fix_types(entity, updated_types)
                 self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
@@ -235,16 +238,17 @@ class Compiler:
 
         return defaults
 
-    def members_hash(self, path: str, name: str) -> str:
+    def members_hash(self, path: str, name: str, types_signature: Optional[str]) -> str:
         """
         Map from entity path and name to a string to index members
 
         :param path: the path to the file containing the entity
         :param name: the name of the entity
+        :param types_signature: string signature of inferred parameter types
         :returns: the hash of the entity
         """
 
-        return f"{path}_{name}"
+        return f"{path}_{name}" if types_signature is None else f"{path}_{name}_{types_signature}"
 
     def extract_members(self, metadata: EntityMetadata) -> PyKokkosMembers:
         """

@@ -141,7 +141,7 @@ class ModuleSetup:
 
         out_dir: Path = self.get_entity_dir(main, metadata) / space.value
         if types_signature is not None:
-            out_dir = out_dir / types_signature
+            out_dir: Path = self.get_entity_dir(main, metadata) / types_signature / space.value
         return out_dir
 
     def get_entity_dir(self, main: Path, metadata: EntityMetadata) -> Path:

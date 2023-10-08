@@ -1,4 +1,6 @@
 import ast
+import inspect
+import copy
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, Union
@@ -155,9 +157,14 @@ class Parser:
 
         entity_tree: ast.AST = entity.AST
 
-        # if modifications to layout decorator is needed
+        needs_reset: bool = self.check_self(entity_tree)
+        if needs_reset:
+            entity_tree = self.reset_entity_tree(entity_tree, updated_types)
+
+        # if modifications to layout decorator is needed, do not change original inferences
         if len(updated_types.layout_change):
-            entity_tree.decorator_list = self.fix_view_layout(entity_tree, updated_types.layout_change)
+            inferred_layouts = copy.deepcopy(updated_types.layout_change)
+            entity_tree.decorator_list = self.fix_view_layout(entity_tree, inferred_layouts)
 
         for arg_obj in entity_tree.args.args:
             # Type already provided by the user
@@ -226,6 +233,48 @@ class Parser:
         assert entity_tree is not None
         return entity_tree
 
+    def check_self(self, entity_tree: ast.AST) -> bool:
+        '''
+        Check if self args exists in the AST, which implies this AST was already
+        translated 
+
+        entity_tree: entity AST that needs to be examined
+        returns: True if a 'self' argument exists, False otherwise
+        '''
+
+        for arg in entity_tree.args.args:
+            if arg.arg == "self":
+                return True
+        return False
+
+    def reset_entity_tree(self, entity_tree: ast.AST, updated_types: UpdatedTypes) -> ast.AST:
+        '''
+        Remove type annotations and self argument from the entity tree. This allows
+        the types to be inserted again if they change dynamically
+
+        entity_tree: Ast of pykokkos entity being resiet
+        updated_types: inferred types information
+        returns: updated entity ast as it would be in the first run
+        '''
+
+        args_list: List[ast.arg] = []
+        param_list = updated_types.param_list
+        for param in param_list:
+            arg_obj = ast.arg(arg=param.name)
+            if param.annotation is not inspect._empty:
+                print("User provided annotation", param.annotation)
+                arg_obj.annotation = param.annotation
+            args_list.append(arg_obj)
+
+        entity_tree.args.args = args_list
+        entity_tree.decorator_list = [
+            ast.Attribute(
+                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
+                attr="workunit",
+                ctx=ast.Load())
+        ]
+
+        return entity_tree
 
     def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
         '''

@@ -68,7 +68,10 @@ class Runtime:
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
+        types_signature: str = None
+        if updated_types is not None:
+            types_signature = self.get_types_sig(updated_types.inferred_types, updated_types.layout_change)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types, types_signature)
         return members
 
     def compile_into_module(
@@ -364,7 +367,7 @@ class Runtime:
         for key, value in members.items():
             if type(value) in (int, float, bool, np.int8, np.int16, 
                                np.int32, np.int64, np.uint8, np.uint16, 
-                               np.uint32, np.uint64):
+                               np.uint32, np.uint64, np.float32, np.double, np.float64):
                 fields[key] = value
 
         return fields
@@ -494,8 +497,10 @@ class Runtime:
             signature += i_type
             if "View" in i_type and name in inferred_layouts:
                 signature += inferred_layouts[name]
-        signature = signature.replace("View:", "")
+        # Compacting
+        signature = signature.replace("View", "")
         signature = signature.replace("Acc:", "" )
+        signature = signature.replace("numpy:", "np")
         signature = signature.replace("LayoutRight", "R")
         signature = signature.replace("LayoutLeft", "L")
         signature = signature.replace(":", "")
