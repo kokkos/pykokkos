@@ -48,7 +48,6 @@ class Parser:
             self.lines = f.readlines()
             self.tree = ast.parse("".join(self.lines))
 
-
         self.path: str = path
         self.pk_import: str = self.get_import()
         self.workloads: Dict[str, PyKokkosEntity] = {}
@@ -142,7 +141,7 @@ class Parser:
 
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
         '''
-        Inject (into the entity AST,) the missing annotations for datatypes that have been inferred 
+        Inject (into the entity AST) the missing annotations for datatypes that have been inferred 
 
         entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated
         updated_types: UpdatedTypes object that contains info about inferred types for this entity
@@ -151,9 +150,6 @@ class Parser:
 
         style: PyKokkosStyles = entity.style
         assert style is PyKokkosStyles.workunit and updated_types is not None
-
-        # For now, just so we can raise an error instead of unexpectedly crashing
-        primitives_supported = ["int", "bool", "float"]
 
         entity_tree: ast.AST = entity.AST
 
@@ -172,64 +168,8 @@ class Parser:
                 continue
 
             update_type = updated_types.inferred_types[arg_obj.arg]
-
-            if update_type in primitives_supported:
-                arg_obj.annotation = ast.Name(id=update_type, ctx=ast.Load())
-
-            elif "numpy:" in update_type:
-                # update_type = numpy:int64
-                dtype = update_type.split(':')[1]
-                # Change numpy.<type> to equivalent pk.<type>
-                arg_obj.annotation = ast.Attribute(
-                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                    attr = dtype,
-                    ctx = ast.Load()
-                )
-
-            elif "View" in update_type:
-                # update_type = View1D:double
-                view_type, dtype = update_type.split(':')
-
-                arg_obj.annotation = ast.Subscript(
-                    value = ast.Attribute(
-                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                        attr = view_type,
-                        ctx = ast.Load()
-                    ),
-                    slice = ast.Attribute(
-                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                        attr = dtype,
-                        ctx = ast.Load()
-                    ),
-                    ctx = ast.Load()
-                )
-
-            elif "Acc:" in update_type:
-                dtype = update_type.split(":")[1]
-
-                arg_obj.annotation = ast.Subscript(
-                        value = ast.Attribute(
-                            value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                            attr = "Acc",
-                            ctx = ast.Load()
-                    ),
-                    slice = ast.Attribute(
-                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                        attr = dtype,
-                        ctx=ast.Load(),
-                    ),
-                    ctx = ast.Load()
-                )
-
-            elif "TeamMember" in update_type: #"pk.TeamMember" is hard-set in get_annotations
-                arg_obj.annotation = ast.Attribute(
-                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
-                    attr = "TeamMember",
-                    ctx = ast.Load()
-                )
-            else:
-                raise ValueError(f"Type inference for {update_type} is not supported")
-
+            arg_obj.annotation = self.get_annotation_node(update_type)
+            
         assert entity_tree is not None
         return entity_tree
 
@@ -262,8 +202,8 @@ class Parser:
         for param in param_list:
             arg_obj = ast.arg(arg=param.name)
             if param.annotation is not inspect._empty:
-                print("User provided annotation", param.annotation)
-                arg_obj.annotation = param.annotation
+                type_str = self.translate_inspect_annotation(param.annotation)
+                arg_obj.annotation = self.get_annotation_node(type_str)
             args_list.append(arg_obj)
 
         entity_tree.args.args = args_list
@@ -275,6 +215,110 @@ class Parser:
         ]
 
         return entity_tree
+
+    def translate_inspect_annotation(self, inspect_type: inspect.Parameter.annotation) -> str:
+        '''
+        Given a inspect.annotation string return the equivalent type inferrence string
+
+        inspect_type: annotation string provided by inspect package
+        return: string for the same type as supported in type_inference.py
+        '''
+
+        basic_type = str(inspect_type.__name__)
+
+        # just a basic primitive
+        if "pykokkos" not in str(inspect_type):
+            return basic_type
+
+        if basic_type == "Acc":
+            return "Acc:double"
+
+        if basic_type == "TeamMember":
+            return "TeamMember"
+
+        type_str = str(inspect_type).replace('pykokkos.interface.data_types.', 'pk.')
+
+        # just a numpy primitive
+        if "views" not in type_str:
+            type_str = "numpy:" + basic_type
+            return type_str
+
+        # is a view, only need the slice
+        type_str = type_str.split('[')[1]
+        type_str = type_str[:-1]
+        type_str = type_str.replace("pk.", "")
+
+        return basic_type+":"+type_str
+
+    def get_annotation_node(self, type: str) -> ast.AST:
+        '''
+        Given a type return ast.annotation node
+
+        type: str representing datatype (refer to type_inference.py for string formating)
+        return: annotation node that can be inserted in the AST
+        '''
+
+        # For now, just so we can raise an error instead of unexpectedly crashing
+        primitives_supported = ["int", "bool", "float"]
+        annotation_node : ast.AST 
+        if type in primitives_supported:
+            annotation_node = ast.Name(id=type, ctx=ast.Load())
+
+        elif "numpy:" in type:
+            # update_type = numpy:int64
+            dtype = type.split(':')[1]
+            # Change numpy.<type> to equivalent pk.<type>
+            annotation_node = ast.Attribute(
+                value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                attr = dtype,
+                ctx = ast.Load()
+            )
+
+        elif "View" in type:
+            # update_type = View1D:double
+            view_type, dtype = type.split(':')
+
+            annotation_node = ast.Subscript(
+                value = ast.Attribute(
+                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                    attr = view_type,
+                    ctx = ast.Load()
+                ),
+                slice = ast.Attribute(
+                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                    attr = dtype,
+                    ctx = ast.Load()
+                ),
+                ctx = ast.Load()
+            )
+
+        elif "Acc:" in type:
+            dtype = type.split(":")[1]
+
+            annotation_node = ast.Subscript(
+                    value = ast.Attribute(
+                        value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                        attr = "Acc",
+                        ctx = ast.Load()
+                ),
+                slice = ast.Attribute(
+                    value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                    attr = dtype,
+                    ctx=ast.Load(),
+                ),
+                ctx = ast.Load()
+            )
+
+        elif "TeamMember" in type: #"TeamMember" is hard-set in get_annotations
+            annotation_node = ast.Attribute(
+                value = ast.Name(id=self.pk_import, ctx=ast.Load()),
+                attr = "TeamMember",
+                ctx = ast.Load()
+            )
+        else:
+            raise ValueError(f"Type inference for {type} is not supported")
+
+        return annotation_node
 
     def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
         '''

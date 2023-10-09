@@ -145,9 +145,10 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
     updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, handled_args.policy.space, updated_types)
 
-    if not len(updated_types.inferred_types): return None
+    if not len(updated_types.inferred_types) and not len(updated_types.layout_change): return None
 
     updated_types.types_signature = get_types_sig(updated_types.inferred_types, updated_types.layout_change)
+
     return updated_types
 
 def infer_policy_args(
@@ -247,10 +248,9 @@ def infer_other_args(
             if param_type not in supported_np_dtypes:
                 err_str = f"Numpy type {param_type} is unsupported"
                 raise TypeError(err_str)
-            if param_type == "float64":
-                param_type = "double"
-            if param_type == "float32":
-                param_type = "float"
+
+            if param_type == "float64": param_type = "double"
+            if param_type == "float32": param_type = "float"
             # numpy:<type>, Will switch to pk.<type> in parser.fix_types
             param_type = pckg_name +":"+ param_type
 
@@ -266,23 +266,21 @@ def infer_other_args(
     return updated_types
 
 
-def get_pk_datatype(value):
+def get_pk_datatype(view_dtype):
     '''
     value: value whose datatype is to be determined
     returns the type of custom pkDataType as string
     '''
 
     dtype = None
-    if isinstance(value, DataType):
-        dtype = str(value.name)
+    if isinstance(view_dtype, DataType):
+        dtype = str(view_dtype.name)
 
-    elif inspect.isclass(value) and issubclass(value, DataTypeClass):
-        dtype = str(value.__name__)
+    elif inspect.isclass(view_dtype) and issubclass(view_dtype, DataTypeClass):
+        dtype = str(view_dtype.__name__)
 
-    if dtype == "float64":
-        dtype = "double"
-    if dtype == "float32":
-        dtype = "float"
+    if dtype == "float64": dtype = "double"
+    if dtype == "float32": dtype = "float"
 
     return dtype
 
@@ -294,11 +292,20 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
     :returns: a string representing inferred types
     '''
 
+    if not len(inferred_layouts) and not len(inferred_types):
+        return None
+
     signature:str = ""
     for name, i_type in inferred_types.items():
         signature += i_type
         if "View" in i_type and name in inferred_layouts:
             signature += inferred_layouts[name]
+
+    # if there were no inferred types but only layouts
+    if signature == "":
+        for name, l_type in inferred_layouts.items():
+            signature += name + l_type
+
     # Compacting
     signature = signature.replace("View", "")
     signature = signature.replace("Acc:", "" )
@@ -306,4 +313,5 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
     signature = signature.replace("LayoutRight", "R")
     signature = signature.replace("LayoutLeft", "L")
     signature = signature.replace(":", "")
+
     return signature

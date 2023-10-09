@@ -8,7 +8,32 @@ def init_view(i, view, init):
     view[i] = init
 
 @pk.workunit
+def init_view_annotated(i:int, view: pk.View1D[pk.int32], init: pk.int32):
+    view[i] = init
+
+@pk.workunit
+def init_view_mixed(i:int, view, init: pk.int32):
+    view[i] = init
+
+@pk.workunit(
+    view=pk.ViewTypeInfo(layout=pk.Layout.LayoutLeft))
+def init_view_layout(i:int, view, init: pk.int32):
+    view[i] = init
+
+@pk.workunit
 def init_all_views(i, view1D, view2D, view3D, max_dim, init):
+    # 1D
+    view1D[i] = init
+    # 2D
+    for j in range(max_dim):
+        view2D[i][j] = init
+        # 3D
+        for k in range(max_dim):
+            view3D[i][j][k] = init
+
+@pk.workunit(
+    view2D=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
+def init_all_views_mixed(i, view1D, view2D, view3D: pk.View3D[pk.int32], max_dim: int, init):
     # 1D
     view1D[i] = init
     # 2D
@@ -32,11 +57,30 @@ def team_reduce(team_member, acc, M, y, x, A):
         acc += y[j] * temp2
 
 @pk.workunit
+def team_reduce_mixed(team_member: pk.TeamMember, acc, M, y, x, A):
+    j: int = team_member.league_rank()
+
+    def inner_reduce(i: int, inner_acc: pk.Acc[float]):
+        inner_acc += A[j][i] * x[i]
+
+    temp2: float = pk.parallel_reduce(
+        pk.TeamThreadRange(team_member, M), inner_reduce)
+
+    if team_member.team_rank() == 0:
+        acc += y[j] * temp2
+
+@pk.workunit
 def reduce(i, acc, view):
     acc += view[i]
 
 @pk.workunit
 def scan(i, acc, last_pass, view):
+    acc += view[i]
+    if last_pass:
+        view[i] = acc
+
+@pk.workunit
+def scan_mixed(i, acc: pk.Acc[pk.double], last_pass: bool, view):
     acc += view[i]
     if last_pass:
         view[i] = acc
@@ -183,7 +227,7 @@ class TestTypeInference(unittest.TestCase):
         # double and float64 should be interchangable
         f64_view = pk.View([self.threads], pk.float64)
         pk.parallel_for(self.range_policy, add_two_init, view=f64_view, v1=np.double(3.4e+38 + 1), v2=np.float64(3.4e+38 + 1))
-        expected_result = np.double(3.4e+38 + 1 + 3.4e+38 + 1) 
+        expected_result = np.double(3.4e+38 + 1 + 3.4e+38 + 1)
         self.assertEqual(f64_view[0], expected_result)
         self.assertEqual(type(f64_view[0]), type(expected_result))
         # does view support pk.double? swap primitive types as well
@@ -241,5 +285,84 @@ class TestTypeInference(unittest.TestCase):
         expected_result = self.threads * self.threads
         self.assertEqual(result, expected_result)
 
+    def test_already_annotated(self):
+        pk.parallel_for(self.range_policy, init_view_annotated, view=self.view1D, init=1)
+        self.assertEqual(type(self.view1D[0]), np.int32)
+
+    def test_mixed_annotated(self):
+        pk.parallel_for(self.range_policy, init_view_mixed, view=self.view1D, init=1)
+        self.assertEqual(type(self.view1D[0]), np.int32)
+
+    def test_layout_decorated(self):
+        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy, init_view_layout, view=l_view, init=1)
+        self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
+
+    def test_only_layoutL(self):
+        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
+        self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
+
+    def test_only_layoutR(self):
+        r_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutRight)
+        pk.parallel_for(self.range_policy, init_view_annotated, view=r_view, init=self.np_i32)
+        self.assertEqual(r_view.layout, pk.Layout.LayoutRight)
+
+    def test_resetting_simple(self):
+        expect_result = 1
+        pk.parallel_for(self.range_policy, init_all_views_mixed, view1D=self.view1D, view2D=self.view2D, view3D=self.view3D, max_dim=self.threads, init=expect_result)
+        # run again to test AST resetting, change a single type/layout to trigger.
+        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy, init_all_views_mixed, view1D=l_view, view2D=self.view2D, view3D=self.view3D, max_dim=self.threads, init=expect_result)
+        for i in range(self.threads):
+            self.assertEqual(self.view1D[i], expect_result)
+            for j in range(self.threads):
+                self.assertEqual(self.view2D[i][j], expect_result)
+                for k in range(self.threads):
+                    self.assertEqual(self.view3D[i][j][k], expect_result)
+
+    def test_resetting_scan(self):
+        expect_result: float = np.cumsum(np.ones(self.threads))
+        n = 1
+        pk.parallel_for(self.range_policy, init_view, view=self.view1D, init=n)
+        result = pk.parallel_scan(self.range_policy, scan_mixed, view=self.view1D)
+        # run again with a change in type
+        new_view = pk.View([self.threads], pk.double)
+        pk.parallel_for(self.range_policy, init_view, view=new_view, init=n)
+        result = pk.parallel_scan(self.range_policy, scan_mixed, view=new_view)
+        self.assertEqual(expect_result[self.threads-1], result)
+        for i in range(0, self.threads):
+            self.assertEqual(expect_result[i], self.view1D[i])
+
+    def test_resetting_team(self):
+        # running team policy example
+        y: pk.View1D = pk.View([self.threads], pk.double)
+        x: pk.View1D = pk.View([self.threads], pk.double)
+        A: pk.View2D = pk.View([self.threads, self.threads], pk.double)
+
+        for i in range(self.threads):
+            y[i] = 1
+            x[i] = 1
+            for j in range(self.threads):
+                A[j][i] = 1
+
+        p = self.team_policy
+        result = pk.parallel_reduce(p, team_reduce_mixed, M=self.threads, y=y, x=x, A=A)
+        expected_result = self.threads * self.threads
+        # run again see if user provided annos can be reset
+        new_view = pk.View([self.threads], pk.double, layout=pk.Layout.LayoutLeft)
+        for i in range(self.threads):
+            new_view[i] = 1
+        result = pk.parallel_reduce(p, team_reduce_mixed, M=self.threads, y=new_view, x=x, A=A)
+        self.assertEqual(result, expected_result)
+
+
 if __name__ == "__main__":
     unittest.main()
+    # test = TestTypeInference()
+    # test.setUp()
+    # test.test_only_layoutL()
+    # test.test_only_layoutR()
+    # test.test_resetting()
+    # test.test_resetting_scan()
+    # test.test_resetting_team()
