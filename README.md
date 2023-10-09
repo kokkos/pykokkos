@@ -205,18 +205,6 @@ as their corresponding C++ Kokkos implementations:
 | transpose | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/transpose.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/transpose-kokkos.cc) |
 | ExaMiniMD | [PyKokkos](https://github.com/kokkos/pykokkos/tree/main/examples/ExaMiniMD) | [Kokkos](https://github.com/ECP-copa/ExaMiniMD) |
 
-## Requirements
-
-PyKokkos has only been tested on Ubuntu with GCC 7.5.0 and NVCC 10.2.
-Support for other platforms and compilers is currently experimental.
-For help with setup and installation on please open a GitHub issue.
-
-### Developers
-
-Nader Al Awar (nader.alawar@utexas.edu)
-
-Steven Zhu (stevenzhu@utexas.edu)
-
 ## Citation
 
 If you have used PyKokkos in a research project, please cite this
