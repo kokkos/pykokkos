@@ -142,7 +142,12 @@ class ModuleSetup:
         """
 
         filename: str = metadata.path.split("/")[-1].split(".")[0]
-        dirname: str = f"{filename}_{metadata.name}"
+        # the compilation paths do not have concurrent safety without a unique
+        # identifier because i.e., compilation units can share
+        # the same module/class; try using the memory loc of the Python
+        # metadata object
+        mem_id = id(metadata)
+        dirname: str = f"{filename}_{metadata.name}_{mem_id}"
 
         return self.get_main_dir(main) / Path(dirname)
 
