@@ -115,7 +115,7 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit,policy.space,updated_types)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, policy.space, updated_types)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 

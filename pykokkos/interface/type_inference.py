@@ -131,7 +131,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         if not len(updated_types.inferred_types): return None
         return updated_types
 
-    # Handle Keyword args, make sure they are treated by queuing them in args
+    # Handle keyword args, make sure they are treated by queuing them in args
     if len(passed_kwargs):
         # add value to arguments list so the value can be assessed
         for param in param_list[policy_params:]:
@@ -238,7 +238,7 @@ def infer_other_args(
 
         param_type = type(value).__name__
 
-        # switch integer values over 31 bits (signed positive value) to pk.int64
+        # switch integer values over 31 bits (signed positive value) to numpy:int64
         if param_type == "int" and value.bit_length() > 31:
             param_type = "numpy:int64"
 
@@ -269,7 +269,7 @@ def infer_other_args(
 
 def get_pk_datatype(view_dtype):
     '''
-    value: value whose datatype is to be determined
+    value: view.dtype whose datatype is to be determined as string
     returns the type of custom pkDataType as string
     '''
 

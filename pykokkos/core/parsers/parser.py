@@ -141,11 +141,11 @@ class Parser:
 
     def fix_types(self, entity: PyKokkosEntity, updated_types: UpdatedTypes) -> ast.AST:
         '''
-        Inject (into the entity AST) the missing annotations for datatypes that have been inferred 
+        Inject (into the entity AST) the missing annotations for datatypes that have been inferred.
 
-        entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated
-        updated_types: UpdatedTypes object that contains info about inferred types for this entity
-        returns: the updated entity AST after injecting correct annotations (from updated_types) for datatypes
+        entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated.
+        updated_types: UpdatedTypes object that contains info about inferred types for this entity.
+        returns: the updated entity AST after injecting correct annotations (from updated_types) for datatypes.
         '''
 
         style: PyKokkosStyles = entity.style
@@ -295,7 +295,7 @@ class Parser:
         returns: decorator list 
         '''
 
-        assert len(node.decorator_list), "Decorator cannot be missing for pykokkos workunit"
+        assert len(node.decorator_list), f"Decorator cannot be missing for pykokkos workunit {node.name}"
         # Decorator list will have ast.Call object as first element if user has provided layout decorators
         is_layout_given: bool = isinstance(node.decorator_list[0], ast.Call)
 
@@ -315,34 +315,44 @@ class Parser:
                 call_obj.keywords = []
 
             for view, layout in layout_change.items():
-                call_obj.keywords.append(
-                    ast.keyword(
-                        arg=view, 
-                        value=ast.Call(
-                            func=ast.Attribute(
-                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                attr='ViewTypeInfo', ctx=ast.Load()
-                            ), 
-                            args=[], 
-                            keywords=[
-                                ast.keyword(
-                                    arg='layout', 
-                                    value=ast.Attribute(
-                                        value=ast.Attribute(
-                                            value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                            attr='Layout', ctx=ast.Load()), 
-                                        attr= layout, ctx=ast.Load()
-                                        )
-                                )
-                            ]
-                        )
-                    )
-                )
+                call_obj.keywords.append(self.get_keyword_node(view, layout))
 
             return [call_obj]
 
         # no change needed
         return node.decorator_list
+
+
+    def get_keyword_node(self, view_name: str, layout: str) -> ast.keyword:
+        '''
+        Make the ast.keyword node to be added to the decorator list
+
+        view_name: view identifier as string
+        layout: pykokkos Layout as string
+        returns: corresponding ast.keyword node that can be added to decorator list 
+        '''
+
+        return ast.keyword(
+            arg=view_name, 
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
+                    attr='ViewTypeInfo', ctx=ast.Load()
+                ), 
+                args=[], 
+                keywords=[
+                    ast.keyword(
+                        arg='layout', 
+                        value=ast.Attribute(
+                            value=ast.Attribute(
+                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
+                                attr='Layout', ctx=ast.Load()), 
+                            attr= layout, ctx=ast.Load()
+                            )
+                    )
+                ]
+            )
+        )
 
     @staticmethod
     def filter_layout_change(node: ast.AST, working_dict: Dict[str, str]) -> Dict[str, str]:
