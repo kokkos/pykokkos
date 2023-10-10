@@ -54,7 +54,7 @@ from .views import (
 )
 
 from .ext_module import compile_into_module
-from .type_inference import UpdatedTypes, get_annotations, get_type_str
+from .args_type_inference import UpdatedTypes, get_annotations, get_type_str
 
 def fence():
     pass

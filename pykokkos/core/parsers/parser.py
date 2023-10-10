@@ -143,9 +143,9 @@ class Parser:
         '''
         Inject (into the entity AST) the missing annotations for datatypes that have been inferred.
 
-        entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated.
-        updated_types: UpdatedTypes object that contains info about inferred types for this entity.
-        returns: the updated entity AST after injecting correct annotations (from updated_types) for datatypes.
+        :param entity: Pykokkos entity whose AST will be patched - the entity being compiled/translated.
+        :param updated_types: UpdatedTypes object that contains info about inferred types for this entity.
+        :returns: the updated entity AST after injecting correct annotations (from updated_types) for datatypes.
         '''
 
         style: PyKokkosStyles = entity.style
@@ -178,8 +178,8 @@ class Parser:
         Check if self args exists in the AST, which implies this AST was already
         translated 
 
-        entity_tree: entity AST that needs to be examined
-        returns: True if a 'self' argument exists, False otherwise
+        :param entity_tree: entity AST that needs to be examined
+        :returns: True if a 'self' argument exists, False otherwise
         '''
 
         for arg in entity_tree.args.args:
@@ -192,9 +192,9 @@ class Parser:
         Remove type annotations and self argument from the entity tree. This allows
         the types to be inserted again if they change dynamically
 
-        entity_tree: Ast of pykokkos entity being resiet
-        updated_types: inferred types information
-        returns: updated entity ast as it would be in the first run
+        :param entity_tree: Ast of pykokkos entity being resiet
+        :param updated_types: inferred types information
+        :returns: updated entity ast as it would be in the first run
         '''
 
         args_list: List[ast.arg] = []
@@ -220,8 +220,8 @@ class Parser:
         '''
         Given a type return ast.annotation node
 
-        type: str representing datatype (refer to type_inference.py for string formating)
-        return: annotation node that can be inserted in the AST
+        :param type: str representing datatype (refer to type_inference.py for string formating)
+        :return: annotation node that can be inserted in the AST
         '''
 
         # For now, just so we can raise an error instead of unexpectedly crashing
@@ -290,9 +290,9 @@ class Parser:
         '''
         Construct the decorator list (as in AST) with the missing layout decorators for pykokkos views
 
-        node: ast object for the entity
-        layout_change: Dict that maps [view -> layout]
-        returns: decorator list 
+        :param node: ast object for the entity
+        :param layout_change: Dict that maps [view -> layout]
+        :returns: decorator list 
         '''
 
         assert len(node.decorator_list), f"Decorator cannot be missing for pykokkos workunit {node.name}"
@@ -327,9 +327,9 @@ class Parser:
         '''
         Make the ast.keyword node to be added to the decorator list
 
-        view_name: view identifier as string
-        layout: pykokkos Layout as string
-        returns: corresponding ast.keyword node that can be added to decorator list 
+        :param view_name: view identifier as string
+        :param layout: pykokkos Layout as string
+        :returns: corresponding ast.keyword node that can be added to decorator list 
         '''
 
         return ast.keyword(
@@ -359,9 +359,9 @@ class Parser:
         '''
         Filter out (from the working dict) the views whose layouts decorators user has already provided
 
-        node: AST of pykokkos entity to work with
-        working_dict: map of view -> layout
-        returns updated working dict
+        :param node: AST of pykokkos entity to work with
+        :param working_dict: map of view -> layout
+        :returns updated working dict
         '''
 
         call_obj = node.decorator_list[0]

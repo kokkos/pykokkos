@@ -7,7 +7,7 @@ import pykokkos.kokkos_manager as km
 
 from .execution_policy import ExecutionPolicy
 from .execution_space import ExecutionSpace
-from .type_inference import UpdatedTypes, HandledArgs, get_annotations, handle_args
+from .args_type_inference import UpdatedTypes, HandledArgs, get_annotations, handle_args
 
 workunit_cache: Dict[int, Callable] = {}
 

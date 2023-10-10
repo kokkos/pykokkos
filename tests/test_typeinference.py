@@ -326,7 +326,7 @@ class TestTypeInference(unittest.TestCase):
         n = 1
         pk.parallel_for(self.range_policy, init_view, view=self.view1D, init=n)
         result = pk.parallel_scan(self.range_policy, scan_mixed, view=self.view1D)
-        # run again with a change in type
+        # run again with a change in type, can the AST be reset with user provided annos
         new_view = pk.View([self.threads], pk.double)
         pk.parallel_for(self.range_policy, init_view, view=new_view, init=n)
         result = pk.parallel_scan(self.range_policy, scan_mixed, view=new_view)

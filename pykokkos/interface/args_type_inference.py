@@ -30,7 +30,7 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     param_list: List[str]
-    layout_change: Dict[str, str] # if layout for a view is not Layout.Default it will be stored here
+    layout_change: Dict[str, str] # layout for views
     types_signature: str # unique string identifer for inferred paramater types
 
 
@@ -104,11 +104,11 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     '''
     Infer the datatypes for arguments passed against workunit parameters
 
-    parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
-    handled_args: Processed arguments passed to the dispatch
-    args: raw arguments passed to the dispatch
-    passed_kwargs: raw keyword arguments passed to the dispatch
-    returns: UpdateTypes object or None if there are no annotations to be inferred
+    :param parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
+    :param handled_args: Processed arguments passed to the dispatch
+    :param args: raw arguments passed to the dispatch
+    :param passed_kwargs: raw keyword arguments passed to the dispatch
+    :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
@@ -165,12 +165,12 @@ def infer_policy_args(
     '''
     Infer the types of policy arguments
 
-    param_list: list of parameter objects that are present in the workunit signature
-    policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
-    policy: the pykokkos execution policy for workunit
-    parallel_type: "parallel_for" or "parallel_reduce" or "parallel_scan"
-    updated_types: UpdatedTypes object to store inferred types information
-    returns: Updated UpdatedTypes object with inferred types
+    :param param_list: list of parameter objects that are present in the workunit signature
+    :param policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
+    :param policy: the pykokkos execution policy for workunit
+    :param parallel_type: "parallel_for" or "parallel_reduce" or "parallel_scan"
+    :param updated_types: UpdatedTypes object to store inferred types information
+    :returns: Updated UpdatedTypes object with inferred types
     '''
 
     for i in range(policy_params):
@@ -217,12 +217,12 @@ def infer_other_args(
     '''
     Infer the types of arguments (after the policy arguments)
 
-    param_list: list of parameter objects that are present in the workunit signature
-    policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
-    args_list: List of arguments passed to the parallel dispactch (e.g args for parallal_for())
-    start_idx: The index for the first non policy argument in args_list
-    updated_types: UpdatedTypes object to store inferred types information
-    returns: Updated UpdatedTypes object with inferred types
+    :param param_list: list of parameter objects that are present in the workunit signature
+    :param policy_params: the number of initial parameters that are dedicated to policy (in param_list/signature)
+    :param args_list: List of arguments passed to the parallel dispactch (e.g args for parallal_for())
+    :param start_idx: The index for the first non policy argument in args_list
+    :param updated_types: UpdatedTypes object to store inferred types information
+    :returns: Updated UpdatedTypes object with inferred types
     '''
 
     for i in range(policy_params , len(param_list)):
@@ -269,8 +269,8 @@ def infer_other_args(
 
 def get_pk_datatype(view_dtype):
     '''
-    value: view.dtype whose datatype is to be determined as string
-    returns the type of custom pkDataType as string
+    :param view_dtype: view.dtype whose datatype is to be determined as string
+    :returns: the type of custom pkDataType as string
     '''
 
     dtype = None
@@ -321,8 +321,8 @@ def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
     '''
     Given a user provided inspect.annotation string return the equivalent type inferrence string (used internally)
 
-    inspect_type: annotation string provided by inspect package
-    return: string for the same type as supported in type_inference.py
+    :param inspect_type: annotation object provided by inspect package
+    :return: string for the same type as supported in type_inference.py
     '''
 
     basic_type = str(inspect_type.__name__)
