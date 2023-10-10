@@ -7,9 +7,7 @@ import pykokkos as pk
 
 # use double type and unroll=8
 @pk.workunit
-def benchmark(i: int, K: int, F: int, A: pk.View1D[pk.double], 
-        B: pk.View1D[pk.double], C: pk.View1D[pk.double],
-        connectivity: pk.View2D[int]):
+def benchmark(i, K, F, A, B, C, connectivity):
     c: pk.double = 0.0
     for jj in range(K):
         j: int = connectivity[i][jj]

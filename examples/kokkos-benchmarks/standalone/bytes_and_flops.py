@@ -6,8 +6,7 @@ import pykokkos as pk
 
 
 @pk.workunit
-def benchmark(team: pk.TeamMember, A: pk.View3D[pk.double], B: pk.View3D[pk.double],
-        C: pk.View3D[pk.double], R: int, F: int, K: int):
+def benchmark(team, A, B, C, R, F, K):
     
     n: int = team.league_rank()
     for r in range(R):
