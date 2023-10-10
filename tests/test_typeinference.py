@@ -359,10 +359,3 @@ class TestTypeInference(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    # test = TestTypeInference()
-    # test.setUp()
-    # test.test_only_layoutL()
-    # test.test_only_layoutR()
-    # test.test_resetting()
-    # test.test_resetting_scan()
-    # test.test_resetting_team()

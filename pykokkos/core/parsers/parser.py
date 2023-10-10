@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, Union
 
 from pykokkos.core import cppast
-from pykokkos.interface import Decorator, UpdatedTypes
+from pykokkos.interface import Decorator, UpdatedTypes, get_type_str
 
 class PyKokkosStyles(Enum):
     """
@@ -202,7 +202,7 @@ class Parser:
         for param in param_list:
             arg_obj = ast.arg(arg=param.name)
             if param.annotation is not inspect._empty:
-                type_str = self.translate_inspect_annotation(param.annotation)
+                type_str = get_type_str(param.annotation)  # simplify inspect.annotation to string
                 arg_obj.annotation = self.get_annotation_node(type_str)
             args_list.append(arg_obj)
 
@@ -215,40 +215,6 @@ class Parser:
         ]
 
         return entity_tree
-
-    def translate_inspect_annotation(self, inspect_type: inspect.Parameter.annotation) -> str:
-        '''
-        Given a inspect.annotation string return the equivalent type inferrence string
-
-        inspect_type: annotation string provided by inspect package
-        return: string for the same type as supported in type_inference.py
-        '''
-
-        basic_type = str(inspect_type.__name__)
-
-        # just a basic primitive
-        if "pykokkos" not in str(inspect_type):
-            return basic_type
-
-        if basic_type == "Acc":
-            return "Acc:double"
-
-        if basic_type == "TeamMember":
-            return "TeamMember"
-
-        type_str = str(inspect_type).replace('pykokkos.interface.data_types.', 'pk.')
-
-        # just a numpy primitive
-        if "views" not in type_str:
-            type_str = "numpy:" + basic_type
-            return type_str
-
-        # is a view, only need the slice
-        type_str = type_str.split('[')[1]
-        type_str = type_str[:-1]
-        type_str = type_str.replace("pk.", "")
-
-        return basic_type+":"+type_str
 
     def get_annotation_node(self, type: str) -> ast.AST:
         '''
@@ -322,10 +288,11 @@ class Parser:
 
     def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
         '''
-        Add (to the node AST) the missing layout decorators for pykokkos views
+        Construct the decorator list (as in AST) with the missing layout decorators for pykokkos views
 
         node: ast object for the entity
         layout_change: Dict that maps [view -> layout]
+        returns: decorator list 
         '''
 
         assert len(node.decorator_list), "Decorator cannot be missing for pykokkos workunit"

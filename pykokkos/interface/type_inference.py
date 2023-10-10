@@ -34,6 +34,10 @@ class UpdatedTypes:
     types_signature: str # unique string identifer for inferred paramater types
 
 
+# DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicate aliases
+SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
+
+
 def handle_args(is_for: bool, *args) -> HandledArgs:
     """
     Handle the *args passed to parallel_* functions
@@ -221,9 +225,6 @@ def infer_other_args(
     returns: Updated UpdatedTypes object with inferred types
     '''
 
-    # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicates
-    supported_np_dtypes = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
-
     for i in range(policy_params , len(param_list)):
         param = param_list[i]
         value = args_list[start_idx + i - policy_params]
@@ -245,7 +246,7 @@ def infer_other_args(
         pckg_name = type(value).__module__
 
         if pckg_name == "numpy":
-            if param_type not in supported_np_dtypes:
+            if param_type not in SUPPORTED_NP_DTYPES:
                 err_str = f"Numpy type {param_type} is unsupported"
                 raise TypeError(err_str)
 
@@ -315,3 +316,41 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
     signature = signature.replace(":", "")
 
     return signature
+
+def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
+    '''
+    Given a user provided inspect.annotation string return the equivalent type inferrence string (used internally)
+
+    inspect_type: annotation string provided by inspect package
+    return: string for the same type as supported in type_inference.py
+    '''
+
+    basic_type = str(inspect_type.__name__)
+
+    # just a basic primitive
+    if "pykokkos" not in str(inspect_type):
+        return basic_type
+
+    if basic_type == "Acc":
+        return "Acc:double"
+
+    if basic_type == "TeamMember":
+        return "TeamMember"
+
+    type_str = str(inspect_type).replace('pykokkos.interface.data_types.', 'pk.')
+
+    if "views" in type_str:
+        # is a view, only need the slice
+        type_str = type_str.split('[')[1]
+        type_str = type_str[:-1]
+        type_str = type_str.replace("pk.", "")
+
+        return basic_type+":"+type_str
+    
+    # just a numpy primitive
+    if "pk." in type_str and basic_type in SUPPORTED_NP_DTYPES:
+        type_str = "numpy:" + basic_type
+        return type_str
+
+    err_str = f"User provided unsupported annotation: {inspect_type}"
+    raise TypeError(err_str)
