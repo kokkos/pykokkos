@@ -5,31 +5,30 @@ from functools import reduce
 import sys
 
 @pk.workunit
-def init_arrays(index: int, a: pk.View1D[pk.double], b: pk.View1D[pk.double], c: pk.View1D[pk.double],
-        initA: float, initB: float, initC: float):
-    a[index] = initA
-    b[index] = initB
-    c[index] = initC
+def init_arrays(index, a_view, b_view, c_view, initA, initB, initC):
+    a_view[index] = initA
+    b_view[index] = initB
+    c_view[index] = initC
 
 @pk.workunit
-def copy(index, a, c):
-    c[index] = a[index]
+def copy(index, a_view, c_view):
+    c_view[index] = a_view[index]
 
 @pk.workunit
-def mul(index, b, scalar, c):
-    b[index] = scalar * c[index]
+def mul(index, b_view, scalar, c_view):
+    b_view[index] = scalar * c_view[index]
 
 @pk.workunit
-def add(index, a, b, c):
-    c[index] = a[index] + b[index]
+def add(index, a_view, b_view, c_view):
+    c_view[index] = a_view[index] + b_view[index]
 
 @pk.workunit
-def triad(index, a, b, c, scalar):
-    a[index] = b[index] + scalar * c[index]
+def triad(index, a_view, b_view, c_view, scalar):
+    a_view[index] = b_view[index] + scalar * c_view[index]
 
 @pk.workunit
-def dot(index, acc, a, b):
-    acc += a[index] * b[index]
+def dot(index, acc, a_view, b_view):
+    acc += a_view[index] * b_view[index]
 
 
 if __name__ == "__main__":
@@ -59,28 +58,28 @@ if __name__ == "__main__":
     c: pk.View1D[pk.double] = pk.View([array_size], pk.double)
 
     p = pk.RangePolicy(space, 0, array_size)
-    pk.parallel_for(p, init_arrays, a=a, b=b, c=c, initA=startA, initB=startB, initC=startC)
+    pk.parallel_for(p, init_arrays, a_view=a, b_view=b, c_view=c, initA=startA, initB=startB, initC=startC)
 
     timer = pk.Timer()
     timings = [[] for i in range(5)]
     for i in range(num_times):
-        pk.parallel_for(p, copy, a=a, c=c)
+        pk.parallel_for(p, copy, a_view=a, c_view=c)
         timings[0].append(timer.seconds())
         timer.reset()
 
-        pk.parallel_for(p, mul, b=b, scalar=scalar, c=c)
+        pk.parallel_for(p, mul, b_view=b, scalar=scalar, c_view=c)
         timings[1].append(timer.seconds())
         timer.reset()
 
-        pk.parallel_for(p, add, a=a, b=b, c=c)
+        pk.parallel_for(p, add, a_view=a, b_view=b, c_view=c)
         timings[2].append(timer.seconds())
         timer.reset()
 
-        pk.parallel_for(p, triad, a=a, b=b, c=c, scalar=scalar)
+        pk.parallel_for(p, triad, a_view=a, b_view=b, c_view=c, scalar=scalar)
         timings[3].append(timer.seconds())
         timer.reset()
 
-        n_sum = pk.parallel_reduce(p, dot, a=a, b=b)
+        n_sum = pk.parallel_reduce(p, dot, a_view=a, b_view=b)
         timings[4].append(timer.seconds())
         timer.reset()
 
