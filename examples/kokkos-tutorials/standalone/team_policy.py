@@ -5,17 +5,17 @@ import pykokkos as pk
 from parse_args import parse_args
 
 @pk.workunit
-def yAx(team_member, acc, M, y, x, A):
+def yAx(team_member, acc, cols, y_view, x_view, A_view):
     j: int = team_member.league_rank()
 
     def inner_reduce(i: int, inner_acc: pk.Acc[float]):
-        inner_acc += A[j][i] * x[i]
+        inner_acc += A_view[j][i] * x_view[i]
 
     temp2: float = pk.parallel_reduce(
-        pk.TeamThreadRange(team_member, M), inner_reduce)
+        pk.TeamThreadRange(team_member, cols), inner_reduce)
 
     if team_member.team_rank() == 0:
-        acc += y[j] * temp2
+        acc += y_view[j] * temp2
 
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
@@ -49,7 +49,7 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, M=M, y=y, x=x, A=A)
+        result = pk.parallel_reduce(p, yAx, cols=M, y_view=y, x_view=x, A_view=A)
 
     timer_result = timer.seconds()
 

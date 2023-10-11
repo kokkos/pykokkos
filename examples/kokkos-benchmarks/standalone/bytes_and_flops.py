@@ -6,13 +6,13 @@ import pykokkos as pk
 
 
 @pk.workunit
-def benchmark(team, A, B, C, R, F, K):
+def benchmark(team, A_view, B_view, C_view, R, F, K):
     
     n: int = team.league_rank()
     for r in range(R):
         def team_for(i: int):
-            a1: pk.double = A[n][i][0] 
-            b: pk.double = B[n][i][0]
+            a1: pk.double = A_view[n][i][0] 
+            b: pk.double = B_view[n][i][0]
             a2: pk.double = a1 * 1.3
             a3: pk.double = a2 * 1.1
             a4: pk.double = a3 * 1.1
@@ -31,7 +31,7 @@ def benchmark(team, A, B, C, R, F, K):
                 a7 += b * a7
                 a8 += b * a8
 
-            C[n][i][0] = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
+            C_view[n][i][0] = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
 
 
         pk.parallel_for(pk.TeamThreadRange(team, K), team_for)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     C.fill(3.5)
 
     timer = pk.Timer()
-    pk.parallel_for(r, benchmark, A=A, B=B, C=C, R=R, F=F, K=K)
+    pk.parallel_for(r, benchmark, A_view=A, B_view=B, C_view=C, R=R, F=F, K=K)
     seconds = timer.seconds()
 
     num_bytes = 1.0 * N * K * R * 3 * scalar_size

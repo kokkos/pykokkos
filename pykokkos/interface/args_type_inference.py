@@ -310,10 +310,15 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
     # Compacting
     signature = signature.replace("View", "")
     signature = signature.replace("Acc:", "" )
+    signature = signature.replace("TeamMember", "T")
     signature = signature.replace("numpy:", "np")
     signature = signature.replace("LayoutRight", "R")
     signature = signature.replace("LayoutLeft", "L")
     signature = signature.replace(":", "")
+    signature = signature.replace("double", "d")
+    signature = signature.replace("int", "i")
+    signature = signature.replace("bool", "b")
+    signature = signature.replace("float", "f")
 
     return signature
 

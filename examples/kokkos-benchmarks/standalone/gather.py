@@ -7,12 +7,12 @@ import pykokkos as pk
 
 # use double type and unroll=8
 @pk.workunit
-def benchmark(i, K, F, A, B, C, connectivity):
+def benchmark(i, K, F, A_view, B_view, C_view, connectivity):
     c: pk.double = 0.0
     for jj in range(K):
         j: int = connectivity[i][jj]
-        a1: pk.double = A[j]
-        b: pk.double = B[j]
+        a1: pk.double = A_view[j]
+        b: pk.double = B_view[j]
         a2: pk.double = a1 * 1.3
         a3: pk.double = a2 * 1.1
         a4: pk.double = a3 * 1.1
@@ -21,7 +21,7 @@ def benchmark(i, K, F, A, B, C, connectivity):
         a7: pk.double = a6 * 1.1
         a8: pk.double = a7 * 1.1
         
-        for f in range(self.F):
+        for f in range(F):
             a1 += b * a1
             a2 += b * a2
             a3 += b * a3
@@ -33,7 +33,7 @@ def benchmark(i, K, F, A, B, C, connectivity):
 
         c += a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
 
-    C[i] = c
+    C_view[i] = c
 
 
 if __name__ == "__main__":
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     timer = pk.Timer()
     for r in range(R):
-        pk.parallel_for(policy, benchmark, K=K, F=F, A=A, B=B, C=C, connectivity=connectivity)
+        pk.parallel_for(policy, benchmark, K=K, F=F, A_view=A, B_view=B, C_view=C, connectivity=connectivity)
         pk.fence()
 
     seconds = timer.seconds()
