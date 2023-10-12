@@ -6,14 +6,13 @@ from parse_args import parse_args
 
 
 @pk.workunit
-def yAx(j: int, acc: pk.Acc[float], M: int,
-        y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View2D[pk.double]):
+def yAx(j, acc, cols, y_view, x_view, A_view):
     temp2: float = 0
-    A_row_j = A[j,:];
-    for i in range(M):
-        temp2 += A_row_j[i] * x[i]
+    A_row_j = A_view[j,:];
+    for i in range(cols):
+        temp2 += A_row_j[i] * x_view[i]
 
-    acc += y[j] * temp2
+    acc += y_view[j] * temp2
 
 
 if __name__ == "__main__":
@@ -56,7 +55,7 @@ if __name__ == "__main__":
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, M=M, y=y, x=x, A=A)
+        result = pk.parallel_reduce(p, yAx, cols=M, y_view=y, x_view=x, A_view=A)
 
     timer_result = timer.seconds()
 

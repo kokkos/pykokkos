@@ -68,7 +68,6 @@ class StaticTranslator:
 
         source: Tuple[List[str], int] = entity.source
         functor_name: str = f"pk_functor_{entity.name.declname}"
-
         classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
 
@@ -219,7 +218,7 @@ class StaticTranslator:
                     self.add_rand_pool_state(workunit)
                     node_visitor.has_rand_call = False
             except:
-                print(f"Translation of {w} failed")
+                print(f"Translation of {w} {w.name} failed")
                 sys.exit(1)
 
         return workunits, has_rand_call

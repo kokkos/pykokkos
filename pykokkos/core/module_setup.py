@@ -76,6 +76,7 @@ class ModuleSetup:
         self,
         entity: Union[Callable[..., None], type, None],
         space: ExecutionSpace,
+        types_signature: Optional[str] = None
     ):
         """
         ModuleSetup constructor
@@ -92,6 +93,7 @@ class ModuleSetup:
             self.metadata = get_metadata(entity)
 
         self.space: ExecutionSpace = space
+        self.types_signature = types_signature
 
         suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
         self.module_file: str = f"kernel{suffix}"
@@ -100,7 +102,7 @@ class ModuleSetup:
         self.console_main: str = "pk_console"
 
         self.main: Path = self.get_main_path()
-        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space)
+        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space, types_signature)
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
             self.gpu_module_files = [f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())]
@@ -114,13 +116,20 @@ class ModuleSetup:
             self.name: str = self.name.replace("-", "_")
             self.name: str = self.name.replace(".", "_")
 
-    def get_output_dir(self, main: Path, metadata: EntityMetadata, space: ExecutionSpace) -> Optional[Path]:
+    def get_output_dir(
+        self,
+        main: Path,
+        metadata: EntityMetadata,
+        space: ExecutionSpace,
+        types_signature: Optional[str] = None
+        ) -> Optional[Path]:
         """
         Get the output directory for an execution space
 
         :param main: the path to the main file in the current PyKokkos application
         :param metadata: the metadata of the entity being compiled
         :param space: the execution space to compile for
+        :param types_signature: optional identifier string for inferred types of parameters
         :returns: the path to the output directory for a specific execution space
         """
 
@@ -130,7 +139,10 @@ class ModuleSetup:
         if space is ExecutionSpace.Default:
             space = km.get_default_space()
 
-        return self.get_entity_dir(main, metadata) / space.value
+        out_dir: Path = self.get_entity_dir(main, metadata) / space.value
+        if types_signature is not None:
+            out_dir: Path = self.get_entity_dir(main, metadata) / types_signature / space.value
+        return out_dir
 
     def get_entity_dir(self, main: Path, metadata: EntityMetadata) -> Path:
         """
@@ -182,4 +194,4 @@ class ModuleSetup:
         Check if this module is compiled for its execution space
         """
 
-        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space))
+        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space, self.types_signature))

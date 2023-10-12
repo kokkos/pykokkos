@@ -5,26 +5,26 @@ import pykokkos as pk
 from parse_args import parse_args
 
 @pk.workunit
-def y_init(i: int, y: pk.View1D[pk.double]):
-    y[i] = 1
+def y_init(i, y_view):
+    y_view[i] = 1
 
 @pk.workunit
-def matrix_init(j: int, M: int, A: pk.View1D[pk.double]):
-    for i in range(M):
-        A[j * M + i] = 1
+def matrix_init(j, cols, A_view):
+    for i in range(cols):
+        A_view[j * cols + i] = 1
 
 @pk.workunit
-def yAx(j: int, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View1D[pk.double]):
+def yAx(j, acc, cols, y_view, x_view, A_view):
     temp2: float = 0
-    for i in range(M):
-        temp2 += A[j * M + i] * x[i]
+    for i in range(cols):
+        temp2 += A_view[j * cols + i] * x_view[i]
 
-    acc += y[j] * temp2
+    acc += y_view[j] * temp2
 
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
-    N: int = values[0]
-    M: int = values[1]
+    N: int = values[0] # Rows
+    M: int = values[1] # Cols
     nrepeat: int = 1 
     print(f"Total size S = {N * M} N = {N} M = {M}")
 
@@ -33,14 +33,14 @@ def run() -> None:
     A = pk.View([N * M], pk.double)
 
     p = pk.RangePolicy(pk.get_default_space(), 0, N)
-    pk.parallel_for(p, y_init, y=y)
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), y_init, y=x)
-    pk.parallel_for(p, matrix_init, M=M, A=A)
+    pk.parallel_for(p, y_init, y_view=y)
+    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), y_init, y_view=x)
+    pk.parallel_for(p, matrix_init, cols=M, A_view=A)
 
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, M=M, y=y, x=x, A=A)
+        result = pk.parallel_reduce(p, yAx, cols=M, y_view=y, x_view=x, A_view=A)
 
     timer_result = timer.seconds()
 

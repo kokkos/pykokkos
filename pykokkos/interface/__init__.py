@@ -35,7 +35,7 @@ from .hierarchical import (
 from .memory_space import MemorySpace, get_default_memory_space
 from .parallel_dispatch import (
     execute,
-    parallel_for, parallel_reduce, parallel_scan
+    parallel_for, parallel_reduce, parallel_scan,
 )
 from .random import (
     rand, RandomPool, Random_XorShift64_Pool, Random_XorShift1024_Pool
@@ -53,7 +53,7 @@ from .views import (
 )
 
 from .ext_module import compile_into_module
-
+from .args_type_inference import UpdatedTypes, get_annotations, get_type_str
 
 def fence():
     pass

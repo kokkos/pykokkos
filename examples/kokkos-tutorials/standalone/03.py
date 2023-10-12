@@ -5,12 +5,12 @@ import pykokkos as pk
 from parse_args import parse_args
 
 @pk.workunit
-def yAx(j: int, acc: pk.Acc[float], M: int, y: pk.View1D[pk.double], x: pk.View1D[pk.double], A: pk.View2D[pk.double]):
+def yAx(j, acc, cols, y_view, x_view, A_view):
     temp2: float = 0
-    for i in range(M):
-        temp2 += A[j][i] * x[i]
+    for i in range(cols):
+        temp2 += A_view[j][i] * x_view[i]
 
-    acc += y[j] * temp2
+    acc += y_view[j] * temp2
 
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
@@ -44,7 +44,7 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, M=M, y=y, x=x, A=A)
+        result = pk.parallel_reduce(p, yAx, cols=M, y_view=y, x_view=x, A_view=A)
 
     timer_result = timer.seconds()
 

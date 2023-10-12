@@ -4,24 +4,21 @@ import pykokkos as pk
 
 from parse_args import parse_args
 
-@pk.workunit(
-    y=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
-def yAx(team_member: pk.TeamMember, acc: pk.Acc[float], N:int, M: int, y: pk.View2D[pk.double], x: pk.View2D[pk.double], A: pk.View3D[pk.double]):
+@pk.workunit
+def yAx(team_member, acc, rows, cols, y_view, x_view, A_view):
     e: int = team_member.league_rank()
 
     def team_reduce(j: int, team_acc: pk.Acc[float]):
         def vector_reduce(i: int, vector_acc: pk.Acc[float]):
-            vector_acc += A[e][j][i] * x[e][i]
+            vector_acc += A_view[e][j][i] * x_view[e][i]
 
         tempM: float = pk.parallel_reduce(
-            pk.ThreadVectorRange(team_member, M), vector_reduce)
+            pk.ThreadVectorRange(team_member, cols), vector_reduce)
 
-        team_acc += y[e][j] * tempM
+        team_acc += y_view[e][j] * tempM
 
     tempN: float = pk.parallel_reduce(
-        pk.TeamThreadRange(team_member, N), team_reduce)
+        pk.TeamThreadRange(team_member, rows), team_reduce)
 
     def single_closure():
         nonlocal acc
@@ -64,7 +61,7 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, N=N, M=M, y=y, x=x, A=A)
+        result = pk.parallel_reduce(p, yAx, rows=N, cols=M, y_view=y, x_view=x, A_view=A)
 
     timer_result = timer.seconds()
 

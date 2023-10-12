@@ -6,12 +6,10 @@ from pathlib import Path
 import sys
 import time
 from typing import Dict, List, Optional
-
-from pykokkos.core.parsers import Parser, PyKokkosEntity
+from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace
+from pykokkos.interface import ExecutionSpace, UpdatedTypes
 import pykokkos.kokkos_manager as km
-
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
 
@@ -52,7 +50,8 @@ class Compiler:
         self,
         module_setup: ModuleSetup,
         space: ExecutionSpace,
-        force_uvm: bool
+        force_uvm: bool,
+        updated_types: Optional[UpdatedTypes] = None,
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -60,24 +59,36 @@ class Compiler:
         :param entity_object: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
+        :param updated_types: Object with with inferred types
         :returns: the PyKokkos members obtained during translation
         """
 
         metadata = module_setup.metadata
+        parser = self.get_parser(metadata.path)
+        types_signature = None if updated_types is None else updated_types.types_signature
+        hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
+        entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
-        hash: str = self.members_hash(metadata.path, metadata.name)
+        types_inferred: bool = updated_types is not None
+
+        if types_inferred and entity.style is not PyKokkosStyles.workunit:
+            raise Exception(f"Types are required for style: {entity.style}")
+
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
+                if types_inferred:
+                    entity.AST = parser.fix_types(entity, updated_types)
                 self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
 
         self.is_compiled_cache[module_setup.output_dir] = True
 
-        parser = self.get_parser(metadata.path)
-        entity: PyKokkosEntity = parser.get_entity(metadata.name)
-
         members: PyKokkosMembers
+
+        if types_inferred:
+            entity.AST = parser.fix_types(entity, updated_types)
+ 
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
@@ -85,7 +96,6 @@ class Compiler:
             self.members[hash] = members
 
         self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
-
         return members
 
     def compile_entity(
@@ -121,16 +131,17 @@ class Compiler:
 
         cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
         translator = StaticTranslator(module_setup.name, self.functor_file,self.functor_cast_file, members)
-
         t_start: float = time.perf_counter()
         functor: List[str]
         bindings: List[str]
         cast: List[str]
+
         functor, bindings, cast = translator.translate(entity, classtypes)
+
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
-        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space)
+        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space, module_setup.types_signature)
         c_start: float = time.perf_counter()
         cpp_setup.compile(output_dir, functor, self.functor_file, cast, self.functor_cast_file, bindings, self.bindings_file, space, force_uvm, self.get_compiler())
         c_end: float = time.perf_counter() - c_start
@@ -226,16 +237,17 @@ class Compiler:
 
         return defaults
 
-    def members_hash(self, path: str, name: str) -> str:
+    def members_hash(self, path: str, name: str, types_signature: Optional[str]) -> str:
         """
         Map from entity path and name to a string to index members
 
         :param path: the path to the file containing the entity
         :param name: the name of the entity
+        :param types_signature: string signature of inferred parameter types
         :returns: the hash of the entity
         """
 
-        return f"{path}_{name}"
+        return f"{path}_{name}" if types_signature is None else f"{path}_{name}_{types_signature}"
 
     def extract_members(self, metadata: EntityMetadata) -> PyKokkosMembers:
         """
@@ -250,6 +262,7 @@ class Compiler:
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
         entity.AST = StaticTranslator.add_parent_refs(entity.AST)
+
         classtypes = parser.get_classtypes()
         for c in classtypes:
             c.AST = StaticTranslator.add_parent_refs(c.AST)

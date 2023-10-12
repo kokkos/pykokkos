@@ -4,16 +4,16 @@ import argparse
 import sys
 
 @pk.workunit
-def init_view(i: int, inp: pk.View1D[pk.double], init: float):
+def init_view(i, inp, init):
     inp[i] = init
 
 @pk.workunit
-def nstream( i: int, A: pk.View1D[pk.double], B: pk.View1D[pk.double], C: pk.View1D[pk.double], scalar: float):
-    A[i] += B[i] + scalar * C[i]
+def nstream( i, A_view, B_view, C_view, scalar):
+    A_view[i] += B_view[i] + scalar * C_view[i]
 
 @pk.workunit
-def res_reduce(i: int, acc: pk.Acc[pk.double], A: pk.View1D[pk.double]):
-    acc += abs(A[i])
+def res_reduce(i, acc, A_view):
+    acc += abs(A_view[i])
 
 
 def run() -> None:
@@ -55,7 +55,7 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(iterations):
-        pk.parallel_for(p, nstream, A=A, B=B, C=C, scalar=scalar)
+        pk.parallel_for(p, nstream, A_view=A, B_view=B, C_view=C, scalar=scalar)
 
     # pk.fence()
     nstream_time = timer.seconds()
@@ -69,7 +69,7 @@ def run() -> None:
 
     ar *= length
 
-    asum = pk.parallel_reduce(p, res_reduce, A=A)
+    asum = pk.parallel_reduce(p, res_reduce, A_view=A)
     # pk.fence()
 
     episilon: float = 1.0e-8
