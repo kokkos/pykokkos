@@ -192,7 +192,7 @@ class TestTypeInference(unittest.TestCase):
         self.assertEqual(uint64_view[0], self.np_u64)
         self.assertEqual(type(uint64_view[0]), np.ulonglong) # Why does this happen?
 
-    def tesy_layout_switchL(self):
+    def test_layout_switchL(self):
         int64_view = pk.View([self.threads], pk.int64, layout=pk.Layout.LayoutLeft)
         pk.parallel_for(self.range_policy, init_view, view=int64_view, init=self.np_i64)
         self.assertEqual(int64_view.layout, pk.Layout.LayoutLeft)

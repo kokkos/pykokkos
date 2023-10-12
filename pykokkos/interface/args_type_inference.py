@@ -324,13 +324,29 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
 
 def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
     '''
-    Given a user provided inspect.annotation string return the equivalent type inferrence string (used internally)
+    Given a user provided inspect.annotation string return the equivalent type inferrence string (used internally).
+    This function is typically invoked when resetting the AST
 
     :param inspect_type: annotation object provided by inspect package
     :return: string for the same type as supported in type_inference.py
     '''
 
-    basic_type = str(inspect_type.__name__)
+    basic_type = None
+    if isinstance(inspect_type, type):
+        basic_type = str(inspect_type.__name__)
+    else:
+        # Support for python 3.8, string manip needed :(
+        t_str = str(inspect_type)
+        t_str = t_str.replace("pykokkos.interface.data_types.", "")
+        t_str = t_str.replace("pykokkos.interface.views.", "")
+        if ".Acc[" in t_str:
+            basic_type = "Acc"
+        elif "TeamMember" in t_str:
+            basic_type = "TeamMember"
+        elif "View" in t_str:
+            basic_type = (t_str.split('[')[0]).strip()
+
+    assert basic_type is not None, f"Inference failed for {inspect_type}"
 
     # just a basic primitive
     if "pykokkos" not in str(inspect_type):
