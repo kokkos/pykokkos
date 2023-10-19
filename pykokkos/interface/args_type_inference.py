@@ -116,6 +116,13 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, param_list=param_list, layout_change={}, types_signature=None)
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
 
+    # check if all annotations are already provided
+    missing = False
+    for param in param_list:
+        if param.annotation is inspect._empty:
+            missing = True
+    if not missing: return None
+
     # accumulator 
     if parallel_type == "parallel_reduce":
         policy_params += 1
