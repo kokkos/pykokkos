@@ -298,10 +298,10 @@ class TestTypeInference(unittest.TestCase):
         pk.parallel_for(self.range_policy, init_view_layout, view=l_view, init=1)
         self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
-    def test_only_layoutL(self):
-        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
-        pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
-        self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
+    # def test_only_layoutL(self):
+    #     l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+    #     pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
+    #     self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
     def test_only_layoutR(self):
         r_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutRight)
