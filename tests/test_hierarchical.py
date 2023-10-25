@@ -154,7 +154,7 @@ class TestHierarchical(unittest.TestCase):
                 temp2 += self.A[j][i] * self.x[i]
             expected_result += self.y[j] * temp2
 
-        result: int = pk.parallel_reduce(pk.TeamPolicy(self.N, pk.AUTO, space=self.execution_space), self.functor.yAx)
+        result: int = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx)
 
         self.assertEqual(expected_result, result)
 
@@ -166,7 +166,7 @@ class TestHierarchical(unittest.TestCase):
                 temp2 += self.A[j][i] * self.x[i]
             expected_result += (self.y[j] + 1) * temp2
 
-        result: int = pk.parallel_reduce(pk.TeamPolicy(self.N, pk.AUTO, space=self.execution_space), self.functor.yAx_plus1)
+        result: int = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx_plus1)
 
         self.assertEqual(expected_result, result)
 
@@ -175,7 +175,7 @@ class TestHierarchical(unittest.TestCase):
         for i in range(self.M):
             expected_result += self.value
 
-        pk.parallel_for(pk.TeamPolicy(self.N, pk.AUTO, space=self.execution_space), self.functor.outer_for)
+        pk.parallel_for(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.outer_for)
         for i in range(self.N):
             result: int = self.functor.for_view[i]
             self.assertEqual(expected_result, result)
@@ -195,7 +195,7 @@ class TestHierarchical(unittest.TestCase):
 
             expected_result += tempN
 
-        result: float = pk.parallel_reduce(pk.TeamPolicy(self.E, pk.AUTO, 32, self.execution_space), self.functor.yAx_vector)
+        result: float = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.E, pk.AUTO, 32), self.functor.yAx_vector)
 
         self.assertEqual(expected_result, result)
 

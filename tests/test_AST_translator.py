@@ -314,8 +314,7 @@ def scratch_with_double_float(team_member: pk.TeamMember):
 
 def test_gh_180():
     pk.parallel_for("double_float_scratch",
-                    pk.TeamPolicy(league_size=2, team_size=2),
-                    scratch_with_double_float)
+                    pk.TeamPolicy(2, 2), scratch_with_double_float)
 
 
 if __name__ == "__main__":
