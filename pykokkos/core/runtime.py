@@ -56,9 +56,9 @@ class Runtime:
     def precompile_workunit(
         self,
         workunit: Callable[..., None],
-        space: ExecutionSpace = "Default",
+        space: ExecutionSpace,
         updated_types: Optional[UpdatedTypes] = None
-        ) -> Optional[PyKokkosMembers]:
+    ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
 
@@ -78,7 +78,7 @@ class Runtime:
         source: List[str],
         module_name: str,
         space: ExecutionSpace
-        ):
+    ):
 
         filename: str = module_name+".cpp"
         module_path: Path = ModuleSetup.get_main_dir(main) / f"{module_name}" / space.value
@@ -110,17 +110,19 @@ class Runtime:
         :returns: the result of the operation (None for parallel_for)
         """
 
-        if self.is_debug(policy.space):
+        execution_space: ExecutionSpace = policy.space.space
+
+        if self.is_debug(execution_space):
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, policy.space, updated_types)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_types)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, policy.space, updated_types)
-        return self.execute(workunit, module_setup, members, policy.space, policy=policy, name=name, **kwargs)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, updated_types)
+        return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -228,7 +230,7 @@ class Runtime:
 
         else:
             if policy is None:
-                raise RuntimeError("ERROR: execution policy is None")
+                raise RuntimeError("Execution policy is None")
 
             args.update(self.get_policy_arguments(policy))
             is_functor: bool = hasattr(entity, "__self__")
@@ -342,6 +344,8 @@ class Runtime:
         """
 
         args: Dict[str, Any] = {}
+
+        args["pk_exec_space_instance"] = policy.space.instance
 
         if isinstance(policy, RangePolicy):
             args["pk_threads_begin"] = policy.begin
