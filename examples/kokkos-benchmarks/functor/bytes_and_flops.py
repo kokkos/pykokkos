@@ -101,7 +101,7 @@ if __name__ == "__main__":
     
     pk.set_default_space(space)
 
-    r = pk.TeamPolicy(N, T, space=pk.get_default_space())
+    r = pk.TeamPolicy(N, T)
     w = Benchmark_double_8(N, K, R, args.D, F, T, S)
 
     timer = pk.Timer()

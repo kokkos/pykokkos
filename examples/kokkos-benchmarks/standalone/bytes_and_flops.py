@@ -87,7 +87,7 @@ if __name__ == "__main__":
     
     pk.set_default_space(space)
 
-    r = pk.TeamPolicy(N, T, space=pk.get_default_space())
+    r = pk.TeamPolicy(N, T)
 
     A: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
     B: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
