@@ -42,10 +42,10 @@ def run() -> None:
     nrepeat: int = 100
     print(f"Total size S = {N * M} N = {N} M = {M}")
 
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
+    p = pk.RangePolicy(0, N)
     w = Workload(N, M)
     pk.parallel_for(p, w.y_init)
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), w.x_init)
+    pk.parallel_for(pk.RangePolicy(0, M), w.x_init)
     pk.parallel_for(p, w.matrix_init)
 
     timer = pk.Timer()

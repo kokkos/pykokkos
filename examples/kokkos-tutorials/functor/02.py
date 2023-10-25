@@ -47,12 +47,11 @@ def run() -> None:
 
 
     w = Workload(N, M, fill)
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
 
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, w.yAx)
+        result = pk.parallel_reduce(N, w.yAx)
 
     timer_result = timer.seconds()
 

@@ -98,7 +98,7 @@ if __name__ == "__main__":
     F = args.F
     scalar_size = 8
 
-    policy = pk.RangePolicy(pk.get_default_space(), 0, N)
+    policy = pk.RangePolicy(0, N)
     w = Benchmark_double_8(N, K, D, R, F)
 
     timer = pk.Timer()

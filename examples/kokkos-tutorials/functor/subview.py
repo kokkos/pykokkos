@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     print(f"Total size S = {N * M} N = {N} M = {M}")
     w = Workload(N, M, nrepeat, fill)
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
+    p = pk.RangePolicy(0, N)
 
     timer = pk.Timer()
 

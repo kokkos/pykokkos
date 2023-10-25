@@ -87,7 +87,7 @@ if __name__ == "__main__":
         for jj in range(K):
             connectivity[i][jj] = (random.randrange(D)+i-D/2+N) % N
 
-    policy = pk.RangePolicy(pk.get_default_space(), 0, N)
+    policy = pk.RangePolicy(0, N)
 
     timer = pk.Timer()
     for r in range(R):

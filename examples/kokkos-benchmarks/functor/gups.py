@@ -55,8 +55,8 @@ def run() -> None:
     pk.set_default_space(space)
 
     w = Benchmark(indices, data, repeats, use_atomics)
-    range_indices = pk.RangePolicy(pk.get_default_space(), 0, indices)
-    range_data = pk.RangePolicy(pk.get_default_space(), 0, data)
+    range_indices = pk.RangePolicy(0, indices)
+    range_data = pk.RangePolicy(0, data)
 
     print("Reports fastest timing per kernel")
     print("Creating Views...")

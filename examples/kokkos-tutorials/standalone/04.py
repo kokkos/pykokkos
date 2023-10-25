@@ -36,9 +36,9 @@ def run() -> None:
     x: pk.View1D = pk.View([M], pk.double)
     A: pk.View2D = pk.View([N, M], pk.double)
 
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
+    p = pk.RangePolicy(0, N)
     pk.parallel_for(p, y_init, y_view=y)
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), y_init, y_view=x)
+    pk.parallel_for(pk.RangePolicy(0, M), y_init, y_view=x)
     pk.parallel_for(p, matrix_init, cols=M, A_view=A)
 
     # if fill:

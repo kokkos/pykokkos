@@ -51,8 +51,8 @@ if __name__ == "__main__":
     data_view: pk.View1D[pk.int64] = pk.View([data], pk.int64)
     datum: pk.int64 = -1
 
-    range_indices = pk.RangePolicy(pk.get_default_space(), 0, indices)
-    range_data = pk.RangePolicy(pk.get_default_space(), 0, data)
+    range_indices = pk.RangePolicy(0, indices)
+    range_data = pk.RangePolicy(0, data)
 
     print("Reports fastest timing per kernel")
     print("Creating Views...")

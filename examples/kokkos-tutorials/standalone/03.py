@@ -39,7 +39,7 @@ def run() -> None:
             for i in range(M):
                 A[j][i] = 1
 
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
+    p = pk.RangePolicy(0, N)
 
     timer = pk.Timer()
 
