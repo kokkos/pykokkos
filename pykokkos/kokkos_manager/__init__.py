@@ -61,7 +61,7 @@ def set_default_space(space: ExecutionSpace) -> None:
 
     CONSTANTS["EXECUTION_SPACE"] = space
 
-def get_execution_space_instance(space: ExecutionSpace):
+def get_execution_space_instance(space: ExecutionSpace) -> ExecutionSpaceInstance:
     """
     Return the default execution space instance for a given space
 
