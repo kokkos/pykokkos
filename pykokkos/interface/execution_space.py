@@ -54,6 +54,6 @@ class ExecutionSpaceInstance:
             if not isinstance(stream, cp.cuda.Stream):
                 raise TypeError(f"Type {type(stream)} unsupported; Only CuPy streams allowed")
 
-            self.instance = instance_constructor(stream.ptr)
+            self.instance = instance_constructor(stream.ptr, False)
         else:
             self.instance = instance_constructor()

@@ -171,7 +171,7 @@ def set_device_id(device_id: int) -> None:
 
     num_gpus: int = CONSTANTS["NUM_GPUS"]
     if device_id >= num_gpus or device_id < 0:
-        raise RuntimeError(f"Device {device_id} does not exist (range [0..{num_gpus})")
+        raise RuntimeError(f"Device {device_id} does not exist (range [0..{num_gpus}))")
 
     if num_gpus == 1:
         return

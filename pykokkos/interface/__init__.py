@@ -27,7 +27,7 @@ from .execution_policy import (
     ExecutionPolicy, RangePolicy, MDRangePolicy, TeamPolicy,
     TeamThreadRange, ThreadVectorRange, Iterate, Rank
 )
-from .execution_space import ExecutionSpace, is_host_execution_space
+from .execution_space import ExecutionSpace, ExecutionSpaceInstance, is_host_execution_space
 from .layout import Layout, get_default_layout
 from .hierarchical import (
     AUTO, TeamMember, PerTeam, PerThread, single
