@@ -699,9 +699,9 @@ def from_array(array) -> ViewType:
         layout = Layout.LayoutRight
 
     memory_space: MemorySpace
-    if km.get_gpu_framework() == "Cuda":
+    if km.get_gpu_framework() is pk.Cuda:
         memory_space = MemorySpace.CudaSpace
-    elif km.get_gpu_framework() == "HIP":
+    elif km.get_gpu_framework() is pk.HIP:
         memory_space = MemorySpace.HIPSpace
 
     return from_numpy(np_array, memory_space, layout)
