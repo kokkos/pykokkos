@@ -139,8 +139,8 @@ class TeamPolicy(ExecutionPolicy):
                 vector_length = -1
             else:
                 space = km.get_execution_space_instance(km.get_default_space())
-                league_size = second
-                team_size = third
+                league_size = first
+                team_size = second
                 vector_length = third
 
         elif len(unpacked) == 4:
