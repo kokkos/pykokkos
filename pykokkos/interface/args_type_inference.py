@@ -30,7 +30,8 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     param_list: List[str]
-    layout_change: Dict[str, str] # layout for views
+    inferred_decorator: Dict[str, Dict[str, str]] # against each view (first dict) values for layout, space, and trait
+    user_decorator: Dict[str, Dict[str, str]] # Any decorator specifiers provided by the user (used for resetting AST)
     types_signature: str # unique string identifer for inferred paramater types
 
 
@@ -113,7 +114,14 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
 
     param_list = list(inspect.signature(handled_args.workunit).parameters.values())
     args_list = list(*args)
-    updated_types = UpdatedTypes(workunit=handled_args.workunit, inferred_types={}, param_list=param_list, layout_change={}, types_signature=None)
+    updated_types = UpdatedTypes(
+        workunit=handled_args.workunit, 
+        inferred_types={}, 
+        param_list=param_list, 
+        inferred_decorator={'layout': {}, 'space': {}, 'trait': {}},
+        user_decorator=None,
+        types_signature=None
+    )
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
 
     # check if all annotations are already provided
@@ -237,8 +245,10 @@ def infer_other_args(
         value = args_list[start_idx + i - policy_params]
 
         if isinstance(value, View):
-            inferred_layout = value.layout if value.layout is not Layout.LayoutDefault else get_default_layout(space)
-            updated_types.layout_change[param.name] = "LayoutRight" if inferred_layout == Layout.LayoutRight else "LayoutLeft"
+            if param.name not in updated_types.inferred_decorator: updated_types.inferred_decorator[param.name] = {}
+            updated_types.inferred_decorator[param.name]['layout'] = str(value.layout).split(".")[1]
+            updated_types.inferred_decorator[param.name]['space'] = str(value.space).split(".")[1]
+            updated_types.inferred_decorator[param.name]['trait'] = str(value.trait).split(".")[1]
 
         if param.annotation is not inspect._empty:
             continue
