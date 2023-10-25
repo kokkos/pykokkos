@@ -167,7 +167,7 @@ class Runtime:
 
         module = self.import_module(module_setup.name, module_path)
 
-        args: Dict[str, Any] = self.get_arguments(entity, members, policy, **kwargs)
+        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
@@ -207,6 +207,7 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         members: PyKokkosMembers,
+        space: ExecutionSpace,
         policy: Optional[ExecutionPolicy],
         **kwargs
     ) -> Dict[str, Any]:
@@ -215,6 +216,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param members: a collection of PyKokkos related members
+        :param space: the execution space
         :param policy: the execution policy of the operation
         :param kwargs: the keyword arguments passed to a workunit
         """
@@ -227,6 +229,7 @@ class Runtime:
         if is_workload:
             args.update(self.get_result_arguments(members))
             entity_members = entity.__dict__
+            args["pk_exec_space_instance"] = km.get_execution_space_instance(space).instance
 
         else:
             if policy is None:
