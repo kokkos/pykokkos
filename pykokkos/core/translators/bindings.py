@@ -83,9 +83,10 @@ def get_kernel_params(
         layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
+    params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
+
     if not is_workload:
         params[Keywords.KernelName.value] = "const std::string&"
-        params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
 
         if is_hierarchical:
             params[Keywords.LeagueSize.value] = "int"
@@ -582,9 +583,9 @@ def bind_main_single(
     acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
-    fence: str = generate_fence_call()
+    # fence: str = generate_fence_call()
 
-    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} {fence} }}"
+    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
     wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
     binding: str = f"{kernel} {wrapper}"
 
