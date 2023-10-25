@@ -12,7 +12,6 @@ from pykokkos.kokkos_manager import (
     set_device_id
 )
 
-initialize()
 from pykokkos.lib.ufuncs import (reciprocal,
                                  log,
                                  log2,
