@@ -6,6 +6,7 @@ from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangeP
 from .views import View, ViewType
 from .layout import Layout, get_default_layout
 from .data_types import DataType, DataTypeClass
+from hashlib import md5
 
 @dataclass
 class HandledArgs:
@@ -129,7 +130,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     for param in param_list:
         if param.annotation is inspect._empty:
             missing = True
-    if not missing: return None
+            break
 
     # accumulator 
     if parallel_type == "parallel_reduce":
@@ -325,17 +326,7 @@ def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, st
             signature += name + l_type
 
     # Compacting
-    signature = signature.replace("View", "")
-    signature = signature.replace("Acc:", "" )
-    signature = signature.replace("TeamMember", "T")
-    signature = signature.replace("numpy:", "np")
-    signature = signature.replace("LayoutRight", "R")
-    signature = signature.replace("LayoutLeft", "L")
-    signature = signature.replace(":", "")
-    signature = signature.replace("double", "d")
-    signature = signature.replace("int", "i")
-    signature = signature.replace("bool", "b")
-    signature = signature.replace("float", "f")
+    signature = md5(signature, usedforsecurity= False).hexdigest()
 
     return signature
 
