@@ -44,7 +44,7 @@ def run() -> None:
             for i in range(M):
                 A[j][i] = 1
 
-    p = pk.TeamPolicy(N, "auto", space=pk.get_default_space())
+    p = pk.TeamPolicy(N, pk.AUTO)
 
     timer = pk.Timer()
 

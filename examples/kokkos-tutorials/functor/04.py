@@ -63,13 +63,13 @@ def run() -> None:
     pk.set_default_space(pk.ExecutionSpace.Cuda)
 
     w = Workload(N, M, fill)
-    p = pk.RangePolicy(pk.get_default_space(), 0, N)
+    p = pk.RangePolicy(0, N)
 
     timer = pk.Timer()
 
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, N), w.y_init)
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, M), w.x_init)
-    pk.parallel_for(pk.RangePolicy(pk.get_default_space(), 0, N), w.matrix_init)
+    pk.parallel_for(p, w.y_init)
+    pk.parallel_for(pk.RangePolicy(0, M), w.x_init)
+    pk.parallel_for(p, w.matrix_init)
 
     for i in range(nrepeat):
         result = pk.parallel_reduce(p, w.yAx)

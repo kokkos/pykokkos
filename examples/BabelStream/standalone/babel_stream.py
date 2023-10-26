@@ -53,11 +53,13 @@ if __name__ == "__main__":
     if args.execution_space:
         space = pk.ExecutionSpace(space)
 
+    pk.set_default_space(space)
+
     a: pk.View1D[pk.double] = pk.View([array_size], pk.double)
     b: pk.View1D[pk.double] = pk.View([array_size], pk.double)
     c: pk.View1D[pk.double] = pk.View([array_size], pk.double)
 
-    p = pk.RangePolicy(space, 0, array_size)
+    p = pk.RangePolicy(0, array_size)
     pk.parallel_for(p, init_arrays, a_view=a, b_view=b, c_view=c, initA=startA, initB=startB, initC=startC)
 
     timer = pk.Timer()

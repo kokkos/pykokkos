@@ -950,7 +950,7 @@ class Input:
 
             init_s = init_system(s, ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
                                  self.lattice_constant, basis_view)
-            n: int = pk.parallel_reduce("init_s", pk.RangePolicy(pk.Default, iz_start + 1, iz_end + 1), init_s.get_n)
+            n: int = pk.parallel_reduce("init_s", pk.RangePolicy(iz_start + 1, iz_end + 1), init_s.get_n)
 
             # n: int = calculate_n(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
             #                      self.lattice_constant, np.array(basis),

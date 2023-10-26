@@ -54,7 +54,7 @@ def run() -> None:
     print(f"Total size S = {N * M} N = {N} M = {M}")
 
     w = Workload(N, M, fill)
-    p = pk.TeamPolicy(N, "auto", space=pk.get_default_space())
+    p = pk.TeamPolicy(N, pk.AUTO)
 
     timer = pk.Timer()
 

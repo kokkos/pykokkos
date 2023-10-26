@@ -83,6 +83,8 @@ def get_kernel_params(
         layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
+    params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
+
     if not is_workload:
         params[Keywords.KernelName.value] = "const std::string&"
 
@@ -141,14 +143,13 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
     for f in members.fields:
         args.append(f.declname)
 
-    if functor_exec_space is None:
-        exec_space: str = Keywords.DefaultExecSpace.value
-        exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
-    else:
-        exec_space: str = functor_exec_space
-        exec_space_instance: str = f"{exec_space}_instance"
+    mirror_views: str
+    exec_space_instance: str = Keywords.DefaultExecSpaceInstance.value
 
-    mirror_views: str = f"{exec_space} {exec_space_instance};"
+    if functor_exec_space is None:
+        mirror_views = ""
+    else:
+        mirror_views = f"{functor_exec_space} {exec_space_instance};"
 
     device_views: Dict[str, str] = get_device_views(members)
     for v, d_v in device_views.items():
@@ -290,7 +291,7 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
 
     tag_name: str = tag.declname+"_tag"
     if is_hierarchical:
-        args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
+        args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
     else:
         args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
 
@@ -311,7 +312,7 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
         call += f"}} else {{ {custom_call} }}"
 
     call += generate_copy_back(members)
-    call += generate_fence_call()
+    # call += generate_fence_call()
 
     if operation in ("reduce", "scan"):
         call += f"return {Keywords.Accumulator.value};"
@@ -582,9 +583,9 @@ def bind_main_single(
     acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
     body: str = "".join(main)
     copy_back: str = generate_copy_back(members)
-    fence: str = generate_fence_call()
+    # fence: str = generate_fence_call()
 
-    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} {fence} }}"
+    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
     wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
     binding: str = f"{kernel} {wrapper}"
 

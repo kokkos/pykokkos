@@ -114,7 +114,7 @@ class TestTypeInference(unittest.TestCase):
         self.np_u64: np.uint64 = np.uint64(2**64 -1)
 
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
-        self.team_policy =  pk.TeamPolicy(self.threads, "auto", space=pk.get_default_space())
+        self.team_policy =  pk.TeamPolicy(self.threads, pk.AUTO)
         self.view1D: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32)
         self.view2D: pk.View2D[pk.int32] = pk.View([self.threads, self.threads], pk.int32)
         self.view3D: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32)
