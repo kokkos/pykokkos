@@ -54,7 +54,10 @@ class RangePolicy(ExecutionPolicy):
             raise TypeError(f"Invalid argument {end}")
 
         if isinstance(space, ExecutionSpace):
+            if space is ExecutionSpace.Default:
+                space = km.get_default_space()
             space = km.get_execution_space_instance(space)
+
         elif not isinstance(space, ExecutionSpaceInstance):
             raise TypeError(f"Invalid space argument {space}")
 
@@ -162,7 +165,10 @@ class TeamPolicy(ExecutionPolicy):
             vector_length = -1
 
         if isinstance(space, ExecutionSpace):
+            if space is ExecutionSpace.Default:
+                space = km.get_default_space()
             space = ExecutionSpaceInstance(space)
+
         elif not isinstance(space, ExecutionSpaceInstance):
             raise TypeError(f"Invalid space argument {space}")
 
