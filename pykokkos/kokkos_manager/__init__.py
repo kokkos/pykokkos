@@ -18,6 +18,7 @@ CONSTANTS: Dict[str, Any] = {
     "NUM_GPUS": 0,
     "KOKKOS_GPU_MODULE": kokkos,
     "KOKKOS_GPU_MODULE_LIST": [],
+    "KOKKOS_GPU_INSTANCE_LIST": [],
     "DEVICE_ID": 0,
     "GPU_BACKEND": None
 }
@@ -183,6 +184,9 @@ def set_device_id(device_id: int) -> None:
     gpu_lib = CONSTANTS["KOKKOS_GPU_MODULE_LIST"][device_id]
     CONSTANTS["KOKKOS_GPU_MODULE"] = gpu_lib
 
+    exec_space_instance = CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"][device_id]
+    CONSTANTS["AVAILABLE_EXECUTION_SPACES"][get_gpu_framework()] = exec_space_instance
+
 def get_device_id() -> int:
     """
     Get the ID of the currently enabled device
@@ -219,7 +223,7 @@ def get_num_gpus() -> bool:
 
     return CONSTANTS["NUM_GPUS"]
 
-def get_gpu_framework() -> str:
+def get_gpu_framework() -> ExecutionSpace:
     """
     Get the framework used by the GPU
 
@@ -227,6 +231,14 @@ def get_gpu_framework() -> str:
     """
 
     return CONSTANTS["GPU_BACKEND"]
+
+try:
+    # Save the active device ID before calling initialize(), which
+    # will overwrite it
+    import cupy as cp
+    active_device: int = cp.cuda.runtime.getDevice()
+except ImportError:
+    pass
 
 initialize()
 
@@ -261,12 +273,11 @@ except ImportError:
     NUM_CUDA_GPUS = 0
     KOKKOS_LIBS = []
 
-
-KOKKOS_LIB_INSTANCES: List = []
+KOKKOS_GPU_MODULE_LIST: List = []
 for id, lib in enumerate(KOKKOS_LIBS):
     try:
         module = importlib.import_module(lib)
-        KOKKOS_LIB_INSTANCES.append(module)
+        KOKKOS_GPU_MODULE_LIST.append(module)
 
         # Can't pass device id directly to initialize(), so need to
         # append argument to select device to sys.argv.
@@ -278,8 +289,22 @@ for id, lib in enumerate(KOKKOS_LIBS):
     except ModuleNotFoundError:
         pass
 
-if len(KOKKOS_LIB_INSTANCES) > 1:
+if len(KOKKOS_GPU_MODULE_LIST) > 1:
     CONSTANTS["MULTI_GPU"] = True
     CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
-    CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_LIB_INSTANCES
-    CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_LIB_INSTANCES[0]
+    CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_GPU_MODULE_LIST
+
+    # Create an execution space instance per device from each GPU lib
+    KOKKOS_GPU_INSTANCE_LIST: List = []
+    for lib in KOKKOS_GPU_MODULE_LIST:
+        CONSTANTS["KOKKOS_GPU_MODULE"] = lib
+        KOKKOS_GPU_INSTANCE_LIST.append(ExecutionSpaceInstance(get_gpu_framework()))
+
+    CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_GPU_MODULE_LIST[0]
+    CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"] = KOKKOS_GPU_INSTANCE_LIST
+
+try:
+    import cupy as cp
+    cp.cuda.runtime.setDevice(active_device)
+except ImportError:
+    pass
