@@ -64,6 +64,8 @@ class Runtime:
         precompile the workunit
 
         :param workunit: the workunit function object
+        :param updated_decorator: Object for decorator specifier
+        :param updated_types: Object with type inference information
         :param space: the ExecutionSpace for which the bindings are generated
         :returns: the members the functor is containing
         """
@@ -109,6 +111,7 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
+        :param updated_decorator: Object with decorator specifier information
         :param updated_types: UpdatedTypes object with type inferrence information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
@@ -442,7 +445,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :updated_types: Object with information about inferred types (if any)
+        :types_signature: Hash/identifer string for workunit module against data types
         :returns: the ModuleSetup object
         """
 
@@ -472,7 +475,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :param types_signature: optional identifier string for inferred types of parameters
+        :param types_signature: optional identifier/hash string for types of parameters against workunit module
         :returns: a unique tuple per entity and space
         """
 

@@ -60,6 +60,7 @@ class Compiler:
         :param entity_object: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
+        :param updated_decorator: Object for decorator specifiers
         :param updated_types: Object with with inferred types
         :returns: the PyKokkos members obtained during translation
         """

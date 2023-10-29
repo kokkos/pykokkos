@@ -82,6 +82,7 @@ class ModuleSetup:
         ModuleSetup constructor
 
         :param entity: the functor/workunit/workload
+        :param types_signature: hash/string to identify workunit signature against types
         """
 
         self.metadata: EntityMetadata
@@ -129,7 +130,7 @@ class ModuleSetup:
         :param main: the path to the main file in the current PyKokkos application
         :param metadata: the metadata of the entity being compiled
         :param space: the execution space to compile for
-        :param types_signature: optional identifier string for inferred types of parameters
+        :param types_signature: optional identifier/hash string for types of parameters
         :returns: the path to the output directory for a specific execution space
         """
 
