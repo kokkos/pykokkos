@@ -53,6 +53,7 @@ class Compiler:
         force_uvm: bool,
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
+        types_signature: Optional[str] = None
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -67,7 +68,7 @@ class Compiler:
 
         metadata = module_setup.metadata
         parser = self.get_parser(metadata.path)
-        types_signature: str = get_types_sig(updated_types, updated_decorator)
+
         hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 

@@ -59,6 +59,7 @@ class Runtime:
         space: ExecutionSpace,
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
+        types_signature: Optional[str] = None,
         ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
@@ -69,15 +70,15 @@ class Runtime:
         :param space: the ExecutionSpace for which the bindings are generated
         :returns: the members the functor is containing
         """
-        types_signature: str = get_types_sig(updated_types, updated_decorator)
+
         module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature)
         members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
                                                                           space, km.is_uvm_enabled(), 
                                                                           updated_decorator, 
-                                                                          updated_types)
+                                                                          updated_types, types_signature)
 
         return members
-
+    
     def compile_into_module(
         self,
         main: Path,

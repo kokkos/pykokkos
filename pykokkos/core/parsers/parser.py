@@ -288,6 +288,7 @@ class Parser:
         :param updated_decorator: Object with dict that maps view to its layout, space and trait
         :returns: decorator list 
         '''
+
         entity_tree = entity.AST
         needs_reset: bool = self.check_self(entity_tree)
         if needs_reset:
