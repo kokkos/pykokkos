@@ -293,7 +293,7 @@ class Parser:
         needs_reset: bool = self.check_self(entity_tree)
         if needs_reset:
             entity_tree = self.reset_entity_tree(entity_tree, updated_decorator)
-        assert len(entity_tree.decorator_list), f"Decorator cannot be missing for pykokkos workunit {node.name}"
+        assert len(entity_tree.decorator_list), f"Decorator cannot be missing for pykokkos workunit {entity_tree.name}"
 
         if not len(updated_decorator.inferred_decorator):
             # no change needed
