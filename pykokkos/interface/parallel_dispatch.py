@@ -101,13 +101,6 @@ def parallel_for(*args, **kwargs) -> None:
 
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
     updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
-    # set types signature with layouts/inferred info
-    if updated_types is not None:
-        updated_types.types_signature = get_types_sig(updated_types.inferred_types, updated_decorator.inferred_decorator)
-        print("SIGNATURE", updated_types.types_signature)
-
-    # print("UPDATED DECOR:", updated_decorator.inferred_decorator)
-    # print("inferred types:", updated_types.inferred_types)
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
@@ -157,13 +150,6 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     #* Inferring missing data types
     updated_types: UpdatedTypes = get_annotations("parallel_"+operation, handled_args, args, passed_kwargs=kwargs)
     updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
-    # set types signature with layouts/inferred info
-    if updated_types is not None:
-        updated_types.types_signature = get_types_sig(updated_types.inferred_types, updated_decorator.inferred_decorator)
-        print("SIGNATURE", updated_types.types_signature)
-
-    # print("UPDATED DECOR:", updated_decorator.inferred_decorator)
-    # print("inferred types:", updated_types.inferred_types)
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,

@@ -8,7 +8,7 @@ import time
 from typing import Dict, List, Optional
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
+from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator, get_types_sig
 import pykokkos.kokkos_manager as km
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
@@ -66,7 +66,7 @@ class Compiler:
 
         metadata = module_setup.metadata
         parser = self.get_parser(metadata.path)
-        types_signature = None if updated_types is None else updated_types.types_signature
+        types_signature: str = get_types_sig(updated_types, updated_decorator)
         hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
@@ -94,7 +94,7 @@ class Compiler:
             entity.AST = parser.fix_types(entity, updated_types)
         if decorator_inferred:
             entity.AST = parser.fix_decorator(entity, updated_decorator)
-        print(ast.dump(entity.AST))
+
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:

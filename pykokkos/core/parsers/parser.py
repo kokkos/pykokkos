@@ -177,23 +177,22 @@ class Parser:
         :returns: True if a 'self' argument exists, False otherwise
         '''
 
-        for arg in entity_tree.args.args:
-            if arg.arg == "self":
-                return True
+        if entity_tree.args.args[0].arg == "self":
+            return True
         return False
 
-    def reset_entity_tree(self, entity_tree: ast.AST, updated_types: UpdatedTypes) -> ast.AST:
+    def reset_entity_tree(self, entity_tree: ast.AST, updated_obj: Union[UpdatedTypes, UpdatedDecorator]) -> ast.AST:
         '''
         Remove the inferred type annotations and self argument from the entity tree. This allows
         the types to be inserted again if they change dynamically
 
         :param entity_tree: Ast of pykokkos entity being reset
-        :param updated_types: inferred types information
+        :param updated_obj: inferred types/decorator object that must have original inspect param list
         :returns: updated entity ast as it would be in the first run
         '''
 
         args_list: List[ast.arg] = []
-        param_list = updated_types.param_list
+        param_list = updated_obj.param_list
         for param in param_list:
             arg_obj = ast.arg(arg=param.name)
             if param.annotation is not inspect._empty:
@@ -290,6 +289,9 @@ class Parser:
         :returns: decorator list 
         '''
         entity_tree = entity.AST
+        needs_reset: bool = self.check_self(entity_tree)
+        if needs_reset:
+            entity_tree = self.reset_entity_tree(entity_tree, updated_decorator)
         assert len(entity_tree.decorator_list), f"Decorator cannot be missing for pykokkos workunit {node.name}"
 
         if not len(updated_decorator.inferred_decorator):

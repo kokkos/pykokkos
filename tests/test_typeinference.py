@@ -99,6 +99,9 @@ def add_all_init(i, view, i8, i16, i32, i64):
 def add_two_init(i, view, v1, v2):
     view[i] = v1 + v2
 
+@pk.workunit
+def no_view(i: int, acc: pk.Acc[pk.double], n):
+    acc=acc + n;
 
 class TestTypeInference(unittest.TestCase):
     def setUp(self):
@@ -298,10 +301,10 @@ class TestTypeInference(unittest.TestCase):
         pk.parallel_for(self.range_policy, init_view_layout, view=l_view, init=1)
         self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
-    # def test_only_layoutL(self):
-    #     l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
-    #     pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
-    #     self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
+    def test_only_layoutL(self):
+        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
+        self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
     def test_only_layoutR(self):
         r_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutRight)
@@ -356,6 +359,12 @@ class TestTypeInference(unittest.TestCase):
         result = pk.parallel_reduce(p, team_reduce_mixed, M=self.threads, y=new_view, x=x, A=A)
         self.assertEqual(result, expected_result)
 
+    def test_no_view(self):
+        pk.parallel_reduce(self.range_policy, no_view, n = 1);
+        pk.parallel_reduce(self.range_policy, no_view, n = 2.1);
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

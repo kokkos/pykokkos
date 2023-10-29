@@ -12,7 +12,7 @@ from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
     RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes, UpdatedDecorator,
-    is_host_execution_space
+    is_host_execution_space, get_types_sig
 )
 import pykokkos.kokkos_manager as km
 
@@ -67,8 +67,8 @@ class Runtime:
         :param space: the ExecutionSpace for which the bindings are generated
         :returns: the members the functor is containing
         """
-
-        module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
+        types_signature: str = get_types_sig(updated_types, updated_decorator)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature)
         members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
                                                                           space, km.is_uvm_enabled(), 
                                                                           updated_decorator, 
@@ -126,7 +126,8 @@ class Runtime:
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, updated_types)
+        types_signature: str = get_types_sig(updated_types, updated_decorator)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
@@ -434,7 +435,7 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
-        updated_types: Optional[UpdatedTypes] = None
+        types_signature: Optional[str] = None
         ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
@@ -446,7 +447,6 @@ class Runtime:
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
-        types_signature: str = None if updated_types is None else updated_types.types_signature
 
         module_setup_id = self.get_module_setup_id(entity, space, types_signature)
 
