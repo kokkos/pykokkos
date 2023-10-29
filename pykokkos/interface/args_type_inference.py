@@ -31,10 +31,16 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     param_list: List[str]
-    inferred_decorator: Dict[str, Dict[str, str]] # against each view (first dict) values for layout, space, and trait
-    user_decorator: Dict[str, Dict[str, str]] # Any decorator specifiers provided by the user (used for resetting AST)
     types_signature: str # unique string identifer for inferred paramater types
 
+@dataclass
+class UpdatedDecorator:
+    """
+    Class for storing inferred decorator specifiers
+    (Making Pykokkos more pythonic by automatically inferring types)
+    """
+
+    inferred_decorator: Dict[str, Dict[str, str]] # against each view (first dict) values for layout, space, and trait
 
 # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicate aliases
 SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
@@ -119,8 +125,6 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         workunit=handled_args.workunit, 
         inferred_types={}, 
         param_list=param_list, 
-        inferred_decorator={'layout': {}, 'space': {}, 'trait': {}},
-        user_decorator=None,
         types_signature=None
     )
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
@@ -131,6 +135,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         if param.annotation is inspect._empty:
             missing = True
             break
+    if not missing: return None
 
     # accumulator 
     if parallel_type == "parallel_reduce":
@@ -163,13 +168,38 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     # At this point there must more arguments to the workunit that may not have their types annotated
     # These parameters may also not have raw values associated in the stand alone format -> infer types from the argument list
 
-    updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, handled_args.policy.space, updated_types)
+    updated_types = infer_other_args(param_list, policy_params, args_list, value_idx, updated_types)
 
-    if not len(updated_types.inferred_types) and not len(updated_types.layout_change): return None
-
-    updated_types.types_signature = get_types_sig(updated_types.inferred_types, updated_types.layout_change)
+    if not len(updated_types.inferred_types): return None
 
     return updated_types
+
+
+def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDecorator:
+    
+    param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+    policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
+    updated_decorator = UpdatedDecorator(
+        inferred_decorator = {},
+    )
+    for kwarg in passed_kwargs:
+        if kwarg not in [param.name for param in param_list ]:
+            raise Exception(f"Unknown kwarg: {kwarg} passed")
+        
+        value = passed_kwargs[kwarg]
+        if not isinstance(value, View):
+            continue
+
+        if kwarg not in updated_decorator.inferred_decorator: updated_decorator.inferred_decorator[kwarg] = {}
+        updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
+        updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
+        updated_decorator.inferred_decorator[kwarg]['trait'] = str(value.trait).split(".")[1]
+
+    if not len(updated_decorator.inferred_decorator):
+        return None
+
+    return updated_decorator
+
 
 def infer_policy_args(
     param_list: List[inspect.Parameter],
@@ -227,7 +257,6 @@ def infer_other_args(
     policy_params: int,
     args_list: List[Any],
     start_idx: int,
-    space: ExecutionSpace,
     updated_types: UpdatedTypes
     ) -> UpdatedTypes:
     '''
@@ -244,12 +273,6 @@ def infer_other_args(
     for i in range(policy_params , len(param_list)):
         param = param_list[i]
         value = args_list[start_idx + i - policy_params]
-
-        if isinstance(value, View):
-            if param.name not in updated_types.inferred_decorator: updated_types.inferred_decorator[param.name] = {}
-            updated_types.inferred_decorator[param.name]['layout'] = str(value.layout).split(".")[1]
-            updated_types.inferred_decorator[param.name]['space'] = str(value.space).split(".")[1]
-            updated_types.inferred_decorator[param.name]['trait'] = str(value.trait).split(".")[1]
 
         if param.annotation is not inspect._empty:
             continue
@@ -304,31 +327,27 @@ def get_pk_datatype(view_dtype):
     return dtype
 
 
-def get_types_sig(inferred_types: Dict[str, str], inferred_layouts: Dict[str, str]) -> str:
+def get_types_sig(inferred_types: Dict[str, str], inferred_decorator: Dict[str, str]) -> str:
     '''
     :param inferred_types: Dict that stores arg name against its inferred type
-    :param inferred_layouts: Dict that stores view name against its inferred layout
+    :param inferred_decorator: Dict that stores the layout of view name against its inferred layout
     :returns: a string representing inferred types
     '''
-
-    if not len(inferred_layouts) and not len(inferred_types):
-        return None
-
+    assert inferred_types is not None and len(inferred_types) , "Cannot not get inferred type signature when there are not inferred types"
+    
     signature:str = ""
     for name, i_type in inferred_types.items():
         signature += i_type
-        if "View" in i_type and name in inferred_layouts:
-            signature += inferred_layouts[name]
 
-    # if there were no inferred types but only layouts
-    if signature == "":
-        for name, l_type in inferred_layouts.items():
-            signature += name + l_type
+    if inferred_decorator is not None:
+        for name in inferred_decorator:
+            signature += inferred_decorator[name]['layout'] + inferred_decorator[name]['space'] + inferred_decorator[name]['trait']
 
     # Compacting
-    signature = md5(signature, usedforsecurity= False).hexdigest()
+    signature = md5(signature.encode(), usedforsecurity= False).hexdigest()
 
     return signature
+
 
 def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
     '''

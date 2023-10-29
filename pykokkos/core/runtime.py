@@ -11,7 +11,7 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
-    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes,
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes, UpdatedDecorator,
     is_host_execution_space
 )
 import pykokkos.kokkos_manager as km
@@ -57,8 +57,9 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace,
-        updated_types: Optional[UpdatedTypes] = None
-    ) -> Optional[PyKokkosMembers]:
+        updated_decorator: UpdatedDecorator,
+        updated_types: Optional[UpdatedTypes] = None,
+        ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
 
@@ -68,7 +69,10 @@ class Runtime:
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
+                                                                          space, km.is_uvm_enabled(), 
+                                                                          updated_decorator, 
+                                                                          updated_types)
 
         return members
 
@@ -92,6 +96,7 @@ class Runtime:
         name: Optional[str],
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
+        updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
         operation: Optional[str] = None,
         initial_value: Union[float, int] = 0,
@@ -117,7 +122,7 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_types)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
