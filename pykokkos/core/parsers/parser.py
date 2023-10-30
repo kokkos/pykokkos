@@ -311,7 +311,7 @@ class Parser:
         return entity_tree
 
 
-    def get_keyword_node(self, view_name: str, specifier_dict: dict[str, str]) -> ast.keyword:
+    def get_keyword_node(self, view_name: str, specifier_dict: Dict[str, str]) -> ast.keyword:
         '''
         Make the ast.keyword node to be added to the decorator list
 
