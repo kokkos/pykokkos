@@ -78,7 +78,7 @@ class Runtime:
                                                                           updated_types, types_signature)
 
         return members
-    
+
     def compile_into_module(
         self,
         main: Path,

@@ -12,7 +12,7 @@ from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator, g
 import pykokkos.kokkos_manager as km
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
-import ast
+
 @dataclass
 class CompilationDefaults:
     """

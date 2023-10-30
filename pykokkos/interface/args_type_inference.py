@@ -1,10 +1,9 @@
 import inspect
 from dataclasses import dataclass
-from typing import  Callable, Dict, Optional, Tuple, Union, List, Any
+from typing import  Callable, Dict, Optional, Tuple, Union, List
 import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
 from .views import View, ViewType
-from .layout import Layout, get_default_layout
 from .data_types import DataType, DataTypeClass
 from hashlib import md5
 
@@ -249,10 +248,7 @@ def infer_policy_args(
 
 
 def infer_other_args(
-    param_list: List[inspect.Parameter], 
-    # policy_params: int,
-    # args_list: List[Any],
-    # start_idx: int,
+    param_list: List[inspect.Parameter],
     passed_kwargs,
     updated_types: UpdatedTypes
     ) -> UpdatedTypes:
