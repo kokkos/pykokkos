@@ -1,0 +1,58 @@
+#!/bin/bash
+
+PROJECT="pykokkos"
+TAG="latest"
+CHOME="/home/pk"
+
+
+# ----------
+# Functions.
+
+function docker_clean() {
+        # Clean docker containers and images (this function is
+        # aggressive and cleans a lot more than necessary). Run only
+        # if you know the risk.
+
+        docker ps -a | grep -v 'CONTA' | cut -f1 -d' ' | xargs -I xxx docker rm xxx
+        docker images | grep "${PROJECT}" | awk '{ print $3 }' | xargs -I xxx docker image rm xxx
+        docker images | grep '<none>' | awk '{ print $3 }' | xargs -I xxx docker image rm xxx
+}
+
+function docker_build() {
+        local -r tag="${1:-$TAG}"
+
+        [ -z "${tag}" ] && return 1
+        [ ! -f "Dockerfile" ] && return 1
+
+        docker build -t "${PROJECT}:${tag}" -f Dockerfile .
+}
+
+function test_cmd_container() {
+        ( cd "${CHOME}/pykokkos"
+          python runtests.py )
+}
+
+function cmd_in_container() {
+        local -r name="${1}"
+
+        ( cd "${CHOME}/pykokkos"
+          export PYTHONPATH=pykokkos:$PYTHONPATH
+          python "${name}" )
+}
+
+function run_example() {
+        local -r name="${1}"
+
+        [ -z "${name}" ] && \
+                { echo "no example name provided"; return 1; }
+
+        docker run --volume $(pwd):"${CHOME}/pykokkos" \
+               "${PROJECT}" \
+               "${CHOME}/pykokkos/pk" "cmd_in_container" "${name}"
+}
+
+function run_tests() {
+        run_example "runtests.py"
+}
+
+"$@"
