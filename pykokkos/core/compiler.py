@@ -8,7 +8,7 @@ import time
 from typing import Dict, List, Optional
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator, get_types_sig
+from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
 import pykokkos.kokkos_manager as km
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup

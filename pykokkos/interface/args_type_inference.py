@@ -30,7 +30,6 @@ class UpdatedTypes:
     workunit: Callable
     inferred_types: Dict[str, str] # type information stored as string: identifier -> type
     param_list: List[str]
-    types_signature: str # unique string identifer for inferred paramater types
 
 @dataclass
 class UpdatedDecorator:
@@ -125,7 +124,6 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         workunit=handled_args.workunit, 
         inferred_types={}, 
         param_list=param_list, 
-        types_signature=None
     )
     policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
 
@@ -187,11 +185,8 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
 
         if kwarg not in updated_decorator.inferred_decorator: updated_decorator.inferred_decorator[kwarg] = {}
         updated_decorator.inferred_decorator[kwarg]['trait'] = str(value.trait).split(".")[1]
-        # if the trait is unmanaged -> only then we need a space specifier
-            # else no space
         updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
-        if value.trait is Trait.Unmanaged:
-            updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
+        updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
 
     if not len(updated_decorator.inferred_decorator):
         return None
@@ -329,12 +324,13 @@ def get_pk_datatype(view_dtype):
     return dtype
 
 
-def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorator) -> str:
+def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorator, execution_space: ExecutionSpace) -> str:
     '''
     Generates a signature/hash to represent the signature of the workunit: used for module setup
 
     :param inferred_types: Dict that stores arg name against its inferred type
     :param inferred_decorator: Dict that stores the layout of view name against its inferred layout
+    :param execution_space: The execution space of the workunit
     :returns: a string representing inferred types
     '''
 
@@ -345,9 +341,7 @@ def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorat
 
     if updated_decorator is not None:
         for name in updated_decorator.inferred_decorator:
-            space_str = ""
-            if 'space' in updated_decorator.inferred_decorator[name]:
-                space_str = updated_decorator.inferred_decorator[name]['space']
+            space_str = str(execution_space)
             layout_str = updated_decorator.inferred_decorator[name]['layout']
             trait_str = updated_decorator.inferred_decorator[name]['trait']
 

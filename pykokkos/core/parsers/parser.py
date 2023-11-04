@@ -318,9 +318,13 @@ class Parser:
         :param layout: pykokkos Layout as string
         :returns: corresponding ast.keyword node that can be added to decorator list 
         '''
-        keywords_list = []
+
+        skip_space: bool = False if specifier_dict['trait'] == "Unmanaged" else True
+        keywords_list: List[ast.keyword] = []
         attr_names = {'layout' : 'Layout', 'space' : 'MemorySpace', 'trait' : 'Trait'}
         for specifier, value in specifier_dict.items():
+            if specifier == "space" and skip_space:
+                continue
             keywords_list.append(
                 ast.keyword(
                     arg=specifier, 

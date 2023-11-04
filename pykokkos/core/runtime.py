@@ -126,7 +126,7 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        types_signature: str = get_types_sig(updated_types, updated_decorator)
+        types_signature: str = get_types_sig(updated_types, updated_decorator, execution_space)
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
