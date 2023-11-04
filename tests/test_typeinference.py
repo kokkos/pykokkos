@@ -1,9 +1,10 @@
 import unittest
 import numpy as np
 import pykokkos as pk
+import pytest
 try:
     import cupy as cp
-    HAS_CUDA = False
+    HAS_CUDA = True
 except ImportError:
     HAS_CUDA = False
 
@@ -139,6 +140,7 @@ class TestTypeInference(unittest.TestCase):
         for i in range(0, self.threads):
             self.assertEqual(expected_result, self.view1D[i])
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
     def test_simple_parallelfor_cuda(self):
         if not HAS_CUDA:
             return
@@ -155,6 +157,7 @@ class TestTypeInference(unittest.TestCase):
         result = pk.parallel_reduce(self.range_policy, reduce, view=self.view1D)
         self.assertEqual(expect_result, result)
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
     def test_simple_parallelreduce_cuda(self):
         if not HAS_CUDA:
             return
@@ -173,6 +176,7 @@ class TestTypeInference(unittest.TestCase):
         for i in range(0, self.threads):
             self.assertEqual(expect_result[i], self.view1D[i])
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
     def test_simple_parallelscan_cuda(self):
         if not HAS_CUDA:
             return
@@ -245,6 +249,7 @@ class TestTypeInference(unittest.TestCase):
         self.assertEqual(int64_view.layout, pk.Layout.LayoutRight)
         self.assertEqual(int64_view[0], self.np_i64)
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
     def test_cuda_switch(self):
         if not HAS_CUDA:
             return
@@ -317,6 +322,7 @@ class TestTypeInference(unittest.TestCase):
                 for k in range(self.threads):
                     self.assertEqual(self.view3D[i][j][k], expect_result)
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
     def test_all_Ds_cuda(self):
         if not HAS_CUDA:
             return
