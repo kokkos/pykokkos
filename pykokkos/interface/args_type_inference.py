@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List
 import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
-from .views import View, ViewType
+from .views import View, ViewType, Trait
 from .data_types import DataType, DataTypeClass
 from hashlib import md5
 
@@ -186,9 +186,12 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
             continue
 
         if kwarg not in updated_decorator.inferred_decorator: updated_decorator.inferred_decorator[kwarg] = {}
-        updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
-        updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
         updated_decorator.inferred_decorator[kwarg]['trait'] = str(value.trait).split(".")[1]
+        # if the trait is unmanaged -> only then we need a space specifier
+            # else no space
+        updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
+        if value.trait is Trait.Unmanaged:
+            updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
 
     if not len(updated_decorator.inferred_decorator):
         return None
@@ -334,7 +337,7 @@ def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorat
     :param inferred_decorator: Dict that stores the layout of view name against its inferred layout
     :returns: a string representing inferred types
     '''
-    
+
     signature:str = ""
     if updated_types is not None:
         for name, i_type in updated_types.inferred_types.items():
@@ -342,13 +345,19 @@ def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorat
 
     if updated_decorator is not None:
         for name in updated_decorator.inferred_decorator:
-            signature += updated_decorator.inferred_decorator[name]['layout'] + updated_decorator.inferred_decorator[name]['space'] + updated_decorator.inferred_decorator[name]['trait']
+            space_str = ""
+            if 'space' in updated_decorator.inferred_decorator[name]:
+                space_str = updated_decorator.inferred_decorator[name]['space']
+            layout_str = updated_decorator.inferred_decorator[name]['layout']
+            trait_str = updated_decorator.inferred_decorator[name]['trait']
+
+            signature += layout_str +  space_str + trait_str
 
     if signature == "":
         return None
-    
+
     # Compacting
-    signature = md5(signature.encode(), usedforsecurity= False).hexdigest()
+    signature = md5(signature.encode()).hexdigest()
 
     return signature
 

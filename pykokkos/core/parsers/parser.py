@@ -318,7 +318,20 @@ class Parser:
         :param layout: pykokkos Layout as string
         :returns: corresponding ast.keyword node that can be added to decorator list 
         '''
-
+        keywords_list = []
+        attr_names = {'layout' : 'Layout', 'space' : 'MemorySpace', 'trait' : 'Trait'}
+        for specifier, value in specifier_dict.items():
+            keywords_list.append(
+                ast.keyword(
+                    arg=specifier, 
+                    value=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
+                            attr=attr_names[specifier], ctx=ast.Load()), 
+                        attr=value, ctx=ast.Load()
+                        )
+                )
+            )
         return ast.keyword(
             arg=view_name, 
             value=ast.Call(
@@ -327,35 +340,7 @@ class Parser:
                     attr='ViewTypeInfo', ctx=ast.Load()
                 ), 
                 args=[], 
-                keywords=[
-                    ast.keyword(
-                        arg='layout', 
-                        value=ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                attr='Layout', ctx=ast.Load()), 
-                            attr=specifier_dict['layout'], ctx=ast.Load()
-                            )
-                    ),
-                    ast.keyword(
-                        arg='space', 
-                        value=ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                attr='MemorySpace', ctx=ast.Load()), 
-                            attr=specifier_dict['space'], ctx=ast.Load()
-                            )
-                    ),
-                    ast.keyword(
-                        arg='trait', 
-                        value=ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                attr='Trait', ctx=ast.Load()), 
-                            attr=specifier_dict['trait'], ctx=ast.Load()
-                            )
-                    )
-                ]
+                keywords= keywords_list
             )
         )
 
