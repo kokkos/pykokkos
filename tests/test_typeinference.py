@@ -123,14 +123,16 @@ class TestTypeInference(unittest.TestCase):
         self.np_u64: np.uint64 = np.uint64(2**64 -1)
 
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
-        self.range_policy_cuda = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, self.threads)
         self.team_policy =  pk.TeamPolicy(self.threads, pk.AUTO)
         self.view1D: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32)
-        self.view1D_cuda: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
         self.view2D: pk.View2D[pk.int32] = pk.View([self.threads, self.threads], pk.int32)
-        self.view2D_cuda: pk.View1D[pk.int32] = pk.View([self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
         self.view3D: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32)
-        self.view3D_cuda: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+
+        if HAS_CUDA:
+            self.range_policy_cuda = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, self.threads)
+            self.view1D_cuda: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+            self.view2D_cuda: pk.View1D[pk.int32] = pk.View([self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+            self.view3D_cuda: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
 
 
     def test_simple_parallelfor(self):
