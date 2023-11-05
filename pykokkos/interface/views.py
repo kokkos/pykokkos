@@ -215,7 +215,8 @@ class View(ViewType):
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
-        array: Optional[np.ndarray] = None
+        array: Optional[np.ndarray] = None,
+        _cpp_type: Optional[str] = None
     ):
         """
         View constructor.
@@ -336,6 +337,12 @@ class View(ViewType):
                 shape = [1]
             self.array = kokkos_lib.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
         self.data = np.array(self.array, copy=False)
+
+        self._cpp_type = self.array.cpp_type;
+
+    @property
+    def cpp_type(self):
+        return self._cpp_type
 
     def _get_type(self, dtype: Union[DataType, type]) -> Optional[DataType]:
         """
