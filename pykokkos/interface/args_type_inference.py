@@ -1,11 +1,13 @@
 import inspect
 from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List
+import hashlib
+
 import pykokkos.kokkos_manager as km
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
 from .views import View, ViewType, Trait
 from .data_types import DataType, DataTypeClass
-from hashlib import md5
+
 
 @dataclass
 class HandledArgs:
@@ -183,7 +185,8 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
         if not isinstance(value, View):
             continue
 
-        if kwarg not in updated_decorator.inferred_decorator: updated_decorator.inferred_decorator[kwarg] = {}
+        if kwarg not in updated_decorator.inferred_decorator: 
+            updated_decorator.inferred_decorator[kwarg] = {}
         updated_decorator.inferred_decorator[kwarg]['trait'] = str(value.trait).split(".")[1]
         updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
         updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
@@ -305,7 +308,7 @@ def infer_other_args(
 
 def get_pk_datatype(view_dtype):
     '''
-    Infer the dataype of view e.g pk.View1D[<dinfer this>]
+    Infer the dataype of view e.g pk.View1D[<infer this>]
 
     :param view_dtype: view.dtype whose datatype is to be determined as string
     :returns: the type of custom pkDataType as string
@@ -324,7 +327,7 @@ def get_pk_datatype(view_dtype):
     return dtype
 
 
-def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorator, execution_space: ExecutionSpace) -> str:
+def get_types_signature(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorator, execution_space: ExecutionSpace) -> str:
     '''
     Generates a signature/hash to represent the signature of the workunit: used for module setup
 
@@ -351,7 +354,7 @@ def get_types_sig(updated_types: UpdatedTypes, updated_decorator: UpdatedDecorat
         return None
 
     # Compacting
-    signature = md5(signature.encode()).hexdigest()
+    signature = hashlib.md5(signature.encode()).hexdigest()
 
     return signature
 

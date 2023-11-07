@@ -12,7 +12,7 @@ from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
     RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes, UpdatedDecorator,
-    is_host_execution_space, get_types_sig
+    is_host_execution_space, get_types_signature
 )
 import pykokkos.kokkos_manager as km
 
@@ -126,7 +126,7 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        types_signature: str = get_types_sig(updated_types, updated_decorator, execution_space)
+        types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")

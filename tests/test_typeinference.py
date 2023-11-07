@@ -432,6 +432,4 @@ class TestTypeInference(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    # test = TestTypeInference()
-    # test.setUp()
-    # test.test_layout_switchL()
+

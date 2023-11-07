@@ -310,7 +310,7 @@ class Parser:
         return entity_tree
 
 
-    def get_keyword_node(self, view_name: str, specifier_dict: Dict[str, str]) -> ast.keyword:
+    def get_keyword_node(self, view_name: str, specifiers: Dict[str, str]) -> ast.keyword:
         '''
         Make the ast.keyword node to be added to the decorator list
 
@@ -319,10 +319,10 @@ class Parser:
         :returns: corresponding ast.keyword node that can be added to decorator list 
         '''
 
-        skip_space: bool = False if specifier_dict['trait'] == "Unmanaged" else True
+        skip_space: bool = False if specifiers['trait'] == "Unmanaged" else True
         keywords_list: List[ast.keyword] = []
         attr_names = {'layout' : 'Layout', 'space' : 'MemorySpace', 'trait' : 'Trait'}
-        for specifier, value in specifier_dict.items():
+        for specifier, value in specifiers.items():
             if specifier == "space" and skip_space:
                 continue
             keywords_list.append(
