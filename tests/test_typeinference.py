@@ -1,6 +1,12 @@
 import unittest
 import numpy as np
 import pykokkos as pk
+import pytest
+try:
+    import cupy as cp
+    HAS_CUDA = True
+except ImportError:
+    HAS_CUDA = False
 
 # workunits
 @pk.workunit
@@ -99,6 +105,9 @@ def add_all_init(i, view, i8, i16, i32, i64):
 def add_two_init(i, view, v1, v2):
     view[i] = v1 + v2
 
+@pk.workunit
+def no_view(i: int, acc: pk.Acc[pk.double], n):
+    acc=acc + n;
 
 class TestTypeInference(unittest.TestCase):
     def setUp(self):
@@ -119,6 +128,13 @@ class TestTypeInference(unittest.TestCase):
         self.view2D: pk.View2D[pk.int32] = pk.View([self.threads, self.threads], pk.int32)
         self.view3D: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32)
 
+        if HAS_CUDA:
+            self.range_policy_cuda = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, self.threads)
+            self.view1D_cuda: pk.View1D[pk.int32] = pk.View([self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+            self.view2D_cuda: pk.View1D[pk.int32] = pk.View([self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+            self.view3D_cuda: pk.View3D[pk.int32] = pk.View([self.threads, self.threads, self.threads], pk.int32, pk.CudaSpace, pk.LayoutLeft)
+
+
     def test_simple_parallelfor(self):
         expected_result: float = 1.0
         n=1.0
@@ -126,11 +142,31 @@ class TestTypeInference(unittest.TestCase):
         for i in range(0, self.threads):
             self.assertEqual(expected_result, self.view1D[i])
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+    def test_simple_parallelfor_cuda(self):
+        if not HAS_CUDA:
+            return
+        expected_result: float = 1.0
+        n=1.0
+        pk.parallel_for(self.range_policy_cuda, init_view, view=self.view1D_cuda, init=n)
+        for i in range(0, self.threads):
+            self.assertEqual(expected_result, self.view1D_cuda[i])
+
     def test_simple_parallelreduce(self):
         expect_result: float = self.threads
         n = 1
         pk.parallel_for(self.range_policy, init_view, view=self.view1D, init=n)
         result = pk.parallel_reduce(self.range_policy, reduce, view=self.view1D)
+        self.assertEqual(expect_result, result)
+
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+    def test_simple_parallelreduce_cuda(self):
+        if not HAS_CUDA:
+            return
+        expect_result: float = self.threads
+        n = 1
+        pk.parallel_for(self.range_policy_cuda, init_view, view=self.view1D_cuda, init=n)
+        result = pk.parallel_reduce(self.range_policy_cuda, reduce, view=self.view1D_cuda)
         self.assertEqual(expect_result, result)
 
     def test_simple_parallelscan(self):
@@ -141,6 +177,18 @@ class TestTypeInference(unittest.TestCase):
         self.assertEqual(expect_result[self.threads-1], result)
         for i in range(0, self.threads):
             self.assertEqual(expect_result[i], self.view1D[i])
+
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+    def test_simple_parallelscan_cuda(self):
+        if not HAS_CUDA:
+            return
+        expect_result: float = np.cumsum(np.ones(self.threads))
+        n = 1
+        pk.parallel_for(self.range_policy_cuda, init_view, view=self.view1D_cuda, init=n)
+        result = pk.parallel_scan(self.range_policy_cuda, scan, view=self.view1D_cuda)
+        self.assertEqual(expect_result[self.threads-1], result)
+        for i in range(0, self.threads):
+            self.assertEqual(expect_result[i], self.view1D_cuda[i])
 
     def test_reduceandfor_labels(self):
         # reduce and scan share the same dispatch
@@ -198,10 +246,18 @@ class TestTypeInference(unittest.TestCase):
         self.assertEqual(int64_view.layout, pk.Layout.LayoutLeft)
         self.assertEqual(int64_view[0], self.np_i64)
 
-    def test_layout_switchR(self):
         int64_view = pk.View([self.threads], pk.int64, layout=pk.Layout.LayoutRight)
         pk.parallel_for(self.range_policy, init_view, view=int64_view, init=self.np_i64)
         self.assertEqual(int64_view.layout, pk.Layout.LayoutRight)
+        self.assertEqual(int64_view[0], self.np_i64)
+
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+    def test_cuda_switch(self):
+        if not HAS_CUDA:
+            return
+        int64_view = pk.View([self.threads], pk.int64, space=pk.MemorySpace.CudaSpace, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy_cuda, init_view, view=int64_view, init=self.np_i64)
+        self.assertEqual(int64_view.layout, pk.Layout.LayoutLeft)
         self.assertEqual(int64_view[0], self.np_i64)
 
     def test_cache_read(self):
@@ -268,6 +324,19 @@ class TestTypeInference(unittest.TestCase):
                 for k in range(self.threads):
                     self.assertEqual(self.view3D[i][j][k], expect_result)
 
+    @pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+    def test_all_Ds_cuda(self):
+        if not HAS_CUDA:
+            return
+        expect_result = 1
+        pk.parallel_for(self.range_policy_cuda, init_all_views, view1D=self.view1D_cuda, view2D=self.view2D_cuda, view3D=self.view3D_cuda, max_dim=self.threads, init=expect_result)
+        for i in range(self.threads):
+            self.assertEqual(self.view1D_cuda[i], expect_result)
+            for j in range(self.threads):
+                self.assertEqual(self.view2D_cuda[i][j], expect_result)
+                for k in range(self.threads):
+                    self.assertEqual(self.view3D_cuda[i][j][k], expect_result)
+
     def test_team_policy(self):
         # running team policy example
         y: pk.View1D = pk.View([self.threads], pk.double)
@@ -298,10 +367,10 @@ class TestTypeInference(unittest.TestCase):
         pk.parallel_for(self.range_policy, init_view_layout, view=l_view, init=1)
         self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
-    # def test_only_layoutL(self):
-    #     l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
-    #     pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
-    #     self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
+    def test_only_layoutL(self):
+        l_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutLeft)
+        pk.parallel_for(self.range_policy, init_view_annotated, view=l_view, init=self.np_i32)
+        self.assertEqual(l_view.layout, pk.Layout.LayoutLeft)
 
     def test_only_layoutR(self):
         r_view = pk.View([self.threads], pk.int32, layout=pk.Layout.LayoutRight)
@@ -355,6 +424,10 @@ class TestTypeInference(unittest.TestCase):
             new_view[i] = 1
         result = pk.parallel_reduce(p, team_reduce_mixed, M=self.threads, y=new_view, x=x, A=A)
         self.assertEqual(result, expected_result)
+
+    def test_no_view(self):
+        pk.parallel_reduce(self.range_policy, no_view, n = 1);
+        pk.parallel_reduce(self.range_policy, no_view, n = 2.1);
 
 
 if __name__ == "__main__":

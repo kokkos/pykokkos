@@ -1,12 +1,11 @@
 import ast
 import inspect
-import copy
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, Union
 
 from pykokkos.core import cppast
-from pykokkos.interface import Decorator, UpdatedTypes, get_type_str
+from pykokkos.interface import Decorator, UpdatedTypes, UpdatedDecorator, get_type_str
 
 class PyKokkosStyles(Enum):
     """
@@ -157,11 +156,6 @@ class Parser:
         if needs_reset:
             entity_tree = self.reset_entity_tree(entity_tree, updated_types)
 
-        # if modifications to layout decorator is needed, do not change original inferences
-        if len(updated_types.layout_change):
-            inferred_layouts = copy.deepcopy(updated_types.layout_change)
-            entity_tree.decorator_list = self.fix_view_layout(entity_tree, inferred_layouts)
-
         for arg_obj in entity_tree.args.args:
             # Type already provided by the user
             if arg_obj.arg not in updated_types.inferred_types:
@@ -182,23 +176,22 @@ class Parser:
         :returns: True if a 'self' argument exists, False otherwise
         '''
 
-        for arg in entity_tree.args.args:
-            if arg.arg == "self":
-                return True
+        if entity_tree.args.args[0].arg == "self":
+            return True
         return False
 
-    def reset_entity_tree(self, entity_tree: ast.AST, updated_types: UpdatedTypes) -> ast.AST:
+    def reset_entity_tree(self, entity_tree: ast.AST, updated_obj: Union[UpdatedTypes, UpdatedDecorator]) -> ast.AST:
         '''
-        Remove type annotations and self argument from the entity tree. This allows
+        Remove the inferred type annotations and self argument from the entity tree. This allows
         the types to be inserted again if they change dynamically
 
-        :param entity_tree: Ast of pykokkos entity being resiet
-        :param updated_types: inferred types information
+        :param entity_tree: Ast of pykokkos entity being reset
+        :param updated_obj: inferred types/decorator object that must have original inspect param list
         :returns: updated entity ast as it would be in the first run
         '''
 
         args_list: List[ast.arg] = []
-        param_list = updated_types.param_list
+        param_list = updated_obj.param_list
         for param in param_list:
             arg_obj = ast.arg(arg=param.name)
             if param.annotation is not inspect._empty:
@@ -286,44 +279,38 @@ class Parser:
 
         return annotation_node
 
-    def fix_view_layout(self, node : ast.AST, layout_change: Dict[str, str]) -> List[ast.Call]:
+    def fix_decorator(self, entity : PyKokkosEntity, updated_decorator: UpdatedDecorator) -> ast.AST:
         '''
-        Construct the decorator list (as in AST) with the missing layout decorators for pykokkos views
+        Add the decorator list with the specifiers for pykokkos views to the workunit AST
 
         :param node: ast object for the entity
-        :param layout_change: Dict that maps [view -> layout]
+        :param updated_decorator: Object with dict that maps view to its layout, space and trait
         :returns: decorator list 
         '''
 
-        assert len(node.decorator_list), f"Decorator cannot be missing for pykokkos workunit {node.name}"
-        # Decorator list will have ast.Call object as first element if user has provided layout decorators
-        is_layout_given: bool = isinstance(node.decorator_list[0], ast.Call)
+        entity_tree = entity.AST
+        needs_reset: bool = self.check_self(entity_tree)
+        if needs_reset:
+            entity_tree = self.reset_entity_tree(entity_tree, updated_decorator)
+        assert len(entity_tree.decorator_list), f"Decorator cannot be missing for pykokkos workunit {entity_tree.name}"
 
-        if is_layout_given:
-            # Filter out layouts already given by user
-            layout_change = self.filter_layout_change(node, layout_change)
+        if not len(updated_decorator.inferred_decorator):
+            # no change needed
+            return entity_tree.decorator_list
+        
+        call_obj= ast.Call()
+        call_obj.func = ast.Attribute(value=ast.Name(id=self.pk_import, ctx=ast.Load()), attr='workunit', ctx=ast.Load())
+        call_obj.args = []
+        call_obj.keywords = []
 
-        if len(layout_change):
-            call_obj = None
+        for view, specifier_dict in updated_decorator.inferred_decorator.items():
+            call_obj.keywords.append(self.get_keyword_node(view, specifier_dict))
 
-            if is_layout_given: # preserve the existing call object
-                call_obj = node.decorator_list[0]
-            else: 
-                call_obj= ast.Call()
-                call_obj.func = ast.Attribute(value=ast.Name(id=self.pk_import, ctx=ast.Load()), attr='workunit', ctx=ast.Load())
-                call_obj.args = []
-                call_obj.keywords = []
-
-            for view, layout in layout_change.items():
-                call_obj.keywords.append(self.get_keyword_node(view, layout))
-
-            return [call_obj]
-
-        # no change needed
-        return node.decorator_list
+        entity_tree.decorator_list = [call_obj]
+        return entity_tree
 
 
-    def get_keyword_node(self, view_name: str, layout: str) -> ast.keyword:
+    def get_keyword_node(self, view_name: str, specifiers: Dict[str, str]) -> ast.keyword:
         '''
         Make the ast.keyword node to be added to the decorator list
 
@@ -332,6 +319,23 @@ class Parser:
         :returns: corresponding ast.keyword node that can be added to decorator list 
         '''
 
+        skip_space: bool = False if specifiers['trait'] == "Unmanaged" else True
+        keywords_list: List[ast.keyword] = []
+        attr_names = {'layout' : 'Layout', 'space' : 'MemorySpace', 'trait' : 'Trait'}
+        for specifier, value in specifiers.items():
+            if specifier == "space" and skip_space:
+                continue
+            keywords_list.append(
+                ast.keyword(
+                    arg=specifier, 
+                    value=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
+                            attr=attr_names[specifier], ctx=ast.Load()), 
+                        attr=value, ctx=ast.Load()
+                        )
+                )
+            )
         return ast.keyword(
             arg=view_name, 
             value=ast.Call(
@@ -340,38 +344,10 @@ class Parser:
                     attr='ViewTypeInfo', ctx=ast.Load()
                 ), 
                 args=[], 
-                keywords=[
-                    ast.keyword(
-                        arg='layout', 
-                        value=ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id=self.pk_import, ctx=ast.Load()), 
-                                attr='Layout', ctx=ast.Load()), 
-                            attr= layout, ctx=ast.Load()
-                            )
-                    )
-                ]
+                keywords= keywords_list
             )
         )
 
-    @staticmethod
-    def filter_layout_change(node: ast.AST, working_dict: Dict[str, str]) -> Dict[str, str]:
-        '''
-        Filter out (from the working dict) the views whose layouts decorators user has already provided
-
-        :param node: AST of pykokkos entity to work with
-        :param working_dict: map of view -> layout
-        :returns updated working dict
-        '''
-
-        call_obj = node.decorator_list[0]
-        # iterating over view layout decorators in signature (of workunit)
-        for keyword_obj in call_obj.keywords:
-            if keyword_obj.arg in working_dict:
-                # user provided layout decorator for this view, remove from working dict
-                del working_dict[keyword_obj.arg]
-
-        return working_dict
 
     @staticmethod
     def is_classtype(node: ast.stmt, pk_import: str) -> bool:

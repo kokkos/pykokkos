@@ -7,7 +7,7 @@ import pykokkos.kokkos_manager as km
 
 from .execution_policy import ExecutionPolicy
 from .execution_space import ExecutionSpace
-from .args_type_inference import UpdatedTypes, HandledArgs, get_annotations, handle_args
+from .args_type_inference import UpdatedTypes, UpdatedDecorator, HandledArgs, get_annotations, get_views_decorator, handle_args
 
 workunit_cache: Dict[int, Callable] = {}
 
@@ -100,11 +100,13 @@ def parallel_for(*args, **kwargs) -> None:
     handled_args: HandledArgs = handle_args(True, args)
 
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
+    updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
+        updated_decorator,
         updated_types,
         "for",
         **kwargs)
@@ -147,11 +149,13 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     #* Inferring missing data types
     updated_types: UpdatedTypes = get_annotations("parallel_"+operation, handled_args, args, passed_kwargs=kwargs)
+    updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
 
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
+        updated_decorator,
         updated_types,
         operation,
         **kwargs)

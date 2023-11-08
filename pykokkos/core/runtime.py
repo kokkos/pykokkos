@@ -11,8 +11,8 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
-    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes,
-    is_host_execution_space
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes, UpdatedDecorator,
+    is_host_execution_space, get_types_signature
 )
 import pykokkos.kokkos_manager as km
 
@@ -57,18 +57,25 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace,
-        updated_types: Optional[UpdatedTypes] = None
-    ) -> Optional[PyKokkosMembers]:
+        updated_decorator: UpdatedDecorator,
+        updated_types: Optional[UpdatedTypes] = None,
+        types_signature: Optional[str] = None,
+        ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
 
         :param workunit: the workunit function object
+        :param updated_decorator: Object for decorator specifier
+        :param updated_types: Object with type inference information
         :param space: the ExecutionSpace for which the bindings are generated
         :returns: the members the functor is containing
         """
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, space, updated_types)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), updated_types)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature)
+        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
+                                                                          space, km.is_uvm_enabled(), 
+                                                                          updated_decorator, 
+                                                                          updated_types, types_signature)
 
         return members
 
@@ -92,6 +99,7 @@ class Runtime:
         name: Optional[str],
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
+        updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
         operation: Optional[str] = None,
         initial_value: Union[float, int] = 0,
@@ -104,6 +112,7 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
+        :param updated_decorator: Object with decorator specifier information
         :param updated_types: UpdatedTypes object with type inferrence information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
@@ -117,11 +126,12 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_types)
+        types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, updated_types)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
@@ -429,19 +439,18 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
-        updated_types: Optional[UpdatedTypes] = None
+        types_signature: Optional[str] = None
         ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :updated_types: Object with information about inferred types (if any)
+        :types_signature: Hash/identifer string for workunit module against data types
         :returns: the ModuleSetup object
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
-        types_signature: str = None if updated_types is None else updated_types.types_signature
 
         module_setup_id = self.get_module_setup_id(entity, space, types_signature)
 
@@ -467,7 +476,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :param types_signature: optional identifier string for inferred types of parameters
+        :param types_signature: optional identifier/hash string for types of parameters against workunit module
         :returns: a unique tuple per entity and space
         """
 

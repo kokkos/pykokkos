@@ -8,7 +8,7 @@ import time
 from typing import Dict, List, Optional
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace, UpdatedTypes
+from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
 import pykokkos.kokkos_manager as km
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
@@ -51,7 +51,9 @@ class Compiler:
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
+        updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
+        types_signature: Optional[str] = None
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -59,17 +61,19 @@ class Compiler:
         :param entity_object: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
+        :param updated_decorator: Object for decorator specifiers
         :param updated_types: Object with with inferred types
         :returns: the PyKokkos members obtained during translation
         """
 
         metadata = module_setup.metadata
         parser = self.get_parser(metadata.path)
-        types_signature = None if updated_types is None else updated_types.types_signature
+
         hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
         entity: PyKokkosEntity = parser.get_entity(metadata.name)
 
         types_inferred: bool = updated_types is not None
+        decorator_inferred: bool = updated_decorator is not None
 
         if types_inferred and entity.style is not PyKokkosStyles.workunit:
             raise Exception(f"Types are required for style: {entity.style}")
@@ -78,6 +82,8 @@ class Compiler:
             if hash not in self.members: # True if pre-compiled
                 if types_inferred:
                     entity.AST = parser.fix_types(entity, updated_types)
+                if decorator_inferred:
+                    entity.AST = parser.fix_decorator(entity, updated_decorator)
                 self.members[hash] = self.extract_members(metadata)
 
             return self.members[hash]
@@ -88,7 +94,9 @@ class Compiler:
 
         if types_inferred:
             entity.AST = parser.fix_types(entity, updated_types)
- 
+        if decorator_inferred:
+            entity.AST = parser.fix_decorator(entity, updated_decorator)
+
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
