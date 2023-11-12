@@ -7,7 +7,7 @@ from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.visitors import ConstructorVisitor, KokkosMainVisitor, ParameterVisitor, visitors_util
-from pykokkos.interface import Decorator, RandomPool, ViewTypeInfo
+from pykokkos.interface import Decorator, ViewTypeInfo
 
 
 class PyKokkosMembers:
@@ -59,7 +59,7 @@ class PyKokkosMembers:
             self.views = self.get_views(AST, source, pk_import)
             self.random_pool = self.get_random_pool(AST, source, pk_import)
 
-        elif entity.style is PyKokkosStyles.workunit:
+        elif entity.style in {PyKokkosStyles.fused, PyKokkosStyles.workunit}:
             # for operation by default
             param_begin: int = 1
             
@@ -265,7 +265,8 @@ class PyKokkosMembers:
 
         :param functiondef: the AST representation of the function definition
         :param param_begin: where workunit argument begins (excluding tid/acc)
-        """ 
+        """
+
         args = functiondef.args.args[:param_begin]
         args.insert(0, ast.arg(arg="self", annotation=None, type_comment=None))
         functiondef.args.args = args

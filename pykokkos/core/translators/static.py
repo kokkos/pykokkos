@@ -64,10 +64,12 @@ class StaticTranslator:
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
 
-        self.check_symbols(classtypes, entity.path)
+        # Fusing will rename some symbols so this will not work
+        if entity.style is not PyKokkosStyles.fused:
+            self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source
-        functor_name: str = f"pk_functor_{entity.name.declname}"
+        functor_name: str = f"pk_functor_{entity.name}"
         classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
 
