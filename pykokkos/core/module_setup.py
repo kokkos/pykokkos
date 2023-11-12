@@ -101,8 +101,6 @@ class ModuleSetup:
         else:
             self.metadata = [get_metadata(entity)]
 
-        print(entity)
-
         self.space: ExecutionSpace = space
         self.types_signature = types_signature
 
