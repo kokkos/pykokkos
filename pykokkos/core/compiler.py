@@ -1,3 +1,4 @@
+import ast
 from dataclasses import dataclass
 import json
 import logging
@@ -5,11 +6,14 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from pykokkos.core.fusion import fuse_workunits
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
 import pykokkos.kokkos_manager as km
+
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
 
@@ -45,6 +49,41 @@ class Compiler:
         logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
+    def fuse_objects(self, metadata: List[EntityMetadata]) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
+        """
+        Fuse two or more workunits into one
+
+        :param metadata: the metadata of the workunits to be fused
+        :returns: the fused entity and all the classtypes it uses
+        """
+
+        pyk_classtypes: List[PyKokkosEntity] = []
+
+        names: List[str] = []
+        ASTs: List[ast.FunctionDef] = []
+        sources: List[Tuple[List[str], int]] = []
+
+        path: str = ""
+        pk_imports: List[str] = []
+        for m in metadata:
+            parser = self.get_parser(m.path)
+            entity: PyKokkosEntity = parser.get_entity(m.name)
+            pyk_classtypes += parser.get_classtypes()
+            path += f"_{m.path}"
+            pk_imports.append(entity.pk_import)
+
+            names.append(entity.name)
+            ASTs.append(entity.AST)
+            sources.append(entity.source)
+
+        if not all(pk_import == pk_imports[0] for pk_import in pk_imports):
+            raise ValueError("Must use same pykokkos import alias for all fused workunits")
+
+        name, AST, source = fuse_workunits(names, ASTs, sources)
+        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, source, None, pk_imports[0])
+
+        return entity, pyk_classtypes
+
 
     def compile_object(
         self,
@@ -58,7 +97,7 @@ class Compiler:
         """
         Compile an entity object for a single execution space
 
-        :param entity_object: the module_setup object containing module info
+        :param module_setup: the module_setup object containing module info
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
         :param updated_decorator: Object for decorator specifiers
@@ -66,16 +105,24 @@ class Compiler:
         :returns: the PyKokkos members obtained during translation
         """
 
-        metadata = module_setup.metadata
-        parser = self.get_parser(metadata.path)
+        metadata: List[EntityMetadata] = module_setup.metadata
 
-        hash: str = self.members_hash(metadata.path, metadata.name, types_signature)
-        entity: PyKokkosEntity = parser.get_entity(metadata.name)
+        entity: PyKokkosEntity
+        classtypes: List[PyKokkosEntity] = []
+
+        if len(metadata) == 1:
+            parser = self.get_parser(metadata[0].path)
+            entity = parser.get_entity(metadata[0].name)
+            classtypes = parser.get_classtypes()
+        else:
+            entity, classtypes = self.fuse_objects(metadata)
+
+        hash: str = self.members_hash(entity.path, entity.name, types_signature)
 
         types_inferred: bool = updated_types is not None
         decorator_inferred: bool = updated_decorator is not None
 
-        if types_inferred and entity.style is not PyKokkosStyles.workunit:
+        if types_inferred and entity.style not in {PyKokkosStyles.workunit, PyKokkosStyles.fused}:
             raise Exception(f"Types are required for style: {entity.style}")
 
         if self.is_compiled(module_setup.output_dir):
@@ -84,7 +131,7 @@ class Compiler:
                     entity.AST = parser.fix_types(entity, updated_types)
                 if decorator_inferred:
                     entity.AST = parser.fix_decorator(entity, updated_decorator)
-                self.members[hash] = self.extract_members(metadata)
+                self.members[hash] = self.extract_members(entity, classtypes)
 
             return self.members[hash]
 
@@ -100,10 +147,10 @@ class Compiler:
         if hash in self.members: # True if compiled with another execution space
             members = self.members[hash]
         else:
-            members = self.extract_members(metadata)
+            members = self.extract_members(entity, classtypes)
             self.members[hash] = members
 
-        self.compile_entity(module_setup.main, module_setup, entity, parser.get_classtypes(), space, force_uvm, members)
+        self.compile_entity(module_setup.main, module_setup, entity, classtypes, space, force_uvm, members)
         return members
 
     def compile_entity(
@@ -245,7 +292,7 @@ class Compiler:
 
         return defaults
 
-    def members_hash(self, path: str, name: str, types_signature: Optional[str]) -> str:
+    def members_hash(self, path: List[str], name: str, types_signature: Optional[str]) -> str:
         """
         Map from entity path and name to a string to index members
 
@@ -257,21 +304,17 @@ class Compiler:
 
         return f"{path}_{name}" if types_signature is None else f"{path}_{name}_{types_signature}"
 
-    def extract_members(self, metadata: EntityMetadata) -> PyKokkosMembers:
+    def extract_members(self, entity: PyKokkosEntity, classtypes: List[PyKokkosEntity]) -> PyKokkosMembers:
         """
         Extract the PyKokkos members from an entity
 
-        :param module_name: the name of the module being compiled
-        :param metadata: the metadata of the entity being compiled
+        :param entity: the entity being compiled
+        :param classtypes: the list of classtypes used in the entity
         :returns: the PyKokkosMembers object
         """
 
-        parser = self.get_parser(metadata.path)
-        entity: PyKokkosEntity = parser.get_entity(metadata.name)
-
         entity.AST = StaticTranslator.add_parent_refs(entity.AST)
 
-        classtypes = parser.get_classtypes()
         for c in classtypes:
             c.AST = StaticTranslator.add_parent_refs(c.AST)
 
