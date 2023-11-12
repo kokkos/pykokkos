@@ -1,10 +1,10 @@
 import ast
+import copy
 import inspect
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from pykokkos.core import cppast
 from pykokkos.interface import Decorator, UpdatedTypes, UpdatedDecorator, get_type_str
 
 class PyKokkosStyles(Enum):
@@ -16,6 +16,7 @@ class PyKokkosStyles(Enum):
     workload = auto()
     workunit = auto()
     classtype = auto()
+    fused = auto()
 
 @dataclass
 class PyKokkosEntity:
@@ -24,10 +25,10 @@ class PyKokkosEntity:
     """
 
     style: PyKokkosStyles
-    name: cppast.DeclRefExpr
+    name: str
     AST: Union[ast.ClassDef, ast.FunctionDef]
     source: Tuple[List[str], int]
-    path: str
+    path: Optional[str] # Will be none for fused workunits
     pk_import: str
 
 class Parser:
@@ -41,6 +42,7 @@ class Parser:
 
         :param path: the path to the file
         """
+
         self.lines: List[str]
         self.tree: ast.Module
         with open(path, "r") as f:
@@ -99,7 +101,14 @@ class Parser:
         if name in self.functors:
             return self.functors[name]
 
-        return self.workunits[name]
+        if name in self.workunits:
+            # We deepcopy here since the AST might be modified at certain
+            # points in order for translation to work properly. When we
+            # retrieve the AST again, we want the original unmodified
+            # version for kernel fusion.
+            return copy.deepcopy(self.workunits[name])
+
+        raise RuntimeError(f"Entity '{name}' not found by parser")
 
     def get_entities(self, style: PyKokkosStyles) -> Dict[str, PyKokkosEntity]:
         """
@@ -132,7 +141,7 @@ class Parser:
 
                 name: str = node.name
 
-                entity = PyKokkosEntity(style, cppast.DeclRefExpr(name), node, (self.lines[start:stop], start), self.path, self.pk_import)
+                entity = PyKokkosEntity(style, name, node, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
@@ -148,7 +157,7 @@ class Parser:
         '''
 
         style: PyKokkosStyles = entity.style
-        assert style is PyKokkosStyles.workunit and updated_types is not None
+        assert style in {PyKokkosStyles.workunit, PyKokkosStyles.fused} and updated_types is not None
 
         entity_tree: ast.AST = entity.AST
 
