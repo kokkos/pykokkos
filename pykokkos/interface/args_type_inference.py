@@ -4,8 +4,10 @@ from typing import  Callable, Dict, Optional, Tuple, Union, List
 import hashlib
 
 import pykokkos.kokkos_manager as km
+from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
+
 from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
-from .views import View, ViewType, Trait
+from .views import View, ViewType
 from .data_types import DataType, DataTypeClass
 
 
@@ -120,7 +122,15 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
 
-    param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+    param_list: List[inspect.Parameter]
+
+    if isinstance(handled_args.workunit, list):
+        if parallel_type != "parallel_for":
+            raise RuntimeError("Can only do kernel fusion with parallel for")
+
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
+    else:
+        param_list = list(inspect.signature(handled_args.workunit).parameters.values())
 
     updated_types = UpdatedTypes(
         workunit=handled_args.workunit, 
@@ -170,7 +180,12 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
     :returns: UpdatedDecorator object 
     '''
 
-    param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+    param_list: List[str]
+    if isinstance(handled_args.workunit, list):
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
+        param_list = [p.name for p in param_list]
+    else:
+        param_list = [param.name for param in inspect.signature(handled_args.workunit).parameters.values()]
 
     updated_decorator = UpdatedDecorator(
         inferred_decorator = {},
@@ -178,15 +193,16 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
     )
 
     for kwarg in passed_kwargs:
-        if kwarg not in [param.name for param in param_list ]:
+        if kwarg not in param_list:
             raise Exception(f"Unknown kwarg: {kwarg} passed")
-        
+
         value = passed_kwargs[kwarg]
         if not isinstance(value, View):
             continue
 
         if kwarg not in updated_decorator.inferred_decorator: 
             updated_decorator.inferred_decorator[kwarg] = {}
+
         updated_decorator.inferred_decorator[kwarg]['trait'] = str(value.trait).split(".")[1]
         updated_decorator.inferred_decorator[kwarg]['layout'] = str(value.layout).split(".")[1]
         updated_decorator.inferred_decorator[kwarg]['space'] = str(value.space).split(".")[1]
