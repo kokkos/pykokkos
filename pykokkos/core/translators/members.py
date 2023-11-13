@@ -96,7 +96,7 @@ class PyKokkosMembers:
         self.classtype_methods = self.get_classtype_methods(classtypes)
 
         if entity.style is PyKokkosStyles.workload:
-            name: str = f"pk_functor_{entity.name.declname}"
+            name: str = f"pk_functor_{entity.name}"
             self.reduction_result_queue, self.timer_result_queue = self.get_queues(source, name, pk_import)
 
         if len(self.pk_mains) > 1:
