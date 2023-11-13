@@ -476,7 +476,7 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
-        ) -> Tuple:
+    ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
         combination. For workunits, the idenitifier is just the
@@ -489,7 +489,10 @@ class Runtime:
         :returns: a unique tuple per entity and space
         """
 
-        is_workload: bool = not isinstance(entity, Callable)
+        if isinstance(entity, list):
+            entity = tuple(entity) # Since entity needs to be hased
+
+        is_workload: bool = not isinstance(entity, (Callable, tuple))
         is_functor: bool = hasattr(entity, "__self__")
 
         if is_workload:
