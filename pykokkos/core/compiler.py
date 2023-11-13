@@ -109,9 +109,9 @@ class Compiler:
 
         entity: PyKokkosEntity
         classtypes: List[PyKokkosEntity] = []
+        parser = self.get_parser(metadata[0].path)
 
         if len(metadata) == 1:
-            parser = self.get_parser(metadata[0].path)
             entity = parser.get_entity(metadata[0].name)
             classtypes = parser.get_classtypes()
         else:
