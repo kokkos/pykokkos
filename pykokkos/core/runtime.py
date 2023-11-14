@@ -1,10 +1,10 @@
 import importlib.util
+from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
 
 import numpy as np
-from pathlib import Path
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
