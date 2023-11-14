@@ -1,6 +1,6 @@
 import ast
 import re
-from typing import List
+from typing import List, Optional
 
 from pykokkos.core import cppast
 
@@ -64,6 +64,26 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
             return cppast.CallExpr(function, args)
 
         return super().visit_Call(node)
+
+    def visit_arguments(self, node: ast.arguments) -> None:
+        for arg in node.args:
+            if arg.arg == "self":
+                continue
+
+            declref = cppast.DeclRefExpr(arg.arg)
+            if declref in self.views:
+                # Do not overwrite the existing type to keep its
+                # template arguments. Here we are assuming that the
+                # user used the same names for both kernel and kokkos
+                # function arguments.
+                continue
+
+            decltype: Optional[cppast.Type] = visitors_util.get_type(arg.annotation, self.pk_import)
+            if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith("View"):
+                self.views[declref] = decltype
+
+        return super().visit_arguments(node)
+
 
     # Checks that a function marked as kokkos_function
     # is annotated with a return type if it returns

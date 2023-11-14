@@ -39,7 +39,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.nested_work_units: Dict[str, cppast.LambdaExpr] = {}
 
     def visit_arguments(self, node: ast.arguments) -> List[cppast.ParmVarDecl]:
-        args: List[cppast.ParmVarDecl] = [self.visit(a) for a in node.args[1:]]
+        args: List[cppast.ParmVarDecl] = [self.visit(a) for a in node.args if a.arg != "self"]
 
         return args
 
@@ -58,6 +58,10 @@ class PyKokkosVisitor(ast.NodeVisitor):
             decltype.is_reference = True
 
         declname = cppast.DeclRefExpr(node.arg)
+        if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith("View"):
+            decltype = self.views[declname]
+            decltype = visitors_util.cpp_view_type(decltype)
+
         arg = cppast.ParmVarDecl(decltype, declname)
 
         return arg
