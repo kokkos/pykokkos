@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List
 import hashlib
 
+import numpy as np
+
 import pykokkos.kokkos_manager as km
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 
@@ -105,8 +107,8 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     else:
         raise ValueError(f"ERROR: incorrect number of arguments {len(unpacked)}")
 
-    if isinstance(policy, int):
-        policy = RangePolicy(km.get_default_space(), 0, policy)
+    if isinstance(policy, (int, np.integer)):
+        policy = RangePolicy(km.get_default_space(), 0, int(policy))
 
     return HandledArgs(name, policy, workunit, view, initial_value)
 
@@ -197,7 +199,7 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
             raise Exception(f"Unknown kwarg: {kwarg} passed")
 
         value = passed_kwargs[kwarg]
-        if not isinstance(value, View):
+        if not isinstance(value, ViewType):
             continue
 
         if kwarg not in updated_decorator.inferred_decorator: 
