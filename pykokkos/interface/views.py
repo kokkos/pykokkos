@@ -467,6 +467,10 @@ class Subview(ViewType):
         is_cpu: bool = self.parent_view.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
+        self.space: MemorySpace = parent_view.space
+        self.layout: Layout = parent_view.layout
+        self.trait: Trait = parent_view.trait
+
         if self.data is not None and self.data.ndim == 0:
             # TODO: we don't really support 0-D under the hood--use
             # NumPy for now...
