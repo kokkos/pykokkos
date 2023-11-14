@@ -27,6 +27,7 @@ class PyKokkosEntity:
     style: PyKokkosStyles
     name: str
     AST: Union[ast.ClassDef, ast.FunctionDef]
+    full_AST: ast.Module
     source: Tuple[List[str], int]
     path: Optional[str] # Will be none for fused workunits
     pk_import: str
@@ -141,7 +142,7 @@ class Parser:
 
                 name: str = node.name
 
-                entity = PyKokkosEntity(style, name, node, (self.lines[start:stop], start), self.path, self.pk_import)
+                entity = PyKokkosEntity(style, name, node, self.tree, (self.lines[start:stop], start), self.path, self.pk_import)
                 entities[name] = entity
 
         return entities
