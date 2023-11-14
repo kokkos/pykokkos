@@ -64,23 +64,28 @@ class Compiler:
         sources: List[Tuple[List[str], int]] = []
 
         path: str = ""
+        full_ASTs: List[ast.Module] = []
         pk_imports: List[str] = []
         for m in metadata:
             parser = self.get_parser(m.path)
             entity: PyKokkosEntity = parser.get_entity(m.name)
             pyk_classtypes += parser.get_classtypes()
             path += f"_{m.path}"
+            full_ASTs.append(entity.full_AST)
             pk_imports.append(entity.pk_import)
 
             names.append(entity.name)
             ASTs.append(entity.AST)
             sources.append(entity.source)
 
+        if not all(full_AST is full_ASTs[0] for full_AST in full_ASTs):
+            raise ValueError("All fused workunits must be in the same file")
+
         if not all(pk_import == pk_imports[0] for pk_import in pk_imports):
             raise ValueError("Must use same pykokkos import alias for all fused workunits")
 
         name, AST, source = fuse_workunits(names, ASTs, sources)
-        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, source, None, pk_imports[0])
+        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, full_AST, source, None, pk_imports[0])
 
         return entity, pyk_classtypes
 
