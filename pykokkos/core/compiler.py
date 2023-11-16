@@ -78,14 +78,11 @@ class Compiler:
             ASTs.append(entity.AST)
             sources.append(entity.source)
 
-        if not all(full_AST is full_ASTs[0] for full_AST in full_ASTs):
-            raise ValueError("All fused workunits must be in the same file")
-
         if not all(pk_import == pk_imports[0] for pk_import in pk_imports):
             raise ValueError("Must use same pykokkos import alias for all fused workunits")
 
         name, AST, source = fuse_workunits(names, ASTs, sources)
-        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, full_AST, source, None, pk_imports[0])
+        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, full_ASTs[0], source, None, pk_imports[0])
 
         return entity, pyk_classtypes
 
