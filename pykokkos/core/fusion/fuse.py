@@ -64,7 +64,8 @@ def fuse_workunit_kwargs_and_params(
     """
 
     fused_kwargs: Dict[str, Any] = {}
-    fused_params: List[inspect.Parameter] = [inspect.Parameter("fused_tid", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    fused_params: List[inspect.Parameter] = []
+    fused_params.append(inspect.Parameter("fused_tid", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int))
 
     for workunit_idx, workunit in enumerate(workunits):
         key: str = f"args_{workunit_idx}"
@@ -76,7 +77,7 @@ def fuse_workunit_kwargs_and_params(
         for p in current_params[1:]: # Skip the thread ID
             fused_name: str = f"fused_{p.name}_{workunit_idx}"
             fused_kwargs[fused_name] = current_kwargs[p.name]
-            fused_params.append(inspect.Parameter(fused_name, p.kind))
+            fused_params.append(inspect.Parameter(fused_name, p.kind, annotation=p.annotation))
 
     return fused_kwargs, fused_params
 
