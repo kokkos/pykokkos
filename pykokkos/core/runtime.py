@@ -1,11 +1,12 @@
 import importlib.util
+from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
 
 import numpy as np
-from pathlib import Path
 
+from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
@@ -98,7 +99,7 @@ class Runtime:
         self,
         name: Optional[str],
         policy: ExecutionPolicy,
-        workunit: Callable[..., None],
+        workunit: Union[Callable[..., None], List[Callable[..., None]]],
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
         operation: Optional[str] = None,
@@ -113,7 +114,7 @@ class Runtime:
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
         :param updated_decorator: Object with decorator specifier information
-        :param updated_types: UpdatedTypes object with type inferrence information
+        :param updated_types: UpdatedTypes object with type inference information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
         :returns: the result of the operation (None for parallel_for)
@@ -183,7 +184,7 @@ class Runtime:
         else:
             args["pk_kernel_name"] = name
 
-        is_workunit_or_functor: bool = isinstance(entity, Callable)
+        is_workunit_or_functor: bool = isinstance(entity, (Callable, list))
         result = self.call_wrapper(entity, members, args, module, is_workunit_or_functor)
 
         if not is_workunit_or_functor:
@@ -234,7 +235,7 @@ class Runtime:
         args: Dict[str, Any] = {}
 
         entity_members: Dict[str, type]
-        is_workload: bool = not isinstance(entity, Callable)
+        is_workload: bool = not isinstance(entity, (Callable, list))
 
         if is_workload:
             args.update(self.get_result_arguments(members))
@@ -251,6 +252,9 @@ class Runtime:
                 functor: object = entity.__self__
                 entity_members = functor.__dict__
             else:
+                is_fused: bool = isinstance(entity, list)
+                if is_fused:
+                    kwargs, _ = fuse_workunit_kwargs_and_params(entity, kwargs)
                 entity_members = kwargs
 
         args.update(self.get_fields(entity_members))
@@ -278,9 +282,14 @@ class Runtime:
         """
 
         is_workunit: bool = isinstance(entity, Callable)
+        is_fused: bool = isinstance(entity, list)
+
         wrapper: str = "wrapper"
         if is_workunit:
             wrapper += f"_{entity.__name__}"
+        elif is_fused:
+            fused_name: str = "_".join([e.__name__ for e in entity])
+            wrapper += f"_{fused_name}"
 
         if members.has_real:
             precision: str = self.get_precision(members, args)
@@ -467,7 +476,7 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
-        ) -> Tuple:
+    ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
         combination. For workunits, the idenitifier is just the
@@ -480,7 +489,10 @@ class Runtime:
         :returns: a unique tuple per entity and space
         """
 
-        is_workload: bool = not isinstance(entity, Callable)
+        if isinstance(entity, list):
+            entity = tuple(entity) # Since entity needs to be hased
+
+        is_workload: bool = not isinstance(entity, (Callable, tuple))
         is_functor: bool = hasattr(entity, "__self__")
 
         if is_workload:

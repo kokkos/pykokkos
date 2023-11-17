@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import hashlib
 import inspect
 import os
 from pathlib import Path
@@ -49,19 +50,25 @@ def get_metadata(entity: Union[Callable[..., None], object]) -> EntityMetadata:
     :returns: an EntityMetadata object
     """
 
-    entity_type: Union[Callable[..., None], type]
+    name: str
+    filepath: str
 
     if isinstance(entity, Callable):
+        # Workunit/functor
         is_functor: bool = hasattr(entity, "__self__")
         if is_functor:
-            entity_type = get_functor(entity)
+            entity_type: type = get_functor(entity)
+            name = entity_type.__name__
+            filepath = inspect.getfile(entity_type)
         else:
-            entity_type = entity
-    else:
-        entity_type = type(entity)
+            name = entity.__name__
+            filepath = inspect.getfile(entity)
 
-    name: str = entity_type.__name__
-    filepath: str = inspect.getfile(entity_type)
+    else:
+        # Workload
+        entity_type: type = type(entity)
+        name = entity_type.__name__
+        filepath = inspect.getfile(entity_type)
 
     return EntityMetadata(entity, name, filepath)
 
@@ -74,24 +81,25 @@ class ModuleSetup:
 
     def __init__(
         self,
-        entity: Union[Callable[..., None], type, None],
+        entity: Union[Callable[..., None], type, List[Callable[..., None]]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
     ):
         """
         ModuleSetup constructor
 
-        :param entity: the functor/workunit/workload
+        :param entity: the functor/workunit/workload or list of workunits for fusion
         :param types_signature: hash/string to identify workunit signature against types
         """
 
-        self.metadata: EntityMetadata
-        
-        isEntityNone: bool = entity is None
-        if isEntityNone:
-            self.metadata = EntityMetadata(None, None, None)
+        self.metadata: List[EntityMetadata]
+
+        if entity is None:
+            self.metadata = [EntityMetadata(None, None, None)]
+        elif isinstance(entity, list):
+            self.metadata = [get_metadata(e) for e in entity]
         else:
-            self.metadata = get_metadata(entity)
+            self.metadata = [get_metadata(entity)]
 
         self.space: ExecutionSpace = space
         self.types_signature = types_signature
@@ -113,29 +121,28 @@ class ModuleSetup:
             if km.is_multi_gpu_enabled():
                 self.gpu_module_paths: str = [os.path.join(self.output_dir, module_file) for module_file in self.gpu_module_files]
 
-            self.name: str = self.path.replace("/", "_")
-            self.name: str = self.name.replace("-", "_")
-            self.name: str = self.name.replace(".", "_")
+            self.name: str = hashlib.sha256(self.path.encode()).hexdigest()
 
     def get_output_dir(
         self,
         main: Path,
-        metadata: EntityMetadata,
+        metadata: List[EntityMetadata],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
-        ) -> Optional[Path]:
+    ) -> Optional[Path]:
         """
         Get the output directory for an execution space
 
         :param main: the path to the main file in the current PyKokkos application
-        :param metadata: the metadata of the entity being compiled
+        :param metadata: the metadata of the entity or fused entities being compiled
         :param space: the execution space to compile for
         :param types_signature: optional identifier/hash string for types of parameters
         :returns: the path to the output directory for a specific execution space
         """
 
-        if metadata.path is None:
-            return None
+        for m in metadata:
+            if m.path is None:
+                return None
 
         if space is ExecutionSpace.Default:
             space = km.get_default_space()
@@ -145,19 +152,22 @@ class ModuleSetup:
             out_dir: Path = self.get_entity_dir(main, metadata) / types_signature / space.value
         return out_dir
 
-    def get_entity_dir(self, main: Path, metadata: EntityMetadata) -> Path:
+    def get_entity_dir(self, main: Path, metadata: List[EntityMetadata]) -> Path:
         """
         Get the base output directory for an entity
 
         :param main: the path to the main file in the current PyKokkos application
-        :param metadata: the metadata of the entity being compiled
+        :param metadata: the metadata of the entity or fused entities being compiled
         :returns: the path to the base output directory
         """
 
-        filename: str = metadata.path.split("/")[-1].split(".")[0]
-        dirname: str = f"{filename}_{metadata.name}"
+        entity_dir: str = ""
 
-        return self.get_main_dir(main) / Path(dirname)
+        for m in metadata:
+            filename: str = m.path.split("/")[-1].split(".")[0]
+            entity_dir += f"{filename}_{m.name}"
+
+        return self.get_main_dir(main) / Path(entity_dir)
 
     @staticmethod
     def get_main_dir(main: Path) -> Path:

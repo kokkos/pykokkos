@@ -7,7 +7,7 @@ from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.visitors import ConstructorVisitor, KokkosMainVisitor, ParameterVisitor, visitors_util
-from pykokkos.interface import Decorator, RandomPool, ViewTypeInfo
+from pykokkos.interface import Decorator, ViewTypeInfo
 
 
 class PyKokkosMembers:
@@ -59,7 +59,7 @@ class PyKokkosMembers:
             self.views = self.get_views(AST, source, pk_import)
             self.random_pool = self.get_random_pool(AST, source, pk_import)
 
-        elif entity.style is PyKokkosStyles.workunit:
+        elif entity.style in {PyKokkosStyles.fused, PyKokkosStyles.workunit}:
             # for operation by default
             param_begin: int = 1
             
@@ -92,11 +92,12 @@ class PyKokkosMembers:
             self.pk_callbacks = self.get_decorated_functions(AST, Decorator.KokkosCallback)
         else:
             self.pk_workunits[cppast.DeclRefExpr(AST.name)] = AST
+            self.pk_functions = self.get_decorated_functions(entity.full_AST, Decorator.KokkosFunction)
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
 
         if entity.style is PyKokkosStyles.workload:
-            name: str = f"pk_functor_{entity.name.declname}"
+            name: str = f"pk_functor_{entity.name}"
             self.reduction_result_queue, self.timer_result_queue = self.get_queues(source, name, pk_import)
 
         if len(self.pk_mains) > 1:
@@ -224,6 +225,11 @@ class PyKokkosMembers:
 
         def visit_FunctionDef(node: ast.FunctionDef):
             if node.decorator_list:
+                is_standalone_workunit_decorator: bool = isinstance(node.decorator_list[0], ast.Call)
+
+                if is_standalone_workunit_decorator:
+                    return
+
                 node_decorator: str = visitors_util.get_node_name(node.decorator_list[0])
 
                 if decorator.value == node_decorator:
@@ -265,7 +271,8 @@ class PyKokkosMembers:
 
         :param functiondef: the AST representation of the function definition
         :param param_begin: where workunit argument begins (excluding tid/acc)
-        """ 
+        """
+
         args = functiondef.args.args[:param_begin]
         args.insert(0, ast.arg(arg="self", annotation=None, type_comment=None))
         functiondef.args.args = args

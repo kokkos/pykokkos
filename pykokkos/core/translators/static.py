@@ -63,11 +63,15 @@ class StaticTranslator:
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
+        for f, AST in self.pk_members.pk_functions.items():
+            self.pk_members.pk_functions[f] = self.add_parent_refs(AST)
 
-        self.check_symbols(classtypes, entity.path)
+        # Fusing will rename some symbols so this will not work
+        if entity.style is not PyKokkosStyles.fused:
+            self.check_symbols(classtypes, entity.path)
 
         source: Tuple[List[str], int] = entity.source
-        functor_name: str = f"pk_functor_{entity.name.declname}"
+        functor_name: str = f"pk_functor_{entity.name}"
         classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
         functions: List[cppast.MethodDecl] = self.translate_functions(source)
 
@@ -178,9 +182,12 @@ class StaticTranslator:
         :returns: a list of method declarations
         """
 
+        # The visitor might add views declared as parameters
+        views = copy.deepcopy(self.pk_members.views)
+
         node_visitor = KokkosFunctionVisitor(
             {},
-            source, self.pk_members.views, self.pk_members.pk_workunits,
+            source, views, self.pk_members.pk_workunits,
             self.pk_members.fields, self.pk_members.pk_functions,
             self.pk_members.classtype_methods, self.pk_import, debug=True)
 
