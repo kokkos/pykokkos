@@ -59,6 +59,10 @@ class Compiler:
 
         pyk_classtypes: List[PyKokkosEntity] = []
 
+        # used to track whether two different classtypes in different
+        # files use the same name
+        pyk_classtype_ids: Dict[str, str] = {}
+
         names: List[str] = []
         ASTs: List[ast.FunctionDef] = []
         sources: List[Tuple[List[str], int]] = []
@@ -69,7 +73,15 @@ class Compiler:
         for m in metadata:
             parser = self.get_parser(m.path)
             entity: PyKokkosEntity = parser.get_entity(m.name)
-            pyk_classtypes += parser.get_classtypes()
+
+            for c in parser.get_classtypes():
+                if c.name in pyk_classtype_ids:
+                    if c.path != pyk_classtype_ids[c.name]:
+                        raise RuntimeError(f"Ambiguous usage of classtype {c.name} in {c.path} and {pyk_classtype_ids[c.name]}")
+                else:
+                    pyk_classtype_ids[c.name] = c.path
+                    pyk_classtypes.append(c)
+
             path += f"_{m.path}"
             full_ASTs.append(entity.full_AST)
             pk_imports.append(entity.pk_import)
