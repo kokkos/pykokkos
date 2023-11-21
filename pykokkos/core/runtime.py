@@ -61,14 +61,14 @@ class Runtime:
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
-        ) -> Optional[PyKokkosMembers]:
+    ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
 
         :param workunit: the workunit function object
+        :param space: the ExecutionSpace for which the bindings are generated
         :param updated_decorator: Object for decorator specifier
         :param updated_types: Object with type inference information
-        :param space: the ExecutionSpace for which the bindings are generated
         :returns: the members the functor is containing
         """
 
@@ -100,9 +100,9 @@ class Runtime:
         name: Optional[str],
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
+        operation: str,
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
-        operation: Optional[str] = None,
         initial_value: Union[float, int] = 0,
         **kwargs
     ) -> Optional[Union[float, int]]:

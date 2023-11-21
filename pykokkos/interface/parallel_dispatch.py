@@ -61,9 +61,9 @@ def parallel_for(*args, **kwargs) -> None:
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
+        "for",
         updated_decorator,
         updated_types,
-        "for",
         **kwargs)
 
     # workunit_cache[cache_key] = (func, args)
@@ -110,9 +110,9 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
+        operation,
         updated_decorator,
         updated_types,
-        operation,
         **kwargs)
 
     workunit_cache[cache_key] = (func, args)
