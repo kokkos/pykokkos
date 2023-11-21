@@ -75,7 +75,6 @@ class PyKokkosMembers:
                     break
 
             self.fields, self.views = self.get_params(AST, source, param_begin, pk_import)
-            self.fix_params(AST, param_begin)
 
         self.real_dtype_views = self.get_real_views()
         if len(self.real_dtype_views) != 0:
@@ -264,18 +263,6 @@ class PyKokkosMembers:
                     classtype_methods[classref].append(function)
 
         return classtype_methods
-
-    def fix_params(self, functiondef: ast.FunctionDef, param_begin: int) -> None:
-        """
-        Remove the non-tid/acc parameters from the workunit definition and adds a self parameter
-
-        :param functiondef: the AST representation of the function definition
-        :param param_begin: where workunit argument begins (excluding tid/acc)
-        """
-
-        args = functiondef.args.args[:param_begin]
-        args.insert(0, ast.arg(arg="self", annotation=None, type_comment=None))
-        functiondef.args.args = args
 
     def get_random_pool(self, classdef: ast.ClassDef, source: Tuple[List[str], int], pk_import: str) -> Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]]:
         """
