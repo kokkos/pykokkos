@@ -101,13 +101,8 @@ class Parser:
             return self.workloads[name]
         if name in self.functors:
             return self.functors[name]
-
         if name in self.workunits:
-            # We deepcopy here since the AST might be modified at certain
-            # points in order for translation to work properly. When we
-            # retrieve the AST again, we want the original unmodified
-            # version for kernel fusion.
-            return copy.deepcopy(self.workunits[name])
+            return self.workunits[name]
 
         raise RuntimeError(f"Entity '{name}' not found by parser")
 
