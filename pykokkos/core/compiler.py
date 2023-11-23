@@ -1,4 +1,5 @@
 import ast
+import copy
 from dataclasses import dataclass
 import json
 import logging
@@ -49,15 +50,20 @@ class Compiler:
         logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
-    def fuse_objects(self, metadata: List[EntityMetadata]) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
+    def fuse_objects(self, metadata: List[EntityMetadata], fuse_ASTs: bool) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
         """
         Fuse two or more workunits into one
 
         :param metadata: the metadata of the workunits to be fused
+        :param fuse_ASTs: whether to do the actual fusion of the ASTs, which is expensive
         :returns: the fused entity and all the classtypes it uses
         """
 
         pyk_classtypes: List[PyKokkosEntity] = []
+
+        # used to track whether two different classtypes in different
+        # files use the same name
+        pyk_classtype_ids: Dict[str, str] = {}
 
         names: List[str] = []
         ASTs: List[ast.FunctionDef] = []
@@ -69,20 +75,35 @@ class Compiler:
         for m in metadata:
             parser = self.get_parser(m.path)
             entity: PyKokkosEntity = parser.get_entity(m.name)
-            pyk_classtypes += parser.get_classtypes()
+
+            for c in parser.get_classtypes():
+                if c.name in pyk_classtype_ids:
+                    if c.path != pyk_classtype_ids[c.name]:
+                        raise RuntimeError(f"Ambiguous usage of classtype {c.name} in {c.path} and {pyk_classtype_ids[c.name]}")
+                else:
+                    pyk_classtype_ids[c.name] = c.path
+                    pyk_classtypes.append(c)
+
             path += f"_{m.path}"
             full_ASTs.append(entity.full_AST)
             pk_imports.append(entity.pk_import)
 
             names.append(entity.name)
-            ASTs.append(entity.AST)
+            if fuse_ASTs:
+                ASTs.append(copy.deepcopy(entity.AST))
             sources.append(entity.source)
 
         if not all(pk_import == pk_imports[0] for pk_import in pk_imports):
             raise ValueError("Must use same pykokkos import alias for all fused workunits")
 
-        name, AST, source = fuse_workunits(names, ASTs, sources)
-        entity = PyKokkosEntity(PyKokkosStyles.fused, name, AST, full_ASTs[0], source, None, pk_imports[0])
+        fused_name: str = "_".join(names)
+        if fuse_ASTs:
+            AST, source = fuse_workunits(fused_name, ASTs, sources)
+        else:
+            AST = None
+            source = None
+
+        entity = PyKokkosEntity(PyKokkosStyles.fused, fused_name, AST, full_ASTs[0], source, None, pk_imports[0])
 
         return entity, pyk_classtypes
 
@@ -117,7 +138,8 @@ class Compiler:
             entity = parser.get_entity(metadata[0].name)
             classtypes = parser.get_classtypes()
         else:
-            entity, classtypes = self.fuse_objects(metadata)
+            # Avoid fusing the ASTs before checking if it was already compiled
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False)
 
         hash: str = self.members_hash(entity.path, entity.name, types_signature)
 
@@ -129,6 +151,9 @@ class Compiler:
 
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
+                if len(metadata) > 1:
+                    entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
+
                 if types_inferred:
                     entity.AST = parser.fix_types(entity, updated_types)
                 if decorator_inferred:
@@ -136,6 +161,9 @@ class Compiler:
                 self.members[hash] = self.extract_members(entity, classtypes)
 
             return self.members[hash]
+
+        if len(metadata) > 1:
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
 
         self.is_compiled_cache[module_setup.output_dir] = True
 

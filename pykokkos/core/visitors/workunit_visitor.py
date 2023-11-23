@@ -61,7 +61,18 @@ class WorkunitVisitor(PyKokkosVisitor):
         """
 
         args: List[ast.arg] = node.args.args
-        last_arg: ast.arg = args[-1]
+        last_arg: ast.arg = args[0]
+
+        # Find the last argument in the workunit function definition that is not
+        # a view or a field. This is important as this argument could be the thread ID,
+        # the accumulator, or a boolean, which would help determine what the operation
+        # is (for, reduce, or scan)
+        for arg in args:
+            arg_name = cppast.DeclRefExpr(arg.arg)
+            if arg_name in self.views or arg_name in self.fields:
+                break
+            last_arg = arg
+
         annotation = last_arg.annotation
 
         if isinstance(annotation, ast.Name):
@@ -160,11 +171,16 @@ class WorkunitVisitor(PyKokkosVisitor):
         cpp_args: List[cppast.ParmVarDecl] = []
 
         # Visit all tid args, could be more than one for MDRangePolicies.
-        # Stop when the accumulator is reached or there are no more args.
+        # Stop when the accumulator is reached or there are no more tid args.
         for a in args:
             is_acc: bool = isinstance(a.annotation, ast.Subscript)
             if is_acc:
                 break
+
+            arg_name = cppast.DeclRefExpr(a.arg)
+            if arg_name in self.views or arg_name in self.fields:
+                break
+
             cpp_args.append(self.visit_arg(a))
 
         acc_arg: ast.arg
@@ -172,10 +188,10 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         operation: str = self.get_operation_type(node.parent)
         if operation == "scan":
-            last_arg: ast.arg = args[-1]
-            acc_arg = args[-2]
+            last_arg: ast.arg = args[2]
+            acc_arg = args[1]
         if operation == "reduce":
-            acc_arg = args[-1]
+            acc_arg = args[1]
 
         if operation in ("scan", "reduce"):
             acc: cppast.ParmVarDecl = self.visit_arg(acc_arg)
@@ -291,8 +307,9 @@ class WorkunitVisitor(PyKokkosVisitor):
         return super().visit_Call(node)
 
     def is_nested_call(self, node: ast.FunctionDef) -> bool:
-        args = node.args.args
-        if len(args) == 0 or args[0].arg != "self":
-            return True
+        while (hasattr(node, "parent")):
+            node = node.parent
+            if isinstance(node, ast.FunctionDef):
+                return True
 
         return False

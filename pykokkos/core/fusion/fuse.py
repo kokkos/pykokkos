@@ -49,7 +49,7 @@ class VariableRenamer(ast.NodeTransformer):
         # If the name is not mapped, keep the original name
         node.arg = self.name_map.get(key, node.arg)
         return node
-    
+
 
 def fuse_workunit_kwargs_and_params(
     workunits: List[Callable],
@@ -64,7 +64,8 @@ def fuse_workunit_kwargs_and_params(
     """
 
     fused_kwargs: Dict[str, Any] = {}
-    fused_params: List[inspect.Parameter] = [inspect.Parameter("fused_tid", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    fused_params: List[inspect.Parameter] = []
+    fused_params.append(inspect.Parameter("fused_tid", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int))
 
     for workunit_idx, workunit in enumerate(workunits):
         key: str = f"args_{workunit_idx}"
@@ -76,7 +77,7 @@ def fuse_workunit_kwargs_and_params(
         for p in current_params[1:]: # Skip the thread ID
             fused_name: str = f"fused_{p.name}_{workunit_idx}"
             fused_kwargs[fused_name] = current_kwargs[p.name]
-            fused_params.append(inspect.Parameter(fused_name, p.kind))
+            fused_params.append(inspect.Parameter(fused_name, p.kind, annotation=p.annotation))
 
     return fused_kwargs, fused_params
 
@@ -116,7 +117,7 @@ def fuse_arguments(all_args: List[ast.arguments]) -> Tuple[ast.arguments, Dict[T
     fused_args = ast.arguments(args=[ast.arg(arg=new_tid, annotation=ast.Name(id='int', ctx=ast.Load()))])
 
     for workunit_idx, args in enumerate(all_args):
-        for arg_idx, arg in enumerate(args.args): # Skip "self"
+        for arg_idx, arg in enumerate(args.args):
             old_name: str = arg.arg
             key = (old_name, workunit_idx)
             new_name: str
@@ -199,21 +200,19 @@ def fuse_sources(sources: List[Tuple[List[str], int]]):
 
 
 def fuse_workunits(
-    names: List[str],
+    fused_name: str,
     ASTs: List[ast.FunctionDef],
     sources: List[Tuple[List[str], int]],
-) -> Tuple[str, ast.FunctionDef, Tuple[List[str], int]]:
+) -> Tuple[ast.FunctionDef, Tuple[List[str], int]]:
     """
     Merge a list of workunits into a single object
 
-    :param names: the names of the workunits to be fused
+    :param names: the name of the fused workunit
     :param ASTs: the parsed python ASTs to be fused
     :param sources: the raw source of the workunits to be fused
     """
 
-    name: str = "_".join(names)
-    AST: ast.FunctionDef = fuse_ASTs(ASTs, name)
-
+    AST: ast.FunctionDef = fuse_ASTs(ASTs, fused_name)
     source: Tuple[List[str], int] = fuse_sources(sources)
 
-    return name, AST, source
+    return AST, source
