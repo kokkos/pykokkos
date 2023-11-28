@@ -78,6 +78,15 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
                 # function arguments.
                 continue
 
+            fused_arg: re.Pattern = re.compile(f"fused_.*_[0-9]+")
+            if fused_arg.match(arg.arg):
+                original_view: str = arg.arg.split("_")[1]
+                original = cppast.DeclRefExpr(original_view)
+
+                if original in self.views:
+                    self.views[declref] = self.views[cppast.DeclRefExpr(original_view)]
+                    continue
+
             decltype: Optional[cppast.Type] = visitors_util.get_type(arg.annotation, self.pk_import)
             if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith("View"):
                 self.views[declref] = decltype
