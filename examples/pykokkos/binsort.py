@@ -43,7 +43,7 @@ class Workload:
             print(f"{self.view[i]} ")
 
 
-def run():
+def run() -> None:
     workload = Workload(10)
     pk.execute(pk.ExecutionSpace.Default, workload)
     print(workload.view)
@@ -51,8 +51,5 @@ def run():
     print(workload.bin_offsets)
     print(workload.bin_count)
 
-
 if __name__ == "__main__":
-    pk.kokkos_manager.initialize()
     run()
-    pk.kokkos_manager.finalize()

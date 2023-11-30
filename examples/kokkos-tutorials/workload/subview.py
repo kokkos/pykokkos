@@ -63,7 +63,7 @@ class Workload:
         acc += self.y[j] * temp2
 
 
-if __name__ == "__main__":
+def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
     N: int = values[0]
     M: int = values[1]
@@ -80,3 +80,6 @@ if __name__ == "__main__":
 
     print(f"Total size S = {N * M} N = {N} M = {M}")
     pk.execute(pk.get_default_space(), Workload(N, M, nrepeat, fill))
+
+if __name__ == "__main__":
+    run()

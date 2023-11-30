@@ -16,7 +16,7 @@ class main:
         self.scalar: float = 3
         self.asum: float = 0
 
-        self.nstream_time: float = 0 
+        self.nstream_time: float = 0
 
     @pk.main
     def run(self):
@@ -66,7 +66,7 @@ class main:
         self.B[i] = 2
         self.C[i] = 2
 
-if __name__ == "__main__":
+def run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)
     parser.add_argument('length', type=int)
@@ -100,3 +100,5 @@ if __name__ == "__main__":
     print("Offset               = " , offset)
     pk.execute(pk.ExecutionSpace.Default, main(iterations, length, offset))
 
+if __name__ == "__main__":
+    run()

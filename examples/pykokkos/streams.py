@@ -15,7 +15,7 @@ def print_stream(i, x, id):
     elif x == 4:
         pk.printf("Stream 3 GPU %d\n", id)
 
-if __name__ == "__main__":
+def run() -> None:
     space = pk.Cuda
 
     # Create streams on GPU 0 (default GPU)
@@ -48,3 +48,7 @@ if __name__ == "__main__":
         pk.parallel_for(pk.RangePolicy(instance2, 0, 2), print_stream, x=2, id=cp.cuda.runtime.getDevice())
 
     print("Done launching kernels")
+
+
+if __name__ == "__main__":
+    run()

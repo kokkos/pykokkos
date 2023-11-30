@@ -18,14 +18,14 @@ class main:
         self.out: pk.View2D[pk.double] = pk.View([self.n, self.n], pk.double, layout=pk.Layout.LayoutRight)
         self.norm: float = 0
 
-        self.stencil_time: float = 0 
+        self.stencil_time: float = 0
 
     @pk.main
     def run(self):
         t: int = tile_size
         r: int = radius
 
-        pk.parallel_for(pk.MDRangePolicy([0,0], [n, n], [t, t]), 
+        pk.parallel_for(pk.MDRangePolicy([0,0], [n, n], [t, t]),
             self.init)
         pk.fence()
 
@@ -34,7 +34,7 @@ class main:
         for i in range(iterations):
             if (i == 1):
                 pk.fence()
-            
+
             if r == 1:
                 # star1 stencil
                 pk.parallel_for("stencil", pk.MDRangePolicy([r,r], [n-r, n-r], [t, t]), self.star1)
@@ -45,8 +45,8 @@ class main:
                 # star3 stencil
                 pk.parallel_for("stencil", pk.MDRangePolicy([r,r], [n-r, n-r], [t, t]), self.star3)
 
-            
-            pk.parallel_for(pk.MDRangePolicy([0,0], [n, n], [t, t]), 
+
+            pk.parallel_for(pk.MDRangePolicy([0,0], [n, n], [t, t]),
                 self.increment)
 
         pk.fence()
@@ -55,7 +55,7 @@ class main:
         active_points: int = (n-2*r)*(n-2*r)
 
         # verify correctness
-        self.norm = pk.parallel_reduce(pk.MDRangePolicy([r, r], [n-r, n-r], [t, t]), 
+        self.norm = pk.parallel_reduce(pk.MDRangePolicy([r, r], [n-r, n-r], [t, t]),
                 self.norm_reduce)
         pk.fence()
         self.norm /= active_points
@@ -78,7 +78,7 @@ class main:
 
     @pk.workunit
     def norm_reduce(self, i: int, j: int, acc: pk.Acc[pk.double]):
-        acc += abs(self.out[i][j]) 
+        acc += abs(self.out[i][j])
 
     # @pk.callback
     # def print_result(self):
@@ -121,7 +121,7 @@ class main:
             +self.inp[i][j+2] * 0.08333333333333333 \
             +self.inp[i][j+3] * 0.05555555555555555
 
-if __name__ == "__main__":
+def run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)
     parser.add_argument('n', type=int)
@@ -169,9 +169,11 @@ if __name__ == "__main__":
 
     n = 2 ** n
     print("Number of iterations = ", iterations)
-    print("Grid size            = ", n) 
+    print("Grid size            = ", n)
     print("Tile size            = ", tile_size)
     print("Type of stencil      = ", "star" if star else "grid")
     print("Radius of stencil    = ", radius)
     pk.execute(pk.ExecutionSpace.Default, main(iterations, n, tile_size, star, radius))
 
+if __name__ == "__main__":
+    run()

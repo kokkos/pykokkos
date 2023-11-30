@@ -10,7 +10,7 @@ def scan(i, acc, last_pass, view):
     if last_pass:
         view[i] = acc
 
-if __name__ == "__main__":
+def run() -> None:
     N = 10
 
     A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
@@ -22,3 +22,6 @@ if __name__ == "__main__":
     timer_result = timer.seconds()
 
     print(f"{A} total={result} time({timer_result})")
+
+if __name__ == "__main__":
+    run()
