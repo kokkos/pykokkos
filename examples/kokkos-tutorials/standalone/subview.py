@@ -15,7 +15,7 @@ def yAx(j, acc, cols, y_view, x_view, A_view):
     acc += y_view[j] * temp2
 
 
-if __name__ == "__main__":
+def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
     N: int = values[0]
     M: int = values[1]
@@ -68,3 +68,6 @@ if __name__ == "__main__":
 
     print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
 
+
+if __name__ == "__main__":
+    run()

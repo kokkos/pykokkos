@@ -23,7 +23,7 @@ class Benchmark_double_8:
 
         self.A.fill(1.5)
         self.B.fill(2.0)
-        
+
         #TODO use kokkos to init in parallel
         random.seed(12313)
         for i in range(N):
@@ -60,7 +60,7 @@ class Benchmark_double_8:
         self.C[i] = c
 
 
-if __name__ == "__main__":
+def run() -> None:
     # example args 2 100000 32 512 1000 8 8
     # NOTE S and U are hard coded to double and 8 because otherwise we would have a lot of duplicates
     parser = argparse.ArgumentParser()
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     space = pk.ExecutionSpace.OpenMP
     if args.execution_space:
         space = pk.ExecutionSpace(args.execution_space)
-    
+
     pk.set_default_space(space)
 
     N = args.N
@@ -115,3 +115,5 @@ if __name__ == "__main__":
     print(f"SNKDRUF: {scalar_size/4} {N} {K} {D} {R} {U} {F} Time: {seconds} " +
             f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds} GGather/s: {1e-9 * gather_ops / seconds}")
 
+if __name__ == "__main__":
+    run()

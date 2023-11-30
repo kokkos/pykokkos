@@ -11,19 +11,19 @@ class main:
         self.iterations: int = iterations
         self.order: int = order
         self.tile_size: int = tile_size
-        self.permute: int = permute 
+        self.permute: int = permute
 
         self.A: pk.View2D[pk.double] = pk.View([self.order, self.order], pk.double, layout=pk.LayoutRight)
         self.B: pk.View2D[pk.double] = pk.View([self.order, self.order], pk.double, layout=pk.LayoutRight)
 
         self.abserr: float = 0
-        self.transpose_time: float = 0 
+        self.transpose_time: float = 0
         self.addit: float = (self.iterations) * (0.5 * (self.iterations - 1))
 
     @pk.main
     def run(self):
         pk.parallel_for(
-            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]), self.init) 
+            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]), self.init)
         pk.fence()
 
         timer = pk.Timer()
@@ -39,7 +39,7 @@ class main:
         self.transpose_time = timer.seconds()
 
         self.abserr = pk.parallel_reduce(
-            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]), 
+            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]),
             self.abserr_reduce)
 
         pk.printf("%f\n", self.abserr)
@@ -69,9 +69,9 @@ class main:
     def tranpose(self, i: int, j: int):
         self.B[i][j] += self.A[j][i]
         self.A[j][i] += 1
-        
 
-if __name__ == "__main__":
+
+def run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)
     parser.add_argument('order', type=int)
@@ -112,3 +112,6 @@ if __name__ == "__main__":
     print("Tile size            = " , tile_size)
     print("Permute loops        = " , "yes" if permute else "no")
     pk.execute(pk.ExecutionSpace.Default, main(iterations, order, tile_size, permute))
+
+if __name__ == "__main__":
+    run()

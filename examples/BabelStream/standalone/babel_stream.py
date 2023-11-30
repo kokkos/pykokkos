@@ -31,7 +31,7 @@ def dot(index, acc, a_view, b_view):
     acc += a_view[index] * b_view[index]
 
 
-if __name__ == "__main__":
+def run() -> None:
     array_size: int = 2**25 # 100000
     startA: float = 0.1
     startB: float = 0.2
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         timings[4].append(timer.seconds())
         timer.reset()
 
-    goldA = startA 
+    goldA = startA
     goldB = startB
     goldC = startC
 
@@ -101,9 +101,9 @@ if __name__ == "__main__":
     errB /= len(b)
     errC = reduce(lambda s, val: s + abs(val - goldC), c)
     errC /= len(c)
-    
-    # epsi = sys.float_info.epsilon * 100 
-    epsi = 1e-8 
+
+    # epsi = sys.float_info.epsilon * 100
+    epsi = 1e-8
     if (errA > epsi):
         print(f"Validation failed on a[]. Average error {errA}")
     if (errB > epsi):
@@ -136,3 +136,6 @@ if __name__ == "__main__":
     # bandwidth = 1.0e-9 * (total_bytes / runtime)
     # print(f"Runtime (seconds): {runtime}")
     # print(f"Bandwidth (GB/s): {bandwidth}")
+
+if __name__ == "__main__":
+    run()

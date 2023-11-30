@@ -26,7 +26,7 @@ class Benchmark_double_8:
         n: int = team.league_rank()
         for r in range(self.R):
             def team_for(i: int):
-                a1: pk.double = self.A[n][i][0] 
+                a1: pk.double = self.A[n][i][0]
                 b: pk.double = self.B[n][i][0]
                 a2: pk.double = a1 * 1.3
                 a3: pk.double = a2 * 1.1
@@ -51,13 +51,13 @@ class Benchmark_double_8:
 
             pk.parallel_for(pk.TeamThreadRange(team, self.K), team_for)
 
-if __name__ == "__main__":
+def run() -> None:
     # example args
-    # Bandwidth Bound : 2 100000 1024 1 1 1 8 256 0 
-    # Cache Bound     : 2 100000 1024 64 1 1 8 512 0 
-    # Compute Bound   : 2 100000 1024 1 1 8 64 256 0 
-    # Load Slots Used : 2 20000 256 32 16 8 1 256 0 
-    # Inefficient Load: 2 20000 256 32 2 8 1 256 0 
+    # Bandwidth Bound : 2 100000 1024 1 1 1 8 256 0
+    # Cache Bound     : 2 100000 1024 64 1 1 8 512 0
+    # Compute Bound   : 2 100000 1024 1 1 8 64 256 0
+    # Load Slots Used : 2 20000 256 32 16 8 1 256 0
+    # Inefficient Load: 2 20000 256 32 2 8 1 256 0
     # NOTE P and U are hard coded to double and 8 because otherwise we would have a lot of duplicates
     parser = argparse.ArgumentParser()
     parser.add_argument("P", type=int, help="Precision (1==float, 2==double)")
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         exit(1)
     if args.S != 0:
         print("S must be 0 (shared scratch memory not supported)")
-        exit(1) 
+        exit(1)
 
     space = pk.ExecutionSpace.OpenMP
     if args.execution_space:
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     T = args.T
     S = args.S
     scalar_size = 8
-    
+
     pk.set_default_space(space)
 
     r = pk.TeamPolicy(N, T)
@@ -113,3 +113,7 @@ if __name__ == "__main__":
     print(f"NKRUFTS: {N} {K} {R} {U} {F} {T} {S} Time: {seconds} " +
             f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds}")
     print(w.C)
+
+
+if __name__ == "__main__":
+    run()
