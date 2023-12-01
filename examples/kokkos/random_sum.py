@@ -7,7 +7,7 @@ import pykokkos as pk
 class RandomSum:
     def __init__(self, n):
         self.N: int = n
-        self.total: int = 0
+        self.total: pk.int32 = 0
         self.a: pk.View1D[pk.int32] = pk.View([n], pk.int32)
 
         for i in range(self.N):
