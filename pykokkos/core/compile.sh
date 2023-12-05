@@ -21,6 +21,7 @@ if [ "${COMPILER}" == "g++" ]; then
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
+        -march=native -mtune=native \
         -isystem "${KOKKOS_INCLUDE_PATH}" \
         -fPIC \
         -fopenmp -std=c++${CXX_STANDARD} \
@@ -46,6 +47,7 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
+        -Xcompiler -march=native -Xcompiler -mtune=native \
         -isystem "${KOKKOS_INCLUDE_PATH}" \
         -arch="${COMPUTE_CAPABILITY}" \
         --expt-extended-lambda -fPIC \
