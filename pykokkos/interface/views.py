@@ -22,8 +22,9 @@ from .data_types import (
     int16, int32, int64,
     uint8,
     uint16, uint32, uint64,
-    double, float64,
+    double, float32, float64,
 )
+from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
 from .hierarchical import TeamMember
@@ -320,17 +321,24 @@ class View(ViewType):
         is_cpu: bool = self.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
-        if self.dtype == pk.float:
-            self.dtype = DataType.float
-        elif self.dtype == pk.double:
-            self.dtype = DataType.double
+        if self.dtype in {DataType.float, pk_float}:
+            self.dtype = float32
+        elif self.dtype in {DataType.double, double}:
+            self.dtype = float64
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
                 # TODO: we don't really support 0-D under the hood--use
                 # NumPy for now...
                 self.array = array
             else:
+                if array.dtype == np.bool_:
+                    array = array.astype(np.uint8)
                 self.array = kokkos_lib.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
+                # Store a reference here in case the array goes out of
+                # scope and gets garbage collected, which would
+                # invalidate the data. Currently, this happens when
+                # calling asarray()
+                self.orig_array = array
         else:
             if len(self.shape) == 0:
                 shape = [1]
@@ -361,9 +369,9 @@ class View(ViewType):
             return dtype
 
         if dtype is int:
-            return DataType["int32"]
+            return int32
         if dtype is float:
-            return DataType["double"]
+            return double
 
         return None
 
@@ -652,7 +660,6 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     else:
         ret_list = list((array.shape))
 
-
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
 
 def from_array(array) -> ViewType:
@@ -684,6 +691,8 @@ def from_array(array) -> ViewType:
         ctype = ctypes.c_float
     elif np_dtype is np.float64:
         ctype = ctypes.c_double
+    elif np_dtype is np.bool_:
+        ctype = ctypes.c_uint8
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -742,7 +751,7 @@ def array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] =
     """
 
     # if numpy array, use from_numpy()
-    if isinstance(array, np.ndarray):
+    if isinstance(array, np.ndarray) or np.isscalar(array):
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
@@ -758,7 +767,8 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # TODO: proper implementation/design
     # for now, let's cheat and use NumPy asarray() followed
     # by pykokkos from_numpy()
-    if obj in {pk.e, pk.pi, pk.inf, pk.nan}:
+
+    if not isinstance(obj, list) and obj in {pk.e, pk.pi, pk.inf, pk.nan}:
         if dtype is None:
             dtype = pk.float64
         view = pk.View([1], dtype=dtype)
