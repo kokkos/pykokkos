@@ -89,6 +89,7 @@ def tanh_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.fl
         out[tid][i] = tanh(view[tid][i])
 
 
+@pk.workunit
 def equal_impl_5d_int8(tid: int,
                               view1: pk.View5D[pk.int8],
                               view2: pk.View5D[pk.int8],

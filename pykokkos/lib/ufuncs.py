@@ -176,7 +176,7 @@ def log(view):
         raise NotImplementedError("log() ufunc only supports up to 2D views")
 
     out = pk.View(view.shape, view.dtype)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log_impl_1d_double, view=view, out=out)
@@ -184,7 +184,7 @@ def log(view):
             pk.parallel_for(view.shape[0], log_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], log_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log_impl_1d_float, view=view, out=out)
@@ -242,14 +242,14 @@ def sqrt(view):
     if len(view.shape) > 2:
         raise NotImplementedError("only up to 2D views currently supported for sqrt() ufunc.")
     out = pk.View(view.shape, view.dtype)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, sqrt_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], sqrt_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sqrt_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, sqrt_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 1:
@@ -299,7 +299,7 @@ def log2(view):
     if len(view.shape) > 2:
         raise NotImplementedError("log2() ufunc only supports up to 2D views")
     out = pk.View(view.shape, view.dtype)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log2_impl_1d_double, view=view, out=out)
@@ -307,7 +307,7 @@ def log2(view):
             pk.parallel_for(view.shape[0], log2_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], log2_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log2_impl_1d_float, view=view, out=out)
@@ -358,7 +358,7 @@ def log10(view):
     if view.size == 0:
         return view
     out = pk.View(view.shape, view.dtype)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log10_impl_1d_double, view=view, out=out)
@@ -366,7 +366,7 @@ def log10(view):
             pk.parallel_for(view.shape[0], log10_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], log10_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
             pk.parallel_for(1, log10_impl_1d_float, view=view, out=out)
@@ -419,14 +419,14 @@ def log1p(view):
     out = pk.View(view.shape, view.dtype)
     if len(view.shape) > 2:
         raise NotImplementedError("log1p() ufunc only supports up to 2D views")
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, log1p_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], log1p_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], log1p_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, log1p_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 1:
@@ -706,7 +706,7 @@ def sign(view):
     out = pk.View(view.shape, view.dtype)
     if len(view.shape) > 2:
         raise NotImplementedError("only up to 2D views currently supported for sign() ufunc.")
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.double)
             new_view[:] = view
@@ -718,7 +718,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.float)
             new_view[:] = view
@@ -730,7 +730,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_float, view=view, out=out)
-    elif "uint32" in str(view.dtype):
+    elif "uint32" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.uint32)
             new_view[:] = view
@@ -742,7 +742,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_uint32, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_uint32, view=view, out=out)
-    elif "uint16" in str(view.dtype):
+    elif "uint16" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.uint16)
             new_view[:] = view
@@ -754,7 +754,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_uint16, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_uint16, view=view, out=out)
-    elif "int16" in str(view.dtype):
+    elif "int16" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.int16)
             new_view[:] = view
@@ -766,7 +766,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_int16, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_int16, view=view, out=out)
-    elif "int32" in str(view.dtype):
+    elif "int32" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.int32)
             new_view[:] = view
@@ -778,7 +778,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_int32, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_int32, view=view, out=out)
-    elif "uint64" in str(view.dtype):
+    elif "uint64" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.uint64)
             new_view[:] = view
@@ -790,7 +790,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_uint64, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_uint64, view=view, out=out)
-    elif "int64" in str(view.dtype):
+    elif "int64" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.int64)
             new_view[:] = view
@@ -802,7 +802,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_int64, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_int64, view=view, out=out)
-    elif "uint8" in str(view.dtype):
+    elif "uint8" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.uint8)
             new_view[:] = view
@@ -814,7 +814,7 @@ def sign(view):
             pk.parallel_for(view.shape[0], sign_impl_1d_uint8, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], sign_impl_2d_uint8, view=view, out=out)
-    elif "int8" in str(view.dtype):
+    elif "int8" in view.dtype.__name__:
         if view.shape == ():
             new_view = pk.View([1], dtype=pk.int8)
             new_view[:] = view
@@ -876,7 +876,7 @@ def add(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    elif viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -885,7 +885,7 @@ def add(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -935,7 +935,7 @@ def multiply(viewA, viewB):
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for mulitply() ufunc.")
 
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -944,7 +944,7 @@ def multiply(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -987,7 +987,7 @@ def subtract(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for subtract() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -996,7 +996,7 @@ def subtract(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1030,10 +1030,10 @@ def matmul(viewA, viewB):
         raise RuntimeError(
             "Input operand 1 has a mismatch in its core dimension (Size {} is different from {})".format(viewA.shape[0], viewB.shape[0]))
 
-    a_dtype_str = str(viewA.dtype)
-    b_dtype_str = str(viewB.dtype)
-    if not(a_dtype_str == "DataType.double" and b_dtype_str == "DataType.double"):
-        if not(a_dtype_str == "DataType.float" and b_dtype_str == "DataType.float"):
+    a_dtype_str = viewA.dtype.__name__
+    b_dtype_str = viewB.dtype.__name__
+    if not(a_dtype_str == "float64" and b_dtype_str == "float64"):
+        if not(a_dtype_str == "float32" and b_dtype_str == "float32"):
             raise RuntimeError("Incompatible Types")
 
     return _ufunc_kernel_dispatcher(tid=viewA.shape[0],
@@ -1093,7 +1093,7 @@ def divide(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    elif viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1102,7 +1102,7 @@ def divide(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1141,10 +1141,10 @@ def negative(view):
     """
     if len(view.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for negative() ufunc.")
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
+    elif view.dtype.__name__ == "float32":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
     else:
@@ -1239,7 +1239,7 @@ def power(viewA, viewB):
             viewA=viewA,
             viewB=viewB,
             out=out)
-    elif str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    elif viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1248,7 +1248,7 @@ def power(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1292,7 +1292,7 @@ def fmod(viewA, viewB):
 
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("fmod() ufunc only supports 1D views")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1301,7 +1301,7 @@ def fmod(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1441,70 +1441,70 @@ def square(view):
     if len(view.shape) > 2:
         raise NotImplementedError("only up to 2D views currently supported for square() ufunc.")
     out = pk.View(view.shape, view.dtype)
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_float, view=view, out=out)
-    elif "uint8" in str(view.dtype):
+    elif "uint8" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_uint8, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_uint8, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_uint8, view=view, out=out)
-    elif "uint16" in str(view.dtype):
+    elif "uint16" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_uint16, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_uint16, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_uint16, view=view, out=out)
-    elif "uint32" in str(view.dtype):
+    elif "uint32" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_uint32, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_uint32, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_uint32, view=view, out=out)
-    elif "uint64" in str(view.dtype):
+    elif "uint64" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_uint64, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_uint64, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_uint64, view=view, out=out)
-    elif "int8" in str(view.dtype):
+    elif "int8" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_int8, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_int8, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_int8, view=view, out=out)
-    elif "int16" in str(view.dtype):
+    elif "int16" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_int16, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_int16, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_int16, view=view, out=out)
-    elif "int32" in str(view.dtype):
+    elif "int32" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_int32, view=view, out=out)
         elif len(view.shape) == 1:
             pk.parallel_for(view.shape[0], square_impl_1d_int32, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], square_impl_2d_int32, view=view, out=out)
-    elif "int64" in str(view.dtype):
+    elif "int64" in view.dtype.__name__:
         if view.shape == ():
             pk.parallel_for(1, square_impl_1d_int64, view=view, out=out)
         elif len(view.shape) == 1:
@@ -1546,7 +1546,7 @@ def greater(viewA, viewB):
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("greater() ufunc only supports 1D views")
     out = pk.View([viewA.shape[0]], pk.uint8)
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_double,
@@ -1554,7 +1554,7 @@ def greater(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         pk.parallel_for(
             viewA.shape[0],
             greater_impl_1d_float,
@@ -1596,7 +1596,7 @@ def logaddexp(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logaddexp() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1605,7 +1605,7 @@ def logaddexp(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1668,7 +1668,7 @@ def logaddexp2(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logaddexp2() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1677,7 +1677,7 @@ def logaddexp2(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1720,7 +1720,7 @@ def floor_divide(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for floor_divide() ufunc.")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -1729,7 +1729,7 @@ def floor_divide(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -1815,13 +1815,13 @@ def cos(view):
     """
     if len(view.shape) > 2:
         raise NotImplementedError("only up to 2D views currently supported for cos() ufunc.")
-    if "double" in str(view.dtype) or "float64" in str(view.dtype):
+    if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         out = pk.View([*view.shape], dtype=pk.float64)
         if len(view.shape) == 1:
             pk.parallel_for(view.shape[0], cos_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
             pk.parallel_for(view.shape[0], cos_impl_2d_double, view=view, out=out)
-    elif "float" in str(view.dtype):
+    elif "float" in view.dtype.__name__:
         out = pk.View([*view.shape], dtype=pk.float32)
         if len(view.shape) == 1:
             pk.parallel_for(view.shape[0], cos_impl_1d_float, view=view, out=out)
@@ -1896,7 +1896,7 @@ def logical_and(viewA, viewB):
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logical_and() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         pk.parallel_for(
             viewA.shape[0],
             logical_and_impl_1d_double,
@@ -1904,7 +1904,7 @@ def logical_and(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         pk.parallel_for(
             viewA.shape[0],
             logical_and_impl_1d_float,
@@ -1946,7 +1946,7 @@ def logical_or(viewA, viewB):
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logical_or() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         pk.parallel_for(
             viewA.shape[0],
             logical_or_impl_1d_double,
@@ -1954,7 +1954,7 @@ def logical_or(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         pk.parallel_for(
             viewA.shape[0],
             logical_or_impl_1d_float,
@@ -1996,7 +1996,7 @@ def logical_xor(viewA, viewB):
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logical_xor() ufunc.")
     out = pk.View([viewA.shape[0]], pk.uint8)
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         pk.parallel_for(
             viewA.shape[0],
             logical_xor_impl_1d_double,
@@ -2004,7 +2004,7 @@ def logical_xor(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         pk.parallel_for(
             viewA.shape[0],
             logical_xor_impl_1d_float,
@@ -2044,9 +2044,9 @@ def logical_not(view):
     if len(view.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for logical_not() ufunc.")
     out = pk.View([view.shape[0]], pk.uint8)
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         pk.parallel_for(view.shape[0], logical_not_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
+    elif view.dtype.__name__ == "float32":
         pk.parallel_for(view.shape[0], logical_not_impl_1d_float, view=view, out=out)
     return out
 
@@ -2080,7 +2080,7 @@ def fmax(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("fmax() ufunc only supports 1D views")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -2089,7 +2089,7 @@ def fmax(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -2131,7 +2131,7 @@ def fmin(viewA, viewB):
     """
     if len(viewA.shape) > 1 or len(viewB.shape) > 1:
         raise NotImplementedError("fmax() ufunc only supports 1D views")
-    if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
             viewA.shape[0],
@@ -2140,7 +2140,7 @@ def fmin(viewA, viewB):
             viewB=viewB,
             out=out)
 
-    elif str(viewA.dtype) == "DataType.float" and str(viewB.dtype) == "DataType.float":
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
             viewA.shape[0],
@@ -2216,10 +2216,10 @@ def exp2(view):
     """
     if len(view.shape) > 1:
         raise NotImplementedError("only 1D views currently supported for exp2() ufunc.")
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(view.shape[0], exp2_impl_1d_double, view=view, out=out)
-    elif str(view.dtype) == "DataType.float":
+    elif view.dtype.__name__ == "float32":
         out = pk.View([view.shape[0]], pk.float)
         pk.parallel_for(view.shape[0], exp2_impl_1d_float, view=view, out=out)
     else:
@@ -2264,7 +2264,7 @@ def var(view, axis=None):
     if isinstance(axis, pk.View):
         raise NotImplementedError
 
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         if axis == 0:
             view_mean = mean(view, 0)
             out = pk.View([view.shape[1]], pk.double)
@@ -2295,7 +2295,7 @@ def mean(view, axis=None):
     if isinstance(axis, pk.View):
         raise NotImplementedError
 
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         if axis == 0:
             out = pk.View([view.shape[1]], pk.double)
             pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
@@ -2318,7 +2318,7 @@ def in1d_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[
             break
 
 def in1d(viewA, viewB):
-    if str(viewA.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64":
         out = pk.View(viewA.shape, pk.int8)
         pk.parallel_for(
             viewA.shape[0],
@@ -2343,7 +2343,7 @@ def transpose(view):
         return view
 
     if view.rank() == 2:
-        if str(view.dtype) == "DataType.double":
+        if view.dtype.__name__ == "float64":
             out = pk.View(view.shape[::-1], pk.double)
             pk.parallel_for(view.shape[0], transpose_impl_2d_double, view=view, out=out)
             return out
@@ -2372,7 +2372,7 @@ def hstack(viewA, viewB):
         raise RuntimeError("All the input view dimensions for the concatenation axis must match exactly")
 
     if viewA.rank() == 2 and viewB.rank() == 2:
-        if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+        if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
             out = pk.View([viewA.shape[0], viewA.shape[1] * 2], pk.double)
             pk.parallel_for(
                 out.shape[0],
@@ -2383,7 +2383,7 @@ def hstack(viewA, viewB):
         else:
             raise RuntimeError("hstack supports 2D views of type double only")
     elif viewA.rank() == 1 and viewB.rank() == 1:
-        if str(viewA.dtype) == "DataType.double" and str(viewB.dtype) == "DataType.double":
+        if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
             out = pk.View([viewA.shape[0] + viewB.shape[0]], pk.double)
             pk.parallel_for(
                 out.shape[0],

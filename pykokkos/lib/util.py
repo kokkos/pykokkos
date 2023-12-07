@@ -49,7 +49,7 @@ def sum(viewA, axis=None):
             return out
 
 
-    if str(viewA.dtype) == "DataType.double":
+    if viewA.dtype.__name__ == "float64":
         return pk.parallel_reduce(
             viewA.shape[0],
             sum_impl_1d_double,
@@ -77,7 +77,7 @@ def col(view, col):
     view_temp[0] = col
     col = view_temp
     
-    if str(view.dtype) == "DataType.double":
+    if view.dtype.__name__ == "float64":
         out = pk.View([view.shape[0]], pk.double)
         pk.parallel_for(
             view.shape[0],

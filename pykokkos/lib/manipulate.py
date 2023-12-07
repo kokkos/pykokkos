@@ -25,7 +25,7 @@ def ravel_C_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.View1D[
 
 def ravel(view, order="C"):
     if view.rank() == 2:
-        if str(view.dtype) == "DataType.double":
+        if view.dtype.__name__ == "float64":
             out = pk.View([view.shape[0] * view.shape[1]], pk.double)
             if order == "F":
                 pk.parallel_for(view.shape[1], ravel_F_impl_2d_double, view=view, out=out)
@@ -59,7 +59,7 @@ def expand_dims_1_impl_2d_double(tid: int, view: pk.View2D[pk.double], out: pk.V
 
 
 def expand_dims(view, axis=0):
-    if str(view.dtype) != "DataType.double":
+    if view.dtype.__name__ == "float64":
         raise RuntimeError("expand_dims supports views of type double only")
 
     if view.rank() == 1:
