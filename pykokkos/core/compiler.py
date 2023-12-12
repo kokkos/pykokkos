@@ -50,7 +50,7 @@ class Compiler:
         logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
-    def fuse_objects(self, metadata: List[EntityMetadata], fuse_ASTs: bool) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
+    def fuse_objects(self, metadata: List[EntityMetadata], fuse_ASTs: bool, **kwargs) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
         """
         Fuse two or more workunits into one
 
@@ -98,7 +98,7 @@ class Compiler:
 
         fused_name: str = "_".join(names)
         if fuse_ASTs:
-            AST, source = fuse_workunits(fused_name, ASTs, sources)
+            AST, source = fuse_workunits(fused_name, ASTs, sources, **kwargs)
         else:
             AST = None
             source = None
@@ -115,7 +115,8 @@ class Compiler:
         force_uvm: bool,
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
-        types_signature: Optional[str] = None
+        types_signature: Optional[str] = None,
+        **kwargs
     ) -> Optional[PyKokkosMembers]:
         """
         Compile an entity object for a single execution space
@@ -139,7 +140,7 @@ class Compiler:
             classtypes = parser.get_classtypes()
         else:
             # Avoid fusing the ASTs before checking if it was already compiled
-            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False)
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False, **kwargs)
 
         hash: str = self.members_hash(entity.path, entity.name, types_signature)
 
@@ -152,7 +153,7 @@ class Compiler:
         if self.is_compiled(module_setup.output_dir):
             if hash not in self.members: # True if pre-compiled
                 if len(metadata) > 1:
-                    entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
+                    entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True, **kwargs)
 
                 if types_inferred:
                     entity.AST = parser.fix_types(entity, updated_types)
@@ -163,7 +164,7 @@ class Compiler:
             return self.members[hash]
 
         if len(metadata) > 1:
-            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True, **kwargs)
 
         self.is_compiled_cache[module_setup.output_dir] = True
 
