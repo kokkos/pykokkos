@@ -61,6 +61,7 @@ class Runtime:
         updated_decorator: UpdatedDecorator,
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
+        **kwargs,
     ) -> Optional[PyKokkosMembers]:
         """
         precompile the workunit
@@ -76,7 +77,7 @@ class Runtime:
         members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
                                                                           space, km.is_uvm_enabled(), 
                                                                           updated_decorator, 
-                                                                          updated_types, types_signature)
+                                                                          updated_types, types_signature, **kwargs)
 
         return members
 
@@ -128,7 +129,7 @@ class Runtime:
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
         types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature)
+        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
 
