@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from pykokkos.interface import Decorator, UpdatedTypes, UpdatedDecorator, get_type_str
+from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, get_type_str
+
+from pykokkos.interface import Decorator
 
 class PyKokkosStyles(Enum):
     """

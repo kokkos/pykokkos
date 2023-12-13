@@ -8,9 +8,9 @@ import numpy as np
 import pykokkos.kokkos_manager as km
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 
-from .execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
-from .views import View, ViewType
-from .data_types import DataType, DataTypeClass
+from pykokkos.interface.execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
+from pykokkos.interface.views import View, ViewType
+from pykokkos.interface.data_types import DataType, DataTypeClass
 
 
 @dataclass
