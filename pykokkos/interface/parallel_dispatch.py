@@ -4,10 +4,10 @@ from typing import Any, Callable, Dict, List, Union
 
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
+from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, HandledArgs, get_annotations, get_views_decorator, handle_args
 
 from .execution_policy import ExecutionPolicy
 from .execution_space import ExecutionSpace
-from .args_type_inference import UpdatedTypes, UpdatedDecorator, HandledArgs, get_annotations, get_views_decorator, handle_args
 
 workunit_cache: Dict[int, Callable] = {}
 

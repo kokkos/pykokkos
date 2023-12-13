@@ -10,10 +10,11 @@ from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
+from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, get_types_signature
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
-    RandomPool, RangePolicy, TeamPolicy, View, ViewType, UpdatedTypes, UpdatedDecorator,
-    is_host_execution_space, get_types_signature
+    RandomPool, RangePolicy, TeamPolicy, View, ViewType,
+    is_host_execution_space
 )
 import pykokkos.kokkos_manager as km
 

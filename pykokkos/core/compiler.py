@@ -12,7 +12,8 @@ from typing import Dict, List, Optional, Tuple
 from pykokkos.core.fusion import fuse_workunits
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
+from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator
+from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup

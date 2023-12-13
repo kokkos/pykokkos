@@ -53,7 +53,6 @@ from .views import (
 )
 
 from .ext_module import compile_into_module
-from .args_type_inference import UpdatedTypes, UpdatedDecorator, get_annotations, get_type_str, get_types_signature
 
 def fence():
     pass
