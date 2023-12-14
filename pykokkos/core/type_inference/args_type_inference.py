@@ -2,6 +2,7 @@ import inspect
 from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List
 import hashlib
+import ast
 
 import numpy as np
 
@@ -113,7 +114,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 
-def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> Optional[UpdatedTypes]:
+def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable, policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
     '''
     Infer the datatypes for arguments passed against workunit parameters
 
@@ -125,21 +126,24 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     '''
 
     param_list: List[inspect.Parameter]
-
-    if isinstance(handled_args.workunit, list):
+    if isinstance(workunit, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
 
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
     else:
-        param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+        param_list = list(inspect.signature(workunit).parameters.values())
+        print(param_list)
+        print([x for x in entity_AST.args.args], "\n")
+        print(ast.dump(entity_AST), "\n")
+
 
     updated_types = UpdatedTypes(
-        workunit=handled_args.workunit, 
+        workunit=workunit, 
         inferred_types={}, 
         param_list=param_list, 
     )
-    policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
+    policy_params: int = len(policy.begin) if isinstance(policy, MDRangePolicy) else 1
 
     # check if all annotations are already provided
     missing = False
@@ -157,7 +161,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         policy_params += 2
 
     # Handling policy parameters
-    updated_types = infer_policy_args(param_list, policy_params, handled_args.policy, parallel_type, updated_types)
+    updated_types = infer_policy_args(param_list, policy_params, policy, parallel_type, updated_types)
 
     # Policy parameters are the only parameters
     if not len(passed_kwargs):
@@ -172,7 +176,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     return updated_types
 
 
-def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(workunit: Callable, passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
@@ -183,11 +187,11 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
     '''
 
     param_list: List[str]
-    if isinstance(handled_args.workunit, list):
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
+    if isinstance(workunit, list):
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
         param_list = [p.name for p in param_list]
     else:
-        param_list = [param.name for param in inspect.signature(handled_args.workunit).parameters.values()]
+        param_list = [param.name for param in inspect.signature(workunit).parameters.values()]
 
     updated_decorator = UpdatedDecorator(
         inferred_decorator = {},

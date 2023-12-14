@@ -10,7 +10,10 @@ from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
-from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, get_types_signature
+from pykokkos.core.type_inference import (
+    UpdatedTypes, UpdatedDecorator, 
+    get_types_signature, get_annotations, get_views_decorator
+)
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
     RandomPool, RangePolicy, TeamPolicy, View, ViewType,
@@ -19,7 +22,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import ModuleSetup
+from .module_setup import ModuleSetup, get_metadata
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -103,8 +106,6 @@ class Runtime:
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
         operation: str,
-        updated_decorator: UpdatedDecorator,
-        updated_types: Optional[UpdatedTypes] = None,
         initial_value: Union[float, int] = 0,
         **kwargs
     ) -> Optional[Union[float, int]]:
@@ -128,8 +129,21 @@ class Runtime:
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
-
+        '''
+        TODO
+        1- Initialize parser for the self.compiler
+        2- Get updated types and decorator list
+        3- Construct types signature 
+        4- Make the module setup
+        5- let it rip
+        '''
+        metadata = get_metadata(workunit)
+        parser = self.compiler.get_parser(metadata.path)
+        entity_AST = parser.get_entity(metadata.name).AST
+        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", entity_AST, workunit, policy, passed_kwargs=kwargs)
+        updated_decorator: UpdatedDecorator = get_views_decorator(workunit, passed_kwargs=kwargs)
         types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
+
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
