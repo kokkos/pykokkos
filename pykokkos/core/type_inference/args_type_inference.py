@@ -125,16 +125,18 @@ def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable,
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
 
-    param_list: List[inspect.Parameter]
+    param_list: List[ast.arg]
     if isinstance(workunit, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
 
         passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
     else:
-        param_list = list(inspect.signature(workunit).parameters.values())
+        # param_list = list(inspect.signature(workunit).parameters.values())
         print(param_list)
-        print([x for x in entity_AST.args.args], "\n")
+        param_list = [x for x in entity_AST.args.args]
+        print(param_list, "\n")
+        # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
         print(ast.dump(entity_AST), "\n")
 
 
@@ -148,7 +150,7 @@ def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable,
     # check if all annotations are already provided
     missing = False
     for param in param_list:
-        if param.annotation is inspect._empty:
+        if param.annotation is None:
             missing = True
             break
     if not missing: return None
@@ -176,7 +178,7 @@ def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable,
     return updated_types
 
 
-def get_views_decorator(workunit: Callable, passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(entity_AST: ast.AST, workunit: Callable, passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
@@ -186,12 +188,12 @@ def get_views_decorator(workunit: Callable, passed_kwargs) -> UpdatedDecorator:
     :returns: UpdatedDecorator object 
     '''
 
-    param_list: List[str]
+    param_list: List[ast.arg]
     if isinstance(workunit, list):
         passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
         param_list = [p.name for p in param_list]
     else:
-        param_list = [param.name for param in inspect.signature(workunit).parameters.values()]
+        param_list = [x.arg for x in entity_AST.args.args]
 
     updated_decorator = UpdatedDecorator(
         inferred_decorator = {},
@@ -220,7 +222,7 @@ def get_views_decorator(workunit: Callable, passed_kwargs) -> UpdatedDecorator:
 
 
 def infer_policy_args(
-    param_list: List[inspect.Parameter],
+    param_list: List[ast.arg],
     policy_params: int,
     policy: ExecutionPolicy,
     parallel_type: str,
@@ -240,32 +242,32 @@ def infer_policy_args(
     for i in range(policy_params):
         param = param_list[i]
 
-        if param.annotation is not inspect._empty:
+        if param.annotation is not None:
             continue
 
         # Check policy and apply annotation(s)
         if isinstance(policy, RangePolicy) or isinstance(policy, TeamThreadRange):
             # only expects one param
             if i == 0:
-                updated_types.inferred_types[param.name] = "int"
+                updated_types.inferred_types[param.arg] = "int"
 
         elif isinstance(policy, TeamPolicy):
             if i == 0:
-                updated_types.inferred_types[param.name] = 'TeamMember'
+                updated_types.inferred_types[param.arg] = 'TeamMember'
 
         elif isinstance(policy, MDRangePolicy):
             total_dims = len(policy.begin) 
             if i < total_dims:
-                updated_types.inferred_types[param.name] = "int"
+                updated_types.inferred_types[param.arg] = "int"
         else:
             raise ValueError("Automatic annotations not supported for this policy")
 
         # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
         if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
-            updated_types.inferred_types[param.name] = "Acc:double"
+            updated_types.inferred_types[param.arg] = "Acc:double"
 
         if i == policy_params - 1 and parallel_type == "parallel_scan":
-            updated_types.inferred_types[param.name] = "bool"
+            updated_types.inferred_types[param.arg] = "bool"
 
     return updated_types
 
@@ -289,12 +291,12 @@ def infer_other_args(
     for name, value in passed_kwargs.items():
         param = None
         for iparam in param_list:
-            if name == iparam.name: param = iparam
+            if name == iparam.arg: param = iparam
 
         if param is None:
             continue
 
-        if param.annotation is not inspect._empty:
+        if param.annotation is not None:
             continue
 
         param_type = type(value).__name__
@@ -319,11 +321,11 @@ def infer_other_args(
         if isinstance(value, View):
             view_dtype = get_pk_datatype(value.dtype)
             if not view_dtype:
-                raise TypeError("Cannot infer datatype for view:", param.name)
+                raise TypeError("Cannot infer datatype for view:", param.arg)
 
             param_type = "View"+str(len(value.shape))+"D:"+view_dtype
 
-        updated_types.inferred_types[param.name] = param_type 
+        updated_types.inferred_types[param.arg] = param_type 
 
     return updated_types
 
