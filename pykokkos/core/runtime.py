@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
+import ast
 
 import numpy as np
 
@@ -22,7 +23,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import ModuleSetup, get_metadata
+from .module_setup import ModuleSetup, EntityMetadata, get_metadata
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -137,11 +138,22 @@ class Runtime:
         4- Make the module setup
         5- let it rip
         '''
-        metadata = get_metadata(workunit)
-        parser = self.compiler.get_parser(metadata.path)
-        entity_AST = parser.get_entity(metadata.name).AST
-        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", entity_AST, workunit, policy, passed_kwargs=kwargs)
-        updated_decorator: UpdatedDecorator = get_views_decorator(workunit, passed_kwargs=kwargs)
+        if not isinstance(workunit, list):
+            workunit = [workunit]
+        metadata_list = [get_metadata(this_workunit) for this_workunit in workunit]
+        parser = self.compiler.get_parser(metadata_list[0].path)
+        entity_AST = [parser.get_entity(metadata.name).AST for metadata in metadata_list]
+        print(len(workunit), len(entity_AST))
+        workunit_tree_tups = list(zip(workunit, entity_AST))
+        print(workunit_tree_tups)
+
+        if len(workunit_tree_tups) == 1:
+            workunit_tree_tups = workunit_tree_tups[0]
+            workunit = workunit[0]
+            entity_AST = entity_AST[0]
+        
+        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", workunit_tree_tups, policy, passed_kwargs=kwargs)
+        updated_decorator: UpdatedDecorator = get_views_decorator(workunit_tree_tups, passed_kwargs=kwargs)
         types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
 
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
@@ -149,7 +161,7 @@ class Runtime:
             raise RuntimeError("ERROR: members cannot be none")
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
-        return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, execution_space, entity_tree=entity_AST, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -170,6 +182,7 @@ class Runtime:
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
+        entity_tree: Optional[Union[ast.AST, List[ast.AST]]] = None,
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -194,7 +207,7 @@ class Runtime:
 
         module = self.import_module(module_setup.name, module_path)
 
-        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, **kwargs)
+        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, entity_tree=entity_tree, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
@@ -236,6 +249,7 @@ class Runtime:
         members: PyKokkosMembers,
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy],
+        entity_tree: Optional[Union[ast.AST, List[ast.AST]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -270,7 +284,7 @@ class Runtime:
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
-                    kwargs, _ = fuse_workunit_kwargs_and_params(entity, kwargs)
+                    kwargs, _ = fuse_workunit_kwargs_and_params(list(zip(entity, entity_tree)), kwargs)
                 entity_members = kwargs
 
         args.update(self.get_fields(entity_members))

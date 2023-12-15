@@ -114,7 +114,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 
-def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable, policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
+def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callable, ast.AST], List[Tuple[Callable, ast.AST]]], policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
     '''
     Infer the datatypes for arguments passed against workunit parameters
 
@@ -124,22 +124,24 @@ def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable,
     :param passed_kwargs: raw keyword arguments passed to the dispatch
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
-
+ 
     param_list: List[ast.arg]
-    if isinstance(workunit, list):
+
+    if isinstance(workunit_tree_tuples, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
 
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit_tree_tuples, passed_kwargs)
+        workunit = [w for w, _ in workunit_tree_tuples]
     else:
-        # param_list = list(inspect.signature(workunit).parameters.values())
-        print(param_list)
+        print("TUPLES",workunit_tree_tuples)
+        workunit, entity_AST = workunit_tree_tuples
         param_list = [x for x in entity_AST.args.args]
         print(param_list, "\n")
         # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
         print(ast.dump(entity_AST), "\n")
 
-
+    
     updated_types = UpdatedTypes(
         workunit=workunit, 
         inferred_types={}, 
@@ -178,7 +180,7 @@ def get_annotations(parallel_type: str, entity_AST: ast.AST, workunit: Callable,
     return updated_types
 
 
-def get_views_decorator(entity_AST: ast.AST, workunit: Callable, passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(workunit_tree_tuples: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
@@ -189,11 +191,12 @@ def get_views_decorator(entity_AST: ast.AST, workunit: Callable, passed_kwargs) 
     '''
 
     param_list: List[ast.arg]
-    if isinstance(workunit, list):
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit, passed_kwargs)
-        param_list = [p.name for p in param_list]
+    if isinstance(workunit_tree_tuples, list):
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit_tree_tuples, passed_kwargs)
+        param_list = [p.arg for p in param_list]
     else:
-        param_list = [x.arg for x in entity_AST.args.args]
+        _, entity_AST = workunit_tree_tuples
+        param_list = [p.arg for p in entity_AST.args.args]
 
     updated_decorator = UpdatedDecorator(
         inferred_decorator = {},
