@@ -117,8 +117,6 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
-        :param updated_decorator: Object with decorator specifier information
-        :param updated_types: UpdatedTypes object with type inference information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
         :returns: the result of the operation (None for parallel_for)
@@ -130,30 +128,25 @@ class Runtime:
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
-        '''
-        TODO
-        1- Initialize parser for the self.compiler
-        2- Get updated types and decorator list
-        3- Construct types signature 
-        4- Make the module setup
-        5- let it rip
-        '''
-        if not isinstance(workunit, list):
+   
+        list_passed: bool = True
+        if not isinstance(workunit, list): # for easier transformations
             workunit = [workunit]
+            list_passed = False
+
         metadata_list = [get_metadata(this_workunit) for this_workunit in workunit]
         parser = self.compiler.get_parser(metadata_list[0].path)
         entity_AST = [parser.get_entity(metadata.name).AST for metadata in metadata_list]
-        print(len(workunit), len(entity_AST))
-        workunit_tree_tups = list(zip(workunit, entity_AST))
-        print(workunit_tree_tups)
 
-        if len(workunit_tree_tups) == 1:
-            workunit_tree_tups = workunit_tree_tups[0]
+        workunit_tree_tup = list(zip(workunit, entity_AST))
+
+        if not list_passed: # revert to singular tuple if not list originally
+            workunit_tree_tup = workunit_tree_tup[0]
             workunit = workunit[0]
-            entity_AST = entity_AST[0]
+            entity_AST = None # No fusion
         
-        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", workunit_tree_tups, policy, passed_kwargs=kwargs)
-        updated_decorator: UpdatedDecorator = get_views_decorator(workunit_tree_tups, passed_kwargs=kwargs)
+        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
+        updated_decorator: UpdatedDecorator = get_views_decorator(workunit_tree_tup, passed_kwargs=kwargs)
         types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
 
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
@@ -161,7 +154,7 @@ class Runtime:
             raise RuntimeError("ERROR: members cannot be none")
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
-        return self.execute(workunit, module_setup, members, execution_space, entity_tree=entity_AST, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, execution_space, entity_trees=entity_AST, policy=policy, name=name, **kwargs)
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -182,7 +175,7 @@ class Runtime:
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
-        entity_tree: Optional[Union[ast.AST, List[ast.AST]]] = None,
+        entity_trees: Optional[List[ast.AST]] = None,
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -194,6 +187,7 @@ class Runtime:
         :param space: the execution space
         :param policy: the execution policy for workunits
         :param name: the name of the kernel
+        :param entity_trees: Optional parameter: List of ASTs of entities being fused - only provided when entity is a list
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for "for" and workloads)
         """
@@ -207,7 +201,7 @@ class Runtime:
 
         module = self.import_module(module_setup.name, module_path)
 
-        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, entity_tree=entity_tree, **kwargs)
+        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, entity_trees=entity_trees, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
@@ -249,7 +243,7 @@ class Runtime:
         members: PyKokkosMembers,
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy],
-        entity_tree: Optional[Union[ast.AST, List[ast.AST]]] = None,
+        entity_trees: Optional[List[ast.AST]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -284,7 +278,7 @@ class Runtime:
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
-                    kwargs, _ = fuse_workunit_kwargs_and_params(list(zip(entity, entity_tree)), kwargs)
+                    kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs)
                 entity_members = kwargs
 
         args.update(self.get_fields(entity_members))

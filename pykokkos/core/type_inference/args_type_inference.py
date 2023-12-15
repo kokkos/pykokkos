@@ -124,22 +124,18 @@ def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callab
     :param passed_kwargs: raw keyword arguments passed to the dispatch
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
- 
+    # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
     param_list: List[ast.arg]
 
     if isinstance(workunit_tree_tuples, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
-
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit_tree_tuples, passed_kwargs)
         workunit = [w for w, _ in workunit_tree_tuples]
+        trees = [t for _, t in workunit_tree_tuples]
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
     else:
-        print("TUPLES",workunit_tree_tuples)
         workunit, entity_AST = workunit_tree_tuples
         param_list = [x for x in entity_AST.args.args]
-        print(param_list, "\n")
-        # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
-        print(ast.dump(entity_AST), "\n")
 
     
     updated_types = UpdatedTypes(
@@ -192,7 +188,8 @@ def get_views_decorator(workunit_tree_tuples: List[Tuple[Callable, ast.AST]], pa
 
     param_list: List[ast.arg]
     if isinstance(workunit_tree_tuples, list):
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(workunit_tree_tuples, passed_kwargs)
+        trees = [t for _, t in workunit_tree_tuples]
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
         param_list = [p.arg for p in param_list]
     else:
         _, entity_AST = workunit_tree_tuples

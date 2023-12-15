@@ -52,13 +52,13 @@ class VariableRenamer(ast.NodeTransformer):
 
 
 def fuse_workunit_kwargs_and_params(
-    workunit_tree_tuples: List[Tuple[Callable, ast.AST]],
+    workunit_trees: List[ast.AST],
     kwargs: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], List[ast.arg]]:
     """
     Fuse the parameters and runtime arguments of a list of workunits and rename them as necessary
 
-    :param workunits_tree_tuples: the list of workunits and their trees being merged
+    :param workunits_trees: the list of workunit trees (ASTs) being merged
     :param kwargs: the keyword arguments passed to the call
     :returns: a tuple of the fused kwargs and the combined inspected parameters
     """
@@ -69,8 +69,7 @@ def fuse_workunit_kwargs_and_params(
 
     view_ids: Set[int] = set()
 
-    for workunit_idx, tup in enumerate(workunit_tree_tuples):
-        _ , tree = tup
+    for workunit_idx, tree in enumerate(workunit_trees):
         key: str = f"args_{workunit_idx}"
         if key not in kwargs:
             raise RuntimeError(f"kwargs not specified for workunit {workunit_idx} with key {key}")
