@@ -201,7 +201,7 @@ class Parser:
         param_list = updated_obj.param_list
         for param in param_list:
             arg_obj = ast.arg(arg=param.name)
-            if param.annotation is not inspect._empty:
+            if param.annotation is not None:
                 type_str = get_type_str(param.annotation)  # simplify inspect.annotation to string
                 arg_obj.annotation = self.get_annotation_node(type_str)
             args_list.append(arg_obj)

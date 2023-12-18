@@ -4,7 +4,7 @@ import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
 import ast
-
+import copy
 import numpy as np
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
@@ -38,6 +38,9 @@ class Runtime:
         # cache module_setup objects using a workload/workunit and space tuple
         self.module_setups: Dict[Tuple, ModuleSetup] = {}
 
+        # original parameters for a workunit are preserved for inference changes in the future
+        self.workunit_params: Dict[str, ast.arguments] = {}
+
     def run_workload(self, space: ExecutionSpace, workload: object) -> None:
         """
         Run the workload
@@ -63,7 +66,7 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace,
-        updated_decorator: UpdatedDecorator,
+        updated_decorator: Optional[UpdatedDecorator] = None,
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
         **kwargs,
@@ -128,15 +131,33 @@ class Runtime:
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
-   
+
+        is_standalone_workunit: bool = True
         list_passed: bool = True
-        if not isinstance(workunit, list): # for easier transformations
-            workunit = [workunit]
+
+        if not isinstance(workunit, list): 
+            workunit = [workunit] # for easier transformations
             list_passed = False
 
-        metadata_list = [get_metadata(this_workunit) for this_workunit in workunit]
-        parser = self.compiler.get_parser(metadata_list[0].path)
-        entity_AST = [parser.get_entity(metadata.name).AST for metadata in metadata_list]
+        parser = self.compiler.get_parser(get_metadata(workunit[0]).path)
+        entity_AST = []
+
+        for this_workunit in workunit:
+            this_metadata = get_metadata(this_workunit)
+            this_tree = parser.get_entity(this_metadata.name).AST
+
+            # check if this is the first run of this workunit
+            if str(this_workunit) in self.workunit_params:
+                this_tree.args = copy.deepcopy(self.workunit_params[str(this_workunit)])
+            else:
+                # first call, store the original params
+                self.workunit_params[str(this_workunit)] = copy.deepcopy(this_tree.args)
+            
+            entity_AST.append(this_tree)
+
+        # Workunit must be a function on its own (not in a functor)
+        if not isinstance(entity_AST[0], ast.FunctionDef):
+            is_standalone_workunit = False
 
         workunit_tree_tup = list(zip(workunit, entity_AST))
 
@@ -144,10 +165,15 @@ class Runtime:
             workunit_tree_tup = workunit_tree_tup[0]
             workunit = workunit[0]
             entity_AST = None # No fusion
-        
-        updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
-        updated_decorator: UpdatedDecorator = get_views_decorator(workunit_tree_tup, passed_kwargs=kwargs)
-        types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
+
+        updated_types: UpdatedTypes = None
+        updated_decorator: UpdatedDecorator = None
+        types_signature: str = None
+
+        if is_standalone_workunit:
+            updated_types = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
+            updated_decorator = get_views_decorator(workunit_tree_tup, passed_kwargs=kwargs)
+            types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
 
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
         if members is None:
