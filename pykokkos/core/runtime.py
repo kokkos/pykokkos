@@ -147,6 +147,12 @@ class Runtime:
             this_tree = parser.get_entity(this_metadata.name).AST
 
             # check if this is the first run of this workunit
+            if not isinstance(this_tree, ast.FunctionDef):
+                # Workunit must be a function on its own (not in a functor)
+                is_standalone_workunit = False
+                entity_AST.append(this_tree)
+                continue
+
             if str(this_workunit) in self.workunit_params:
                 this_tree.args = copy.deepcopy(self.workunit_params[str(this_workunit)])
             else:
@@ -154,10 +160,6 @@ class Runtime:
                 self.workunit_params[str(this_workunit)] = copy.deepcopy(this_tree.args)
             
             entity_AST.append(this_tree)
-
-        # Workunit must be a function on its own (not in a functor)
-        if not isinstance(entity_AST[0], ast.FunctionDef):
-            is_standalone_workunit = False
 
         workunit_tree_tup = list(zip(workunit, entity_AST))
 
