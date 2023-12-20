@@ -119,8 +119,8 @@ def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callab
     Infer the datatypes for arguments passed against workunit parameters
 
     :param parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
-    :param handled_args: Processed arguments passed to the dispatch
-    :param args: raw arguments passed to the dispatch
+    :param workunit_tree_tuples: workunit object and its tree in tuples. Can be a list or standalone
+    :param policy: The execution policy for this parallel dispatch - used to handle policy args
     :param passed_kwargs: raw keyword arguments passed to the dispatch
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''

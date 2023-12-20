@@ -4,8 +4,8 @@ import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
 import ast
-import copy
 import numpy as np
+import pickle
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
@@ -145,6 +145,7 @@ class Runtime:
         for this_workunit in workunit:
             this_metadata = get_metadata(this_workunit)
             this_tree = parser.get_entity(this_metadata.name).AST
+            workunit_str = str(this_workunit)
 
             # check if this is the first run of this workunit
             if not isinstance(this_tree, ast.FunctionDef):
@@ -153,20 +154,22 @@ class Runtime:
                 entity_AST.append(this_tree)
                 continue
 
-            if str(this_workunit) in self.workunit_params:
-                this_tree.args = copy.deepcopy(self.workunit_params[str(this_workunit)])
+            if workunit_str in self.workunit_params:
+                this_tree.args.args = pickle.loads(self.workunit_params[workunit_str])
             else:
                 # first call, store the original params
-                self.workunit_params[str(this_workunit)] = copy.deepcopy(this_tree.args)
+                self.workunit_params[workunit_str] = pickle.dumps(this_tree.args.args)
             
             entity_AST.append(this_tree)
 
-        workunit_tree_tup = list(zip(workunit, entity_AST))
+        workunit_tree_tup: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
 
         if not list_passed: # revert to singular tuple if not list originally
-            workunit_tree_tup = workunit_tree_tup[0]
+            workunit_tree_tup = (workunit[0], entity_AST[0])
             workunit = workunit[0]
             entity_AST = None # No fusion
+        else:
+            workunit_tree_tup = list(zip(workunit, entity_AST))
 
         updated_types: UpdatedTypes = None
         updated_decorator: UpdatedDecorator = None
