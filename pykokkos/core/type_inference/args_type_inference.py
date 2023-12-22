@@ -113,6 +113,19 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 
     return HandledArgs(name, policy, workunit, view, initial_value)
 
+def check_missing_annotations(param_list: List[ast.arg]) -> bool:
+    '''
+    :param param_list: list of ast.arg objects to run annotation check against
+
+    :returns: True if any parameter is missing annotation, false otherwise
+    '''
+
+    missing = False
+    for param in param_list:
+        if param.annotation is None:
+            missing = True
+            break
+    return missing
 
 def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callable, ast.AST], List[Tuple[Callable, ast.AST]]], policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
     '''

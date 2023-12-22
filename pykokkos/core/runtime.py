@@ -13,7 +13,7 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.core.type_inference import (
     UpdatedTypes, UpdatedDecorator, 
-    get_types_signature, get_annotations, get_views_decorator
+    get_types_signature, get_annotations, get_views_decorator, check_missing_annotations
 )
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
@@ -147,18 +147,19 @@ class Runtime:
             this_tree = parser.get_entity(this_metadata.name).AST
             workunit_str = str(this_workunit)
 
-            # check if this is the first run of this workunit
             if not isinstance(this_tree, ast.FunctionDef):
                 # Workunit must be a function on its own (not in a functor)
                 is_standalone_workunit = False
                 entity_AST.append(this_tree)
                 continue
 
-            if workunit_str in self.workunit_params:
-                this_tree.args.args = pickle.loads(self.workunit_params[workunit_str])
-            else:
-                # first call, store the original params
-                self.workunit_params[workunit_str] = pickle.dumps(this_tree.args.args)
+            is_missing_annotations: bool = check_missing_annotations(this_tree.args.args)
+            if is_missing_annotations: # cache original state, we need inference
+                if workunit_str in self.workunit_params:
+                    this_tree.args.args = pickle.loads(self.workunit_params[workunit_str])
+                else:
+                    # first call, store the original params
+                    self.workunit_params[workunit_str] = pickle.dumps(this_tree.args.args)
             
             entity_AST.append(this_tree)
 
@@ -176,7 +177,8 @@ class Runtime:
         types_signature: str = None
 
         if is_standalone_workunit:
-            updated_types = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
+            if is_missing_annotations:
+                updated_types = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
             updated_decorator = get_views_decorator(workunit_tree_tup, passed_kwargs=kwargs)
             types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
 
