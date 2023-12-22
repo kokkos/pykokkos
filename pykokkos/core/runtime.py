@@ -153,8 +153,15 @@ class Runtime:
                 entity_AST.append(this_tree)
                 continue
 
-            is_missing_annotations: bool = check_missing_annotations(this_tree.args.args)
-            if is_missing_annotations: # cache original state, we need inference
+            is_missing_annotations: bool = (
+                workunit_str in self.workunit_params
+                or
+                list_passed
+                or
+                check_missing_annotations(this_tree.args.args)
+                )
+
+            if is_missing_annotations:
                 if workunit_str in self.workunit_params:
                     this_tree.args.args = pickle.loads(self.workunit_params[workunit_str])
                 else:
