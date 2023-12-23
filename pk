@@ -63,7 +63,9 @@ function pk_example() {
         pk_docker_pull || \
                 { echo "could not get the docker image"; return 1; }
 
-        docker run --volume $(pwd):"${CHOME}/pykokkos" \
+        docker run \
+               --volume $(pwd):"${CHOME}/pykokkos" \
+               --user pk:$(id -g) \
                "${PROJECT}" \
                "${CHOME}/pykokkos/pk" "_pk_cmd" "${name}"
 }
