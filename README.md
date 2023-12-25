@@ -78,7 +78,7 @@ python runtests.py
 
 Please open an issue for help with installation.
 
-## Docker
+## Running / Developing using Docker
 
 You can use our Docker image to develop pykokkos and run examples.  We
 recommend using the `pk` script for interacting with the image.
