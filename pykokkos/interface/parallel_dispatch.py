@@ -1,4 +1,6 @@
 
+import numpy as np
+
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Union
 
@@ -8,6 +10,7 @@ from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, Handled
 
 from .execution_policy import ExecutionPolicy
 from .execution_space import ExecutionSpace
+from .views import array
 
 workunit_cache: Dict[int, Callable] = {}
 
@@ -53,6 +56,10 @@ def parallel_for(*args, **kwargs) -> None:
     """
 
     handled_args: HandledArgs = handle_args(True, args)
+
+    for el in kwargs:
+        if isinstance(kwargs[el], np.ndarray):
+            kwargs[el] = array(kwargs[el])
 
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
     updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
