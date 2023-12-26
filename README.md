@@ -78,6 +78,45 @@ python runtests.py
 
 Please open an issue for help with installation.
 
+## Running / Developing using Docker
+
+You can use our Docker image to develop pykokkos and run examples.  We
+recommend using the `pk` script for interacting with the image.
+
+To run an example in the image, you can execute the following command:
+
+```
+./pk pk_example examples/kokkos-tutorials/workload/01.py
+```
+
+The command above will pull the image, run a container, include this
+repository as a volume, and run the example on the given path.
+
+If you would like to run another example, you simply change the path
+(the last argument in the command above).
+
+Note that the example you are running should be in this repository.
+If you would like to run from another directory you will need to
+include those as a volume; take a look at the `pk` script in that case.
+
+### Design Decision
+
+At the moment, we decided to include this repository as a volume when
+starting a container, which enables the development workflow. Namely,
+the `pk` script will include the current local version of this
+repository, which means that any local modifications (e.g., a change
+in `parallel_dispatch.py`) will be used in the subsequent runs of the
+`pk` script.  In the future, we might separate a user and development
+workflows.
+
+### Limitations
+
+One, as described above, you would need to modify the `pk` script if
+you are running examples that are not part of this repository.
+
+Two, if your code requires dependencies (e.g., python libraries not
+already included in the image), you would need to build your own image.
+
 ## Examples
 
 ### Hello World
