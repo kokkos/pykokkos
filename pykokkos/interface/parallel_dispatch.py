@@ -57,7 +57,7 @@ def parallel_for(*args, **kwargs) -> None:
     updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
     updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
@@ -66,8 +66,6 @@ def parallel_for(*args, **kwargs) -> None:
         updated_types,
         **kwargs)
 
-    # workunit_cache[cache_key] = (func, args)
-    func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     """
@@ -106,7 +104,7 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     updated_types: UpdatedTypes = get_annotations(f"parallel_{operation}", handled_args, args, passed_kwargs=kwargs)
     updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    return runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
@@ -115,8 +113,6 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         updated_types,
         **kwargs)
 
-    workunit_cache[cache_key] = (func, args)
-    return func(**args)
 
 def parallel_reduce(*args, **kwargs) -> Union[float, int]:
     """
@@ -164,3 +160,6 @@ def execute(space: ExecutionSpace, workload: object) -> None:
     else:
         runtime_singleton.runtime.run_workload(space, workload)
 
+
+def flush():
+    runtime_singleton.runtime.flush_trace()
