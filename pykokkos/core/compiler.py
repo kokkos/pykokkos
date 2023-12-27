@@ -118,7 +118,7 @@ class Compiler:
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
         **kwargs
-    ) -> Optional[PyKokkosMembers]:
+    ) -> PyKokkosMembers:
         """
         Compile an entity object for a single execution space
 
