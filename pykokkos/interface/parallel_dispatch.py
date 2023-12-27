@@ -61,8 +61,6 @@ def parallel_for(*args, **kwargs) -> None:
         "for",
         **kwargs)
 
-    # workunit_cache[cache_key] = (func, args)
-    func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     """
@@ -104,8 +102,6 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         operation,
         **kwargs)
 
-    workunit_cache[cache_key] = (func, args)
-    return func(**args)
 
 def parallel_reduce(*args, **kwargs) -> Union[float, int]:
     """
@@ -153,3 +149,6 @@ def execute(space: ExecutionSpace, workload: object) -> None:
     else:
         runtime_singleton.runtime.run_workload(space, workload)
 
+
+def flush():
+    runtime_singleton.runtime.flush_trace()
