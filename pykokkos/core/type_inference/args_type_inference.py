@@ -115,8 +115,9 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 
 def check_missing_annotations(param_list: List[ast.arg]) -> bool:
     '''
-    :param param_list: list of ast.arg objects to run annotation check against
+    Check if any annotation node for parent argument node is none
 
+    :param param_list: list of ast.arg objects to run annotation check against
     :returns: True if any parameter is missing annotation, false otherwise
     '''
 
@@ -127,12 +128,12 @@ def check_missing_annotations(param_list: List[ast.arg]) -> bool:
             break
     return missing
 
-def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callable, ast.AST], List[Tuple[Callable, ast.AST]]], policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
+def get_annotations(parallel_type: str, workunit_trees: Union[Tuple[Callable, ast.AST], List[Tuple[Callable, ast.AST]]], policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
     '''
     Infer the datatypes for arguments passed against workunit parameters
 
     :param parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
-    :param workunit_tree_tuples: workunit object and its tree in tuples. Can be a list or standalone
+    :param workunit_trees: workunit object and its tree in tuples. Can be a list or standalone
     :param policy: The execution policy for this parallel dispatch - used to handle policy args
     :param passed_kwargs: raw keyword arguments passed to the dispatch
     :returns: UpdateTypes object or None if there are no annotations to be inferred
@@ -140,14 +141,14 @@ def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callab
     # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
     param_list: List[ast.arg]
 
-    if isinstance(workunit_tree_tuples, list):
+    if isinstance(workunit_trees, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
-        workunit = [w for w, _ in workunit_tree_tuples]
-        trees = [t for _, t in workunit_tree_tuples]
+        workunit = [w for w, _ in workunit_trees]
+        trees = [t for _, t in workunit_trees]
         passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
     else:
-        workunit, entity_AST = workunit_tree_tuples
+        workunit, entity_AST = workunit_trees
         param_list = [x for x in entity_AST.args.args]
 
     
@@ -189,7 +190,7 @@ def get_annotations(parallel_type: str, workunit_tree_tuples: Union[Tuple[Callab
     return updated_types
 
 
-def get_views_decorator(workunit_tree_tuples: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(workunit_trees: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
@@ -200,12 +201,12 @@ def get_views_decorator(workunit_tree_tuples: List[Tuple[Callable, ast.AST]], pa
     '''
 
     param_list: List[ast.arg]
-    if isinstance(workunit_tree_tuples, list):
-        trees = [t for _, t in workunit_tree_tuples]
+    if isinstance(workunit_trees, list):
+        trees = [t for _, t in workunit_trees]
         passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
         param_list = [p.arg for p in param_list]
     else:
-        _, entity_AST = workunit_tree_tuples
+        _, entity_AST = workunit_trees
         param_list = [p.arg for p in entity_AST.args.args]
 
     updated_decorator = UpdatedDecorator(
@@ -449,3 +450,22 @@ def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
 
     err_str = f"User provided unsupported annotation: {inspect_type}"
     raise TypeError(err_str)
+
+def prepare_runtime_args(list_passed: bool, workunit: List[Callable], entity_AST: List[ast.AST]):
+    '''
+    Invoked in run_workunit in runtime.py only: Adjust the types of the arguments according to fusion.
+    That is determine if the final type will be a list (fusion intended) or not (no fusion)
+
+    :param list_passed: True if a list of workunits was passed to the runtime (fusion intended)
+    :param workunit: list of workunits to be or not to be fused
+    :entity_AST: list of workunit asts to be or not to be fused
+    :returns: if there is no fusion, return the singular elements, otherwise, the lists of those elements
+    '''
+    if not list_passed: # revert to singular tuple if not list originally
+        workunit_trees = (workunit[0], entity_AST[0])
+        workunit = workunit[0]
+        entity_AST = None # No fusion
+    else:
+        workunit_trees = list(zip(workunit, entity_AST))
+    
+    return (workunit_trees, workunit, entity_AST)

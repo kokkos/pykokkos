@@ -13,7 +13,8 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.core.type_inference import (
     UpdatedTypes, UpdatedDecorator, 
-    get_types_signature, get_annotations, get_views_decorator, check_missing_annotations
+    get_types_signature, get_annotations, get_views_decorator, check_missing_annotations,
+    prepare_runtime_args
 )
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
@@ -162,22 +163,12 @@ class Runtime:
                 )
 
             if is_missing_annotations:
-                if workunit_str in self.workunit_params:
-                    this_tree.args.args = pickle.loads(self.workunit_params[workunit_str])
-                else:
-                    # first call, store the original params
-                    self.workunit_params[workunit_str] = pickle.dumps(this_tree.args.args)
+                this_tree = self.restore_original_args(workunit_str, this_tree)
             
             entity_AST.append(this_tree)
 
-        workunit_tree_tup: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
-
-        if not list_passed: # revert to singular tuple if not list originally
-            workunit_tree_tup = (workunit[0], entity_AST[0])
-            workunit = workunit[0]
-            entity_AST = None # No fusion
-        else:
-            workunit_tree_tup = list(zip(workunit, entity_AST))
+        workunit_trees: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
+        workunit_trees, workunit, entity_AST = prepare_runtime_args(list_passed, workunit, entity_AST)
 
         updated_types: UpdatedTypes = None
         updated_decorator: UpdatedDecorator = None
@@ -185,8 +176,8 @@ class Runtime:
 
         if is_standalone_workunit:
             if is_missing_annotations:
-                updated_types = get_annotations(f"parallel_{operation}", workunit_tree_tup, policy, passed_kwargs=kwargs)
-            updated_decorator = get_views_decorator(workunit_tree_tup, passed_kwargs=kwargs)
+                updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs=kwargs)
+            updated_decorator = get_views_decorator(workunit_trees, passed_kwargs=kwargs)
             types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
 
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
@@ -241,7 +232,7 @@ class Runtime:
 
         module = self.import_module(module_setup.name, module_path)
 
-        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, entity_trees=entity_trees, **kwargs)
+        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, entity_trees, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
@@ -594,3 +585,21 @@ class Runtime:
             arguments[Keywords.RandPoolNumStates.value] = 0
 
         return arguments
+
+    def restore_original_args(self, workunit_str: str, tree: ast.AST) -> ast.AST:
+        '''
+        Restore the original argument nodes in the ast (as if it was freshly read from source)
+         - this is achieved with caching and returning that state on the first invokation of
+        the workunit in question
+
+        :param workunit_str: Stringified version of the workunit reference, used as key to cache
+        :param tree: the ast for the workunit
+        :returns: workunit tree with argument nodes restored
+        '''
+        if workunit_str in self.workunit_params:
+            tree.args.args = pickle.loads(self.workunit_params[workunit_str])
+        else:
+            # first call, store the original params
+            self.workunit_params[workunit_str] = pickle.dumps(tree.args.args)
+
+        return tree

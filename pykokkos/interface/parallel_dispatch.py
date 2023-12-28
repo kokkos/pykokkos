@@ -54,9 +54,6 @@ def parallel_for(*args, **kwargs) -> None:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    # updated_types: UpdatedTypes = get_annotations("parallel_for", handled_args, args, passed_kwargs=kwargs)
-    # updated_decorator: UpdatedDecorator = get_views_decorator(handled_args, passed_kwargs=kwargs)
-
     func, args = runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
