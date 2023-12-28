@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import  Callable, Dict, Optional, Tuple, Union, List
 import hashlib
 import ast
+import pickle
 
 import numpy as np
 
 import pykokkos.kokkos_manager as km
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
-
+from pykokkos.core.module_setup import get_metadata
 from pykokkos.interface.execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
 from pykokkos.interface.views import View, ViewType
 from pykokkos.interface.data_types import DataType, DataTypeClass
@@ -51,6 +52,8 @@ class UpdatedDecorator:
 # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicate aliases
 SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
 
+# Cache for original argument nodes
+ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
     """
@@ -160,11 +163,7 @@ def get_annotations(parallel_type: str, workunit_trees: Union[Tuple[Callable, as
     policy_params: int = len(policy.begin) if isinstance(policy, MDRangePolicy) else 1
 
     # check if all annotations are already provided
-    missing = False
-    for param in param_list:
-        if param.annotation is None:
-            missing = True
-            break
+    missing = check_missing_annotations(param_list)
     if not missing: return None
 
     # accumulator 
@@ -451,7 +450,64 @@ def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
     err_str = f"User provided unsupported annotation: {inspect_type}"
     raise TypeError(err_str)
 
-def prepare_runtime_args(list_passed: bool, workunit: List[Callable], entity_AST: List[ast.AST]):
+
+def process_arg_nodes(
+        list_passed: bool, 
+        parser, 
+        workunit: List[Callable], 
+        entity_AST: List[ast.AST]
+        ) -> Tuple[List[ast.AST], bool, bool]:
+    '''
+    Process arg nodes for each workunit received: 
+    1) check if type inference is supported
+    2) restore the original argument nodes and finally return this information
+
+    :param list_passed: True if a list of workunits was passed to the runtime (fusion intended)
+    :param parser: the parser object for the workunit
+    :param workunit: list of workunits to be or not to be fused
+    :entity_AST: list of workunit asts to be or not to be fused
+    :returns: Tuple of: 
+        1) list of restored asts (if possible and supported, otherwise unchanged)
+        2) bool: false if any workunit is not standalone (indicate inference isnt supported)
+    '''
+    is_standalone_workunit: bool = True
+
+    for this_workunit in workunit:
+        this_metadata = get_metadata(this_workunit)
+        this_tree = parser.get_entity(this_metadata.name).AST
+        workunit_str = str(this_workunit)
+
+        if not isinstance(this_tree, ast.FunctionDef):
+            # Workunit must be a function on its own (not in a functor)
+            is_standalone_workunit = False
+            entity_AST.append(this_tree)
+            continue
+
+        is_missing_annotations: bool = (
+            workunit_str in ORIGINAL_PARAMS
+            or
+            list_passed
+            or
+            check_missing_annotations(this_tree.args.args)
+            )
+
+        if is_missing_annotations:
+            this_tree = restore_original_args(workunit_str, this_tree)
+        
+        entity_AST.append(this_tree)
+
+    return entity_AST, is_standalone_workunit
+
+
+def prepare_fusion_args(
+        list_passed: bool, 
+        workunit: List[Callable],
+        entity_AST: List[ast.AST]
+        ) -> Tuple[
+            Union[List[Tuple[Callable, ast.AST]],Tuple[Callable, ast.AST]],
+            Union[List[Callable], Callable],
+            Optional[List[ast.AST]]
+        ]:
     '''
     Invoked in run_workunit in runtime.py only: Adjust the types of the arguments according to fusion.
     That is determine if the final type will be a list (fusion intended) or not (no fusion)
@@ -469,3 +525,22 @@ def prepare_runtime_args(list_passed: bool, workunit: List[Callable], entity_AST
         workunit_trees = list(zip(workunit, entity_AST))
     
     return (workunit_trees, workunit, entity_AST)
+
+
+def restore_original_args(workunit_str: str, tree: ast.AST) -> ast.AST:
+    '''
+    Restore the original argument nodes in the ast (as if it was freshly read from source)
+        - this is achieved with caching and returning that state on the first invokation of
+    the workunit in question
+
+    :param workunit_str: Stringified version of the workunit reference, used as key to cache
+    :param tree: the ast for the workunit
+    :returns: workunit tree with argument nodes restored
+    '''
+    if workunit_str in ORIGINAL_PARAMS:
+        tree.args.args = pickle.loads(ORIGINAL_PARAMS[workunit_str])
+    else:
+        # first call, store the original params
+        ORIGINAL_PARAMS[workunit_str] = pickle.dumps(tree.args.args)
+
+    return tree

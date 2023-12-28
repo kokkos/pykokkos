@@ -5,7 +5,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
 import sysconfig
 import ast
 import numpy as np
-import pickle
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
@@ -13,8 +12,8 @@ from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.core.type_inference import (
     UpdatedTypes, UpdatedDecorator, 
-    get_types_signature, get_annotations, get_views_decorator, check_missing_annotations,
-    prepare_runtime_args
+    get_annotations, get_views_decorator, get_types_signature, process_arg_nodes, 
+    prepare_fusion_args
 )
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
@@ -133,7 +132,6 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        is_standalone_workunit: bool = True
         list_passed: bool = True
 
         if not isinstance(workunit, list): 
@@ -141,42 +139,26 @@ class Runtime:
             list_passed = False
 
         parser = self.compiler.get_parser(get_metadata(workunit[0]).path)
-        entity_AST = []
 
-        for this_workunit in workunit:
-            this_metadata = get_metadata(this_workunit)
-            this_tree = parser.get_entity(this_metadata.name).AST
-            workunit_str = str(this_workunit)
+        entity_AST: Union[List[ast.AST], ast.AST] = []
+        is_standalone_workunit: bool
 
-            if not isinstance(this_tree, ast.FunctionDef):
-                # Workunit must be a function on its own (not in a functor)
-                is_standalone_workunit = False
-                entity_AST.append(this_tree)
-                continue
-
-            is_missing_annotations: bool = (
-                workunit_str in self.workunit_params
-                or
-                list_passed
-                or
-                check_missing_annotations(this_tree.args.args)
-                )
-
-            if is_missing_annotations:
-                this_tree = self.restore_original_args(workunit_str, this_tree)
-            
-            entity_AST.append(this_tree)
+        entity_AST, is_standalone_workunit = process_arg_nodes(
+            list_passed,
+            parser,
+            workunit,
+            entity_AST,
+        )
 
         workunit_trees: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
-        workunit_trees, workunit, entity_AST = prepare_runtime_args(list_passed, workunit, entity_AST)
+        workunit_trees, workunit, entity_AST = prepare_fusion_args(list_passed, workunit, entity_AST)
 
         updated_types: UpdatedTypes = None
         updated_decorator: UpdatedDecorator = None
         types_signature: str = None
 
         if is_standalone_workunit:
-            if is_missing_annotations:
-                updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs=kwargs)
+            updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs=kwargs)
             updated_decorator = get_views_decorator(workunit_trees, passed_kwargs=kwargs)
             types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
 
@@ -585,21 +567,3 @@ class Runtime:
             arguments[Keywords.RandPoolNumStates.value] = 0
 
         return arguments
-
-    def restore_original_args(self, workunit_str: str, tree: ast.AST) -> ast.AST:
-        '''
-        Restore the original argument nodes in the ast (as if it was freshly read from source)
-         - this is achieved with caching and returning that state on the first invokation of
-        the workunit in question
-
-        :param workunit_str: Stringified version of the workunit reference, used as key to cache
-        :param tree: the ast for the workunit
-        :returns: workunit tree with argument nodes restored
-        '''
-        if workunit_str in self.workunit_params:
-            tree.args.args = pickle.loads(self.workunit_params[workunit_str])
-        else:
-            # first call, store the original params
-            self.workunit_params[workunit_str] = pickle.dumps(tree.args.args)
-
-        return tree
