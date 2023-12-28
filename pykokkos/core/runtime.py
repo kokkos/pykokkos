@@ -141,7 +141,7 @@ class Runtime:
         updated_decorator: Optional[UpdatedDecorator]
         types_signature: Optional[str]
     
-        updated_types, updated_decorator, types_signature = get_type_info(parser, policy, operation, workunit, kwargs)
+        updated_types, updated_decorator, types_signature = get_type_info(operation, parser, policy, workunit, kwargs)
 
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
         if members is None:
