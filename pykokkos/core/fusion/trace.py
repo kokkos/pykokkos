@@ -175,6 +175,7 @@ class Tracer:
 
         operation: TracerOperation = self.data_operation[dependency]
         operations: List[TracerOperation] = [operation]
+        del self.operations[operation]
 
         # Ideally, we would not have to do this. By adding an
         # operation to this list, its dependencies should be
