@@ -7,7 +7,7 @@ import sysconfig
 
 import numpy as np
 
-from pykokkos.core.fusion import fuse_workunit_kwargs_and_params, Future, Tracer
+from pykokkos.core.fusion import fuse_workunit_kwargs_and_params, Future, Tracer, TracerOperation
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
@@ -129,9 +129,9 @@ class Runtime:
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
         if "PK_TRACE" in os.environ:
-            f = Future()
-            self.tracer.log_operation(f, name, policy, workunit, operation, updated_decorator, updated_types, **kwargs)
-            return f
+            future = Future()
+            self.tracer.log_operation(future, name, policy, workunit, operation, updated_decorator, updated_types, **kwargs)
+            return future
 
         return self.execute_workunit(name, policy, workunit, updated_decorator, updated_types, **kwargs)
 
@@ -163,7 +163,25 @@ class Runtime:
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
 
-    def flush_trace(self):
+    def flush_data(self, data: Union[Future, ViewType]) -> None:
+        """
+        Flush the operations needed to get the data of a specific
+        data or view
+
+        :param data: the future or view corresponding to the data that needs to be updated
+        """
+
+        operations: List[TracerOperation] = self.tracer.get_operations(data)
+        while len(operations) > 0:
+            op: TracerOperation = operations.pop()
+            print(f"running {op.workunit}")
+            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.decorator, op.types, **op.args)
+
+    def flush_trace(self) -> None:
+        """
+        Flush all operations saved in the trace
+        """
+
         for op in self.tracer.operations:
             op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.decorator, op.types, **op.args)
 
@@ -478,7 +496,7 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
-        ) -> ModuleSetup:
+    ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
