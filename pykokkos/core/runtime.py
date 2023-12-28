@@ -187,7 +187,6 @@ class Runtime:
         operations: List[TracerOperation] = self.tracer.get_operations(data)
         while len(operations) > 0:
             op: TracerOperation = operations.pop()
-            print(f"running {op.workunit}")
             op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.decorator, op.types, **op.args)
 
     def flush_trace(self) -> None:
