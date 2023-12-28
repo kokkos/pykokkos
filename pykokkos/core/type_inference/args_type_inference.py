@@ -1,9 +1,9 @@
-import inspect
-from dataclasses import dataclass
-from typing import  Callable, Dict, Optional, Tuple, Union, List
-import hashlib
 import ast
+from dataclasses import dataclass
+import hashlib
+import inspect
 import pickle
+from typing import  Callable, Dict, Optional, Tuple, Union, List
 
 import numpy as np
 
@@ -52,7 +52,7 @@ class UpdatedDecorator:
 # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicate aliases
 SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
 
-# Cache for original argument nodes
+# Cache for original argument nodes: Maps stringified workunit reference, e.g str(workunit_name), to the original ast.arguments node
 ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
@@ -451,26 +451,40 @@ def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
     raise TypeError(err_str)
 
 
-def process_arg_nodes(
-        list_passed: bool, 
-        parser, 
-        workunit: List[Callable], 
-        entity_AST: List[ast.AST]
-        ) -> Tuple[List[ast.AST], bool, bool]:
+def get_type_info(
+        operation: str,
+        parser,
+        policy: ExecutionPolicy,
+        workunit: Union[List[Callable], Callable],
+        passed_kwargs
+        ) -> Tuple[Optional[UpdatedTypes], Optional[UpdatedDecorator], Optional[str]]:
     '''
     Process arg nodes for each workunit received: 
     1) check if type inference is supported
     2) restore the original argument nodes and finally return this information
-
-    :param list_passed: True if a list of workunits was passed to the runtime (fusion intended)
+    
+    :param operation: the type of parallel dispactch (parallel_for, reduce or scan)
     :param parser: the parser object for the workunit
-    :param workunit: list of workunits to be or not to be fused
-    :entity_AST: list of workunit asts to be or not to be fused
+    :param policy: the execution policy of the dispatch
+    :param workunit: list of workunits to be fused or singular workunit not to be fused,
+    :param passed_kwargs: original kwargs passed to the parallel dispatch
     :returns: Tuple of: 
-        1) list of restored asts (if possible and supported, otherwise unchanged)
-        2) bool: false if any workunit is not standalone (indicate inference isnt supported)
+        1) UpdatedTypes object if type inference is supported 
+        2) UpdatedDecorator object if decorator inference is supported
+        3) types_signature string: a hash string representing those types/layouts
+        or
+        (None, None, None) if not supported
     '''
+
     is_standalone_workunit: bool = True
+    list_passed: bool = True
+    execution_space: ExecutionSpace = policy.space.space
+
+    entity_AST: Union[List[ast.AST], ast.AST] = []
+
+    if not isinstance(workunit, list):
+            workunit = [workunit] # for easier transformations
+            list_passed = False
 
     for this_workunit in workunit:
         this_metadata = get_metadata(this_workunit)
@@ -496,7 +510,19 @@ def process_arg_nodes(
         
         entity_AST.append(this_tree)
 
-    return entity_AST, is_standalone_workunit
+    workunit_trees: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
+    workunit_trees, workunit, entity_AST = prepare_fusion_args(list_passed, workunit, entity_AST)
+
+    updated_types: Optional[UpdatedTypes] = None
+    updated_decorator: Optional[UpdatedDecorator] = None
+    types_signature: Optional[str] = None
+
+    if is_standalone_workunit:
+        updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs)
+        updated_decorator = get_views_decorator(workunit_trees, passed_kwargs)
+        types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
+
+    return updated_types, updated_decorator, types_signature
 
 
 def prepare_fusion_args(
