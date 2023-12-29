@@ -52,40 +52,40 @@ class VariableRenamer(ast.NodeTransformer):
 
 
 def fuse_workunit_kwargs_and_params(
-    workunits: List[Callable],
+    workunit_trees: List[ast.AST],
     kwargs: Dict[str, Any]
-) -> Tuple[Dict[str, Any], List[inspect.Parameter]]:
+) -> Tuple[Dict[str, Any], List[ast.arg]]:
     """
     Fuse the parameters and runtime arguments of a list of workunits and rename them as necessary
 
-    :param workunits: the list of workunits being merged
+    :param workunits_trees: the list of workunit trees (ASTs) being merged
     :param kwargs: the keyword arguments passed to the call
     :returns: a tuple of the fused kwargs and the combined inspected parameters
     """
 
     fused_kwargs: Dict[str, Any] = {}
-    fused_params: List[inspect.Parameter] = []
-    fused_params.append(inspect.Parameter("fused_tid", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int))
+    fused_params: List[ast.arg] = []
+    fused_params.append(ast.arg(arg="fused_tid", annotation=int))
 
     view_ids: Set[int] = set()
 
-    for workunit_idx, workunit in enumerate(workunits):
+    for workunit_idx, tree in enumerate(workunit_trees):
         key: str = f"args_{workunit_idx}"
         if key not in kwargs:
             raise RuntimeError(f"kwargs not specified for workunit {workunit_idx} with key {key}")
         current_kwargs: Dict[str, Any] = kwargs[key]
 
-        current_params: List[inspect.Parameter] = list(inspect.signature(workunit).parameters.values())
+        current_params: List[ast.arg] = [p for p in tree.args.args]
         for p in current_params[1:]: # Skip the thread ID
-            current_arg = current_kwargs[p.name]
+            current_arg = current_kwargs[p.arg]
             if "PK_FUSE_ARGS" in os.environ and id(current_arg) in view_ids:
                 continue
 
             view_ids.add(id(current_arg))
 
-            fused_name: str = f"fused_{p.name}_{workunit_idx}"
-            fused_kwargs[fused_name] = current_kwargs[p.name]
-            fused_params.append(inspect.Parameter(fused_name, p.kind, annotation=p.annotation))
+            fused_name: str = f"fused_{p.arg}_{workunit_idx}"
+            fused_kwargs[fused_name] = current_kwargs[p.arg]
+            fused_params.append(ast.arg(arg=fused_name, annotation=p.annotation))
 
     return fused_kwargs, fused_params
 

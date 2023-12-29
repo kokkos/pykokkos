@@ -1,13 +1,15 @@
-import inspect
+import ast
 from dataclasses import dataclass
-from typing import  Callable, Dict, Optional, Tuple, Union, List
 import hashlib
+import inspect
+import pickle
+from typing import  Callable, Dict, Optional, Tuple, Union, List
 
 import numpy as np
 
 import pykokkos.kokkos_manager as km
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
-
+from pykokkos.core.module_setup import get_metadata
 from pykokkos.interface.execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
 from pykokkos.interface.views import View, ViewType
 from pykokkos.interface.data_types import DataType, DataTypeClass
@@ -50,6 +52,8 @@ class UpdatedDecorator:
 # DataType class has all supported pk datatypes, we ignore class members starting with __, add enum duplicate aliases
 SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__")] + ["float64", "float32"]
 
+# Cache for original argument nodes: Maps stringified workunit reference, e.g str(workunit_name), to the original ast.arguments node
+ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
 def handle_args(is_for: bool, *args) -> HandledArgs:
     """
@@ -112,41 +116,54 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 
     return HandledArgs(name, policy, workunit, view, initial_value)
 
+def check_missing_annotations(param_list: List[ast.arg]) -> bool:
+    '''
+    Check if any annotation node for parent argument node is none
 
-def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed_kwargs) -> Optional[UpdatedTypes]:
+    :param param_list: list of ast.arg objects to run annotation check against
+    :returns: True if any parameter is missing annotation, false otherwise
+    '''
+
+    missing = False
+    for param in param_list:
+        if param.annotation is None:
+            missing = True
+            break
+    return missing
+
+def get_annotations(parallel_type: str, workunit_trees: Union[Tuple[Callable, ast.AST], List[Tuple[Callable, ast.AST]]], policy: Union[ExecutionPolicy, int], passed_kwargs) -> Optional[UpdatedTypes]:
     '''
     Infer the datatypes for arguments passed against workunit parameters
 
     :param parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
-    :param handled_args: Processed arguments passed to the dispatch
-    :param args: raw arguments passed to the dispatch
+    :param workunit_trees: workunit object and its tree in tuples. Can be a list or standalone
+    :param policy: The execution policy for this parallel dispatch - used to handle policy args
     :param passed_kwargs: raw keyword arguments passed to the dispatch
     :returns: UpdateTypes object or None if there are no annotations to be inferred
     '''
+    # x.arg is param identifier (name) and x.annotation is the annotation object .id is the annotated type
+    param_list: List[ast.arg]
 
-    param_list: List[inspect.Parameter]
-
-    if isinstance(handled_args.workunit, list):
+    if isinstance(workunit_trees, list):
         if parallel_type != "parallel_for":
             raise RuntimeError("Can only do kernel fusion with parallel for")
-
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
+        workunit = [w for w, _ in workunit_trees]
+        trees = [t for _, t in workunit_trees]
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
     else:
-        param_list = list(inspect.signature(handled_args.workunit).parameters.values())
+        workunit, entity_AST = workunit_trees
+        param_list = [x for x in entity_AST.args.args]
 
+    
     updated_types = UpdatedTypes(
-        workunit=handled_args.workunit, 
+        workunit=workunit, 
         inferred_types={}, 
         param_list=param_list, 
     )
-    policy_params: int = len(handled_args.policy.begin) if isinstance(handled_args.policy, MDRangePolicy) else 1
+    policy_params: int = len(policy.begin) if isinstance(policy, MDRangePolicy) else 1
 
     # check if all annotations are already provided
-    missing = False
-    for param in param_list:
-        if param.annotation is inspect._empty:
-            missing = True
-            break
+    missing = check_missing_annotations(param_list)
     if not missing: return None
 
     # accumulator 
@@ -157,7 +174,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
         policy_params += 2
 
     # Handling policy parameters
-    updated_types = infer_policy_args(param_list, policy_params, handled_args.policy, parallel_type, updated_types)
+    updated_types = infer_policy_args(param_list, policy_params, policy, parallel_type, updated_types)
 
     # Policy parameters are the only parameters
     if not len(passed_kwargs):
@@ -172,7 +189,7 @@ def get_annotations(parallel_type: str, handled_args: HandledArgs, *args, passed
     return updated_types
 
 
-def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(workunit_trees: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
@@ -182,12 +199,14 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
     :returns: UpdatedDecorator object 
     '''
 
-    param_list: List[str]
-    if isinstance(handled_args.workunit, list):
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(handled_args.workunit, passed_kwargs)
-        param_list = [p.name for p in param_list]
+    param_list: List[ast.arg]
+    if isinstance(workunit_trees, list):
+        trees = [t for _, t in workunit_trees]
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
+        param_list = [p.arg for p in param_list]
     else:
-        param_list = [param.name for param in inspect.signature(handled_args.workunit).parameters.values()]
+        _, entity_AST = workunit_trees
+        param_list = [p.arg for p in entity_AST.args.args]
 
     updated_decorator = UpdatedDecorator(
         inferred_decorator = {},
@@ -216,7 +235,7 @@ def get_views_decorator(handled_args: HandledArgs, passed_kwargs) -> UpdatedDeco
 
 
 def infer_policy_args(
-    param_list: List[inspect.Parameter],
+    param_list: List[ast.arg],
     policy_params: int,
     policy: ExecutionPolicy,
     parallel_type: str,
@@ -236,32 +255,32 @@ def infer_policy_args(
     for i in range(policy_params):
         param = param_list[i]
 
-        if param.annotation is not inspect._empty:
+        if param.annotation is not None:
             continue
 
         # Check policy and apply annotation(s)
         if isinstance(policy, RangePolicy) or isinstance(policy, TeamThreadRange):
             # only expects one param
             if i == 0:
-                updated_types.inferred_types[param.name] = "int"
+                updated_types.inferred_types[param.arg] = "int"
 
         elif isinstance(policy, TeamPolicy):
             if i == 0:
-                updated_types.inferred_types[param.name] = 'TeamMember'
+                updated_types.inferred_types[param.arg] = 'TeamMember'
 
         elif isinstance(policy, MDRangePolicy):
             total_dims = len(policy.begin) 
             if i < total_dims:
-                updated_types.inferred_types[param.name] = "int"
+                updated_types.inferred_types[param.arg] = "int"
         else:
             raise ValueError("Automatic annotations not supported for this policy")
 
         # last policy param for parallel reduce and second last for parallel_scan is always the accumulator; the default type is double
         if i == policy_params - 1 and parallel_type == "parallel_reduce" or i == policy_params - 2 and parallel_type == "parallel_scan":
-            updated_types.inferred_types[param.name] = "Acc:double"
+            updated_types.inferred_types[param.arg] = "Acc:double"
 
         if i == policy_params - 1 and parallel_type == "parallel_scan":
-            updated_types.inferred_types[param.name] = "bool"
+            updated_types.inferred_types[param.arg] = "bool"
 
     return updated_types
 
@@ -285,12 +304,12 @@ def infer_other_args(
     for name, value in passed_kwargs.items():
         param = None
         for iparam in param_list:
-            if name == iparam.name: param = iparam
+            if name == iparam.arg: param = iparam
 
         if param is None:
             continue
 
-        if param.annotation is not inspect._empty:
+        if param.annotation is not None:
             continue
 
         param_type = type(value).__name__
@@ -315,11 +334,11 @@ def infer_other_args(
         if isinstance(value, View):
             view_dtype = get_pk_datatype(value.dtype)
             if not view_dtype:
-                raise TypeError("Cannot infer datatype for view:", param.name)
+                raise TypeError("Cannot infer datatype for view:", param.arg)
 
             param_type = "View"+str(len(value.shape))+"D:"+view_dtype
 
-        updated_types.inferred_types[param.name] = param_type 
+        updated_types.inferred_types[param.arg] = param_type 
 
     return updated_types
 
@@ -430,3 +449,124 @@ def get_type_str(inspect_type: inspect.Parameter.annotation) -> str:
 
     err_str = f"User provided unsupported annotation: {inspect_type}"
     raise TypeError(err_str)
+
+
+def get_type_info(
+        operation: str,
+        parser,
+        policy: ExecutionPolicy,
+        workunit: Union[List[Callable], Callable],
+        passed_kwargs
+        ) -> Tuple[Optional[UpdatedTypes], Optional[UpdatedDecorator], Optional[str]]:
+    '''
+    Process arg nodes for each workunit received: 
+    1) check if type inference is supported
+    2) restore the original argument nodes and finally return this information
+    
+    :param operation: the type of parallel dispactch (parallel_for, reduce or scan)
+    :param parser: the parser object for the workunit
+    :param policy: the execution policy of the dispatch
+    :param workunit: list of workunits to be fused or singular workunit not to be fused,
+    :param passed_kwargs: original kwargs passed to the parallel dispatch
+    :returns: Tuple of: 
+        1) UpdatedTypes object if type inference is supported 
+        2) UpdatedDecorator object if decorator inference is supported
+        3) types_signature string: a hash string representing those types/layouts
+        or
+        (None, None, None) if not supported
+    '''
+
+    is_standalone_workunit: bool = True
+    list_passed: bool = True
+    execution_space: ExecutionSpace = policy.space.space
+
+    entity_AST: Union[List[ast.AST], ast.AST] = []
+
+    if not isinstance(workunit, list):
+            workunit = [workunit] # for easier transformations
+            list_passed = False
+
+    for this_workunit in workunit:
+        this_metadata = get_metadata(this_workunit)
+        this_tree = parser.get_entity(this_metadata.name).AST
+        workunit_str = str(this_workunit)
+
+        if not isinstance(this_tree, ast.FunctionDef):
+            # Workunit must be a function on its own (not in a functor)
+            is_standalone_workunit = False
+            entity_AST.append(this_tree)
+            continue
+
+        is_missing_annotations: bool = (
+            workunit_str in ORIGINAL_PARAMS
+            or
+            list_passed
+            or
+            check_missing_annotations(this_tree.args.args)
+            )
+
+        if is_missing_annotations:
+            this_tree = restore_original_args(workunit_str, this_tree)
+        
+        entity_AST.append(this_tree)
+
+    workunit_trees: Union[List[Tuple[Callable, ast.AST]], Tuple[Callable, ast.AST]]
+    workunit_trees, workunit, entity_AST = prepare_fusion_args(list_passed, workunit, entity_AST)
+
+    updated_types: Optional[UpdatedTypes] = None
+    updated_decorator: Optional[UpdatedDecorator] = None
+    types_signature: Optional[str] = None
+
+    if is_standalone_workunit:
+        updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs)
+        updated_decorator = get_views_decorator(workunit_trees, passed_kwargs)
+        types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
+
+    return updated_types, updated_decorator, types_signature
+
+
+def prepare_fusion_args(
+        list_passed: bool, 
+        workunit: List[Callable],
+        entity_AST: List[ast.AST]
+        ) -> Tuple[
+            Union[List[Tuple[Callable, ast.AST]],Tuple[Callable, ast.AST]],
+            Union[List[Callable], Callable],
+            Optional[List[ast.AST]]
+        ]:
+    '''
+    Invoked in run_workunit in runtime.py only: Adjust the types of the arguments according to fusion.
+    That is determine if the final type will be a list (fusion intended) or not (no fusion)
+
+    :param list_passed: True if a list of workunits was passed to the runtime (fusion intended)
+    :param workunit: list of workunits to be or not to be fused
+    :entity_AST: list of workunit asts to be or not to be fused
+    :returns: if there is no fusion, return the singular elements, otherwise, the lists of those elements
+    '''
+    if not list_passed: # revert to singular tuple if not list originally
+        workunit_trees = (workunit[0], entity_AST[0])
+        workunit = workunit[0]
+        entity_AST = None # No fusion
+    else:
+        workunit_trees = list(zip(workunit, entity_AST))
+    
+    return (workunit_trees, workunit, entity_AST)
+
+
+def restore_original_args(workunit_str: str, tree: ast.AST) -> ast.AST:
+    '''
+    Restore the original argument nodes in the ast (as if it was freshly read from source)
+        - this is achieved with caching and returning that state on the first invokation of
+    the workunit in question
+
+    :param workunit_str: Stringified version of the workunit reference, used as key to cache
+    :param tree: the ast for the workunit
+    :returns: workunit tree with argument nodes restored
+    '''
+    if workunit_str in ORIGINAL_PARAMS:
+        tree.args.args = pickle.loads(ORIGINAL_PARAMS[workunit_str])
+    else:
+        # first call, store the original params
+        ORIGINAL_PARAMS[workunit_str] = pickle.dumps(tree.args.args)
+
+    return tree

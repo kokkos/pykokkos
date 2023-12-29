@@ -1,3 +1,4 @@
+import ast
 import importlib.util
 from pathlib import Path
 import sys
@@ -10,7 +11,9 @@ from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
-from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator, get_types_signature
+from pykokkos.core.type_inference import (
+    UpdatedTypes, UpdatedDecorator, get_type_info, 
+)
 from pykokkos.interface import (
     DataType, ExecutionPolicy, ExecutionSpace, MemorySpace,
     RandomPool, RangePolicy, TeamPolicy, View, ViewType,
@@ -19,7 +22,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import ModuleSetup
+from .module_setup import ModuleSetup, EntityMetadata, get_metadata
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -59,7 +62,7 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace,
-        updated_decorator: UpdatedDecorator,
+        updated_decorator: Optional[UpdatedDecorator] = None,
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
         **kwargs,
@@ -103,8 +106,6 @@ class Runtime:
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
         operation: str,
-        updated_decorator: UpdatedDecorator,
-        updated_types: Optional[UpdatedTypes] = None,
         initial_value: Union[float, int] = 0,
         **kwargs
     ) -> Optional[Union[float, int]]:
@@ -115,8 +116,6 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
-        :param updated_decorator: Object with decorator specifier information
-        :param updated_types: UpdatedTypes object with type inference information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
         :returns: the result of the operation (None for parallel_for)
@@ -129,7 +128,21 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        types_signature: str = get_types_signature(updated_types, updated_decorator, execution_space)
+        source_path: Path
+    
+        if isinstance(workunit, list):
+            source_path = get_metadata(workunit[0]).path
+        else:
+            source_path = get_metadata(workunit).path
+        
+        parser = self.compiler.get_parser(source_path)
+
+        updated_types: Optional[UpdatedTypes]
+        updated_decorator: Optional[UpdatedDecorator]
+        types_signature: Optional[str]
+    
+        updated_types, updated_decorator, types_signature = get_type_info(operation, parser, policy, workunit, kwargs)
+
         members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
         if members is None:
             raise RuntimeError("ERROR: members cannot be none")
@@ -167,6 +180,7 @@ class Runtime:
         :param space: the execution space
         :param policy: the execution policy for workunits
         :param name: the name of the kernel
+        :param entity_trees: Optional parameter: List of ASTs of entities being fused - only provided when entity is a list
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for "for" and workloads)
         """
@@ -256,7 +270,10 @@ class Runtime:
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
-                    kwargs, _ = fuse_workunit_kwargs_and_params(entity, kwargs)
+                    parser = self.compiler.get_parser(get_metadata(entity[0]).path)
+                    entity_trees = [parser.get_entity(get_metadata(this_entity).name).AST for this_entity in entity]
+
+                    kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs)
                 entity_members = kwargs
 
         args.update(self.get_fields(entity_members))
