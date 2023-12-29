@@ -169,9 +169,7 @@ class Runtime:
         updated_types, updated_decorator, types_signature = get_type_info(operation, parser, policy, workunit, kwargs)
 
         execution_space: ExecutionSpace = policy.space.space
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
-        if members is None:
-            raise RuntimeError("ERROR: members cannot be none")
+        members: PyKokkosMembers = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)

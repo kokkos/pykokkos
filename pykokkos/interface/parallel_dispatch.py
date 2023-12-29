@@ -54,7 +54,7 @@ def parallel_for(*args, **kwargs) -> None:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
@@ -95,7 +95,7 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
