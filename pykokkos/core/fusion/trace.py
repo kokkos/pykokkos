@@ -40,8 +40,6 @@ class TracerOperation:
     policy: ExecutionPolicy
     workunit: Callable[..., None]
     operation: str
-    decorator: Any # UpdatedDecorator
-    types: Any # UpdatedTypes
     args: Dict[str, Any]
     dependencies: Set[DataDependency]
 
@@ -78,8 +76,6 @@ class Tracer:
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
         operation: str,
-        updated_decorator: Any, # UpdatedDecorator,
-        updated_types: Any, #Optional[UpdatedTypes],
         **kwargs
     ) -> None:
         """
@@ -89,8 +85,6 @@ class Tracer:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
-        :param updated_decorator: Object with decorator specifier information
-        :param updated_types: UpdatedTypes object with type inference information
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param initial_value: the initial value of the accumulator
         """
@@ -106,7 +100,7 @@ class Tracer:
                 dependencies.add(dependency)
                 self.data_version[id(value)] = version + 1
 
-        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, updated_decorator, updated_types, dict(kwargs), dependencies)
+        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, dict(kwargs), dependencies)
         self.op_id += 1
 
         for dependency in dependencies:
@@ -134,6 +128,10 @@ class Tracer:
         dependency = DataDependency(None, id(data), version)
 
         operation: TracerOperation = self.data_operation[dependency]
+        if operation not in self.operations:
+            # This means that the dependency was already updated
+            return []
+
         operations: List[TracerOperation] = [operation]
         del self.operations[operation]
 
