@@ -95,7 +95,7 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    runtime_singleton.runtime.run_workunit(
+    return runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
