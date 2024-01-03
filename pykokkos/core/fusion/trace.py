@@ -1,10 +1,12 @@
-import copy
+import ast
 from dataclasses import dataclass
 from types import NoneType
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
+from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.interface import ExecutionPolicy, ViewType
 
+from .access_modes import AccessMode, get_view_access_modes
 from .future import Future
 
 
@@ -40,6 +42,7 @@ class TracerOperation:
     policy: ExecutionPolicy
     workunit: Callable[..., None]
     operation: str
+    parser: Parser
     args: Dict[str, Any]
     dependencies: Set[DataDependency]
 
@@ -51,6 +54,13 @@ class TracerOperation:
             return False
 
         return self.op_id == other.op_id
+
+    def __repr__(self) -> str:
+        if self.name is None:
+            return self.workunit.__name__
+
+        return self.name
+
 
 class Tracer:
     """
@@ -76,43 +86,35 @@ class Tracer:
         policy: ExecutionPolicy,
         workunit: Callable[..., None],
         operation: str,
+        parser: Parser,
+        entity_name: str,
         **kwargs
     ) -> None:
         """
         Log the workunit and its arguments in the trace
 
+        :param future: the future object corresponding to the output of reductions and scans
         :param name: the name of the kernel
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param kwargs: the keyword arguments passed to the workunit
         :param operation: the name of the operation "for", "reduce", or "scan"
-        :param initial_value: the initial value of the accumulator
+        :param parser: the parser containing the AST of the workunit
+        :param entity_name: the name of the workunit entity
         """
 
-        dependencies: Set[DataDependency] = set()
+        entity: PyKokkosEntity = parser.get_entity(entity_name)
+        AST: ast.FunctionDef = entity.AST
 
-        # For now assume each dependency is RW, later on parse the AST
-        for arg, value in kwargs.items():
-            if isinstance(value, (Future, ViewType)):
-                version: int = self.data_version.get(id(value), 0)
-                dependency = DataDependency(arg, id(value), version)
+        dependencies: Set[DataDependency]
+        access_modes: Dict[str, AccessMode]
+        dependencies, access_modes = self.get_data_dependencies(kwargs, AST)
 
-                dependencies.add(dependency)
-                self.data_version[id(value)] = version + 1
-
-        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, dict(kwargs), dependencies)
+        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, parser, dict(kwargs), dependencies)
         self.op_id += 1
 
-        for dependency in dependencies:
-            new_dep = copy.deepcopy(dependency)
-            new_dep.version += 1
-            self.data_operation[new_dep] = tracer_op
+        self.update_output_data_operations(kwargs, access_modes, tracer_op, future, operation)
 
-        if operation in {"reduce", "scan"}:
-            assert future is not None
-            self.data_operation[DataDependency(None, id(future), 0)] = tracer_op
-
-        # Add to the ordered set of operations
         self.operations[tracer_op] = None
 
     def get_operations(self, data: Union[Future, ViewType]) -> List[TracerOperation]:
@@ -140,9 +142,9 @@ class Tracer:
         # automatically updated when the operation is executed.
         # However, since the operations are not executed in Python, we
         # cannot trigger the flush. We could also potentially iterate
-        # over kwargs prior to invoking a kernel and call
-        # flush_value() for all futures and views. We should implement
-        # both and benchmark them
+        # over kwargs prior to invoking a kernel and call flush_data()
+        # for all futures and views. We should implement both and
+        # benchmark them
         i: int = 0
         while i < len(operations):
             current_op = operations[i]
@@ -162,4 +164,71 @@ class Tracer:
 
             i += 1
 
+        operations.sort(key=lambda op: op.op_id, reverse=True)
+
         return operations
+
+    def get_data_dependencies(self, kwargs: Dict[str, Any], AST: ast.FunctionDef) -> Tuple[Set[DataDependency], Dict[str, AccessMode]]:
+        """
+        Get the data dependencies of an operation from its input arguments
+
+        :param kwargs: the keyword arguments passed to the workunit
+        :param AST: the AST of the input workunit
+        :returns: the set of data dependencies and the access modes of the views
+        """
+
+        dependencies: Set[DataDependency] = set()
+        view_args: Set[str] = set()
+
+        # First pass to get the Future dependencies and record all the views
+        for arg, value in kwargs.items():
+            if isinstance(value, Future):
+                version: int = self.data_version.get(id(value), 0)
+                dependency = DataDependency(arg, id(value), version)
+
+                dependencies.add(dependency)
+
+            if isinstance(value, ViewType):
+                view_args.add(arg)
+
+        access_modes: Dict[str, AccessMode] = get_view_access_modes(AST, view_args)
+
+        # Second pass to check if the views are dependencies
+        for arg, value in kwargs.items():
+            if isinstance(value, ViewType) and access_modes[arg] in {AccessMode.Read, AccessMode.ReadWrite}:
+                version: int = self.data_version.get(id(value), 0)
+                dependency = DataDependency(arg, id(value), version)
+
+                dependencies.add(dependency)
+
+        return dependencies, access_modes
+
+    def update_output_data_operations(
+        self,
+        kwargs: Dict[str, Any],
+        access_modes: Dict[str, AccessMode],
+        tracer_op: TracerOperation,
+        future: Optional[Future],
+        operation: str
+    ) -> None:
+        """
+        Update the data versions and operations of all data being written to
+
+        :param kwargs: the keyword arguments passed to the workunit
+        :param access_modes: how the passed views are being accessed
+        :param tracer_op: the current tracer operation being logged
+        :param future: the future object corresponding to the output of reductions and scans
+        :param operation: the name of the operation "for", "reduce", or "scan"
+        """
+
+        for arg, value in kwargs.items():
+            if isinstance(value, ViewType) and access_modes[arg] in {AccessMode.Write, AccessMode.ReadWrite}:
+                version: int = self.data_version.get(id(value), 0)
+                self.data_version[id(value)] = version + 1
+                dependency = DataDependency(arg, id(value), version + 1)
+
+                self.data_operation[dependency] = tracer_op
+
+        if operation in {"reduce", "scan"}:
+            assert future is not None
+            self.data_operation[DataDependency(None, id(future), 0)] = tracer_op
