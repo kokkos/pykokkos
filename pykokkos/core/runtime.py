@@ -9,6 +9,7 @@ import numpy as np
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params, Future, Tracer, TracerOperation
 from pykokkos.core.keywords import Keywords
+from pykokkos.core.parsers import Parser
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.core.type_inference import (
@@ -22,7 +23,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import ModuleSetup, get_metadata
+from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -126,12 +127,15 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
+        metadata: EntityMetadata = get_metadata(workunit[0]) if isinstance(workunit, list) else get_metadata(workunit)
+        parser: Parser = self.compiler.get_parser(metadata.path)
+
         if "PK_TRACE" in os.environ:
             future = Future()
-            self.tracer.log_operation(future, name, policy, workunit, operation, **kwargs)
+            self.tracer.log_operation(future, name, policy, workunit, operation, parser, metadata.name, **kwargs)
             return future
 
-        return self.execute_workunit(name, policy, workunit, operation, **kwargs)
+        return self.execute_workunit(name, policy, workunit, operation, parser, **kwargs)
 
 
     def execute_workunit(
@@ -140,6 +144,7 @@ class Runtime:
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
         operation: str,
+        parser: Parser,
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -149,18 +154,10 @@ class Runtime:
         :param policy: the execution policy of the operation
         :param workunit: the workunit function object
         :param operation: the name of the operation "for", "reduce", or "scan"
+        :param parser: the parser containing the AST of the workunit
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for parallel_for)
         """
-
-        source_path: Path
-    
-        if isinstance(workunit, list):
-            source_path = get_metadata(workunit[0]).path
-        else:
-            source_path = get_metadata(workunit).path
-        
-        parser = self.compiler.get_parser(source_path)
 
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
@@ -185,7 +182,7 @@ class Runtime:
         operations: List[TracerOperation] = self.tracer.get_operations(data)
         while len(operations) > 0:
             op: TracerOperation = operations.pop()
-            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.decorator, op.types, **op.args)
+            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
 
     def flush_trace(self) -> None:
         """
@@ -193,7 +190,7 @@ class Runtime:
         """
 
         for op in self.tracer.operations:
-            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.decorator, op.types, **op.args)
+            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
 
         self.tracer.operations.clear()
 
