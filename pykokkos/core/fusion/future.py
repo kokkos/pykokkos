@@ -40,7 +40,5 @@ class Future:
         return str(f"Future(value={self.value})")
 
     def flush_trace(self) -> None:
-        if self.value is not None:
-            return
         runtime_singleton.runtime.flush_data(self)
         assert self.value is not None
