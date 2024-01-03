@@ -5,27 +5,13 @@ import inspect
 import pickle
 from typing import  Callable, Dict, Optional, Tuple, Union, List
 
-import numpy as np
-
-import pykokkos.kokkos_manager as km
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
 from pykokkos.core.module_setup import get_metadata
-from pykokkos.interface.execution_policy import MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace
-from pykokkos.interface.views import View, ViewType
-from pykokkos.interface.data_types import DataType, DataTypeClass
-
-
-@dataclass
-class HandledArgs:
-    """
-    Class for holding the arguments passed to parallel_* functions
-    """
-
-    name: Optional[str]
-    policy: ExecutionPolicy
-    workunit: Callable
-    view: Optional[ViewType]
-    initial_value: Union[int, float]
+from pykokkos.interface import (
+    MDRangePolicy, TeamPolicy, TeamThreadRange, RangePolicy, ExecutionPolicy, ExecutionSpace,
+    View, ViewType,
+    DataType, DataTypeClass
+)
 
 
 @dataclass
@@ -55,66 +41,6 @@ SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__
 # Cache for original argument nodes: Maps stringified workunit reference, e.g str(workunit_name), to the original ast.arguments node
 ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
-def handle_args(is_for: bool, *args) -> HandledArgs:
-    """
-    Handle the *args passed to parallel_* functions
-
-    :param is_for: whether the arguments belong to a parallel_for call
-    :param *args: the list of arguments being checked
-    :returns: a HandledArgs object containing the passed arguments
-    """
-
-    unpacked: Tuple = tuple(*args)
-
-    name: Optional[str] = None
-    policy: Union[ExecutionPolicy, int]
-    workunit: Callable
-    view: Optional[ViewType] = None
-    initial_value: Union[int, float] = 0
-
-
-    if len(unpacked) == 2:
-        policy = unpacked[0]
-        workunit = unpacked[1]
-
-    elif len(unpacked) == 3:
-        if isinstance(unpacked[0], str):
-            name = unpacked[0]
-            policy = unpacked[1]
-            workunit = unpacked[2]
-        elif is_for and isinstance(unpacked[2], ViewType):
-            policy = unpacked[0]
-            workunit = unpacked[1]
-            view = unpacked[2]
-        elif isinstance(unpacked[2], (int, float)):
-            policy = unpacked[0]
-            workunit = unpacked[1]
-            initial_value = unpacked[2]
-        else:
-            raise TypeError(f"ERROR: wrong arguments {unpacked}")
-
-    elif len(unpacked) == 4:
-        if isinstance(unpacked[0], str):
-            name = unpacked[0]
-            policy = unpacked[1]
-            workunit = unpacked[2]
-
-            if is_for and isinstance(unpacked[3], ViewType):
-                view = unpacked[3]
-            elif isinstance(unpacked[3], (int, float)):
-                initial_value = unpacked[3]
-            else:
-                raise TypeError(f"ERROR: wrong arguments {unpacked}")
-        else:
-            raise TypeError(f"ERROR: wrong arguments {unpacked}")
-
-    else:
-        raise ValueError(f"ERROR: incorrect number of arguments {len(unpacked)}")
-
-    if isinstance(policy, (int, np.integer)):
-        policy = RangePolicy(km.get_default_space(), 0, int(policy))
-
-    return HandledArgs(name, policy, workunit, view, initial_value)
 
 def check_missing_annotations(param_list: List[ast.arg]) -> bool:
     '''
