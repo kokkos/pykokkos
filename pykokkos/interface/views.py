@@ -172,6 +172,9 @@ class ViewType:
         :returns: an iterator over the data
         """
 
+        if "PK_TRACE" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         if self.data.ndim > 0:
             return (n for n in self.data)
         else:
