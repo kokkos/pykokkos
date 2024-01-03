@@ -1,6 +1,5 @@
 import ast
 from dataclasses import dataclass
-from types import NoneType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core.parsers import Parser, PyKokkosEntity
@@ -71,7 +70,7 @@ class Tracer:
         self.op_id: int = 0
 
         # This functions as an ordered set
-        self.operations: Dict[TracerOperation, NoneType] = {}
+        self.operations: Dict[TracerOperation, None] = {}
 
         # Map from each data object id (future or array) to the current version
         self.data_version: Dict[int, int] = {}
