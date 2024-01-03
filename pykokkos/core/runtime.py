@@ -451,6 +451,8 @@ class Runtime:
                                np.int32, np.int64, np.uint8, np.uint16, 
                                np.uint32, np.uint64, np.float32, np.double, np.float64):
                 fields[key] = value
+            if isinstance(value, Future):
+                fields[key] = value.value
 
         return fields
 
