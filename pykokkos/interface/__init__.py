@@ -34,7 +34,7 @@ from .hierarchical import (
 )
 from .memory_space import MemorySpace, get_default_memory_space
 from .parallel_dispatch import (
-    execute,
+    execute, flush,
     parallel_for, parallel_reduce, parallel_scan,
 )
 from .random import (

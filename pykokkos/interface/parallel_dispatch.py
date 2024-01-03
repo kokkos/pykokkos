@@ -1,15 +1,92 @@
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
-from pykokkos.core.type_inference import HandledArgs, handle_args
 
-from .execution_policy import ExecutionPolicy
+from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
+from .views import ViewType
 
 workunit_cache: Dict[int, Callable] = {}
+
+
+@dataclass
+class HandledArgs:
+    """
+    Class for holding the arguments passed to parallel_* functions
+    """
+
+    name: Optional[str]
+    policy: ExecutionPolicy
+    workunit: Callable
+    view: Optional[ViewType]
+    initial_value: Union[int, float]
+
+
+def handle_args(is_for: bool, *args) -> HandledArgs:
+    """
+    Handle the *args passed to parallel_* functions
+
+    :param is_for: whether the arguments belong to a parallel_for call
+    :param *args: the list of arguments being checked
+    :returns: a HandledArgs object containing the passed arguments
+    """
+
+    unpacked: Tuple = tuple(*args)
+
+    name: Optional[str] = None
+    policy: Union[ExecutionPolicy, int]
+    workunit: Callable
+    view: Optional[ViewType] = None
+    initial_value: Union[int, float] = 0
+
+
+    if len(unpacked) == 2:
+        policy = unpacked[0]
+        workunit = unpacked[1]
+
+    elif len(unpacked) == 3:
+        if isinstance(unpacked[0], str):
+            name = unpacked[0]
+            policy = unpacked[1]
+            workunit = unpacked[2]
+        elif is_for and isinstance(unpacked[2], ViewType):
+            policy = unpacked[0]
+            workunit = unpacked[1]
+            view = unpacked[2]
+        elif isinstance(unpacked[2], (int, float)):
+            policy = unpacked[0]
+            workunit = unpacked[1]
+            initial_value = unpacked[2]
+        else:
+            raise TypeError(f"ERROR: wrong arguments {unpacked}")
+
+    elif len(unpacked) == 4:
+        if isinstance(unpacked[0], str):
+            name = unpacked[0]
+            policy = unpacked[1]
+            workunit = unpacked[2]
+
+            if is_for and isinstance(unpacked[3], ViewType):
+                view = unpacked[3]
+            elif isinstance(unpacked[3], (int, float)):
+                initial_value = unpacked[3]
+            else:
+                raise TypeError(f"ERROR: wrong arguments {unpacked}")
+        else:
+            raise TypeError(f"ERROR: wrong arguments {unpacked}")
+
+    else:
+        raise ValueError(f"ERROR: incorrect number of arguments {len(unpacked)}")
+
+    if isinstance(policy, (int, np.integer)):
+        policy = RangePolicy(ExecutionSpace.Default, 0, int(policy))
+
+    return HandledArgs(name, policy, workunit, view, initial_value)
 
 
 def check_policy(policy: Any) -> None:
@@ -54,15 +131,13 @@ def parallel_for(*args, **kwargs) -> None:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
         "for",
         **kwargs)
 
-    # workunit_cache[cache_key] = (func, args)
-    func(**args)
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     """
@@ -97,15 +172,13 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
 
     handled_args: HandledArgs = handle_args(True, args)
 
-    func, args = runtime_singleton.runtime.run_workunit(
+    return runtime_singleton.runtime.run_workunit(
         handled_args.name,
         handled_args.policy,
         handled_args.workunit,
         operation,
         **kwargs)
 
-    workunit_cache[cache_key] = (func, args)
-    return func(**args)
 
 def parallel_reduce(*args, **kwargs) -> Union[float, int]:
     """
@@ -153,3 +226,6 @@ def execute(space: ExecutionSpace, workload: object) -> None:
     else:
         runtime_singleton.runtime.run_workload(space, workload)
 
+
+def flush():
+    runtime_singleton.runtime.flush_trace()

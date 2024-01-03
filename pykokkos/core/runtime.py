@@ -1,5 +1,5 @@
-import ast
 import importlib.util
+import os
 from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
@@ -7,8 +7,9 @@ import sysconfig
 
 import numpy as np
 
-from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
+from pykokkos.core.fusion import fuse_workunit_kwargs_and_params, Future, Tracer, TracerOperation
 from pykokkos.core.keywords import Keywords
+from pykokkos.core.parsers import Parser
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
 from pykokkos.core.type_inference import (
@@ -22,7 +23,7 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import ModuleSetup, EntityMetadata, get_metadata
+from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -33,6 +34,7 @@ class Runtime:
 
     def __init__(self):
         self.compiler: Compiler = Compiler()
+        self.tracer: Tracer = Tracer()
 
         # cache module_setup objects using a workload/workunit and space tuple
         self.module_setups: Dict[Tuple, ModuleSetup] = {}
@@ -50,10 +52,7 @@ class Runtime:
             return
 
         module_setup: ModuleSetup = self.get_module_setup(workload, space)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), None)
-
-        if members is None:
-            raise RuntimeError("ERROR: members cannot be none")
+        members: PyKokkosMembers = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), None)
 
         self.execute(workload, module_setup, members, space)
         self.run_callbacks(workload, members)
@@ -66,7 +65,7 @@ class Runtime:
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
         **kwargs,
-    ) -> Optional[PyKokkosMembers]:
+    ) -> PyKokkosMembers:
         """
         precompile the workunit
 
@@ -78,10 +77,10 @@ class Runtime:
         """
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature)
-        members: Optional[PyKokkosMembers] = self.compiler.compile_object(module_setup, 
-                                                                          space, km.is_uvm_enabled(), 
-                                                                          updated_decorator, 
-                                                                          updated_types, types_signature, **kwargs)
+        members: PyKokkosMembers = self.compiler.compile_object(module_setup,
+                                                                space, km.is_uvm_enabled(),
+                                                                updated_decorator,
+                                                                updated_types, types_signature, **kwargs)
 
         return members
 
@@ -110,7 +109,7 @@ class Runtime:
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
-        Run the workunit
+        Run the workunit or delay execution if tracing
 
         :param name: the name of the kernel
         :param policy: the execution policy of the operation
@@ -128,14 +127,37 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        source_path: Path
-    
-        if isinstance(workunit, list):
-            source_path = get_metadata(workunit[0]).path
-        else:
-            source_path = get_metadata(workunit).path
-        
-        parser = self.compiler.get_parser(source_path)
+        metadata: EntityMetadata = get_metadata(workunit[0]) if isinstance(workunit, list) else get_metadata(workunit)
+        parser: Parser = self.compiler.get_parser(metadata.path)
+
+        if "PK_TRACE" in os.environ:
+            future = Future()
+            self.tracer.log_operation(future, name, policy, workunit, operation, parser, metadata.name, **kwargs)
+            return future
+
+        return self.execute_workunit(name, policy, workunit, operation, parser, **kwargs)
+
+
+    def execute_workunit(
+        self,
+        name: Optional[str],
+        policy: ExecutionPolicy,
+        workunit: Union[Callable[..., None], List[Callable[..., None]]],
+        operation: str,
+        parser: Parser,
+        **kwargs
+    ) -> Optional[Union[float, int]]:
+        """
+        Compile and run the workunit
+
+        :param name: the name of the kernel
+        :param policy: the execution policy of the operation
+        :param workunit: the workunit function object
+        :param operation: the name of the operation "for", "reduce", or "scan"
+        :param parser: the parser containing the AST of the workunit
+        :param kwargs: the keyword arguments passed to the workunit
+        :returns: the result of the operation (None for parallel_for)
+        """
 
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
@@ -143,12 +165,34 @@ class Runtime:
     
         updated_types, updated_decorator, types_signature = get_type_info(operation, parser, policy, workunit, kwargs)
 
-        members: Optional[PyKokkosMembers] = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
-        if members is None:
-            raise RuntimeError("ERROR: members cannot be none")
+        execution_space: ExecutionSpace = policy.space.space
+        members: PyKokkosMembers = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
+
+    def flush_data(self, data: Union[Future, ViewType]) -> None:
+        """
+        Flush the operations needed to get the data of a specific
+        data or view
+
+        :param data: the future or view corresponding to the data that needs to be updated
+        """
+
+        operations: List[TracerOperation] = self.tracer.get_operations(data)
+        while len(operations) > 0:
+            op: TracerOperation = operations.pop()
+            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+
+    def flush_trace(self) -> None:
+        """
+        Flush all operations saved in the trace
+        """
+
+        for op in self.tracer.operations:
+            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+
+        self.tracer.operations.clear()
 
     def is_debug(self, space: ExecutionSpace) -> bool:
         """
@@ -200,9 +244,9 @@ class Runtime:
         else:
             args["pk_kernel_name"] = name
 
-        is_workunit_or_functor: bool = isinstance(entity, (Callable, list))
-        result = self.call_wrapper(entity, members, args, module, is_workunit_or_functor)
+        result = self.call_wrapper(entity, members, args, module)
 
+        is_workunit_or_functor: bool = isinstance(entity, (Callable, list))
         if not is_workunit_or_functor:
             self.retrieve_results(entity, members, args)
 
@@ -288,7 +332,6 @@ class Runtime:
         members: PyKokkosMembers,
         args: Dict[str, Any],
         module,
-        return_wrapper: bool
     ) -> Optional[Union[float, int]]:
         """
         Call the wrapper in the imported module
@@ -297,7 +340,6 @@ class Runtime:
         :param members: a collection of PyKokkos related members
         :param args: the arguments to be passed to the wrapper
         :param module: the imported module
-        :param return_wrapper: whether to return the wrapper (assuming it will be called later)
         """
 
         is_workunit: bool = isinstance(entity, Callable)
@@ -315,9 +357,6 @@ class Runtime:
             wrapper += f"_{precision}"
 
         func = getattr(module, wrapper)
-
-        if return_wrapper:
-            return func, args
 
         return func(**args)
 
@@ -412,6 +451,8 @@ class Runtime:
                                np.int32, np.int64, np.uint8, np.uint16, 
                                np.uint32, np.uint64, np.float32, np.double, np.float64):
                 fields[key] = value
+            if isinstance(value, Future):
+                fields[key] = value.value
 
         return fields
 
@@ -468,7 +509,7 @@ class Runtime:
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None
-        ) -> ModuleSetup:
+    ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
