@@ -258,7 +258,7 @@ class StaticTranslator:
             self.functor_cast
         ]
         headers = [f"#include <{h}>\n" for h in headers]
-        #TODO(wlr): Add MACRO
+
         return "".join(headers)
 
     def generate_cast_includes(self) -> str:
