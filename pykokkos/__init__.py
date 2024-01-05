@@ -2,7 +2,7 @@ import atexit
 from typing import Optional
 
 from pykokkos.runtime import runtime_singleton
-from pykokkos.core import CompilationDefaults, Runtime
+from pykokkos.core import Runtime
 from pykokkos.interface import *
 from pykokkos.kokkos_manager import (
     initialize, finalize,
@@ -79,14 +79,6 @@ __array_api_version__ = "2021.12"
 __all__ = ["__array_api_version__"]
 
 runtime_singleton.runtime = Runtime()
-defaults: Optional[CompilationDefaults] = runtime_singleton.runtime.compiler.read_defaults()
-
-if defaults is not None:
-    set_default_space(ExecutionSpace[defaults.space])
-    if defaults.force_uvm:
-        enable_uvm()
-    else:
-        disable_uvm()
 
 def cleanup():
     """
