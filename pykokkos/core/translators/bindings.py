@@ -174,8 +174,8 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
-
-    return mirror_views + constructor
+    gil_release = "pybind11::gil_scoped_release release;"
+    return gil_release + mirror_views + constructor
 
 def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[str,str]) -> str:
     """
@@ -416,7 +416,7 @@ def bind_wrappers(module: str, wrappers: List[str]) -> str:
     variable: str = "k"
     binding: str = f"PYBIND11_MODULE({module}, {variable}) {{"
     for w in wrappers:
-        binding += f"{variable}.def(\"{w}\", &{w}, pybind11::call_guard<pybind11::gil_scoped_release>());"
+        binding += f"{variable}.def(\"{w}\", &{w});"
     binding += "}"
 
     return binding
