@@ -416,7 +416,7 @@ def bind_wrappers(module: str, wrappers: List[str]) -> str:
     variable: str = "k"
     binding: str = f"PYBIND11_MODULE({module}, {variable}) {{"
     for w in wrappers:
-        binding += f"{variable}.def(\"{w}\", &{w});"
+        binding += f"{variable}.def(\"{w}\", &{w}, py::call_guard<py::gil_scoped_release>());"
     binding += "}"
 
     return binding
