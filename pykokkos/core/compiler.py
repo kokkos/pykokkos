@@ -114,11 +114,11 @@ class Compiler:
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
-        updated_decorator: UpdatedDecorator,
+        updated_decorator: Optional[UpdatedDecorator] = None,
         updated_types: Optional[UpdatedTypes] = None,
         types_signature: Optional[str] = None,
         **kwargs
-    ) -> Optional[PyKokkosMembers]:
+    ) -> PyKokkosMembers:
         """
         Compile an entity object for a single execution space
 

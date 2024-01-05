@@ -1,7 +1,5 @@
 from typing import List, Union
 
-from pykokkos.core.keywords import Keywords
-
 from .views import View
 
 
@@ -53,8 +51,8 @@ class BinSort:
         self.sort_within_bins = sort_within_bins
 
     @staticmethod
-    def get_type(key_view_type: str, bin_op_type: str) -> str:
-        return f"Kokkos::BinSort<{key_view_type},{bin_op_type},{Keywords.DefaultExecSpace.value},int>"
+    def get_type(key_view_type: str, bin_op_type: str, space: str) -> str:
+        return f"Kokkos::BinSort<{key_view_type},{bin_op_type},{space},int>"
 
     def sort(self, values: View) -> None:
         pass

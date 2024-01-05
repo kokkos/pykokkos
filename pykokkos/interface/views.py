@@ -2,6 +2,7 @@ from __future__ import annotations
 import ctypes
 import math
 from enum import Enum
+import os
 import sys
 from types import ModuleType
 from typing import (
@@ -14,6 +15,7 @@ import numpy as np
 import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
+from pykokkos.runtime import runtime_singleton
 
 from .data_types import (
     DataType, DataTypeClass,
@@ -113,6 +115,9 @@ class ViewType:
         :returns: a primitive type value if key is an int, a Subview otherwise
         """
 
+        if "PK_TRACE" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         if self.shape == () and key == 0:
             return self.data
 
@@ -167,6 +172,9 @@ class ViewType:
         :returns: an iterator over the data
         """
 
+        if "PK_TRACE" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         if self.data.ndim > 0:
             return (n for n in self.data)
         else:
@@ -180,6 +188,9 @@ class ViewType:
         :returns: the string representation of the data
         """
 
+        if "PK_TRACE" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         return str(self.data)
 
     def __deepcopy__(self, memo):
@@ -191,6 +202,9 @@ class ViewType:
 
 
     def _scalarfunc(self, func):
+        if "PK_TRACE" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         # based on approach used in
         # numpy/lib/user_array.py for
         # handling scalar conversions
