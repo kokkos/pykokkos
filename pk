@@ -48,14 +48,21 @@ function pk_docker_pull() {
 
 function _pk_cmd() {
         local -r name="${1}"
+        [ $# -lt 1 ] && return 1
+        shift 1
+
+        [ -z "${name}" ] && \
+                { echo "no name provided"; return 1; }
 
         ( cd "${CHOME}/pykokkos"
           export PYTHONPATH=pykokkos:$PYTHONPATH
-          python "${name}" )
+          python "${name}" "$@" )
 }
 
 function pk_example() {
         local -r name="${1}"
+        [ $# -lt 1 ] && return 1
+        shift 1
 
         [ -z "${name}" ] && \
                 { echo "no name provided (e.g., examples/kokkos-tutorials/workload/01.py)"; return 1; }
@@ -67,11 +74,12 @@ function pk_example() {
                --volume $(pwd):"${CHOME}/pykokkos" \
                --user pk:$(id -g) \
                "${PROJECT}" \
-               "${CHOME}/pykokkos/pk" "_pk_cmd" "${name}"
+               "${CHOME}/pykokkos/pk" "_pk_cmd" "${name}" \
+               "$@"
 }
 
 function pk_tests() {
-        pk_example "runtests.py"
+        pk_example "runtests.py" "$@"
 }
 
 "$@"

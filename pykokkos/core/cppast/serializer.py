@@ -300,7 +300,7 @@ class Serializer:
         return self.serialize(node.decl) + ";"
 
     def serialize_EmptyStmt(self, node: EmptyStmt) -> str:
-        return ""
+        return "{}"
 
     def serialize_ForStmt(self, node: ForStmt) -> str:
         init: str = self.serialize(node.init)

@@ -111,6 +111,10 @@ class ASTTestReduceFunctor:
             x += 1
 
     @pk.workunit
+    def pass_stmt(self, tid: int) -> None:
+        pass
+
+    @pk.workunit
     def call(self, tid: int, acc: pk.Acc[pk.double]) -> None:
         pk.printf("Testing printf: %d\n", self.i_1)
         acc += abs(- self.i_1)
@@ -268,6 +272,9 @@ class TestASTTranslator(unittest.TestCase):
         result: int = pk.parallel_reduce(self.range_policy, self.functor.while_stmt)
 
         self.assertEqual(expected_result, result)
+
+    def test_pass(self):
+        pk.parallel_for(self.range_policy, self.functor.pass_stmt)
 
     def test_call(self):
         expected_result: int = self.threads * abs(- self.i_1)
