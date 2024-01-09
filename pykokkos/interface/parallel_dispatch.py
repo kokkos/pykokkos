@@ -9,7 +9,7 @@ import pykokkos.kokkos_manager as km
 
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
-from .views import ViewType
+from .views import ViewType, array
 
 workunit_cache: Dict[int, Callable] = {}
 
@@ -113,6 +113,28 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
+def convert_arrays(kwargs: Dict[str, Any]) -> None:
+    """
+    Convert all numpy and cupy ndarray objects into pk Views
+
+    :param kwargs: the list of keyword arguments passed to the workunit
+    """
+
+    cp_available: bool
+
+    try:
+        import cupy as cp
+        cp_available = True
+    except ImportError:
+        cp_available = False
+
+    for k, v in kwargs.items():
+        if isinstance(v, np.ndarray):
+            kwargs[k] = array(v)
+        elif cp_available and isinstance(v, cp.ndarray):
+            kwargs[k] = array(v)
+
+
 def parallel_for(*args, **kwargs) -> None:
     """
     Run a parallel for loop
@@ -129,6 +151,8 @@ def parallel_for(*args, **kwargs) -> None:
         workunit
     """
 
+    kwargs = dict(kwargs)
+    convert_arrays(kwargs)
     handled_args: HandledArgs = handle_args(True, args)
 
     runtime_singleton.runtime.run_workunit(
@@ -147,6 +171,8 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     :param operation: the name of the operation, "reduce" or "scan"
     """
 
+    kwargs = dict(kwargs)
+    convert_arrays(kwargs)
     args_to_hash: List = []
     args_not_to_hash: Dict = {}
     for k, v in kwargs.items():
