@@ -237,6 +237,8 @@ def sqrt(view):
         This function should exhibit the same branch cut behavior
         as the equivalent NumPy ufunc.
     """
+    if isinstance(view, (np.integer, np.floating)):
+        return math.sqrt(view)
     # TODO: support complex types when they
     # are available in pykokkos?
     if len(view.shape) > 2:
@@ -1044,6 +1046,53 @@ def matmul(viewA, viewB):
                                     viewA=viewA,
                                     viewB=viewB)
 
+@pk.workunit
+def dot_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    acc += viewA[tid] * viewB[tid]
+
+@pk.workunit
+def dot_impl_1d_float(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+    acc += viewA[tid] * viewB[tid]
+
+def dot(viewA, viewB):
+    """
+    1D Matrix Multiplication of compatible views
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    Float/Double
+
+    """
+
+    if len(viewA.shape) == 0 and len(viewB.shape) == 0:
+        return 0
+
+    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
+        raise NotImplementedError("only 1D views supported for dot() ufunc.")
+
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
+        out = pk.parallel_reduce(
+                viewA.shape[0],
+                dot_impl_1d_double,
+                viewA=viewA,
+                viewB=viewB)
+
+    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
+        out = pk.parallel_reduce(
+                viewA.shape[0],
+                dot_impl_1d_float,
+                viewA=viewA,
+                viewB=viewB)
+    else:
+        raise RuntimeError("Incompatible Types")
+    return out
 
 @pk.workunit
 def divide_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
