@@ -1051,7 +1051,7 @@ def dot_impl_1d_double(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.dou
     acc += viewA[tid] * viewB[tid]
 
 @pk.workunit
-def dot_impl_1d_float(tid: int, acc: pk.Acc[pk.double], viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double]):
+def dot_impl_1d_float(tid: int, acc: pk.Acc[pk.float], viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float]):
     acc += viewA[tid] * viewB[tid]
 
 def dot(viewA, viewB):
