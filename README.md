@@ -182,49 +182,6 @@ if __name__ == "__main__":
 As with the thread ID, arguments must be type annotated. They can the
 be passed via `parallel_for` using keyword arguments.
 
-### Functors
-
-Workunits can also be defined as methods inside a functor. Functors
-are Python classes that contain one or workunits as methods. The
-following code snippet shows an example of a functor.
-
-```python
-@pk.functor
-def Functor:
-    def __init__(self, v, x):
-        self.v: pk.View1D[int] = v
-        self.x: int = x
-
-    @pk.workunit
-    def add(self, i: int):
-        self.v[i] += x
-
-    @pk.workunit
-    def print(self, i: int):
-        pk.printf("v[%d] = %d\n", i, self.v[i])
-
-if __name__ == "__main__":
-    n = 10
-    v = pk.View([n], int)
-    v.fill(0)
-
-    f = Functor(v, 1)
-    pk.parallel_for(n, f.add)
-    pk.parallel_for(n, f.print)
-```
-
-Workunits defined in functors only include the thread ID argument in
-their definition. Instead of arguments, they access Views and other
-primitive types as member variables. These member variables must be
-defined in the constructor `__init__` with type annotations. This has
-the benefit of avoiding repetition of the same type annotations across
-multiple non-method workunits.
-
-To call these workunits, the functor class must first be instantiated.
-Individual workunits are called using `parallel_for` by passing in the
-workunit method as an argument. The member variables will hold the
-values the functor instance contains at the time `parallel_for` is
-called.
 
 ### Other Examples
 
@@ -233,11 +190,11 @@ as their corresponding C++ Kokkos implementations:
 
 | Example  | | |
 | -------- | - | - |
-| parallel_reduce | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/02.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/02/Solution/exercise_2_solution.cpp) |
-| Cuda | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/04.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/04/Solution/exercise_4_solution.cpp) |
-| team_policy | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/team_policy.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_policy/Solution/team_policy_solution.cpp) |
-| team_vector_loop | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/team_vector_loop.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_vector_loop/Solution/team_vector_loop_solution.cpp) |
-| subview | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/functor/subview.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/subview/Solution/exercise_subview_solution.cpp) |
+| parallel_reduce | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/02.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/02/Solution/exercise_2_solution.cpp) |
+| Cuda | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/04.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/04/Solution/exercise_4_solution.cpp) |
+| team_policy | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/team_policy.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_policy/Solution/team_policy_solution.cpp) |
+| team_vector_loop | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/team_vector_loop.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_vector_loop/Solution/team_vector_loop_solution.cpp) |
+| subview | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/subview.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/subview/Solution/exercise_subview_solution.cpp) |
 | mdrange | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/workload/mdrange.py) | [Kokkos](https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/mdrange/Solution/exercise_mdrange_solution.cpp) |
 | nstream | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/nstream.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/nstream-kokkos.cc) |
 | stencil | [PyKokkos](https://github.com/kokkos/pykokkos/blob/main/examples/ParRes/workload/stencil.py) | [Kokkos](https://github.com/ParRes/Kernels/blob/default/Cxx11/stencil-kokkos.cc) |
@@ -248,7 +205,8 @@ as their corresponding C++ Kokkos implementations:
 
 If you have used PyKokkos in a research project, please cite this
 research paper:
-```
+
+```bibtex
 @inproceedings{AlAwarETAL21PyKokkos,
   author = {Al Awar, Nader and Zhu, Steven and Biros, George and Gligoric, Milos},
   title = {A Performance Portability Framework for Python},
