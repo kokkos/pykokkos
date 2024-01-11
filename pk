@@ -2,7 +2,7 @@
 #
 # Script to support using pykokkos docker with the pykokkos repo.
 #
-# The docker image we includes:
+# The docker image includes:
 # * pykokkos-base
 # * kokkos
 #
