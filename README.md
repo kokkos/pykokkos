@@ -1,10 +1,13 @@
 # PyKokkos
 
-PyKokkos is a framework for writing performance portable kernels in
-Python. You can think of PyKokkos as a performance portable Numba.  In
-background, PyKokkos translates type-annotated Python code into C++
-[Kokkos](https://github.com/kokkos/kokkos/) and automatically
-generating bindings for the translated C++ code.
+PyKokkos is a framework for writing high-performance Python code
+similar to Numba. In contrast to Numba, PyKokkos kernels are primarily
+parallel and are also performance portable, meaning that they can run
+efficiently on different hardware (CPUs, NVIDIA GPUs, and AMD GPUs)
+with no changes required. In the background, PyKokkos translates
+kernels designated by the user into C++
+[Kokkos](https://github.com/kokkos/kokkos) and automatically
+generates language bindings to run the generated code.
 
 We recommend using Docker for running code and developing (see
 [Developing using Docker](#developing-using-docker)), but detailed
@@ -140,7 +143,7 @@ def hello(i: int):
 
 Kernels definitions are marked with the `@pk.workunit` decorator. Each
 workunit requires an integer argument which represents the thread ID.
-This argument has to be type annotated using `int`.
+This argument can optionally be type annotated (`int` in the example).
 
 This workunit can be called using the `parallel_for` function:
 
@@ -185,8 +188,8 @@ if __name__ == "__main__":
     pk.parallel_for(n, add, v=v, x=1)
 ```
 
-As with the thread ID, arguments must be type annotated. They can the
-be passed via `parallel_for` using keyword arguments.
+As with the thread ID, arguments can be type annotated. They have to
+be passed to `parallel_for` using keyword arguments.
 
 ### Other Examples
 
