@@ -273,6 +273,8 @@ except ImportError:
     NUM_CUDA_GPUS = 0
     KOKKOS_LIBS = []
 
+CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
+
 KOKKOS_GPU_MODULE_LIST: List = []
 for id, lib in enumerate(KOKKOS_LIBS):
     try:
@@ -291,7 +293,6 @@ for id, lib in enumerate(KOKKOS_LIBS):
 
 if len(KOKKOS_GPU_MODULE_LIST) > 1:
     CONSTANTS["MULTI_GPU"] = True
-    CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
     CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_GPU_MODULE_LIST
 
     # Create an execution space instance per device from each GPU lib
