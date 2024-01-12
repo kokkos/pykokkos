@@ -13,7 +13,7 @@ def main():
     SIZE = 2
     out = np.zeros((SIZE, SIZE), dtype=int)
     a = np.arange(SIZE * SIZE).reshape((SIZE, SIZE))
-    pk.parallel_for(SIZE, map_2D, out=pk.array(out), a=pk.array(a), size=SIZE)
+    pk.parallel_for(SIZE, map_2D, out=out, a=a, size=SIZE)
     print(out)
 
 

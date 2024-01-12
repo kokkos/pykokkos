@@ -12,7 +12,7 @@ def main():
     SIZE = 4
     out = np.zeros((SIZE,), dtype=int)
     a = np.arange(SIZE)
-    pk.parallel_for("Map", SIZE, plus_ten, out=pk.array(out), a=pk.array(a))
+    pk.parallel_for("Map", SIZE, plus_ten, out=out, a=a)
     print(out)
 
 

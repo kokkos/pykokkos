@@ -15,7 +15,7 @@ def main():
     SIZE = 4
     out = np.zeros((SIZE,), dtype=int)
     a = np.arange(SIZE)
-    pk.parallel_for("Guard", SIZE * 2, map_guard, out=pk.array(out), a=pk.array(a), size=SIZE)
+    pk.parallel_for("Guard", SIZE * 2, map_guard, out=out, a=a, size=SIZE)
     print(out)
 
 

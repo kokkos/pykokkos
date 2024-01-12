@@ -15,7 +15,7 @@ def main():
     a = np.arange(SIZE).reshape(SIZE, 1)
     b = np.arange(SIZE).reshape(1, SIZE)
 
-    pk.parallel_for("Broadcast", SIZE * SIZE, broadcast, out=pk.array(out), a=pk.array(a), b=pk.array(b), size=SIZE)
+    pk.parallel_for("Broadcast", SIZE * SIZE, broadcast, out=out, a=a, b=b, size=SIZE)
     print(out)
 
 

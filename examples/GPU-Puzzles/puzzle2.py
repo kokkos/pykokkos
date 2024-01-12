@@ -13,7 +13,7 @@ def main():
     out = np.zeros((SIZE,), dtype=int)
     a = np.arange(SIZE)
     b = np.arange(SIZE)
-    pk.parallel_for("Zip", SIZE, a_plus_b, out=pk.array(out), a=pk.array(a), b=pk.array(b))
+    pk.parallel_for("Zip", SIZE, a_plus_b, out=out, a=a, b=b)
     print(out)
 
 
