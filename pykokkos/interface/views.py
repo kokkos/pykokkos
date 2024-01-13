@@ -115,7 +115,7 @@ class ViewType:
         :returns: a primitive type value if key is an int, a Subview otherwise
         """
 
-        if "PK_TRACE" in os.environ:
+        if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
 
         if self.shape == () and key == 0:
@@ -172,7 +172,7 @@ class ViewType:
         :returns: an iterator over the data
         """
 
-        if "PK_TRACE" in os.environ:
+        if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
 
         if self.data.ndim > 0:
@@ -188,7 +188,7 @@ class ViewType:
         :returns: the string representation of the data
         """
 
-        if "PK_TRACE" in os.environ:
+        if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
 
         return str(self.data)
@@ -202,7 +202,7 @@ class ViewType:
 
 
     def _scalarfunc(self, func):
-        if "PK_TRACE" in os.environ:
+        if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
 
         # based on approach used in
