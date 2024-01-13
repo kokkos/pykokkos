@@ -39,6 +39,8 @@ class Runtime:
         # cache module_setup objects using a workload/workunit and space tuple
         self.module_setups: Dict[Tuple, ModuleSetup] = {}
 
+        self.fusion_strategy: Optional[str] = os.getenv("PK_FUSION")
+
     def run_workload(self, space: ExecutionSpace, workload: object) -> None:
         """
         Run the workload
@@ -130,7 +132,7 @@ class Runtime:
         metadata: EntityMetadata = get_metadata(workunit[0]) if isinstance(workunit, list) else get_metadata(workunit)
         parser: Parser = self.compiler.get_parser(metadata.path)
 
-        if "PK_TRACE" in os.environ:
+        if self.fusion_strategy is not None:
             future = Future()
             self.tracer.log_operation(future, name, policy, workunit, operation, parser, metadata.name, **kwargs)
             return future
@@ -179,18 +181,31 @@ class Runtime:
         :param data: the future or view corresponding to the data that needs to be updated
         """
 
+        assert self.fusion_strategy is not None
+
         operations: List[TracerOperation] = self.tracer.get_operations(data)
-        while len(operations) > 0:
-            op: TracerOperation = operations.pop()
-            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+        operations = self.tracer.fuse(operations, self.fusion_strategy)
+
+        for op in operations:
+            result = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+            if op.future is not None:
+                op.future.value = result
 
     def flush_trace(self) -> None:
         """
         Flush all operations saved in the trace
         """
 
-        for op in self.tracer.operations:
-            op.future.value = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+        if self.fusion_strategy is None:
+            assert len(self.tracer.operations) == 0
+            return
+
+        operations: List[TracerOperation] = self.tracer.fuse(list(self.tracer.operations), self.fusion_strategy)
+
+        for op in operations:
+            result = self.execute_workunit(op.name, op.policy, op.workunit, op.operation, op.parser, **op.args)
+            if op.future is not None:
+                op.future.value = result
 
         self.tracer.operations.clear()
 

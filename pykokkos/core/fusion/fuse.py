@@ -1,7 +1,6 @@
 import ast
-import inspect
 import os
-from typing import Any, Callable, Dict, List, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
 def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
     """
