@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core.parsers import Parser, PyKokkosEntity
-from pykokkos.interface import ExecutionPolicy, ViewType
+from pykokkos.interface import ExecutionPolicy, RangePolicy, ViewType
 
 from .access_modes import AccessMode, get_view_access_modes
 from .future import Future
@@ -35,13 +35,14 @@ class TracerOperation:
     A single operation in a trace
     """
 
-    op_id: int
+    op_id: Optional[int] # None for fused operations
     future: Optional[Future]
     name: Optional[str]
     policy: ExecutionPolicy
     workunit: Callable[..., None]
     operation: str
     parser: Parser
+    entity_name: str
     args: Dict[str, Any]
     dependencies: Set[DataDependency]
 
@@ -109,7 +110,7 @@ class Tracer:
         access_modes: Dict[str, AccessMode]
         dependencies, access_modes = self.get_data_dependencies(kwargs, AST)
 
-        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, parser, dict(kwargs), dependencies)
+        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, parser, entity_name, dict(kwargs), dependencies)
         self.op_id += 1
 
         self.update_output_data_operations(kwargs, access_modes, tracer_op, future, operation)
@@ -121,7 +122,7 @@ class Tracer:
         Get all the operations needed to update the data of a future
         or view and remove them from the trace
 
-        :param future: the future corresponding to the value that needs to be updated
+        :param data: the Future or View corresponding to the value that needs to be updated
         :returns: the list of operations to be executed
         """
 
@@ -163,9 +164,92 @@ class Tracer:
 
             i += 1
 
-        operations.sort(key=lambda op: op.op_id, reverse=True)
+        operations.sort(key=lambda op: op.op_id)
 
         return operations
+
+    def fuse(self, operations: List[TracerOperation], strategy: str) -> List[TracerOperation]:
+        """
+        Apply the specified fusion strategy to the given list of operations
+
+        :param operations: the TracerOperations to be fused
+        :param strategy: the fusion strategy to follow ("trace", "naive")
+        """
+
+        if strategy == "trace":
+            return operations
+
+        if strategy == "naive":
+            return self.fuse_naive(operations)
+
+        raise RuntimeError(f"Unrecognized fusion strategy '{strategy}'")
+
+    def fuse_naive(self, operations: List[TracerOperation]) -> List[TracerOperation]:
+        """
+        Fuse a list of operations naively: combine all consecutive
+        parallel fors and leave reductions and scans alone
+
+        :param operations: the TracerOperations to be fused
+        :returns: the list of TracerOperations post fusion
+        """
+
+        fused_ops: List[TracerOperation] = []
+        ops_to_fuse: List[TracerOperation] = []
+
+        while len(operations) > 0:
+            op: TracerOperation = operations.pop()
+
+            if op.operation != "for":
+                if len(ops_to_fuse) > 0: # Fuse and add any outstanding operations
+                    ops_to_fuse.reverse()
+                    fused_ops.append(self.fuse_operations(ops_to_fuse))
+                    ops_to_fuse.clear()
+
+                # Add the current operation
+                fused_ops.append(op)
+            else:
+                ops_to_fuse.append(op)
+
+        # Fuse anything left over
+        if len(ops_to_fuse) > 0:
+            ops_to_fuse.reverse()
+            fused_ops.append(self.fuse_operations(ops_to_fuse))
+
+        fused_ops.reverse()
+
+        return fused_ops
+
+    def fuse_operations(self, operations: List[TracerOperation]) -> TracerOperation:
+        """
+        Fuse a list of TracerOperations into one
+
+        :param operations: the TracerOperations to be fused
+        :returns: the fused operation
+        """
+
+        if len(operations) == 1:
+            return operations[0]
+
+        names: List[str] = []
+        policy: RangePolicy = operations[0].policy
+        workunits: List[Callable[..., None]] = []
+        operation: str = operations[0].operation
+        parser: Parser = operations[0].parser
+        args: Dict[str, Dict[str, Any]] = {}
+        dependencies: Set[DataDependency] = set()
+
+        for index, op in enumerate(operations):
+            assert isinstance(op.policy, RangePolicy) and policy.begin == op.policy.begin and policy.end == op.policy.end
+            assert operation == op.operation == "for"
+
+            names.append(op.name)
+            workunits.append(op.workunit)
+            args[f"args_{index}"] = op.args
+            dependencies.update(op.dependencies)
+
+        fused_name: str = "_".join(names)
+
+        return TracerOperation(None, None, fused_name, policy, workunits, operation, parser, fused_name, args, dependencies)
 
     def get_data_dependencies(self, kwargs: Dict[str, Any], AST: ast.FunctionDef) -> Tuple[Set[DataDependency], Dict[str, AccessMode]]:
         """
