@@ -10,31 +10,24 @@ class Workload:
         self.N: int = N
         self.M: int = M
 
-        self.val: pk.View1D[pk.double] = pk.View([N*M], pk.double)
-        self.vis: pk.View1D[pk.double] = pk.View([N*M], pk.double)
-        self.Matrix: pk.View2D[pk.double] = pk.View([N, M], pk.double)
-        self.max_arr: pk.View1D[pk.double] = pk.View([N], pk.double)
+        self.val: pk.View1D[pk.double]       = pk.View([N*M], pk.double)
+        self.visited: pk.View1D[int]         = pk.View([N*M], int)
+        self.mat: pk.View2D[pk.double]       = pk.View([N, M], pk.double)
+        self.max_arr: pk.View1D[pk.double]   = pk.View([N], pk.double)
         self.max_arr2D: pk.View2D[pk.double] = pk.View([N, N], pk.double)
 
         self.timer_result: float = 0
         self.element: float = N*M
 
+        self.val.fill(N+M)
 
-        for i in range(N*M):
-            self.val[i] = N+M
-
-        for i in range(M):
-            self.vis[i] = 0
-
+        self.visited.fill(0)
 
         # Initialize the input matrix, can be design to be any binary matrix
-        # In this example, Matrix[0][1] & Matrix[0][3] will be 0, others will be 1
-        for j in range(N):
-            for i in range(M):
-                self.Matrix[j][i] = 1
-
-        self.Matrix[0][1] = 0
-        self.Matrix[0][3] = 0
+        # In this example, mat[0][1] & mat[0][3] will be 0, others will be 1
+        self.mat.fill(1)
+        self.mat[0][1] = 0
+        self.mat[0][3] = 0
 
     @pk.main
     def run(self):
@@ -43,18 +36,17 @@ class Workload:
 
         # do the bfs
         for i in range(self.N+self.M):
-            pk.parallel_for(self.element, self.check_vis)
+            pk.parallel_for("bfs_bottomup", self.element, self.check_vis)
 
-        # after bfs find maximum value in each row
-        pk.parallel_for("02", self.N, self.findmax)
+        # after bfs, find maximum value in each row
+        pk.parallel_for("bfs_bottomup", self.N, self.findmax)
 
         # find the maximum value of all cell
-        pk.parallel_for("02", self.N, self.extend2D)
-        pk.parallel_for("02", self.N, self.reduce1D)
-
+        pk.parallel_for("bfs_bottomup", self.N, self.extend2D)
+        pk.parallel_for("bfs_bottomup", self.N, self.reduce1D)
 
     @pk.callback
-    def results(self):
+    def results(self):  
         print(f"N({self.N}) M({self.M}) time({self.timer_result}) \n")
         print(f"distance of every cell")
         for i in range(self.element):
@@ -66,7 +58,7 @@ class Workload:
 
 ################################
 # check_vis will operate breadth-first search
-# self.vis[i] will be 1 if self.val[i] = 0 or if self.vis[j] = 1 
+# self.visited[i] will be 1 if self.val[i] = 0 or if self.visited[j] = 1 
 # where j is one of the neighbor of i
 ################################
     @pk.workunit
@@ -77,34 +69,48 @@ class Workload:
 
         flag: int = 0
 
-        if (self.Matrix[var_row][var_col]==0) and (self.vis[i] == 0):
-            self.vis[i] = 1
+        # if the value of the current index is 0, then the distance is 0, 
+        # and the node is marked as visited
+        # otherwise, check whether the neighbors were visited,
+        # if visited, the value of the current index can be decided
+        if self.mat[var_row][var_col]==0 and self.visited[i] == 0:
+            self.visited[i] = 1
             self.val[i] = 0
         else:
+            # check the neighbor on the previous row
             if i>=self.M:
-                if self.vis[i-self.M]==1:
+                if self.visited[i-self.M]==1:
                     flag = 1
                     if min_val > self.val[i-self.M]:
                         min_val = self.val[i-self.M]
+
+            # check the neighbor on the next row
             if i//self.M < (self.N - 1):
-                if self.vis[i+self.M] == 1:
+                if self.visited[i+self.M] == 1:
                     flag = 1
                     if min_val > self.val[i+self.M]:
                         min_val = self.val[i+self.M]
+
+            # check the neighbor on the left
             if i%self.M > 0:
-                if self.vis[i-1] == 1:
+                if self.visited[i-1] == 1:
                     flag = 1
                     if min_val > self.val[i-1]:
                         min_val = self.val[i-1]
+
+            # check the neighbor on the right
             if i%self.M < (self.M-1):
-                if self.vis[i+1] == 1:
+                if self.visited[i+1] == 1:
                     flag = 1
                     if min_val > self.val[i+1]:
                         min_val = self.val[i+1]
+
+        # if there is at least one neighbor visited, the value of 
+        # the current index can be updated and should be marked as visited
         if flag == 1:
             if self.val[i] > min_val:
                 self.val[i] = min_val + 1
-            self.vis[i] = 1
+            self.visited[i] = 1
 
 
 ################################
