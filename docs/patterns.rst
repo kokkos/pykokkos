@@ -26,8 +26,8 @@ following signature:
 * **label** is an optional string value helpful for debugging and
   profiling
 * **policy** specifies the way computations are executed (execution
-  place and number of workunits to run in parallel). In its simplies
-  form, policy is an interger value that specifies a range of
+  place and number of work units to run in parallel). In its simplest
+  form, policy is an integer value that specifies a range of
   values. More details about policies is provided in a separate page
   (:doc:`policies`)
 * **workunit** is the name of the ``@pk.workunit`` function that
@@ -91,8 +91,8 @@ signature:
 * **label** is an optional string value helpful for debugging and
   profiling
 * **policy** specifies the way computations are executed (execution
-  place and number of workunits to run in parallel). In its simplies
-  form, policy is an interger value that specifies a range of
+  place and number of workunits to run in parallel). In its simplest
+  form, policy is an integer value that specifies a range of
   values. More details about policies is provided in a separate page
   (:doc:`policies`)
 * **workunit** is the name of the ``@pk.workunit`` function that
@@ -145,8 +145,8 @@ intermediate results.  The pattern is available as a function in the
 * **label** is an optional string value helpful for debugging and
   profiling
 * **policy** specifies the way computations are executed (execution
-  place and number of workunits to run in parallel). In its simplies
-  form, policy is an interger value that specifies a range of
+  place and number of workunits to run in parallel). In its simplest
+  form, policy is an integer value that specifies a range of
   values. More details about policies is provided in a separate page
   (:doc:`policies`)
 * **workunit** is the name of the ``@pk.workunit`` function that

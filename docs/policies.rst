@@ -3,7 +3,7 @@ Policies
 ========
 
 Policy is the second key concept in PyKokkos (:doc:`concepts`).  Each
-pattern (:doc:`patterns`) accept a policy as an argument. A policy
+pattern (:doc:`patterns`) accepts a policy as an argument. A policy
 specifies the way computation is executed (place and number of units
 of work). In this document, we will use the ``parallel_for`` pattern
 for illustrations, but similar reasoning applies to other patterns.
