@@ -1,5 +1,5 @@
 
-PyKokkos's Documentation
+PyKokkos Documentation
 ========================
 
 PyKokkos is a framework for writing high-performance Python code
@@ -37,10 +37,10 @@ automatically generates language bindings to run the generated code.
 
    Knowing Kokkos is not necessary for using PyKokkos.
 
-On each page of this documentation, we will have a section `Kokkos` to
-discuss similarities between Kokkos and PyKokkos. We believe that the
-`Kokkos` section will be primarily of interest to those already
-familiar with the Kokkos framework.
+On some pages of this documentation, as appropriate, we will have a
+section `Kokkos` to discuss similarities between Kokkos and
+PyKokkos. We believe that the `Kokkos` section will be primarily of
+interest to those already familiar with the Kokkos framework.
 
 .. toctree::
    :maxdepth: 2
@@ -52,6 +52,7 @@ familiar with the Kokkos framework.
    policies
    work-units
    ndarrays
+   examples
 
 ..
     Indices and tables

@@ -2,9 +2,9 @@
 Patterns
 ========
 
-Pattern is the first key concept in PyKokkos (:doc:`concepts`).
-Patterns specify the structure of computation.  There are three key
-patterns available in PyKokkos:
+Pattern is the first key concept (out of three) in PyKokkos
+(:doc:`concepts`).  Patterns specify the structure of computation.
+There are three key patterns available in PyKokkos:
 
 * ``parallel_for``, which is also known as a ``map`` operation in
   other frameworks/languages

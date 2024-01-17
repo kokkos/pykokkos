@@ -2,7 +2,7 @@
 Work Units
 ==========
 
-Work units are the third key concept in PyKokkos
+Work units are the third key concept (out of three) in PyKokkos
 (:doc:`concepts`). PyKokkos work units are specified as one of the
 arguments to patterns (:doc:`patterns`). Each work unit is a Python
 function decorated with ``@pk.workunit``. At the time a pattern is
