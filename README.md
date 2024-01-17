@@ -7,7 +7,7 @@ efficiently on different hardware (CPUs, NVIDIA GPUs, and AMD GPUs)
 with no changes required.
 
 For more information about PyKokkos, see the PyKokkos GitHub pages:
-https://kokkos.github.io/pykokkos
+https://kokkos.github.io/pykokkos/index.html
 
 ## Installation
 
