@@ -1,0 +1,11 @@
+[build-system]
+requires = [
+    "setuptools<60.0.0",
+    "wheel",
+]
+
+[project]
+dependencies = [
+    "numpy>=1.19.5",
+    "pykokkos-base",
+]
