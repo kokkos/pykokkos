@@ -2,7 +2,7 @@
 N-dimensional Arrays
 ====================
 
-Two common types of arguments given to workunits (:doc:`work-units`)
+Two common types of arguments given to workunits (:doc:`workunits`)
 are those of primitive types and n-dimensional arrays. PyKokkos nicely
 interoperates with ``numpy`` and ``cupy`` arrays, as well as
 introduces its own abstraction (``View``) used mostly for research
@@ -18,7 +18,7 @@ Interoperability with NumPy
 ---------------------------
 
 ``numpy`` arrays can be directly passed as arguments to workunits
-(:doc:`work-units`). As any other argument to a workunit, the arrays
+(:doc:`workunits`). As any other argument to a workunit, the arrays
 are passed as keyword arguments when executing a pattern
 (:doc:`patterns`).
 
@@ -60,7 +60,7 @@ Interoperability with CuPy
 --------------------------
 
 ``cupy`` arrays can be directly passed as arguments to workunits
-(:doc:`work-units`). As any other argument to a workunit, the arrays
+(:doc:`workunits`). As any other argument to a workunit, the arrays
 are passed as keyword arguments when executing a pattern
 (:doc:`patterns`).
 
@@ -130,7 +130,7 @@ scalar to all elements of a view.
    
        pk.parallel_for(n, add, v=v, x=1)
 
-Recall (:doc:`work-units`) that type annotations are not required.
+Recall (:doc:`workunits`) that type annotations are not required.
 
 .. toctree::
    :maxdepth: 2

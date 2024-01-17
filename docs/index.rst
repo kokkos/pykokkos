@@ -50,7 +50,7 @@ interest to those already familiar with the Kokkos framework.
    concepts
    patterns
    policies
-   work-units
+   workunits
    ndarrays
    examples
 
