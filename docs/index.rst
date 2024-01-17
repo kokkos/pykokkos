@@ -46,7 +46,7 @@ familiar with the Kokkos framework.
    :maxdepth: 2
    :caption: Contents:
 
-   docker
+   install
    concepts
    patterns
    policies
