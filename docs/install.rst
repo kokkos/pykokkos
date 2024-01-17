@@ -3,9 +3,11 @@ Installation
 ============
 
 We recommend using Docker for running applications and developing (see
-[Developing using Docker](#developing-using-docker)), but detailed
-installation instructions are available (see [Native
-Installation](#native-installation)).
+:ref:`Using Docker<using_docker>`, but detailed installation
+instructions are available (see :ref:`Native
+Installation<native_installation>`).
+
+.. _using_docker:
 
 Using Docker
 ------------
@@ -53,6 +55,8 @@ you are running code that is not part of this repository.
 Two, if your code requires dependencies (e.g., python libraries not
 already included in the image), you would need to install it
 (temporarily) in the container or build your own image.
+
+.. _native_installation:
 
 Native Installation
 -------------------

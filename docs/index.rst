@@ -51,6 +51,7 @@ familiar with the Kokkos framework.
    patterns
    policies
    work-units
+   ndarrays
 
 ..
     Indices and tables
