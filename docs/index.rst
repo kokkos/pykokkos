@@ -46,7 +46,7 @@ interest to those already familiar with the Kokkos framework.
    :maxdepth: 2
    :caption: Contents:
 
-   install
+   installation
    concepts
    patterns
    policies

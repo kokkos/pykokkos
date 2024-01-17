@@ -11,7 +11,8 @@ https://kokkos.github.io/pykokkos
 
 ## Installation
 
-Please follow the instructions at: https://kokkos.github.io/pykokkos
+Please follow the instructions at:
+https://kokkos.github.io/pykokkos/installation.html
 
 ## Citation
 
