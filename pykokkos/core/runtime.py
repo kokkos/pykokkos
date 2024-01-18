@@ -122,9 +122,7 @@ class Runtime:
         :returns: the result of the operation (None for parallel_for)
         """
 
-        execution_space: ExecutionSpace = policy.space.space
-
-        if self.is_debug(execution_space):
+        if self.is_debug(policy.space):
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)

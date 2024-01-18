@@ -56,7 +56,9 @@ class RangePolicy(ExecutionPolicy):
         if isinstance(space, ExecutionSpace):
             if space is ExecutionSpace.Default:
                 space = km.get_default_space()
-            space = km.get_execution_space_instance(space)
+
+            if space is not ExecutionSpace.Debug:
+                space = km.get_execution_space_instance(space)
 
         elif not isinstance(space, ExecutionSpaceInstance):
             raise TypeError(f"Invalid space argument {space}")
