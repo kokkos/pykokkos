@@ -127,9 +127,9 @@ class Workload:
 
 ################################
 # extend2D and reduce1D are for finding the maximum value of all cell
-# in findmax, the maximum value will store in array self.max_arr
+# in findmax, the maximum value will be stored in the array self.max_arr
 # extend2D will extend the 1D array self.max_arr to 2D array self.max_arr2D, where each column has the same value
-# reduce1D will reduce self.max_arr2D to 1D array by finding the maximum value in each row, and store it to self.max_arr
+# reduce1D will reduce self.max_arr2D to the 1D array by finding the maximum value in each row, and store it to self.max_arr
 # Example: 
 # self.max_arr = 
 # [0, 5, 2] 
