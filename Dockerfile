@@ -29,7 +29,7 @@ RUN git clone https://github.com/kokkos/pykokkos-base
 # Install dependencies.
 RUN conda install -c conda-forge --yes mamba
 RUN conda init
-RUN mamba install -c conda-forge --yes --file pykokkos-base/requirements.txt
+RUN mamba install -c conda-forge --yes --file pykokkos-base/requirements.txt python=3.11
 COPY requirements.txt /tmp/requirements.txt
 RUN mamba install -c conda-forge --yes --file /tmp/requirements.txt
 RUN cd pykokkos-base && python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=OFF -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
