@@ -10,13 +10,12 @@ class Workload:
         self.N: int = N
         self.M: int = M
 
-        self.val: pk.View1D[pk.double]       = pk.View([N*M], pk.double)
-        self.visited: pk.View1D[int]         = pk.View([N*M], int)
-        self.mat: pk.View2D[pk.double]       = pk.View([N, M], pk.double)
-        self.max_arr: pk.View1D[pk.double]   = pk.View([N], pk.double)
+        self.val: pk.View1D[pk.double] = pk.View([N*M], pk.double)
+        self.visited: pk.View1D[int] = pk.View([N*M], int)
+        self.mat: pk.View2D[pk.double] = pk.View([N, M], pk.double)
+        self.max_arr: pk.View1D[pk.double] = pk.View([N], pk.double)
         self.max_arr2D: pk.View2D[pk.double] = pk.View([N, N], pk.double)
 
-        self.timer_result: float = 0
         self.element: float = N*M
 
         self.val.fill(N+M)
@@ -31,9 +30,6 @@ class Workload:
 
     @pk.main
     def run(self):
-        timer = pk.Timer()
-        self.timer_result = timer.seconds()
-
         # do the bfs
         for i in range(self.N+self.M):
             pk.parallel_for("bfs_bottomup", self.element, self.check_vis)
@@ -47,8 +43,7 @@ class Workload:
 
     @pk.callback
     def results(self):  
-        print(f"N({self.N}) M({self.M}) time({self.timer_result}) \n")
-        print(f"distance of every cell")
+        print(f"\ndistance of every cell:\n")
         for i in range(self.element):
             print(f"val ({self.val[i]})  ", end="")
             if (i+1)% self.M == 0:
