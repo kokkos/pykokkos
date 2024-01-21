@@ -242,7 +242,7 @@ class Tracer:
             assert isinstance(op.policy, RangePolicy) and policy.begin == op.policy.begin and policy.end == op.policy.end
             assert operation == op.operation == "for"
 
-            names.append(op.name)
+            names.append(op.name if op.name is not None else op.workunit.__name__)
             workunits.append(op.workunit)
             args[f"args_{index}"] = op.args
             dependencies.update(op.dependencies)
