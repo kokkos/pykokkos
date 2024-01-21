@@ -16,6 +16,15 @@ def get_view_access_modes(AST: ast.FunctionDef, view_args: Set[str]) -> Dict[str
     access_modes: Dict[str, AccessMode] = {}
 
     for node in ast.walk(AST):
+        # For now, treat any view passed to a call as a RW access
+        if isinstance(node, ast.Call):
+            for arg in node.args:
+                if not isinstance(arg, ast.Name):
+                    continue
+                if arg.id in view_args:
+                    access_modes[arg.id] = AccessMode.ReadWrite
+            continue
+
         if not isinstance(node, ast.Subscript): # We are only interested in view accesses
             continue
 
