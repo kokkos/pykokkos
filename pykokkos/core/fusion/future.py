@@ -37,7 +37,7 @@ class Future:
         return str(self.value)
 
     def __repr__(self) -> str:
-        return str(f"Future(value={self.value})")
+        return f"Future(value={self.value})"
 
     def flush_trace(self) -> None:
         runtime_singleton.runtime.flush_data(self)
