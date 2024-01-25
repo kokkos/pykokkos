@@ -109,8 +109,9 @@ class StaticTranslator:
         """
 
         for node in ast.walk(classdef):
-            for child in ast.iter_child_nodes(node):
+            for idx, child in enumerate(ast.iter_child_nodes(node)):
                 child.parent = node
+                child.idx_in_parent = idx
 
         return classdef
 
