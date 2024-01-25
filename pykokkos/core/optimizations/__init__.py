@@ -1,0 +1,1 @@
+from .loop_fuse import loop_fuse
