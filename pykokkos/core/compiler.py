@@ -10,6 +10,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core.fusion import fuse_workunits
+from pykokkos.core.optimizations import loop_fuse
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
 from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator
@@ -223,6 +224,8 @@ class Compiler:
         bindings: List[str]
         cast: List[str]
 
+        if "PK_LOOP_FUSE" in os.environ:
+            loop_fuse(entity.AST)
         functor, bindings, cast = translator.translate(entity, classtypes)
 
         t_end: float = time.perf_counter() - t_start
