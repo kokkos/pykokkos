@@ -111,7 +111,10 @@ class StaticTranslator:
         for node in ast.walk(classdef):
             for idx, child in enumerate(ast.iter_child_nodes(node)):
                 child.parent = node
-                child.idx_in_parent = idx
+
+            if hasattr(node, "body") and isinstance(node.body, list):
+                for idx, child in enumerate(node.body):
+                    child.idx_in_parent = idx
 
         return classdef
 
