@@ -1,30 +1,56 @@
 import ast
 from collections import deque
-from dataclasses import dataclass
-from typing import Deque, Dict, List, Tuple
+import re
+from typing import Deque, Dict, List, Set, Tuple
 
 from pykokkos.core.fusion.util import DeclarationsVisitor, VariableRenamer
 from pykokkos.core.translators import StaticTranslator
 
 
-@dataclass
 class LoopInfo:
     """
     Contains info on loops necessary to carry out optimizations
     """
 
-    iterator: ast.Name
-    start: ast.expr
-    stop: ast.expr
-    step: ast.expr
-    for_node: ast.For
-    scope: int
-    parent_scope: int # will be changed as loops are fused
-    parent_node: ast.stmt # will be changed as loops are fused
-    idx_in_parent: int # will be changed as loops are fused
-    original_parent_node: ast.stmt # needed to check if adjacent nodes can be moved
-    original_idx_in_parent: int # needed to check if adjacent nodes can be moved
-    lineno: int
+    def __init__(
+        self,
+        iterator: ast.Name,
+        start: ast.expr,
+        stop: ast.expr,
+        step: ast.expr,
+        for_node: ast.For,
+        scope: int,
+        parent_scope: int, #, will be changed as loops are fused
+        parent_node: ast.stmt, # will be changed as loops are fused
+        idx_in_parent: int, #, will be changed as loops are fused
+        original_parent_node: ast.stmt, # needed to check if adjacent nodes can be moved
+        original_idx_in_parent: int, # needed to check if adjacent nodes can be moved
+        lineno: int #, using this as a unique id to the loop for now
+    ):
+        self.iterator = iterator
+        self.start = start
+        self.stop = stop
+        self.step = step
+        self.for_node = for_node
+        self.scope = scope
+        self.parent_scope = parent_scope
+        self.parent_node = parent_node
+        self.idx_in_parent = idx_in_parent
+        self.original_parent_node = original_parent_node
+        self.original_idx_in_parent = original_idx_in_parent
+        self.lineno = lineno
+
+        start = ast.unparse(self.start)
+        stop = ast.unparse(self.stop)
+        step = ast.unparse(self.step)
+
+        r0 = re.search("fused_(.*)_[0-9]*", start)
+        r1 = re.search("fused_(.*)_[0-9]*", stop)
+        r2 = re.search("fused_(.*)_[0-9]*", step)
+
+        self.start_key: str = r0.group(1) if r0 else start
+        self.stop_key: str = r1.group(1) if r1 else stop
+        self.step_key: str = r2.group(1) if r2 else step
 
     def get_range_key(self) -> Tuple[str, str, str]:
         """
@@ -33,13 +59,13 @@ class LoopInfo:
         :returns: a tuple of start, stop, and end
         """
 
-        return (ast.unparse(self.start), ast.unparse(self.stop), ast.unparse(self.step))
+        return (self.start_key, self.stop_key, self.step_key)
 
     def __repr__(self) -> str:
         return (f"LoopInfo(iterator={ast.unparse(self.iterator)}, "
-                f"start={ast.unparse(self.start)}, "
-                f"stop={ast.unparse(self.stop)}, "
-                f"step={ast.unparse(self.step)}, "
+                f"start={self.start_key}, "
+                f"stop={self.stop_key}, "
+                f"step={self.step_key}, "
                 f"parent_scope={self.parent_scope}, "
                 f"scope={self.scope})")
 
@@ -148,7 +174,7 @@ class LoopFinder(ast.NodeVisitor):
             start, stop, step = self.get_loop_range(range_call)
 
             parent_scope: int = self.get_scope()
-            idx_in_parent_body: int = node.idx_in_parent - 2 # Subtract 2 for iterator and range call
+            idx_in_parent_body: int = node.idx_in_parent
             loop_info = LoopInfo(
                 node.target, start, stop, step, node, self.scope_id, parent_scope,
                 node.parent, idx_in_parent_body, node.parent, idx_in_parent_body, node.lineno)
@@ -207,13 +233,28 @@ def safe_to_move(node: ast.stmt) -> bool:
     """
     Checks if a node is safe to move. Right now, this only checks if
     the nodes between them are variable declarations initialized with
-    a constant, as these could not possibly affect anything else.
+    a constant, or an expression that can be evaluated at
+    compile-time, as these could not possibly affect anything else.
 
     :param node: the node being considered
     :returns: True if the node can be moved
     """
 
-    return isinstance(node, ast.AnnAssign) and isinstance(node.value, (ast.Constant, ast.Name))
+    if not isinstance(node, ast.AnnAssign):
+        return False
+
+    if isinstance(node.value, (ast.Constant, ast.Name)):
+        return True
+
+    value: str = ast.unparse(node.value)
+    eval_success: bool
+    try:
+        eval(value)
+        eval_success = True
+    except:
+        eval_success = False
+
+    return eval_success
 
 
 def can_make_adjacent(current_loop: LoopInfo, next_loop: LoopInfo) -> bool:
@@ -227,9 +268,16 @@ def can_make_adjacent(current_loop: LoopInfo, next_loop: LoopInfo) -> bool:
     :returns: True if the nodes separating them can be moved
     """
 
-    nodes_current: List[ast.stmt] = current_loop.original_parent_node.body[current_loop.original_idx_in_parent + 1:]
-    nodes_next: List[ast.stmt] = next_loop.original_parent_node.body[:next_loop.original_idx_in_parent]
-    nodes_between: List[ast.stmt] = nodes_current + nodes_next
+    current_parent: ast.stmt = current_loop.original_parent_node
+    next_parent: ast.stmt = next_loop.original_parent_node
+
+    nodes_between: List[ast.stmt]
+    if current_parent is next_parent:
+        nodes_between = current_parent.body[current_loop.original_idx_in_parent + 1:next_loop.original_idx_in_parent]
+    else:
+        nodes_current: List[ast.stmt] = current_parent.body[current_loop.original_idx_in_parent + 1:]
+        nodes_next: List[ast.stmt] = next_parent.body[:next_loop.original_idx_in_parent]
+        nodes_between = nodes_current + nodes_next
 
     for node in nodes_between:
         if not safe_to_move(node):
@@ -260,6 +308,7 @@ def make_adjacent(current_loop: LoopInfo, next_loop: LoopInfo) -> None:
 
     # Insert these nodes right before the loop
     current_parent.body[current_idx:current_idx] = between_nodes
+    current_loop.idx_in_parent += len(between_nodes)
 
 
 def group_adjacent_loops(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo]]:
@@ -334,6 +383,129 @@ def fuse_scopes(loop_list: List[LoopInfo], loops_in_scope: Dict[int, List[LoopIn
             loop.idx_in_parent += new_idx_start
             new_idx_start += len(loop.for_node.body)
             loops_in_scope[new_id].append(loop)
+
+
+def get_loop_reads_writes(loop: LoopInfo) -> Tuple[Set[str], Set[str]]:
+    """
+    Given a loop, get all the reads and writes of that loop
+    """
+
+    local_vars: Set[str] = set()
+
+    # This is very inefficient. Should maybe do this in a node
+    # visitor, where nodes will be visited in the right order,
+    # and nodes in AnnAssign will be visited properly
+    for node in ast.walk(loop.for_node):
+        if isinstance(node, ast.AnnAssign):
+            local_vars.add(node.target.id)
+
+    loop_reads: Set[str] = set()
+    loop_writes: Set[str] = set()
+    arrays_seen: Set[str] = set()
+
+    iterator_name: str = loop.iterator.id
+
+    for node in ast.walk(loop.for_node):
+        if isinstance(node, ast.Subscript):
+            arrays_seen.add(node.value.id)
+            array_name: str = node.value.id
+
+            current_node = node
+
+            while isinstance(current_node, ast.Subscript):
+                index = current_node.slice
+                index_name: str
+
+                if isinstance(index, ast.Constant):
+                    index_name = str(index.value)
+                elif isinstance(index, ast.Name):
+                    if index_name in local_vars:
+                        raise RuntimeError("Can't fuse loops with local vars as indices")
+
+                    # Still making a big assumption that differently
+                    # named indices won't have the same value
+                    index_name = index.id
+                else:
+                    raise RuntimeError("Can't analyze deps with complex indices (for now)")
+
+                if index_name == iterator_name:
+                    array_name += f"_pk_it"
+                else:
+                    array_name += f"_{index_name}"
+
+                current_node = current_node.value
+
+        elif isinstance(node, ast.Name):
+            if node.id in local_vars:
+                continue
+
+            if isinstance(node.ctx, ast.Store):
+                loop_writes.add(node.id)
+            elif isinstance(node.ctx, ast.Load):
+                loop_reads.add(node.id)
+            else:
+                raise RuntimeError("Del unsupported")
+
+    return loop_reads, loop_writes
+
+
+def split_negative_dependencies(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo]]:
+    """
+    Split loops that have negative dependencies. According to
+    https://llvm.org/devmtg/2018-10/slides/Barton-LoopFusion.pdf, a
+    negative dependency occurs between L_j and L_k, such that L_j
+    happens before L_k, when at iteration m L_k uses a value that is
+    computed by L_j at a future iteration m + n (where n > 0). Also
+    what if L_j reads from a memory location that L_k is writing to?
+
+    1st: get all writes to variables/arrays in each loop
+    2nd: get all reads to variables/arrays in each loop
+
+    Note that there is no aliasing because pykokkos doesn't really let
+    users take the address of different variables like C++ does.
+
+    """
+
+    for loop_list in loop_sets:
+        if len(loop_list) == 1:
+            continue
+
+        loop_reads: Dict[int, Set[str]] = {}
+        loop_writes: Dict[int, Set[str]] = {}
+
+        for loop in loop_list:
+            reads: Set[str]
+            writes: Set[str]
+            reads, writes = get_loop_reads_writes(loop)
+
+            loop_reads[loop.lineno] = reads
+            loop_writes[loop.lineno] = writes
+
+        # Reverse and pop elements (more efficient for lists)
+        loop_list.sort(key=lambda loop: loop.idx_in_parent, reverse=True)
+        current_list: List[LoopInfo] = [loop_list.pop()]
+
+        while len(loop_list) > 0:
+            current_loop: LoopInfo = current_list[-1]
+            next_loop: LoopInfo = loop_list.pop()
+
+            current_reads: Set[str] = loop_reads[current_loop.lineno]
+            next_reads: Set[str] = loop_reads[next_loop.lineno]
+
+            current_writes: Set[str] = loop_writes[current_loop.lineno]
+            next_writes: Set[str] = loop_writes[next_loop.lineno]
+
+            for current_write in current_writes:
+                for next_write in next_writes:
+                    pass
+                for next_read in next_reads:
+                    pass
+
+            for next_write in next_writes:
+                for current_write in current_writes:
+                    pass
+                for current_read in current_reads:
+                    pass
 
 
 def identify_fusable_loops(loops_in_scope: Dict[int, List[LoopInfo]]) -> List[List[LoopInfo]]:
