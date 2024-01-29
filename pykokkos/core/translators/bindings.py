@@ -232,7 +232,7 @@ def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     :param operation: the type of the operation (for, reduce, scan, or workload)
     :param workunit: the workunit for which the binding is being generated
     :returns: the return type as a string
-    """ 
+    """
 
     acc_decl: Optional[cppast.ParmVarDecl] = None
     if operation == "reduce":
@@ -575,6 +575,22 @@ def bind_main_single(
         if "pk.Acc" in element:
             if "pk.int64" in element:
                 acc_type = "int64_t"
+            elif "pk.int32" in element:
+                acc_type = "int32_t"
+            elif "pk.int16" in element:
+                acc_type = "int16_t"
+            elif "pk.int8" in element:
+                acc_type = "int8_t"
+            elif "pk.uint64" in element:
+                acc_type = "uint64_t"
+            elif "pk.uint32" in element:
+                acc_type = "uint32_t"
+            elif "pk.uint16" in element:
+                acc_type = "uint16_t"
+            elif "pk.uint8" in element:
+                acc_type = "uint8_t"
+            elif "pk.float" in element:
+                acc_type = "float"
             elif "pk.double" in element:
                 acc_type = "double"
 
