@@ -19,6 +19,7 @@ allowed_types: Dict[str, str] = {
     "double": "double",
     "bool": "bool",
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
+    "cpp_auto": "auto"
 }
 
 # Maps from the DataType enum to cppast
