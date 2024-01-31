@@ -73,7 +73,7 @@ def nested_triples_noprint(tid, v): # removing prints in between loops should al
         
         for k in range(3):
             a : int = 2
-            pk.printf("%d\n", a)
+            pk.printf("%d ", a)
    
 
     for j in range(3):
@@ -82,7 +82,7 @@ def nested_triples_noprint(tid, v): # removing prints in between loops should al
 
         for k in range(3):
             a : int = 4
-            pk.printf("%d\n", a)
+            pk.printf("%d ", a)
 
 
     for j in range(3):
@@ -91,7 +91,7 @@ def nested_triples_noprint(tid, v): # removing prints in between loops should al
 
         for k in range(3):
             a : int = 6
-            pk.printf("%d\n", a)
+            pk.printf("%d ", a)
 
 @pk.workunit
 def view_manip_inbetween(tid, v): # I guess manually inspect c++? 
