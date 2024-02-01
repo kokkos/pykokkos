@@ -153,6 +153,13 @@ def nadir_fusable(tid, v):
         for k in range(2):
             pk.printf("print 2 %d\n", k)
 
+@pk.workunit
+def simple_neg_dist(tid, v):
+    x: int = 0
+    for i in range(3):
+        x += 1
+    for i in range(3):
+        v[i] = x
 
 def main():
 
