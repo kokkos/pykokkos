@@ -96,6 +96,7 @@ class ExpressionFinder(ast.NodeVisitor):
         self.scope_stack: List[int] = [self.scope_id]
         self.loops_in_scope: Dict[int, List[LoopInfo]] = {}
         self.memory_ops_in_scope: Dict[int, List[MemoryOpInfo]] = {}
+        self.const_values: Dict[str, Any] = {}
 
     def push_scope(self, id: int) -> None:
         """
@@ -207,7 +208,7 @@ class ExpressionFinder(ast.NodeVisitor):
         
         self.pop_scope()
 
-    def visit_Subscript(self, node: ast.Subscript) -> Any:
+    def visit_Subscript(self, node: ast.Subscript) -> None:
         # Skip Subscript nodes that are type annotations
         if isinstance(node.parent, (ast.arg)):
             return
@@ -235,3 +236,34 @@ class ExpressionFinder(ast.NodeVisitor):
 
         array_name: str = array_node.id
         self.memory_ops_in_scope[parent_scope].append(MemoryOpInfo(array_name, node, indices, node.ctx, parent_stmt))
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if not isinstance(node.target, ast.Name):
+            return
+
+        name: str = node.target.id
+        value: str = ast.unparse(node.value)
+
+        eval_value: Any
+        eval_success: bool
+        try:
+            eval_value = eval(value, self.const_values)
+            eval_success = True
+        except:
+            eval_success = False
+
+        if eval_success:
+            self.const_values[name] = eval_value
+
+        self.visit(node.value)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        if len(node.targets) > 1:
+            return
+        if not isinstance(node.targets[0], ast.Name):
+            return
+
+        if node.targets[0].id in self.const_values:
+            del self.const_values[node.targets[0].id]
+
+        self.visit(node.value)

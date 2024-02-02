@@ -1,7 +1,7 @@
 import ast
 from collections import deque
 import itertools
-from typing import Deque, Dict, List, Tuple
+from typing import Any, Deque, Dict, List, Tuple
 
 from pykokkos.core.translators import StaticTranslator
 
@@ -17,31 +17,58 @@ def partition_by_array(memory_ops: List[MemoryOpInfo]) -> List[List[MemoryOpInfo
     :returns: a list of lists of memory operations per array
     """
 
-    return [list(group) for _, group in itertools.groupby(memory_ops, key=lambda op: (op.array_name, op.index_key))]
+    return [list(group) for _, group in itertools.groupby(memory_ops, key=lambda op: op.array_name)]
 
 
-def partition_by_index(memory_ops: List[List[MemoryOpInfo]]) -> List[List[MemoryOpInfo]]:
+def eval_index(index: Tuple[str, ...], const_values: Dict[str, Any]) -> Tuple[Any, ...]:
+    """
+    Try to evaluate an index according to observed const values
+
+    :param index: the index being evaluated
+    :param const_values: a dictionary mapping from constant variables
+        to their values
+    :returns: a tuple of each evaluated index, with a str if the index
+        cannot be evaluated
+    """
+
+    evaluated: List[Any] = []
+    for i in index:
+        value: Any
+        try:
+            value = eval(i, const_values)
+        except:
+            value = i
+
+        evaluated.append(value)
+
+    return tuple(evaluated)
+
+
+def partition_by_index(memory_ops: List[List[MemoryOpInfo]], const_values: Dict[str, Any]) -> List[List[MemoryOpInfo]]:
     """
     Partition the list of memory operations into sets that access the
     array by the same index
 
     :param memory_ops: a previously partitioned list of lists
         operations
+    :param const_values: a dictionary mapping from constant variables
+        to their values
+    :returns: a list of lists of arrays per unique index
     """
 
     partitioned_ops: List[List[MemoryOpInfo]] = []
     for ops in memory_ops:
         current_ops: Deque[MemoryOpInfo] = deque(ops)
-        indices_list_map: Dict[str, List[MemoryOpInfo]] = {}
+        indices_list_map: Dict[Tuple[Any, ...], List[MemoryOpInfo]] = {}
 
         while len(current_ops) > 0:
             next_op: MemoryOpInfo = current_ops.popleft()
-            index: Tuple[str, ...] = next_op.index_key
+            evaled_index: Tuple[Any, ...] = eval_index(next_op.index_key, const_values)
 
-            if index in indices_list_map:
-                indices_list_map[index].append(next_op)
+            if evaled_index in indices_list_map:
+                indices_list_map[evaled_index].append(next_op)
             else:
-                indices_list_map[index] = [next_op]
+                indices_list_map[evaled_index] = [next_op]
 
         partitioned_ops.extend(list(indices_list_map.values()))
 
@@ -66,7 +93,6 @@ def partition_by_access(memory_ops: List[List[MemoryOpInfo]]) -> List[List[Memor
         same_access: List[MemoryOpInfo] = []
         while len(current_ops) > 0:
             next_op: MemoryOpInfo = current_ops.popleft()
-            print(f"next op is {next_op}")
 
             if isinstance(next_op.context, ast.Load):
                 same_access.append(next_op)
@@ -82,13 +108,15 @@ def partition_by_access(memory_ops: List[List[MemoryOpInfo]]) -> List[List[Memor
     return partitioned_ops
 
 
-def identify_fusable_operations(memory_ops_in_scope: Dict[int, List[MemoryOpInfo]]) -> List[List[MemoryOpInfo]]:
+def identify_fusable_operations(memory_ops_in_scope: Dict[int, List[MemoryOpInfo]], const_values: Dict[str, Any]) -> List[List[MemoryOpInfo]]:
     """
     Partition the list of memory operations into sets that can be
     fused
 
-    :param memory_ops_in_scope: a dictionary mapping from each scope to a list
-        of memory operations
+    :param memory_ops_in_scope: a dictionary mapping from each scope
+        to a list of memory operations
+    :param const_values: a dictionary mapping from constant variables
+        to their values
     :returns: a list of memory operations that can be fused into one
     """
 
@@ -97,35 +125,28 @@ def identify_fusable_operations(memory_ops_in_scope: Dict[int, List[MemoryOpInfo
     for memory_ops in memory_ops_in_scope.values():
         memory_ops.sort(key=lambda op: (op.array_name, op.parent_stmt.idx_in_parent))
 
-        from pprint import pprint
-
         current_ops: List[List[MemoryOpInfo]] = partition_by_array(memory_ops)
-        print("after array partition")
-        pprint(current_ops)
-        current_ops = partition_by_index(current_ops)
-        print("after index partition")
-        pprint(current_ops)
+        current_ops = partition_by_index(current_ops, const_values)
         current_ops = partition_by_access(current_ops)
-        print("after access partition")
-        pprint(current_ops)
         fusable_memory_ops.extend(current_ops)
 
     return fusable_memory_ops
 
 
-def find_memory_ops(AST: ast.FunctionDef) -> Dict[int, List[MemoryOpInfo]]:
+def find_memory_ops(AST: ast.FunctionDef) -> Tuple[Dict[int, List[MemoryOpInfo]], Dict[str, Any]]:
     """
     Find all memory ops in the kernel and gather basic information on
     them.
 
     :param AST: the AST of the workunit
-    :returns: a list of memory operations
+    :returns: a dict of memory operations in each scope and const
+        variables and their values
     """
 
     memory_ops_finder = ExpressionFinder()
     memory_ops_finder.visit(AST)
 
-    return memory_ops_finder.memory_ops_in_scope
+    return memory_ops_finder.memory_ops_in_scope, memory_ops_finder.const_values
 
 
 def generate_fused_load(
@@ -181,12 +202,9 @@ def replace_with_fused_load(memory_ops: List[MemoryOpInfo], fused_name: str) -> 
         fused_node = ast.Name(id=fused_name, ctx=ast.Load())
 
         ref_in_parent = getattr(parent, parent_accessor)
-        print(ast.dump(op.memory_op, indent=4))
-        print(ast.dump(parent, indent=4))
         if isinstance(ref_in_parent, list):
             ref_in_parent[op.memory_op.idx_in_parent] = fused_node
         else:
-            print(f"setting parent {parent} field {parent_accessor} to {fused_name}")
             setattr(parent, parent_accessor, fused_node)
 
 
@@ -249,13 +267,9 @@ def memory_ops_fuse(AST: ast.FunctionDef, pk_import: str) -> None:
     # This information might be out of date following loop fusion
     StaticTranslator.add_parent_refs(AST)
 
-    memory_ops: Dict[int, List[MemoryOpInfo]] = find_memory_ops(AST)
-    from pprint import pprint
-    pprint(f"got memory ops")
-    pprint(memory_ops)
-    fusable_ops: List[List[MemoryOpInfo]] = identify_fusable_operations(memory_ops)
+    memory_ops: Dict[int, List[MemoryOpInfo]]
+    const_values: Dict[str, Any]
+    memory_ops, const_values = find_memory_ops(AST)
+
+    fusable_ops: List[List[MemoryOpInfo]] = identify_fusable_operations(memory_ops, const_values)
     fuse_memory_ops(fusable_ops, pk_import)
-
-    # print(ast.dump(AST, indent=4))
-
-    # print(ast.unparse(AST))
