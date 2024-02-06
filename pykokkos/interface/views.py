@@ -230,7 +230,8 @@ class View(ViewType):
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
-        array: Optional[np.ndarray] = None
+        array: Optional[np.ndarray] = None,
+        cp_array = None
     ):
         """
         View constructor.
@@ -241,9 +242,10 @@ class View(ViewType):
         :param layout: the layout of the view in memory.
         :param trait: the memory trait of the view
         :param array: the numpy array if trait is Unmanaged
+        :param cp_array: the cupy array if trait is Unmanaged
         """
 
-        self._init_view(shape, dtype, space, layout, trait, array)
+        self._init_view(shape, dtype, space, layout, trait, array, cp_array)
 
     def resize(self, dimension: int, size: int) -> None:
         """
@@ -298,7 +300,8 @@ class View(ViewType):
         space: MemorySpace = MemorySpace.MemorySpaceDefault,
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
-        array: Optional[np.ndarray] = None
+        array: Optional[np.ndarray] = None,
+        cp_array = None
     ) -> None:
         """
         Initialize the view
@@ -309,6 +312,7 @@ class View(ViewType):
         :param layout: the layout of the view in memory.
         :param trait: the memory trait of the view
         :param array: the numpy array if trait is Unmanaged
+        :param cp_array: the cupy array if trait is Unmanaged
         """
 
         self.shape: Tuple[int] = tuple(shape)
@@ -353,6 +357,12 @@ class View(ViewType):
                 # invalidate the data. Currently, this happens when
                 # calling asarray()
                 self.orig_array = array
+
+                if cp_array is not None:
+                    self.xp_array = cp_array
+                else:
+                    self.xp_array = array
+                
         else:
             if len(self.shape) == 0:
                 shape = [1]
@@ -610,13 +620,14 @@ class Subview(ViewType):
         hash_value = hash(self.array)
         return hash_value
 
-def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
+def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None, cp_array = None) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
 
     :param array: the numpy array
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
+    :param cp_array: the original cupy array (used by from_array)
     :returns: a PyKokkos View wrapping the array
     """
 
@@ -674,7 +685,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     else:
         ret_list = list((array.shape))
 
-    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout)
+    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout, cp_array=cp_array)
 
 def from_array(array) -> ViewType:
     """
@@ -731,7 +742,7 @@ def from_array(array) -> ViewType:
     elif km.get_gpu_framework() is pk.HIP:
         memory_space = MemorySpace.HIPSpace
 
-    return from_numpy(np_array, memory_space, layout)
+    return from_numpy(np_array, memory_space, layout, array)
 
 def is_array(array) -> bool:
     """
