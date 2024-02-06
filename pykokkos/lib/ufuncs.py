@@ -968,6 +968,15 @@ def subtract_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.Vie
 def subtract_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = viewA[tid] - viewB[tid]
 
+@pk.workunit
+def subtract_impl_2d(team_member, cols, viewA, viewB, viewOut):
+    j: int = team_member.league_rank()
+
+    def row_sub(i: int):
+        viewOut[j][i] = viewA[j][i] - viewB[j][j]
+    
+    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
+
 
 def subtract(viewA, viewB):
     """
@@ -987,25 +996,55 @@ def subtract(viewA, viewB):
            Output view.
 
     """
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for subtract() ufunc.")
+    if len(viewA.shape) > 2 or len(viewB.shape) > 2:
+        raise NotImplementedError("only 1D and 2D views currently supported for subtract() ufunc.")
+
+    assert viewA.shape == viewB.shape, "Both views must have the same dimensions"
     if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
-        out = pk.View([viewA.shape[0]], pk.double)
-        pk.parallel_for(
-            viewA.shape[0],
-            subtract_impl_1d_double,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+
+        if len(viewA.shape) == 1:
+            out = pk.View([viewA.shape[0]], pk.double)
+            pk.parallel_for(
+                viewA.shape[0],
+                subtract_impl_1d_double,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+
+        if len(viewA.shape) == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+            policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
+            pk.parallel_for(
+                policy,
+                subtract_impl_2d,
+                cols=viewA.shape[1],
+                viewA=viewA,
+                viewB=viewB,
+                viewOut=out
+            )
 
     elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            subtract_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+
+        if len(viewA.shape) == 1:
+            out = pk.View([viewA.shape[0]], pk.float)
+            pk.parallel_for(
+                viewA.shape[0],
+                subtract_impl_1d_float,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+
+        if len(viewA.shape) == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+            policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
+            pk.parallel_for(
+                policy,
+                subtract_impl_2d,
+                cols=viewA.shape[1],
+                viewA=viewA,
+                viewB=viewB,
+                viewOut=out
+            )
     else:
         raise RuntimeError("Incompatible Types")
     return out
