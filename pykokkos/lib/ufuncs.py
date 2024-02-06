@@ -1037,7 +1037,7 @@ def broadcast_view(val, viewB):
         return out
 
     # scalar
-
+    #TODO This is very dumb. ALl you need to do is put scalar at every index. Go sleep
     out_1d = pk.View([viewB.shape[1] if len(viewB.shape)==2 else viewB.shape[0]])
     pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
 
