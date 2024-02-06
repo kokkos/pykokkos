@@ -973,7 +973,7 @@ def subtract_impl_2d(team_member, cols, viewA, viewB, viewOut):
     j: int = team_member.league_rank()
 
     def row_sub(i: int):
-        viewOut[j][i] = viewA[j][i] - viewB[j][j]
+        viewOut[j][i] = viewA[j][i] - viewB[j][i]
     
     pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
 
