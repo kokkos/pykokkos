@@ -5,6 +5,7 @@ from inspect import getmembers, isfunction
 import numpy as np
 import pykokkos as pk
 from pykokkos.lib import ufunc_workunits
+from pykokkos.interface import ViewType
 
 kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
@@ -956,6 +957,94 @@ def multiply(viewA, viewB):
             out=out)
     else:
         raise RuntimeError("Incompatible Types")
+    return out
+
+
+def check_broadcastable_impl(viewA, viewB):
+    """
+    Check whether two views are broadcastable as defined here:
+    https://numpy.org/doc/stable/user/basics.broadcasting.html
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+    
+    Returns
+    -------
+    _ : boolean
+           True if both views are compatible.
+    """
+
+    v1_p = len(viewA.shape) -1
+    v2_p = len(viewB.shape) -1
+
+    while v1_p > -1 and v2_p > -1:
+        if viewA.shape[v1_p] != viewB.shape[v2_p]:
+            if viewA.shape[v1_p] != 1 and viewB.shape[v2_p] != 1:
+                return False
+        
+        v1_p -= 1
+        v2_p -= 1
+    
+    return True
+
+@pk.workunit
+def stretch_fill_impl_scalar_into_1d(tid, scalar, viewOut):
+        viewOut[tid] = scalar
+
+@pk.workunit
+def stretch_fill_impl_1d_into_2d(team_member, viewIn, viewOut):
+    tid: int = team_member.league_rank()
+    def row_fill(i: int):
+        viewOut[tid][i] = viewIn[i]
+    pk.parallel_for(pk.TeamThreadRange(team_member, viewIn.extent(1)), row_fill)
+
+
+def broadcast_view(val, viewB):
+    """
+    Broadcasts viewA onto viewB, returns the "stretched" version of viewA
+
+    Parameters
+    ----------
+    val : pykokkos view or Scalar
+            View or scalar to be broadcasted (is shorter and compatible in dimensions).
+    viewB : pykokkos view
+            View to be broadcasted onto (is longer and compatible in dimensions).
+
+    Returns
+    -------
+    out : pykokkos view
+           Broadcasted version of viewA.
+
+    """
+    if len(viewB.shape) > 2:
+        raise NotImplementedError("Broadcasting is only supported upto 2D views")
+
+    is_view = False
+    if isinstance(val, ViewType):
+        is_view = True
+        assert check_broadcastable_impl(val, viewB) and val.shape < viewB.shape, "Incompatible broadcast"
+        assert val.dtype == viewB.dtype, "Broadcastable views must have same dtypes"
+
+    out = pk.View([dim for dim in viewB.shape], viewB.dtype)
+
+    if is_view:
+        policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
+        pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, viewIn=val, viewOut=out)
+        return out
+
+    # scalar
+
+    out_1d = pk.View([viewB.shape[1] if len(viewB.shape)==2 else viewB.shape[0]])
+    pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
+
+    if len(viewB.shape) == 1:
+        return out_1d
+
+    pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, viewIn=out_1d, viewOut=out)
     return out
 
 
