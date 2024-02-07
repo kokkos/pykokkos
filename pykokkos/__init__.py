@@ -62,7 +62,8 @@ from pykokkos.lib.ufuncs import (reciprocal,
                                  round,
                                  trunc,
                                  ceil,
-                                 floor)
+                                 floor,
+                                 broadcast_view)
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import (zeros,
                                  zeros_like,

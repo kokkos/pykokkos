@@ -1009,6 +1009,17 @@ def stretch_fill_impl_1d_into_2d(team_member, cols, viewIn, viewOut):
         viewOut[tid][i] = viewIn[i]
     pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_fill)
 
+@pk.workunit
+def stretch_fill_impl_2d(team_member, inner_its, col_wise, viewIn, viewOut):
+    tid: int = team_member.league_rank()
+    def inner_fill(i: int):
+        if col_wise:
+            viewOut[i][tid] = viewIn[i][0]
+        else:
+            viewOut[tid][i] = viewIn[0][i]
+    pk.parallel_for(pk.TeamThreadRange(team_member, inner_its), inner_fill)
+
+        
 
 def broadcast_view(val, viewB):
     """
@@ -1032,15 +1043,32 @@ def broadcast_view(val, viewB):
 
     is_view = False
     if isinstance(val, ViewType):
-        is_view = True
+        for dim in val.shape:
+            if dim != 1:
+                is_view = True
+        
+        if not is_view:
+            val = val[0] if len(val.shape) == 1 else val[0][0]
+
+    if is_view:
         assert check_broadcastable_impl(val, viewB) and val.shape < viewB.shape, "Incompatible broadcast"
         assert val.dtype == viewB.dtype, "Broadcastable views must have same dtypes"
 
     out = pk.View([dim for dim in viewB.shape], viewB.dtype)
 
     if is_view:
-        policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
-        pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, cols=val.shape[1], viewIn=val, viewOut=out)
+        # if both 2D
+        if len(val.shape) == 2:
+            # figure which orientation is val (row or col)
+            col_wise = 1 if val.shape[1] == 1 else 0
+            inner_its = viewB.shape[0] if col_wise else viewB.shape[1]
+            outer_its = viewB.shape[1] if col_wise else viewB.shape[0]
+            policy = pk.TeamPolicy(outer_its, pk.AUTO)
+            pk.parallel_for(policy, stretch_fill_impl_2d, inner_its=inner_its, col_wise=col_wise, viewIn=val, viewOut=out)
+        else: # 1d to 2D
+            policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
+            pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, cols=viewB.shape[1], viewIn=val, viewOut=out)
+            
         return out
 
     # scalar
@@ -1051,6 +1079,7 @@ def broadcast_view(val, viewB):
         return out_1d
 
     # else 2d
+    policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
     pk.parallel_for(policy, stretch_fill_impl_scalar_into_2d, cols=out.shape[1], scalar=val, viewOut=out)
     return out
 
