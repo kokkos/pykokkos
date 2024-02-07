@@ -1151,9 +1151,9 @@ def subtract(viewA, valB):
         assert check_broadcastable_impl(viewA, valB), "Views must be broadcastable"
 
         # check if size is same otherwise broadcast and fix
-        if len(viewA.shape) < len(valB.shape):
+        if viewA.shape < valB.shape:
             viewA = broadcast_view(viewA, valB)
-        elif len(valB.shape) < len(viewA.shape):
+        elif valB.shape < viewA.shape:
             valB = broadcast_view(valB, viewA)
 
         if viewA.dtype.__name__ == "float64" and valB.dtype.__name__ == "float64":
