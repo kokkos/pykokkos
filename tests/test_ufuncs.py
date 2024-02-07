@@ -462,13 +462,12 @@ def test_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.subtract, np.subtract),
 ])
-@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
-        (pk.double, np.float64),
-        (pk.float, np.float32),
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
 ])
 def test_multi_array_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
                                                 numpy_ufunc,
-                                                pk_dtype,
                                                 numpy_dtype):
     N = 4
     M = 7
@@ -482,6 +481,51 @@ def test_multi_array_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(actual, expected)
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.subtract, np.subtract),
+])
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
+])
+@pytest.mark.parametrize("test_dim", [
+    [4,3,1,1], [4,3,1,3], [4,3,4,1], [4,3,1], [4,3,3], [4,3], [4]
+])
+def test_broadcast_array_exposed_ufuncs_vs_numpy(pk_ufunc,
+                                                numpy_ufunc,
+                                                numpy_dtype,
+                                                test_dim):
+    
+    np1 = None
+    np2 = None
+    rng = default_rng(123)
+    scalar = 3.0
+
+    if len(test_dim) == 4:
+        np1 = rng.random((test_dim[0], test_dim[1])).astype(numpy_dtype)
+        np2 = rng.random((test_dim[2], test_dim[3])).astype(numpy_dtype)
+    elif len(test_dim) == 3:
+        np1 = rng.random((test_dim[0], test_dim[1])).astype(numpy_dtype)
+        np2 = rng.random((test_dim[2])).astype(numpy_dtype)
+    elif len(test_dim) == 2:
+        np1 = rng.random((test_dim[0], test_dim[1])).astype(numpy_dtype)
+        np2 = scalar # 2d with scalar
+    elif len(test_dim) == 1:
+        np1 = rng.random((test_dim[0])).astype(numpy_dtype)
+        np2 = scalar # 1d with scalar
+    else:
+        raise NotImplementedError("Invalid test conditions: Broadcasting operations are only supported uptil 2D")
+
+    assert np1 is not None and np2 is not None, "Invalid test conditions: Are parameters uptil 2D?"
+    
+    expected = numpy_ufunc(np1, np2)
+
+    view1 = pk.array(np1)
+    view2 = pk.array(np2) if isinstance(np2, np.ndarray) else np2
+    actual = pk_ufunc(view1, view2)
+
+    assert_allclose(expected, actual)
 
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
