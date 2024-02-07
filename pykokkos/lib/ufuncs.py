@@ -996,23 +996,23 @@ def stretch_fill_impl_scalar_into_1d(tid, scalar, viewOut):
         viewOut[tid] = scalar
 
 @pk.workunit
-def stretch_fill_impl_scalar_into_2d(team_member, scalar, viewOut):
+def stretch_fill_impl_scalar_into_2d(team_member, cols, scalar, viewOut):
     tid: int = team_member.league_rank()
     def row_fill(i: int):
         viewOut[tid][i] = scalar
-    pk.parallel_for(pk.TeamThreadRange(team_member, viewOut.extent(1)), row_fill)
+    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_fill)
     
 @pk.workunit
-def stretch_fill_impl_1d_into_2d(team_member, viewIn, viewOut):
+def stretch_fill_impl_1d_into_2d(team_member, cols, viewIn, viewOut):
     tid: int = team_member.league_rank()
     def row_fill(i: int):
         viewOut[tid][i] = viewIn[i]
-    pk.parallel_for(pk.TeamThreadRange(team_member, viewIn.extent(1)), row_fill)
+    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_fill)
 
 
 def broadcast_view(val, viewB):
     """
-    Broadcasts viewA onto viewB, returns the "stretched" version of viewA
+    Broadcasts val onto viewB, returns the "stretched" version of viewA
 
     Parameters
     ----------
@@ -1040,7 +1040,7 @@ def broadcast_view(val, viewB):
 
     if is_view:
         policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
-        pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, viewIn=val, viewOut=out)
+        pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, cols=val.shape[1], viewIn=val, viewOut=out)
         return out
 
     # scalar
@@ -1051,14 +1051,13 @@ def broadcast_view(val, viewB):
         return out_1d
 
     # else 2d
-    pk.parallel_for(policy, stretch_fill_impl_scalar_into_2d, scalar=val, viewOut=out)
+    pk.parallel_for(policy, stretch_fill_impl_scalar_into_2d, cols=out.shape[1], scalar=val, viewOut=out)
     return out
 
 
 @pk.workunit
 def subtract_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = viewA[tid] - viewB[tid]
-
 
 @pk.workunit
 def subtract_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
@@ -1073,8 +1072,20 @@ def subtract_impl_2d(team_member, cols, viewA, viewB, viewOut):
     
     pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
 
+@pk.workunit
+def subtract_impl_scalar_1d(tid, viewA, scalar, viewOut):
+    viewOut[tid] = viewA[tid] - scalar
 
-def subtract(viewA, viewB):
+@pk.workunit
+def subtract_impl_scalar_2d(team_member, cols, viewA, scalar, viewOut):
+    j: int = team_member.league_rank()
+
+    def row_sub(i: int):
+        viewOut[j][i] = viewA[j][i] - scalar
+    
+    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
+
+def subtract(viewA, valB):
     """
     Subtracts positionally corresponding elements
     of viewA with elements of viewB
@@ -1083,8 +1094,8 @@ def subtract(viewA, viewB):
     ----------
     viewA : pykokkos view
             Input view.
-    viewB : pykokkos view
-            Input view.
+    valB : pykokkos view or scalar
+            Input view or scalar value.
 
     Returns
     -------
@@ -1092,57 +1103,111 @@ def subtract(viewA, viewB):
            Output view.
 
     """
-    if len(viewA.shape) > 2 or len(viewB.shape) > 2:
+
+    is_scalar = True
+    if isinstance(valB, ViewType):
+        # if this is a single valued view1D or view2D just count that as a scalar
+        for dim in valB.shape:
+            if dim != 1:
+                is_scalar = False
+        
+        if is_scalar:
+            valB = valB[0] if len(valB.shape) == 1 else valB[0][0]
+
+    if len(viewA.shape) > 2 or (not is_scalar and len(valB.shape) > 2):
         raise NotImplementedError("only 1D and 2D views currently supported for subtract() ufunc.")
 
-    assert viewA.shape == viewB.shape, "Both views must have the same dimensions"
-    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
+    if not is_scalar:
 
-        if len(viewA.shape) == 1:
+        assert check_broadcastable_impl(viewA, valB), "Views must be broadcastable"
+
+        # check if size is same otherwise broadcast and fix
+        if len(viewA.shape) < len(valB.shape):
+            viewA = broadcast_view(viewA, valB)
+        elif len(valB.shape) < len(viewA.shape):
+            valB = broadcast_view(valB, viewA)
+
+        if viewA.dtype.__name__ == "float64" and valB.dtype.__name__ == "float64":
+
+            if len(viewA.shape) == 1:
+                out = pk.View([viewA.shape[0]], pk.double)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_1d_double,
+                    viewA=viewA,
+                    viewB=valB,
+                    out=out)
+
+            if len(viewA.shape) == 2:
+                out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+                policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
+                pk.parallel_for(
+                    policy,
+                    subtract_impl_2d,
+                    cols=viewA.shape[1],
+                    viewA=viewA,
+                    viewB=valB,
+                    viewOut=out)
+
+        elif viewA.dtype.__name__ == "float32" and valB.dtype.__name__ == "float32":
+
+            if len(viewA.shape) == 1:
+                out = pk.View([viewA.shape[0]], pk.float)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_1d_float,
+                    viewA=viewA,
+                    viewB=valB,
+                    out=out)
+
+            if len(viewA.shape) == 2:
+                out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+                policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
+                pk.parallel_for(
+                    policy,
+                    subtract_impl_2d,
+                    cols=viewA.shape[1],
+                    viewA=viewA,
+                    viewB=valB,
+                    viewOut=out)
+        else:
+            raise RuntimeError("Incompatible Types")
+        
+        return out
+    
+
+    # is scalar subtract -----------------------
+    if len(viewA.shape) == 1: # 1D
+        out = None
+        if viewA.dtype.__name__ == "float64":
             out = pk.View([viewA.shape[0]], pk.double)
-            pk.parallel_for(
-                viewA.shape[0],
-                subtract_impl_1d_double,
-                viewA=viewA,
-                viewB=viewB,
-                out=out)
-
-        if len(viewA.shape) == 2:
-            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
-            policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
-            pk.parallel_for(
-                policy,
-                subtract_impl_2d,
-                cols=viewA.shape[1],
-                viewA=viewA,
-                viewB=viewB,
-                viewOut=out
-            )
-
-    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
-
-        if len(viewA.shape) == 1:
+        if viewA.dtype.__name__ == "float32":
             out = pk.View([viewA.shape[0]], pk.float)
-            pk.parallel_for(
-                viewA.shape[0],
-                subtract_impl_1d_float,
-                viewA=viewA,
-                viewB=viewB,
-                out=out)
+        
+        if out is None: raise RuntimeError("Incompatible Types")
 
-        if len(viewA.shape) == 2:
+        pk.parallel_for(viewA.shape[0], 
+                        subtract_impl_scalar_1d, 
+                        viewA=viewA, 
+                        scalar=valB, 
+                        viewOut=out)
+    
+    if len(viewA.shape) == 2: # 2D
+        out = None
+        if viewA.dtype.__name__ == "float64":
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+        if viewA.dtype.__name__ == "float32":
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
-            policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
-            pk.parallel_for(
-                policy,
-                subtract_impl_2d,
-                cols=viewA.shape[1],
-                viewA=viewA,
-                viewB=viewB,
-                viewOut=out
-            )
-    else:
-        raise RuntimeError("Incompatible Types")
+        
+        if out is None: raise RuntimeError("Incompatible Types")
+        policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
+        pk.parallel_for(policy, 
+                        subtract_impl_scalar_2d, 
+                        cols=viewA.shape[1], 
+                        viewA=viewA, 
+                        scalar=valB, 
+                        viewOut=out)
+
     return out
 
 
