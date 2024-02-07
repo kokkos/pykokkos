@@ -996,6 +996,13 @@ def stretch_fill_impl_scalar_into_1d(tid, scalar, viewOut):
         viewOut[tid] = scalar
 
 @pk.workunit
+def stretch_fill_impl_scalar_into_2d(team_member, scalar, viewOut):
+    tid: int = team_member.league_rank()
+    def row_fill(i: int):
+        viewOut[tid][i] = scalar
+    pk.parallel_for(pk.TeamThreadRange(team_member, viewOut.extent(1)), row_fill)
+    
+@pk.workunit
 def stretch_fill_impl_1d_into_2d(team_member, viewIn, viewOut):
     tid: int = team_member.league_rank()
     def row_fill(i: int):
@@ -1037,14 +1044,14 @@ def broadcast_view(val, viewB):
         return out
 
     # scalar
-    #TODO This is very dumb. ALl you need to do is put scalar at every index. Go sleep
-    out_1d = pk.View([viewB.shape[1] if len(viewB.shape)==2 else viewB.shape[0]])
-    pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
 
     if len(viewB.shape) == 1:
+        out_1d = pk.View([viewB.shape[1] if len(viewB.shape)==2 else viewB.shape[0]])
+        pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
         return out_1d
 
-    pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, viewIn=out_1d, viewOut=out)
+    # else 2d
+    pk.parallel_for(policy, stretch_fill_impl_scalar_into_2d, scalar=val, viewOut=out)
     return out
 
 
