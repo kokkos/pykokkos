@@ -1059,7 +1059,7 @@ def broadcast_view(val, viewB):
         if not val.dtype == viewB.dtype: 
             raise ValueError("Broadcastable views must have same dtypes")
 
-    out = pk.View([dim for dim in viewB.shape], viewB.dtype)
+    out = pk.View(viewB.shape, viewB.dtype)
 
     if is_view:
         # if both 2D
@@ -1079,7 +1079,7 @@ def broadcast_view(val, viewB):
     # scalar
 
     if len(viewB.shape) == 1:
-        out_1d = pk.View([viewB.shape[1] if len(viewB.shape)==2 else viewB.shape[0]])
+        out_1d = pk.View(viewB.shape)
         pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
         return out_1d
 
@@ -1165,7 +1165,7 @@ def subtract(viewA, valB):
         if viewA.dtype.__name__ == "float64" and valB.dtype.__name__ == "float64":
 
             if len(viewA.shape) == 1:
-                out = pk.View([viewA.shape[0]], pk.double)
+                out = pk.View(viewA.shape, pk.double)
                 pk.parallel_for(
                     viewA.shape[0],
                     subtract_impl_1d_double,
@@ -1187,7 +1187,7 @@ def subtract(viewA, valB):
         elif viewA.dtype.__name__ == "float32" and valB.dtype.__name__ == "float32":
 
             if len(viewA.shape) == 1:
-                out = pk.View([viewA.shape[0]], pk.float)
+                out = pk.View(viewA.shape, pk.float)
                 pk.parallel_for(
                     viewA.shape[0],
                     subtract_impl_1d_float,
@@ -1215,9 +1215,9 @@ def subtract(viewA, valB):
     if len(viewA.shape) == 1: # 1D
         out = None
         if viewA.dtype.__name__ == "float64":
-            out = pk.View([viewA.shape[0]], pk.double)
+            out = pk.View(viewA.shape, pk.double)
         if viewA.dtype.__name__ == "float32":
-            out = pk.View([viewA.shape[0]], pk.float)
+            out = pk.View(viewA.shape, pk.float)
         
         if out is None: raise RuntimeError("Incompatible Types")
 
