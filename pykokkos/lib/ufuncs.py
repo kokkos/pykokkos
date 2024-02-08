@@ -999,28 +999,22 @@ def stretch_fill_impl_scalar_into_1d(tid, scalar, viewOut):
         viewOut[tid] = scalar
 
 @pk.workunit
-def stretch_fill_impl_scalar_into_2d(team_member, cols, scalar, viewOut):
-    tid: int = team_member.league_rank()
-    def row_fill(i: int):
+def stretch_fill_impl_scalar_into_2d(tid, cols, scalar, viewOut):
+    for i in range(cols):
         viewOut[tid][i] = scalar
-    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_fill)
     
 @pk.workunit
-def stretch_fill_impl_1d_into_2d(team_member, cols, viewIn, viewOut):
-    tid: int = team_member.league_rank()
-    def row_fill(i: int):
+def stretch_fill_impl_1d_into_2d(tid, cols, viewIn, viewOut):
+    for i in range(cols):
         viewOut[tid][i] = viewIn[i]
-    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_fill)
 
 @pk.workunit
-def stretch_fill_impl_2d(team_member, inner_its, col_wise, viewIn, viewOut):
-    tid: int = team_member.league_rank()
-    def inner_fill(i: int):
+def stretch_fill_impl_2d(tid, inner_its, col_wise, viewIn, viewOut):
+    for i in range(inner_its):
         if col_wise:
             viewOut[i][tid] = viewIn[i][0]
         else:
             viewOut[tid][i] = viewIn[0][i]
-    pk.parallel_for(pk.TeamThreadRange(team_member, inner_its), inner_fill)
 
         
 
@@ -1068,11 +1062,9 @@ def broadcast_view(val, viewB):
             col_wise = 1 if val.shape[1] == 1 else 0
             inner_its = viewB.shape[0] if col_wise else viewB.shape[1]
             outer_its = viewB.shape[1] if col_wise else viewB.shape[0]
-            policy = pk.TeamPolicy(outer_its, pk.AUTO)
-            pk.parallel_for(policy, stretch_fill_impl_2d, inner_its=inner_its, col_wise=col_wise, viewIn=val, viewOut=out)
+            pk.parallel_for(outer_its, stretch_fill_impl_2d, inner_its=inner_its, col_wise=col_wise, viewIn=val, viewOut=out)
         else: # 1d to 2D
-            policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
-            pk.parallel_for(policy, stretch_fill_impl_1d_into_2d, cols=viewB.shape[1], viewIn=val, viewOut=out)
+            pk.parallel_for(out.shape[0], stretch_fill_impl_1d_into_2d, cols=viewB.shape[1], viewIn=val, viewOut=out)
             
         return out
 
@@ -1084,8 +1076,7 @@ def broadcast_view(val, viewB):
         return out_1d
 
     # else 2d
-    policy = pk.TeamPolicy(out.shape[0], pk.AUTO)
-    pk.parallel_for(policy, stretch_fill_impl_scalar_into_2d, cols=out.shape[1], scalar=val, viewOut=out)
+    pk.parallel_for(out.shape[0], stretch_fill_impl_scalar_into_2d, cols=out.shape[1], scalar=val, viewOut=out)
     return out
 
 
@@ -1098,26 +1089,19 @@ def subtract_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1
     out[tid] = viewA[tid] - viewB[tid]
 
 @pk.workunit
-def subtract_impl_2d(team_member, cols, viewA, viewB, viewOut):
-    j: int = team_member.league_rank()
-
-    def row_sub(i: int):
-        viewOut[j][i] = viewA[j][i] - viewB[j][i]
-    
-    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
+def subtract_impl_2d(tid, cols, viewA, viewB, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = viewA[tid][i] - viewB[tid][i]
 
 @pk.workunit
 def subtract_impl_scalar_1d(tid, viewA, scalar, viewOut):
     viewOut[tid] = viewA[tid] - scalar
 
 @pk.workunit
-def subtract_impl_scalar_2d(team_member, cols, viewA, scalar, viewOut):
-    j: int = team_member.league_rank()
-
-    def row_sub(i: int):
-        viewOut[j][i] = viewA[j][i] - scalar
+def subtract_impl_scalar_2d(tid, cols, viewA, scalar, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = viewA[tid][i] - scalar
     
-    pk.parallel_for(pk.TeamThreadRange(team_member, cols), row_sub)
 
 def subtract(viewA, valB):
     """
@@ -1175,9 +1159,8 @@ def subtract(viewA, valB):
 
             if len(viewA.shape) == 2:
                 out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
-                policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
                 pk.parallel_for(
-                    policy,
+                    viewA.shape[0],
                     subtract_impl_2d,
                     cols=viewA.shape[1],
                     viewA=viewA,
@@ -1197,9 +1180,8 @@ def subtract(viewA, valB):
 
             if len(viewA.shape) == 2:
                 out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
-                policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
                 pk.parallel_for(
-                    policy,
+                    viewA.shape[0],
                     subtract_impl_2d,
                     cols=viewA.shape[1],
                     viewA=viewA,
@@ -1235,8 +1217,7 @@ def subtract(viewA, valB):
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
         
         if out is None: raise RuntimeError("Incompatible Types")
-        policy = pk.TeamPolicy(viewA.shape[0], pk.AUTO)
-        pk.parallel_for(policy, 
+        pk.parallel_for(viewA.shape[0], 
                         subtract_impl_scalar_2d, 
                         cols=viewA.shape[1], 
                         viewA=viewA, 
