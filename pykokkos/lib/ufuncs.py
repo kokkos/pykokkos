@@ -1054,7 +1054,7 @@ def broadcast_view(val, viewB):
             val = val[0] if len(val.shape) == 1 else val[0][0]
 
     if is_view:
-        if not check_broadcastable_impl(val, viewB) and val.shape < viewB.shape:
+        if not check_broadcastable_impl(val, viewB) or not val.shape < viewB.shape:
             raise ValueError("Incompatible broadcast")
         if not val.dtype == viewB.dtype: 
             raise ValueError("Broadcastable views must have same dtypes")
