@@ -1051,8 +1051,10 @@ def broadcast_view(val, viewB):
             val = val[0] if len(val.shape) == 1 else val[0][0]
 
     if is_view:
-        assert check_broadcastable_impl(val, viewB) and val.shape < viewB.shape, "Incompatible broadcast"
-        assert val.dtype == viewB.dtype, "Broadcastable views must have same dtypes"
+        if not check_broadcastable_impl(val, viewB) and val.shape < viewB.shape:
+            raise ValueError("Incompatible broadcast")
+        if not val.dtype == viewB.dtype: 
+            raise ValueError("Broadcastable views must have same dtypes")
 
     out = pk.View([dim for dim in viewB.shape], viewB.dtype)
 
@@ -1148,7 +1150,8 @@ def subtract(viewA, valB):
 
     if not is_scalar:
 
-        assert check_broadcastable_impl(viewA, valB), "Views must be broadcastable"
+        if not check_broadcastable_impl(viewA, valB):
+            raise ValueError("Views must be broadcastable")
 
         # check if size is same otherwise broadcast and fix
         if viewA.shape < valB.shape:
