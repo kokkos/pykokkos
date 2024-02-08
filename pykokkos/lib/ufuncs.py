@@ -1153,7 +1153,7 @@ def subtract(viewA, valB):
 
     if not is_scalar:
 
-        if not check_broadcastable_impl(viewA, valB):
+        if viewA.shape != valB.shape and not check_broadcastable_impl(viewA, valB): # if shape is not same check compatibility
             raise ValueError("Views must be broadcastable")
 
         # check if size is same otherwise broadcast and fix
