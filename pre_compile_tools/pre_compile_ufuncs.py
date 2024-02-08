@@ -55,6 +55,9 @@ def main():
                     func_obj(v, v)
                 except (NotImplementedError, KeyError):
                     pass
+                except ValueError:
+                    if "broadcast" in func[0]:
+                        pass
                 except TypeError:
                     try:
                         func_obj(v)
