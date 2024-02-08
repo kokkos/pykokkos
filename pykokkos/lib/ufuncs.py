@@ -978,6 +978,9 @@ def check_broadcastable_impl(viewA, viewB):
            True if both views are compatible.
     """
 
+    if viewA.shape == viewB.shape:
+        return False # cannot broadcast same dims
+
     v1_p = len(viewA.shape) -1
     v2_p = len(viewB.shape) -1
 
@@ -1060,7 +1063,7 @@ def broadcast_view(val, viewB):
 
     if is_view:
         # if both 2D
-        if len(val.shape) == 2:
+        if len(val.shape) == 2: #viewB must be 2 because of the val.shape < viewB.shape check
             # figure which orientation is val (row or col)
             col_wise = 1 if val.shape[1] == 1 else 0
             inner_its = viewB.shape[0] if col_wise else viewB.shape[1]
