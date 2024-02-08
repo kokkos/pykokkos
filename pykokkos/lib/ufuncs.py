@@ -5,6 +5,7 @@ from inspect import getmembers, isfunction
 import numpy as np
 import pykokkos as pk
 from pykokkos.lib import ufunc_workunits
+from pykokkos.interface import ViewType
 
 kernel_dict = dict(getmembers(ufunc_workunits, isfunction))
 
@@ -959,17 +960,150 @@ def multiply(viewA, viewB):
     return out
 
 
+def check_broadcastable_impl(viewA, viewB):
+    """
+    Check whether two views are broadcastable as defined here:
+    https://numpy.org/doc/stable/user/basics.broadcasting.html
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+    
+    Returns
+    -------
+    _ : boolean
+           True if both views are compatible.
+    """
+
+    if viewA.shape == viewB.shape:
+        return False # cannot broadcast same dims
+
+    v1_p = len(viewA.shape) -1
+    v2_p = len(viewB.shape) -1
+
+    while v1_p > -1 and v2_p > -1:
+        if viewA.shape[v1_p] != viewB.shape[v2_p]:
+            if viewA.shape[v1_p] != 1 and viewB.shape[v2_p] != 1:
+                return False
+        
+        v1_p -= 1
+        v2_p -= 1
+    
+    return True
+
+@pk.workunit
+def stretch_fill_impl_scalar_into_1d(tid, scalar, viewOut):
+        viewOut[tid] = scalar
+
+@pk.workunit
+def stretch_fill_impl_scalar_into_2d(tid, cols, scalar, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = scalar
+    
+@pk.workunit
+def stretch_fill_impl_1d_into_2d(tid, cols, viewIn, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = viewIn[i]
+
+@pk.workunit
+def stretch_fill_impl_2d(tid, inner_its, col_wise, viewIn, viewOut):
+    for i in range(inner_its):
+        if col_wise:
+            viewOut[i][tid] = viewIn[i][0]
+        else:
+            viewOut[tid][i] = viewIn[0][i]
+
+        
+
+def broadcast_view(val, viewB):
+    """
+    Broadcasts val onto viewB, returns the "stretched" version of viewA
+
+    Parameters
+    ----------
+    val : pykokkos view or Scalar
+            View or scalar to be broadcasted (is shorter and compatible in dimensions).
+    viewB : pykokkos view
+            View to be broadcasted onto (is longer and compatible in dimensions).
+
+    Returns
+    -------
+    out : pykokkos view
+           Broadcasted version of viewA.
+
+    """
+    if len(viewB.shape) > 2:
+        raise NotImplementedError("Broadcasting is only supported upto 2D views")
+
+    is_view = False
+    if isinstance(val, ViewType):
+        for dim in val.shape:
+            if dim != 1:
+                is_view = True
+        
+        if not is_view:
+            val = val[0] if len(val.shape) == 1 else val[0][0]
+
+    if is_view:
+        if not check_broadcastable_impl(val, viewB) or not val.shape < viewB.shape:
+            raise ValueError("Incompatible broadcast")
+        if not val.dtype == viewB.dtype: 
+            raise ValueError("Broadcastable views must have same dtypes")
+
+    out = pk.View(viewB.shape, viewB.dtype)
+
+    if is_view:
+        # if both 2D
+        if len(val.shape) == 2: #viewB must be 2 because of the val.shape < viewB.shape check
+            # figure which orientation is val (row or col)
+            col_wise = 1 if val.shape[1] == 1 else 0
+            inner_its = viewB.shape[0] if col_wise else viewB.shape[1]
+            outer_its = viewB.shape[1] if col_wise else viewB.shape[0]
+            pk.parallel_for(outer_its, stretch_fill_impl_2d, inner_its=inner_its, col_wise=col_wise, viewIn=val, viewOut=out)
+        else: # 1d to 2D
+            pk.parallel_for(out.shape[0], stretch_fill_impl_1d_into_2d, cols=viewB.shape[1], viewIn=val, viewOut=out)
+            
+        return out
+
+    # scalar
+
+    if len(viewB.shape) == 1:
+        out_1d = pk.View(viewB.shape)
+        pk.parallel_for(viewB.shape[0], stretch_fill_impl_scalar_into_1d, scalar=val, viewOut=out_1d)
+        return out_1d
+
+    # else 2d
+    pk.parallel_for(out.shape[0], stretch_fill_impl_scalar_into_2d, cols=out.shape[1], scalar=val, viewOut=out)
+    return out
+
+
 @pk.workunit
 def subtract_impl_1d_double(tid: int, viewA: pk.View1D[pk.double], viewB: pk.View1D[pk.double], out: pk.View1D[pk.double]):
     out[tid] = viewA[tid] - viewB[tid]
-
 
 @pk.workunit
 def subtract_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = viewA[tid] - viewB[tid]
 
+@pk.workunit
+def subtract_impl_2d(tid, cols, viewA, viewB, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = viewA[tid][i] - viewB[tid][i]
 
-def subtract(viewA, viewB):
+@pk.workunit
+def subtract_impl_scalar_1d(tid, viewA, scalar, viewOut):
+    viewOut[tid] = viewA[tid] - scalar
+
+@pk.workunit
+def subtract_impl_scalar_2d(tid, cols, viewA, scalar, viewOut):
+    for i in range(cols):
+        viewOut[tid][i] = viewA[tid][i] - scalar
+    
+
+def subtract(viewA, valB):
     """
     Subtracts positionally corresponding elements
     of viewA with elements of viewB
@@ -978,8 +1112,8 @@ def subtract(viewA, viewB):
     ----------
     viewA : pykokkos view
             Input view.
-    viewB : pykokkos view
-            Input view.
+    valB : pykokkos view or scalar
+            Input view or scalar value.
 
     Returns
     -------
@@ -987,27 +1121,109 @@ def subtract(viewA, viewB):
            Output view.
 
     """
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for subtract() ufunc.")
-    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
-        out = pk.View([viewA.shape[0]], pk.double)
-        pk.parallel_for(
-            viewA.shape[0],
-            subtract_impl_1d_double,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
 
-    elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            subtract_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
-    else:
-        raise RuntimeError("Incompatible Types")
+    is_scalar = True
+    if isinstance(valB, ViewType):
+        # if this is a single valued view1D or view2D just count that as a scalar
+        for dim in valB.shape:
+            if dim != 1:
+                is_scalar = False
+        
+        if is_scalar:
+            valB = valB[0] if len(valB.shape) == 1 else valB[0][0]
+
+    if len(viewA.shape) > 2 or (not is_scalar and len(valB.shape) > 2):
+        raise NotImplementedError("only 1D and 2D views currently supported for subtract() ufunc.")
+
+    if not is_scalar:
+
+        if viewA.shape != valB.shape and not check_broadcastable_impl(viewA, valB): # if shape is not same check compatibility
+            raise ValueError("Views must be broadcastable")
+
+        # check if size is same otherwise broadcast and fix
+        if viewA.shape < valB.shape:
+            viewA = broadcast_view(viewA, valB)
+        elif valB.shape < viewA.shape:
+            valB = broadcast_view(valB, viewA)
+
+        if viewA.dtype.__name__ == "float64" and valB.dtype.__name__ == "float64":
+
+            if len(viewA.shape) == 1:
+                out = pk.View(viewA.shape, pk.double)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_1d_double,
+                    viewA=viewA,
+                    viewB=valB,
+                    out=out)
+
+            if len(viewA.shape) == 2:
+                out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_2d,
+                    cols=viewA.shape[1],
+                    viewA=viewA,
+                    viewB=valB,
+                    viewOut=out)
+
+        elif viewA.dtype.__name__ == "float32" and valB.dtype.__name__ == "float32":
+
+            if len(viewA.shape) == 1:
+                out = pk.View(viewA.shape, pk.float)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_1d_float,
+                    viewA=viewA,
+                    viewB=valB,
+                    out=out)
+
+            if len(viewA.shape) == 2:
+                out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+                pk.parallel_for(
+                    viewA.shape[0],
+                    subtract_impl_2d,
+                    cols=viewA.shape[1],
+                    viewA=viewA,
+                    viewB=valB,
+                    viewOut=out)
+        else:
+            raise RuntimeError("Incompatible Types")
+        
+        return out
+    
+
+    # is scalar subtract -----------------------
+    if len(viewA.shape) == 1: # 1D
+        out = None
+        if viewA.dtype.__name__ == "float64":
+            out = pk.View(viewA.shape, pk.double)
+        if viewA.dtype.__name__ == "float32":
+            out = pk.View(viewA.shape, pk.float)
+        
+        if out is None: raise RuntimeError("Incompatible Types")
+
+        pk.parallel_for(viewA.shape[0], 
+                        subtract_impl_scalar_1d, 
+                        viewA=viewA, 
+                        scalar=valB, 
+                        viewOut=out)
+    
+    if len(viewA.shape) == 2: # 2D
+        out = None
+        if viewA.dtype.__name__ == "float64":
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+        if viewA.dtype.__name__ == "float32":
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+        
+        if out is None: raise RuntimeError("Incompatible Types")
+        pk.parallel_for(viewA.shape[0], 
+                        subtract_impl_scalar_2d, 
+                        cols=viewA.shape[1], 
+                        viewA=viewA, 
+                        scalar=valB, 
+                        viewOut=out)
+
     return out
 
 

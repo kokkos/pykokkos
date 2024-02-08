@@ -27,7 +27,7 @@ def main():
     # level kernels/workunits directly
     filtered_function_list = []
     for f in function_list:
-        if not "impl" in f[0] and not f[0].startswith("_"):
+        if not "impl" in f[0] and not f[0].startswith("_") and "broadcast_view" not in f[0]:
             filtered_function_list.append(f)
     # TODO: expand types and view dimensions for
     # ufunc pre-compilation as the support
