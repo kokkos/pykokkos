@@ -129,6 +129,10 @@ class Tracer:
         version: int = self.data_version.get(id(data), 0)
         dependency = DataDependency(None, id(data), version)
 
+        if dependency not in self.data_operation:
+            # The data does not depend on any prior operation
+            return []
+
         operation: TracerOperation = self.data_operation[dependency]
         if operation not in self.operations:
             # This means that the dependency was already updated
