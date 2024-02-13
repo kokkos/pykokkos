@@ -117,6 +117,8 @@ class StaticTranslator:
                     child.parent_accessor = field_name
                 elif isinstance(child, list):
                     for idx, grand_child in enumerate(child):
+                        if isinstance(grand_child, str):
+                            continue
                         grand_child.parent_accessor = field_name
                         grand_child.idx_in_parent = idx
 
