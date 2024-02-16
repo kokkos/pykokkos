@@ -32,6 +32,10 @@ class Future:
         self.flush_trace()
         return self.value / other
 
+    def __rtruediv__(self, other):
+        self.flush_trace()
+        return other / self.value
+
     def __floordiv__(self, other):
         self.flush_trace()
         return self.value // other
@@ -39,6 +43,21 @@ class Future:
     def __str__(self):
         self.flush_trace()
         return str(self.value)
+
+    def __eq__(self, other):
+        self.flush_trace()
+        if isinstance(other, Future):
+            return self.value == other.value
+
+        return self.value == other
+
+    def __lt__(self, other):
+        self.flush_trace()
+        return self.value < other
+
+    def __gt__(self, other):
+        self.flush_trace()
+        return self.value > other
 
     def __repr__(self) -> str:
         return f"Future(value={self.value})"
