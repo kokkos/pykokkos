@@ -172,9 +172,12 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         # Visit all tid args, could be more than one for MDRangePolicies.
         # Stop when the accumulator is reached or there are no more tid args.
-        for a in args:
+
+        acc_arg_index = 0
+        for i, a in enumerate(args):
             is_acc: bool = isinstance(a.annotation, ast.Subscript)
             if is_acc:
+                acc_arg_index = i
                 break
 
             arg_name = cppast.DeclRefExpr(a.arg)
@@ -188,10 +191,10 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         operation: str = self.get_operation_type(node.parent)
         if operation == "scan":
-            last_arg: ast.arg = args[2]
-            acc_arg = args[1]
+            last_arg: ast.arg = args[acc_arg_index + 1]
+            acc_arg = args[acc_arg_index]
         if operation == "reduce":
-            acc_arg = args[1]
+            acc_arg = args[acc_arg_index]
 
         if operation in ("scan", "reduce"):
             acc: cppast.ParmVarDecl = self.visit_arg(acc_arg)
