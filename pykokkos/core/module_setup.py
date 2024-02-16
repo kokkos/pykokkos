@@ -163,9 +163,17 @@ class ModuleSetup:
 
         entity_dir: str = ""
 
-        for m in metadata:
+        for m in metadata[:5]:
             filename: str = m.path.split("/")[-1].split(".")[0]
             entity_dir += f"{filename}_{m.name}"
+
+        remaining: str = ""
+        for m in metadata[5:]:
+            filename: str = m.path.split("/")[-1].split(".")[0]
+            remaining += f"{filename}_{m.name}"
+
+        if remaining != "":
+            entity_dir += hashlib.md5(("".join(remaining)).encode()).hexdigest()
 
         return self.get_main_dir(main) / Path(entity_dir)
 
