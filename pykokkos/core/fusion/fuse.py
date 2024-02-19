@@ -52,19 +52,27 @@ class VariableRenamer(ast.NodeTransformer):
 
 def fuse_workunit_kwargs_and_params(
     workunit_trees: List[ast.AST],
-    kwargs: Dict[str, Any]
+    kwargs: Dict[str, Any],
+    operation: str
 ) -> Tuple[Dict[str, Any], List[ast.arg]]:
     """
     Fuse the parameters and runtime arguments of a list of workunits and rename them as necessary
 
     :param workunits_trees: the list of workunit trees (ASTs) being merged
     :param kwargs: the keyword arguments passed to the call
+    :param operation: they type of parallel operation ("parallel_for", "parallel_reduce", or "parallel_scan")
     :returns: a tuple of the fused kwargs and the combined inspected parameters
     """
+
+    if operation == "parallel_scan":
+        raise RuntimeError("parallel_scan not supported for fusion")
 
     fused_kwargs: Dict[str, Any] = {}
     fused_params: List[ast.arg] = []
     fused_params.append(ast.arg(arg="fused_tid", annotation=int))
+
+    if operation == "parallel_reduce":
+        fused_params.append(ast.arg(arg="pk_fused_acc"))
 
     view_ids: Set[int] = set()
 
@@ -75,7 +83,14 @@ def fuse_workunit_kwargs_and_params(
         current_kwargs: Dict[str, Any] = kwargs[key]
 
         current_params: List[ast.arg] = [p for p in tree.args.args]
-        for p in current_params[1:]: # Skip the thread ID
+        if operation == "parallel_reduce" and workunit_idx == len(workunit_trees) - 1:
+            # Skip the thread ID and the accumulator
+            current_params = current_params[2:]
+        else:
+            # Skip the thread ID
+            current_params = current_params[1:]
+
+        for p in current_params:
             current_arg = current_kwargs[p.arg]
             if "PK_FUSE_ARGS" in os.environ and id(current_arg) in view_ids:
                 continue
@@ -123,6 +138,8 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
     new_tid: str = "fused_tid"
     fused_args = ast.arguments(args=[ast.arg(arg=new_tid, annotation=ast.Name(id='int', ctx=ast.Load()))])
 
+    new_acc: str = "pk_fused_acc"
+
     # Map from view ID to fused name
     fused_view_names: Dict[int, str] = {}
 
@@ -140,6 +157,12 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
             # Record what the thread id was but do not add it again
             if arg_idx == 0:
                 name_map[key] = new_tid
+                continue
+
+            # Account for accumulator
+            if old_name not in current_kwargs and arg_idx == 1:
+                name_map[key] = new_acc
+                fused_args.args.insert(1, ast.arg(arg=new_acc, annotation=arg.annotation))
                 continue
 
             current_arg = current_kwargs[old_name]

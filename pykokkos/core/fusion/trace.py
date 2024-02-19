@@ -199,15 +199,22 @@ class Tracer:
         while len(operations) > 0:
             op: TracerOperation = operations.pop()
 
-            if op.operation != "for":
-                if len(ops_to_fuse) > 0: # Fuse and add any outstanding operations
+            if op.operation == "for":
+                ops_to_fuse.append(op)
+            elif op.operation == "reduce":
+                if len(ops_to_fuse) == 0:
+                    ops_to_fuse.append(op)
+                else:
                     ops_to_fuse.reverse()
                     fused_ops.append(self.fuse_operations(ops_to_fuse))
                     ops_to_fuse.clear()
 
-                # Add the current operation
-                fused_ops.append(op)
+                    ops_to_fuse.append(op)
             else:
+                ops_to_fuse.reverse()
+                fused_ops.append(self.fuse_operations(ops_to_fuse))
+                ops_to_fuse.clear()
+
                 ops_to_fuse.append(op)
 
         # Fuse anything left over
@@ -233,14 +240,18 @@ class Tracer:
         names: List[str] = []
         policy: RangePolicy = operations[0].policy
         workunits: List[Callable[..., None]] = []
-        operation: str = operations[0].operation
+
+        # The last operation determines the type of the fused
+        # operation since it can be a reduce
+        operation: str = operations[-1].operation
+        future: Optional[Future] = operations[-1].future
+
         parser: Parser = operations[0].parser
         args: Dict[str, Dict[str, Any]] = {}
         dependencies: Set[DataDependency] = set()
 
         for index, op in enumerate(operations):
             assert isinstance(op.policy, RangePolicy) and policy.begin == op.policy.begin and policy.end == op.policy.end
-            assert operation == op.operation == "for"
 
             names.append(op.name if op.name is not None else op.workunit.__name__)
             workunits.append(op.workunit)
@@ -249,7 +260,7 @@ class Tracer:
 
         fused_name: str = "_".join(names)
 
-        return TracerOperation(None, None, fused_name, policy, workunits, operation, parser, fused_name, args, dependencies)
+        return TracerOperation(None, future, fused_name, policy, workunits, operation, parser, fused_name, args, dependencies)
 
     def get_data_dependencies(self, kwargs: Dict[str, Any], AST: ast.FunctionDef) -> Tuple[Set[DataDependency], Dict[str, AccessMode]]:
         """

@@ -71,11 +71,11 @@ def get_annotations(parallel_type: str, workunit_trees: Union[Tuple[Callable, as
     param_list: List[ast.arg]
 
     if isinstance(workunit_trees, list):
-        if parallel_type != "parallel_for":
-            raise RuntimeError("Can only do kernel fusion with parallel for")
+        if parallel_type == "parallel_scan":
+            raise RuntimeError("Cannot do kernel fusion with parallel scan")
         workunit = [w for w, _ in workunit_trees]
         trees = [t for _, t in workunit_trees]
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs, parallel_type)
     else:
         workunit, entity_AST = workunit_trees
         param_list = [x for x in entity_AST.args.args]
@@ -115,11 +115,12 @@ def get_annotations(parallel_type: str, workunit_trees: Union[Tuple[Callable, as
     return updated_types
 
 
-def get_views_decorator(workunit_trees: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
+def get_views_decorator(parallel_type: str, workunit_trees: List[Tuple[Callable, ast.AST]], passed_kwargs) -> UpdatedDecorator:
     '''
     Extract the layout, space, trait information against view: will be used to construct decorator
     specifiers
 
+    :param parallel_type: A string identifying the type of parallel dispatch ("parallel_for", "parallel_reduce" ...)
     :param handled_args: Processed arguments passed to the dispatch
     :param passed_kwargs: Keyword arguments passed to parallel dispatch (has views)
     :returns: UpdatedDecorator object 
@@ -128,7 +129,7 @@ def get_views_decorator(workunit_trees: List[Tuple[Callable, ast.AST]], passed_k
     param_list: List[ast.arg]
     if isinstance(workunit_trees, list):
         trees = [t for _, t in workunit_trees]
-        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs)
+        passed_kwargs, param_list = fuse_workunit_kwargs_and_params(trees, passed_kwargs, parallel_type)
         param_list = [p.arg for p in param_list]
     else:
         _, entity_AST = workunit_trees
@@ -445,7 +446,7 @@ def get_type_info(
 
     if is_standalone_workunit:
         updated_types = get_annotations(f"parallel_{operation}", workunit_trees, policy, passed_kwargs)
-        updated_decorator = get_views_decorator(workunit_trees, passed_kwargs)
+        updated_decorator = get_views_decorator(f"parallel_{operation}", workunit_trees, passed_kwargs)
         types_signature = get_types_signature(updated_types, updated_decorator, execution_space)
 
     return updated_types, updated_decorator, types_signature
