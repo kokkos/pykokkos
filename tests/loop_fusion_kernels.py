@@ -16,7 +16,7 @@ def simple_nested(tid, v):
         x: int = 1
         pk.printf("%d\n", x)
         for k in range(3):
-            a : int = 2
+            a: int = 2
             pk.printf("%d\n", a)
 
 @pk.workunit
@@ -25,19 +25,18 @@ def nested_doubles(tid, v):
         x: int = 1
         pk.printf("%d\n", x)
         for k in range(3):
-            a : int = 2
+            a: int = 2
             pk.printf("%d\n", a)
 
     for i in range(3):
         x: int = 3
         pk.printf("%d\n", x)
         for k in range(3):
-            a : int = 4
+            a: int = 4
             pk.printf("%d\n", a)
 
 @pk.workunit
 def nested_triples(tid, v): 
-
     pk.printf("%f\n", 0.5)
     for i in range(3):
         x: int = 1
@@ -53,7 +52,7 @@ def nested_triples(tid, v):
         pk.printf("%d\n", y)
 
         for k in range(3):
-            a : int = 4
+            a: int = 4
             pk.printf("%d\n", a)
 
     pk.printf("%f\n", 2.5)
@@ -73,7 +72,7 @@ def nested_triples_noprint(tid, v): # removing prints in between loops should al
         pk.printf("%d\n", x)
         
         for k in range(3):
-            a : int = 2
+            a: int = 2
             pk.printf("%d ", a)
    
 
@@ -100,8 +99,8 @@ def view_manip_inbetween(tid, v): # I guess manually inspect c++?
         x: int = 1
         pk.printf("%d\n", x)
     
-    v[tid] = -1;
-    v[tid] = v[tid] + 3;
+    v[tid] = -1
+    v[tid] = v[tid] + 3
 
     for j in range(3):
         y: int = 2
@@ -131,7 +130,7 @@ def inner_scopes(tid, v): # 1 2 3 4 4 4 5 5 5 ...
                 pk.printf("%d\n", y)
 
 @pk.workunit
-def nadir_fusable(tid, v):
+def nader_fusable(tid, v):
     for i in range(1):
         x: int = 3
         pk.printf("%d\n", x)
@@ -148,8 +147,6 @@ def nadir_fusable(tid, v):
     for j in range(1):
         y: int = 4
         x: int = y
-        # z: float = v[0]
-        # pk.printf("%d %d\n", y, j)
         for k in range(2):
             pk.printf("print 2 %d\n", k)
 
@@ -170,7 +167,7 @@ def main():
              nested_triples_noprint,
              view_manip_inbetween, 
              inner_scopes, 
-             nadir_fusable]
+             nader_fusable]
 
     N = int(sys.argv[2]) # no of iterations -> 1 is the best for simple checks
     run_test = int(sys.argv[1]) # idx of kernel to run

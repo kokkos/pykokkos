@@ -1,7 +1,6 @@
 import os
 import subprocess
 import unittest
-import pytest
 
 
 
@@ -30,12 +29,12 @@ class TestLoopFusion(unittest.TestCase):
         :param test_num: test number in loop_fusion_kernels.py
         :param range_terations: number of iterations the kernel performs in parallel
         '''
-        set_env(0, self.cwd)
+        set_env(False, self.cwd)
         result_vanilla = subprocess.run(["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)], cwd=self.cwd, capture_output=True, text=True)
         vanilla_out = result_vanilla.stdout
 
         # Again but with env variable
-        set_env(1, self.cwd)
+        set_env(True, self.cwd)
         result_fused = subprocess.run(["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)], cwd=self.cwd, capture_output=True, text=True)
         fused_out = result_fused.stdout
 
@@ -62,7 +61,7 @@ class TestLoopFusion(unittest.TestCase):
     def test_inner_scopes(self):
         self.run_test(6, 1)
 
-    def test_nadir_fusable(self):
+    def test_nader_fusable(self):
         self.run_test(7, 1)
 
 
