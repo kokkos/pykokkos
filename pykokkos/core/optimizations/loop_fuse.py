@@ -280,7 +280,6 @@ def split_negative_dependencies(loop_sets: List[List[LoopInfo]]) -> List[List[Lo
 
     Note that there is no aliasing because pykokkos doesn't really let
     users take the address of different variables like C++ does.
-
     """
 
     for loop_list in loop_sets:
@@ -325,6 +324,46 @@ def split_negative_dependencies(loop_sets: List[List[LoopInfo]]) -> List[List[Lo
                     pass
 
 
+def split_unfusable_loops(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo]]:
+    """
+    Split the loop sets if they contain statements that cannot be
+    fused (such as print statements)
+
+    :param loop_sets: lists of loops that are adjacent
+    :returns: a further partitioned list of loop sets that do not
+        contain prints
+    """
+
+    split_loops: List[List[LoopInfo]] = []
+
+    for loop_list in loop_sets:
+        if len(loop_list) == 1:
+            continue
+
+        loop_list.sort(key=lambda loop: loop.idx_in_parent, reverse=True)
+        current_list: List[LoopInfo] = [loop_list.pop()]
+
+        while len(loop_list) > 0:
+            next_loop: LoopInfo = loop_list.pop()
+
+            contains_print: bool = False
+            for node in ast.walk(next_loop.for_node):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    if node.func.attr == "printf":
+                        contains_print = True
+                        break
+
+            if contains_print:
+                split_loops.append(current_list)
+                current_list = [next_loop]
+            else:
+                current_list.append(next_loop)
+
+        split_loops.append(current_list)
+
+    return split_loops
+
+
 def identify_fusable_loops(loops_in_scope: Dict[int, List[LoopInfo]]) -> List[List[LoopInfo]]:
     """
     Partition the list of loops into sets that can be fused    
@@ -348,8 +387,9 @@ def identify_fusable_loops(loops_in_scope: Dict[int, List[LoopInfo]]) -> List[Li
         # Group loops with the same iteration space
         equivalent_ranges: List[List[LoopInfo]] = group_equivalent_ranges(loops)
         adjacent_loops: List[List[LoopInfo]] = group_adjacent_loops(equivalent_ranges)
+        split_loops: List[List[LoopInfo]] = split_unfusable_loops(adjacent_loops)
 
-        for loop_list in adjacent_loops:
+        for loop_list in split_loops:
             if len(loop_list) == 1:
                 continue
 
