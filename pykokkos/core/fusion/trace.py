@@ -1,4 +1,5 @@
 import ast
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
@@ -129,6 +130,10 @@ class Tracer:
         version: int = self.data_version.get(id(data), 0)
         dependency = DataDependency(None, id(data), version)
 
+        if dependency not in self.data_operation:
+            # The data does not depend on any prior operation
+            return []
+
         operation: TracerOperation = self.data_operation[dependency]
         if operation not in self.operations:
             # This means that the dependency was already updated
@@ -247,7 +252,12 @@ class Tracer:
             args[f"args_{index}"] = op.args
             dependencies.update(op.dependencies)
 
-        fused_name: str = "_".join(names)
+        fused_name: str
+        if len(names) < 5:
+            fused_name = "_".join(names)
+        else:
+            # Avoid long names
+            fused_name = "_".join(names[:5]) + hashlib.md5(("".join(names)).encode()).hexdigest()
 
         return TracerOperation(None, None, fused_name, policy, workunits, operation, parser, fused_name, args, dependencies)
 

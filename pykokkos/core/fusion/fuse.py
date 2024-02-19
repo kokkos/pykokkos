@@ -2,52 +2,7 @@ import ast
 import os
 from typing import Any, Dict, List, Set, Tuple, Union
 
-def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
-    """
-    Copied from visitors_util.py due to circular import
-    """
-
-    name: str
-    if isinstance(node, ast.Attribute):
-        name = node.attr
-    else:
-        name = node.id
-
-    return name
-
-
-class DeclarationsVisitor(ast.NodeVisitor):
-    """
-    Get all variable declarations
-    """
-
-    def __init__(self) -> None:
-        self.declarations: Set[str] = set()
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
-        self.declarations.add(get_node_name(node.target))
-
-
-class VariableRenamer(ast.NodeTransformer):
-    """
-    Renames variables in a fused ast according to a map
-    """
-
-    def __init__(self, name_map: Dict[Tuple[str, int], str], workunit_idx: int):
-        self.name_map = name_map
-        self.workunit_idx = workunit_idx
-
-    def visit_Name(self, node: ast.Name) -> Any:
-        key = (node.id, self.workunit_idx)
-        # If the name is not mapped, keep the original name
-        node.id = self.name_map.get(key, node.id)
-        return node
-
-    def visit_keyword(self, node: ast.keyword) -> Any:
-        key = (node.id, self.workunit_idx)
-        # If the name is not mapped, keep the original name
-        node.arg = self.name_map.get(key, node.arg)
-        return node
+from .util import DeclarationsVisitor, VariableRenamer
 
 
 def fuse_workunit_kwargs_and_params(

@@ -20,6 +20,10 @@ class Future:
         self.flush_trace()
         return self.value - other
 
+    def __rsub__(self, other):
+        self.flush_trace()
+        return other - self.value
+
     def __mul__(self, other):
         self.flush_trace()
         return self.value * other
@@ -27,6 +31,10 @@ class Future:
     def __truediv__(self, other):
         self.flush_trace()
         return self.value / other
+
+    def __rtruediv__(self, other):
+        self.flush_trace()
+        return other / self.value
 
     def __floordiv__(self, other):
         self.flush_trace()
@@ -36,8 +44,23 @@ class Future:
         self.flush_trace()
         return str(self.value)
 
+    def __eq__(self, other):
+        self.flush_trace()
+        if isinstance(other, Future):
+            return self.value == other.value
+
+        return self.value == other
+
+    def __lt__(self, other):
+        self.flush_trace()
+        return self.value < other
+
+    def __gt__(self, other):
+        self.flush_trace()
+        return self.value > other
+
     def __repr__(self) -> str:
-        return str(f"Future(value={self.value})")
+        return f"Future(value={self.value})"
 
     def flush_trace(self) -> None:
         runtime_singleton.runtime.flush_data(self)

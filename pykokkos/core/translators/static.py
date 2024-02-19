@@ -112,6 +112,16 @@ class StaticTranslator:
             for child in ast.iter_child_nodes(node):
                 child.parent = node
 
+            for field_name, child in ast.iter_fields(node):
+                if isinstance(child, ast.AST):
+                    child.parent_accessor = field_name
+                elif isinstance(child, list):
+                    for idx, grand_child in enumerate(child):
+                        if isinstance(grand_child, str):
+                            continue
+                        grand_child.parent_accessor = field_name
+                        grand_child.idx_in_parent = idx
+
         return classdef
 
     def check_symbols(self, classtypes: List[PyKokkosEntity], path: str) -> None:
