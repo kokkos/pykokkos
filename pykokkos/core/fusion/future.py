@@ -32,6 +32,10 @@ class Future:
         self.flush_trace()
         return self.value // other
 
+    def __eq__(self, other):
+        self.flush_trace()
+        return self.value == other
+
     def __str__(self):
         self.flush_trace()
         return str(self.value)
