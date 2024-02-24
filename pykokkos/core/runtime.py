@@ -144,7 +144,7 @@ class Runtime:
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
         operation: str,
-        parser: Parser,
+        parser: Union[Parser, List[Parser]],
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -330,8 +330,8 @@ class Runtime:
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
-                    parser = self.compiler.get_parser(get_metadata(entity[0]).path)
-                    entity_trees = [parser.get_entity(get_metadata(this_entity).name).AST for this_entity in entity]
+                    parsers = [self.compiler.get_parser(get_metadata(e).path) for e in entity]
+                    entity_trees = [this_parser.get_entity(get_metadata(this_entity).name).AST for this_entity, this_parser in zip(entity, parsers)]
 
                     kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs, f"parallel_{operation}")
                 entity_members = kwargs

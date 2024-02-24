@@ -411,11 +411,12 @@ def get_type_info(
 
     if not isinstance(workunit, list):
             workunit = [workunit] # for easier transformations
+            parser = [parser]
             list_passed = False
 
-    for this_workunit in workunit:
+    for this_workunit, this_parser in zip(workunit, parser):
         this_metadata = get_metadata(this_workunit)
-        this_tree = parser.get_entity(this_metadata.name).AST
+        this_tree = this_parser.get_entity(this_metadata.name).AST
         workunit_str = str(this_workunit)
 
         if not isinstance(this_tree, ast.FunctionDef):
