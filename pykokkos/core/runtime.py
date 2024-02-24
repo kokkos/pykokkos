@@ -127,8 +127,18 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        metadata: EntityMetadata = get_metadata(workunit[0]) if isinstance(workunit, list) else get_metadata(workunit)
-        parser: Parser = self.compiler.get_parser(metadata.path)
+        metadata: EntityMetadata
+        parser: Union[Parser, List[Parser]]
+
+        if isinstance(workunit, list):
+            metadata = get_metadata(workunit[0])
+            parser = []
+            for this_workunit in workunit:
+                this_metadata = get_metadata(this_workunit)
+                parser.append(self.compiler.get_parser(this_metadata.path))
+        else:
+            metadata = get_metadata(workunit)
+            parser = self.compiler.get_parser(metadata.path)
 
         if self.fusion_strategy is not None:
             future = Future()
@@ -144,7 +154,7 @@ class Runtime:
         policy: ExecutionPolicy,
         workunit: Union[Callable[..., None], List[Callable[..., None]]],
         operation: str,
-        parser: Parser,
+        parser: Union[Parser, List[Parser]],
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -169,7 +179,7 @@ class Runtime:
         members: PyKokkosMembers = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
 
         module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
-        return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, **kwargs)
+        return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, operation=operation, **kwargs)
 
     def flush_data(self, data: Union[Future, ViewType]) -> None:
         """
@@ -226,6 +236,7 @@ class Runtime:
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy] = None,
         name: Optional[str] = None,
+        operation: Optional[str] = None,
         **kwargs
     ) -> Optional[Union[float, int]]:
         """
@@ -237,7 +248,7 @@ class Runtime:
         :param space: the execution space
         :param policy: the execution policy for workunits
         :param name: the name of the kernel
-        :param entity_trees: Optional parameter: List of ASTs of entities being fused - only provided when entity is a list
+        :param operation: the name of the operation "for", "reduce", or "scan"
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for "for" and workloads)
         """
@@ -251,7 +262,7 @@ class Runtime:
 
         module = self.import_module(module_setup.name, module_path)
 
-        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, **kwargs)
+        args: Dict[str, Any] = self.get_arguments(entity, members, space, policy, operation, **kwargs)
         if name is None:
             args["pk_kernel_name"] = ""
         else:
@@ -293,6 +304,7 @@ class Runtime:
         members: PyKokkosMembers,
         space: ExecutionSpace,
         policy: Optional[ExecutionPolicy],
+        operation: Optional[str],
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -302,6 +314,7 @@ class Runtime:
         :param members: a collection of PyKokkos related members
         :param space: the execution space
         :param policy: the execution policy of the operation
+        :param operation: the name of the operation "for", "reduce", or "scan"
         :param kwargs: the keyword arguments passed to a workunit
         """
 
@@ -327,10 +340,10 @@ class Runtime:
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
-                    parser = self.compiler.get_parser(get_metadata(entity[0]).path)
-                    entity_trees = [parser.get_entity(get_metadata(this_entity).name).AST for this_entity in entity]
+                    parsers = [self.compiler.get_parser(get_metadata(e).path) for e in entity]
+                    entity_trees = [this_parser.get_entity(get_metadata(this_entity).name).AST for this_entity, this_parser in zip(entity, parsers)]
 
-                    kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs)
+                    kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs, f"parallel_{operation}")
                 entity_members = kwargs
 
         args.update(self.get_fields(entity_members))

@@ -140,6 +140,9 @@ class ViewType:
         :param value: the new value at the index.
         """
 
+        if "PK_FUSION" in os.environ:
+            runtime_singleton.runtime.flush_data(self)
+
         self.data[key] = value
 
     def __bool__(self):
