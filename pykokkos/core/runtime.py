@@ -127,8 +127,18 @@ class Runtime:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
             return run_workunit_debug(policy, workunit, operation, initial_value, **kwargs)
 
-        metadata: EntityMetadata = get_metadata(workunit[0]) if isinstance(workunit, list) else get_metadata(workunit)
-        parser: Parser = self.compiler.get_parser(metadata.path)
+        metadata: EntityMetadata
+        parser: Union[Parser, List[Parser]]
+
+        if isinstance(workunit, list):
+            metadata = get_metadata(workunit[0])
+            parser = []
+            for this_workunit in workunit:
+                this_metadata = get_metadata(this_workunit)
+                parser.append(self.compiler.get_parser(this_metadata.path))
+        else:
+            metadata = get_metadata(workunit)
+            parser = self.compiler.get_parser(metadata.path)
 
         if self.fusion_strategy is not None:
             future = Future()
