@@ -28,6 +28,10 @@ class Future:
         self.flush_trace()
         return self.value * other
 
+    def __rmul__(self, other):
+        self.flush_trace()
+        return other * self.value
+
     def __truediv__(self, other):
         self.flush_trace()
         return self.value / other
