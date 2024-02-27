@@ -258,7 +258,7 @@ def infer_other_args(
             # numpy:<type>, Will switch to pk.<type> in parser.fix_types
             param_type = pckg_name +":"+ param_type
 
-        if isinstance(value, View):
+        if isinstance(value, ViewType):
             view_dtype = get_pk_datatype(value.dtype)
             if not view_dtype:
                 raise TypeError("Cannot infer datatype for view:", param.arg)
