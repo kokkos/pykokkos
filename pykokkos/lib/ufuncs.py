@@ -170,7 +170,7 @@ def log(view):
         Output view.
 
     """
-    if not isinstance(view, pk.View):
+    if not isinstance(view, pk.ViewType):
         return math.log(view)
 
     if len(view.shape) > 2:
@@ -865,7 +865,7 @@ def add(viewA, viewB):
            Output view.
 
     """
-    if not isinstance(viewB, pk.View):
+    if not isinstance(viewB, pk.ViewType):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
         viewB = view_temp
@@ -930,7 +930,7 @@ def multiply(viewA, viewB):
 
     """
 
-    if not isinstance(viewB, pk.View):
+    if not isinstance(viewB, pk.ViewType):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
         viewB = view_temp
@@ -1344,7 +1344,7 @@ def divide(viewA, viewB):
            Output view.
 
     """
-    if not isinstance(viewB, pk.View) and not isinstance(viewB, pk.Subview):
+    if not isinstance(viewB, pk.ViewType) and not isinstance(viewB, pk.ViewType):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
         viewB = view_temp
@@ -1479,7 +1479,7 @@ def power(viewA, viewB):
            Output view.
 
     """
-    if not isinstance(viewB, pk.View):
+    if not isinstance(viewB, pk.ViewType):
         view_temp = pk.View([1], pk.double)
         view_temp[0] = viewB
         viewB = view_temp
@@ -2494,7 +2494,7 @@ def exp2(view):
 
 # TODO: Implement parallel max reduction with index
 def argmax(view, axis=None):
-    if isinstance(axis, pk.View):
+    if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
     res = np.argmax(view, axis=axis)
@@ -2526,7 +2526,7 @@ def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk
 
 
 def var(view, axis=None):
-    if isinstance(axis, pk.View):
+    if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
     if view.dtype.__name__ == "float64":
@@ -2557,7 +2557,7 @@ def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View
 
 
 def mean(view, axis=None):
-    if isinstance(axis, pk.View):
+    if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
     if view.dtype.__name__ == "float64":
@@ -2763,11 +2763,11 @@ def equal(view1, view2):
         tid = 1
     else:
         tid = view1.shape[0]
-    if isinstance(view1, pk.Subview):
+    if isinstance(view1, pk.ViewType):
         new_view = pk.View((), dtype=view1.dtype)
         new_view[:] = view1.data
         view1 = new_view
-    if isinstance(view2, pk.Subview):
+    if isinstance(view2, pk.ViewType):
         new_view = pk.View((), dtype=view2.dtype)
         new_view[:] = view2.data
         view2 = new_view
