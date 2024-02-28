@@ -2763,11 +2763,11 @@ def equal(view1, view2):
         tid = 1
     else:
         tid = view1.shape[0]
-    if isinstance(view1, pk.ViewType):
+    if isinstance(view1, pk.Subview):
         new_view = pk.View((), dtype=view1.dtype)
         new_view[:] = view1.data
         view1 = new_view
-    if isinstance(view2, pk.ViewType):
+    if isinstance(view2, pk.Subview):
         new_view = pk.View((), dtype=view2.dtype)
         new_view[:] = view2.data
         view2 = new_view
