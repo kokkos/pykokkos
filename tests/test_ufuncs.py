@@ -462,15 +462,16 @@ def test_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.np_matmul, np.matmul),
 ])
-@pytest.mark.parametrize("numpy_dtype", [
-        (np.float64),
-        (np.float32),
+@pytest.mark.parametrize("pk_dtype, numpy_dtype", [
+        (pk.double, np.float64),
+        (pk.float, np.float32),
 ])
 @pytest.mark.parametrize("test_dim", [
     [4,4,4,4], [4,3,3,4], [1,1,1,1], [2,5,5,1]
 ])
 def test_np_matmul_2d_2d_vs_numpy(pk_ufunc,
                             numpy_ufunc,
+                            pk_dtype,
                             numpy_dtype, 
                             test_dim):
     
@@ -483,8 +484,10 @@ def test_np_matmul_2d_2d_vs_numpy(pk_ufunc,
     np2 = rng.random((N2, M2)).astype(numpy_dtype)
     expected = numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2)
+    view1: pk.View2d = pk.View([N1, M1], pk_dtype)
+    view1[:] = np1
+    view2: pk.View2d = pk.View([N2, M2], pk_dtype)
+    view2[:] = np2
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(actual, expected)
