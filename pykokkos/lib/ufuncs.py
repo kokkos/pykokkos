@@ -1282,14 +1282,14 @@ def np_matmul(viewA, viewB):
     viewBType = viewB.dtype.__name__
 
     if viewAType != viewBType:
-        raise TypeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
+        raise RuntimeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
 
     viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape[0]
     viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape[0]
 
     if viewALast != viewBFirst:
         print(viewALast, viewBFirst)
-        raise ValueError("Matrix dimensions are not compatible for multiplication: {} and {}".format(viewA.shape, viewB.shape))
+        raise RuntimeError("Matrix dimensions are not compatible for multiplication: {} and {}".format(viewA.shape, viewB.shape))
 
     outRows = viewA.shape[0] if len(viewA.shape) == 2 else 1
     outCols = viewB.shape[1] if len(viewB.shape) == 2 else 1

@@ -339,6 +339,7 @@ def test_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
         (pk.subtract, np.subtract),
         (pk.multiply, np.multiply),
         (pk.divide, np.divide),
+        (pk.np_matmul, np.matmul),
         (pk.power, np.power),
         (pk.fmod, np.fmod),
         (pk.greater, np.greater),
@@ -458,6 +459,134 @@ def test_2d_exposed_ufuncs_vs_numpy(pk_ufunc,
     actual = pk_ufunc(view=view)
     assert_allclose(actual, expected)
 
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.np_matmul, np.matmul),
+])
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
+])
+@pytest.mark.parametrize("test_dim", [
+    [4,4,4,4], [4,3,3,4], [1,1,1,1], [2,5,5,1]
+])
+def test_np_matmul_2d_2d_vs_numpy(pk_ufunc,
+                            numpy_ufunc,
+                            numpy_dtype, 
+                            test_dim):
+    
+    N1 = test_dim[0]
+    M1 = test_dim[1]
+    N2 = test_dim[2]
+    M2 = test_dim[3]
+    rng = default_rng(123)
+    np1 = rng.random((N1, M1)).astype(numpy_dtype)
+    np2 = rng.random((N2, M2)).astype(numpy_dtype)
+    expected = numpy_ufunc(np1, np2)
+
+    view1 = pk.array(np1)
+    view2 = pk.array(np2)
+    actual = pk_ufunc(view1, view2)
+
+    assert_allclose(actual, expected)
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.np_matmul, np.matmul),
+])
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
+])
+@pytest.mark.parametrize("test_dim", [
+    [4,4,4], [4,3,3], [1,1,1], [2,5,5]
+])
+def test_np_matmul_2d_1d_vs_numpy(pk_ufunc,
+                            numpy_ufunc,
+                            numpy_dtype, 
+                            test_dim):
+    
+    N1 = test_dim[0]
+    M1 = test_dim[1]
+    N2 = test_dim[2]
+    rng = default_rng(123)
+    np1 = rng.random((N1, M1)).astype(numpy_dtype)
+    np2 = rng.random(N2).astype(numpy_dtype)
+    expected = numpy_ufunc(np1, np2)
+
+    view1 = pk.array(np1)
+    view2 = pk.array(np2)
+    actual = pk_ufunc(view1, view2)
+
+    assert_allclose(actual, expected)
+
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.np_matmul, np.matmul),
+])
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
+])
+@pytest.mark.parametrize("test_dim", [
+    [4,4,4], [3,3,6], [1,1,1], [5,5,1]
+])
+def test_np_matmul_1d_2d_vs_numpy(pk_ufunc,
+                            numpy_ufunc,
+                            numpy_dtype, 
+                            test_dim):
+    
+    N1 = test_dim[0]
+    N2 = test_dim[1]
+    M2 = test_dim[2]
+    rng = default_rng(123)
+    np1 = rng.random(N1).astype(numpy_dtype)
+    np2 = rng.random((N2,M2)).astype(numpy_dtype)
+    expected = numpy_ufunc(np1, np2)
+
+    view1 = pk.array(np1)
+    view2 = pk.array(np2)
+    actual = pk_ufunc(view1, view2)
+
+    assert_allclose(actual, expected)
+
+@pytest.mark.parametrize("numpy_dtype", [
+        (np.float64),
+        (np.float32),
+])
+@pytest.mark.parametrize("test_dim", [
+    [4,3,3], [3,1,6], [1,4,2], [5,6,1], [4,3,2,1], [2,3,2,4]
+])
+def test_np_matmul_fails(numpy_dtype, test_dim):
+    N1 = None; N2 = None; M1 = None; M2 = None;
+    np1 = None
+    rng = default_rng(123)
+
+    if len(test_dim) == 3:
+        N1 = test_dim[0]
+        N2 = test_dim[1]
+        M2 = test_dim[2]
+        np1 = rng.random(N1).astype(numpy_dtype)
+
+    if len(test_dim) == 4:
+        N1 = test_dim[0]
+        M1 = test_dim[1]
+        N2 = test_dim[2]
+        M2 = test_dim[3]
+        np1 = rng.random((N1,M1)).astype(numpy_dtype)
+
+    np2 = rng.random((N2,M2)).astype(numpy_dtype)
+
+    with pytest.raises(RuntimeError) as e_info:
+        view1 = pk.array(np1)
+        view2 = pk.array(np2)
+        pk.np_matmul(view1, view2) # Should fail with 1d x 2d
+
+    err_np_matmul = "Matrix dimensions are not compatible for multiplication: {} and {}".format(view1.shape, view2.shape)
+    assert e_info.value.args[0] == err_np_matmul
+
+    with pytest.raises(RuntimeError) as e_info:
+        pk.np_matmul(view2, view1) # should fail with 2d x 1 as well
+
+    err_np_matmul = "Matrix dimensions are not compatible for multiplication: {} and {}".format(view2.shape, view1.shape)
+    assert e_info.value.args[0] == err_np_matmul
 
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.subtract, np.subtract),
