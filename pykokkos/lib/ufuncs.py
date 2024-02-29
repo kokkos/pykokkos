@@ -1234,6 +1234,16 @@ def np_matmul_impl_2d_2d(tid, cols, vec_length, viewA, viewB, viewOut):
     for i in range(vec_length):
         viewOut[r_idx][c_idx] += viewA[r_idx][i] * viewB[i][c_idx]
 
+@pk.workunit 
+def np_matmul_impl_1d_2d(tid, vec_length, view1D, viewB, viewOut):
+    for i in range(vec_length):
+        viewOut[tid] += view1D[i] * viewB[i][tid]
+
+@pk.workunit 
+def np_matmul_impl_2d_1d(tid, vec_length, viewA, view1D, viewOut):
+    for i in range(vec_length):
+        viewOut[tid] += viewA[tid][i] * view1D[i]
+    
 def np_matmul(viewA, viewB):
     """
     Upto 2D Matrix Multiplication of compatible views according to numpy specification
@@ -1274,24 +1284,27 @@ def np_matmul(viewA, viewB):
     if viewAType != viewBType:
         raise TypeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
 
-    viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape
-    viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape
+    viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape[0]
+    viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape[0]
 
     if viewALast != viewBFirst:
+        print(viewALast, viewBFirst)
         raise ValueError("Matrix dimensions are not compatible for multiplication: {} and {}".format(viewA.shape, viewB.shape))
 
     outRows = viewA.shape[0] if len(viewA.shape) == 2 else 1
     outCols = viewB.shape[1] if len(viewB.shape) == 2 else 1
-    isScalar = False
-    if outRows == outCols and outRows == 1:
-        isScalar = True
+    totalThreads = outRows * outCols
 
-    out = pk.View([outRows, outCols], pk.float if viewBType == "float32" else pk.double)
+    out = None
+    if len(viewA.shape) == 1 or len(viewB.shape) == 1:
+        dim = max(outCols, outRows)
+        out = pk.View([dim], pk.float if viewBType == "float32" else pk.double)
+    else:
+        out = pk.View([outRows, outCols], pk.float if viewBType == "float32" else pk.double)
 
     # CASE 1 BOTH 2D
     if len(viewA.shape) == len(viewB.shape) and len(viewA.shape) == 2:
-        total_threads = outRows * outCols
-        pk.parallel_for(total_threads, 
+        pk.parallel_for(totalThreads, 
                         np_matmul_impl_2d_2d, 
                         cols=outCols, 
                         vec_length=viewALast, 
@@ -1299,10 +1312,30 @@ def np_matmul(viewA, viewB):
                         viewB=viewB, 
                         viewOut=out)
 
+    elif len(viewA.shape) == 1 and len(viewB.shape) == 1:
+        return dot(viewA, viewB)
+
+    # CASE 2 Either is 1D
+    elif len(viewA.shape) == 1:
+        pk.parallel_for(totalThreads,
+                        np_matmul_impl_1d_2d,
+                        vec_length= viewA.shape[0],
+                        view1D=viewA,
+                        viewB=viewB,
+                        viewOut=out)
+
+    elif len(viewB.shape) == 1:
+        pk.parallel_for(totalThreads,
+                        np_matmul_impl_2d_1d,
+                        vec_length= viewB.shape[0],
+                        viewA=viewA,
+                        view1D=viewB,
+                        viewOut=out)
+
+    else:
+        raise RuntimeError("Unhandled case of matrix multiplication shapes: {} with {}".format(viewA.shape, viewB.shape))
+
     return out
-    # Case 2 either is 1D 
-    if len(viewA.shape) == 1:
-        pass
 
 
 def matmul(viewA, viewB):
