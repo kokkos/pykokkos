@@ -286,11 +286,17 @@ class CppSetup:
                               compute_capability,   # Device compute capability
                               lib_suffix,           # The libkokkos* suffix identifying the gpu
                               str(compiler_path)]   # The path to the compiler to use
-        compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
+
+        if sys.platform == "linux" or sys.platform == "linux2":
+            #on linux we can color the output otherwise this is not implemented
+            command = [string if string != '' else "''" for string in command]
+            command: Str = "script --log-io compile.out --return --command " + "\""+" ".join(command) + "\""
+
+        compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False, shell=True)
 
         if compile_result.returncode != 0:
             print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed")
+            print(f"C++ compilation in {output_dir} failed. For colored compiler output (on linux) run 'cat {output_dir}/compile.out'")
             sys.exit(1)
 
         patchelf: List[str] = ["patchelf",
@@ -366,10 +372,14 @@ class CppSetup:
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:
         """
-        Check if an entity is compiled
+        Check if an entity is compiled. It does this via checking if any .so file exists.
 
         :param output_dir: the directory containing the compiled entity
-        :returns: true if compiled
+        :returns: true if any .so object exists
         """
+        so_files = output_dir.glob("*.so")
+        contains_so_files = False
+        for file in so_files:
+            contains_so_files = file.is_file()
 
-        return output_dir.is_dir()
+        return contains_so_files
