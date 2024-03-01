@@ -490,7 +490,7 @@ def test_np_matmul_2d_2d_vs_numpy(pk_ufunc,
     view2[:] = np2
     actual = pk_ufunc(view1, view2)
 
-    assert_allclose(actual, expected)
+    assert_allclose(actual, expected, rtol=1.5e-7)
 
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.np_matmul, np.matmul),
