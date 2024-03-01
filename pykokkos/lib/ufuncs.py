@@ -1226,6 +1226,117 @@ def subtract(viewA, valB):
 
     return out
 
+@pk.workunit
+def np_matmul_impl_2d_2d(tid, cols, vec_length, viewA, viewB, viewOut):
+    r_idx : int = tid / cols
+    c_idx : int = tid - r_idx * cols
+
+    for i in range(vec_length):
+        viewOut[r_idx][c_idx] += viewA[r_idx][i] * viewB[i][c_idx]
+
+@pk.workunit 
+def np_matmul_impl_1d_2d(tid, vec_length, view1D, viewB, viewOut):
+    for i in range(vec_length):
+        viewOut[tid] += view1D[i] * viewB[i][tid]
+
+@pk.workunit 
+def np_matmul_impl_2d_1d(tid, vec_length, viewA, view1D, viewOut):
+    for i in range(vec_length):
+        viewOut[tid] += viewA[tid][i] * view1D[i]
+    
+def np_matmul(viewA, viewB):
+    """
+    Upto 2D Matrix Multiplication of compatible views according to numpy specification
+
+    The behavior depends on the arguments in the following way:
+    [*] If both arguments are 2-D they are multiplied like conventional matrices.
+
+    [X] Not implemented yet - If either argument is N-D, N > 2, it is treated as a 
+    stack of matrices residing in the last two indexes and broadcast accordingly.
+
+    [*] If the first argument is 1-D, it is promoted to a matrix by prepending a 1 
+    to its dimensions. After matrix multiplication the prepended 1 is removed.
+
+    [*] If the second argument is 1-D, it is promoted to a matrix by appending a 1
+    to its dimensions. After matrix multiplication the appended 1 is removed.
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    viewB : pykokkos view
+            Input view.
+
+    Returns
+    -------
+    Pykokkos view
+        Matmul result in a view
+
+
+    """
+
+    if len(viewA.shape) > 2 or len(viewB.shape) > 2:
+        raise NotImplementedError("Matmul only supports upto 2D views")
+
+    viewAType = viewA.dtype.__name__
+    viewBType = viewB.dtype.__name__
+
+    if viewAType != viewBType:
+        raise RuntimeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
+
+    viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape[0]
+    viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape[0]
+
+    if viewALast != viewBFirst:
+        print(viewALast, viewBFirst)
+        raise RuntimeError("Matrix dimensions are not compatible for multiplication: {} and {}".format(viewA.shape, viewB.shape))
+
+    outRows = viewA.shape[0] if len(viewA.shape) == 2 else 1
+    outCols = viewB.shape[1] if len(viewB.shape) == 2 else 1
+    totalThreads = outRows * outCols
+
+    out = None
+    if len(viewA.shape) == 1 or len(viewB.shape) == 1:
+        dim = max(outCols, outRows)
+        out = pk.View([dim], pk.float if viewBType == "float32" else pk.double)
+    else:
+        out = pk.View([outRows, outCols], pk.float if viewBType == "float32" else pk.double)
+
+    # CASE 1 BOTH 2D
+    if len(viewA.shape) == len(viewB.shape) and len(viewA.shape) == 2:
+        pk.parallel_for(totalThreads, 
+                        np_matmul_impl_2d_2d, 
+                        cols=outCols, 
+                        vec_length=viewALast, 
+                        viewA=viewA, 
+                        viewB=viewB, 
+                        viewOut=out)
+
+    elif len(viewA.shape) == 1 and len(viewB.shape) == 1:
+        return dot(viewA, viewB)
+
+    # CASE 2 Either is 1D
+    elif len(viewA.shape) == 1:
+        pk.parallel_for(totalThreads,
+                        np_matmul_impl_1d_2d,
+                        vec_length= viewA.shape[0],
+                        view1D=viewA,
+                        viewB=viewB,
+                        viewOut=out)
+
+    elif len(viewB.shape) == 1:
+        pk.parallel_for(totalThreads,
+                        np_matmul_impl_2d_1d,
+                        vec_length= viewB.shape[0],
+                        viewA=viewA,
+                        view1D=viewB,
+                        viewOut=out)
+
+    else:
+        raise RuntimeError("Unhandled case of matrix multiplication shapes: {} with {}".format(viewA.shape, viewB.shape))
+
+    return out
+
 
 def matmul(viewA, viewB):
     """
