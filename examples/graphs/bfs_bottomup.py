@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pykokkos as pk
 
-from parse_args import parse_args
+import argparse
 
 @pk.workload
 class Workload:
@@ -151,15 +151,36 @@ class Workload:
 
 
 if __name__ == "__main__":
-    values: Tuple[int, int, int, int, int, bool] = parse_args()
-    N: int = values[0]
-    M: int = values[1]
+    N: int = -1
+    M: int = -1
+    space: str = ""
 
-    space: str = values[-2]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-N", "--rows", type=int)
+    parser.add_argument("-M", "--columns", type=int)
+    parser.add_argument("-space", "--execution_space", type=str)
+
+    args = parser.parse_args()
+    
+    if args.rows:
+        N = 2** args.rows
+    else:
+        N = 2**3
+
+    if args.columns:
+        M = 2**args.columns
+    else:
+        M = 2**3
+
+    if args.execution_space:
+        space = args.execution_space
+
     if space == "":
         space = pk.ExecutionSpace.OpenMP
     else:
         space = pk.ExecutionSpace(space)
+
+    print(f"Total size: {N*M}, N={N}, M={M}")
 
     pk.set_default_space(space)
     pk.execute(pk.get_default_space(), Workload(N, M))
