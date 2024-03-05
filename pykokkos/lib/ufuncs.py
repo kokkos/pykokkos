@@ -842,9 +842,15 @@ def add_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1D[pk.
     out[tid] = viewA[tid] + viewB[tid]
 
 @pk.workunit
-def add_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.View1D[pk.double], out: pk.View2D[pk.double]):
+def add_impl_2d_1d(tid, viewA, viewB, out):
     for i in range(viewA.extent(1)):
         out[tid][i] = viewA[tid][i] + viewB[i % viewB.extent(0)]
+
+@pk.workunit
+def add_impl_2d_2d(tid, viewA, viewB, out):
+    r_idx : int = tid / viewA.extent(1)
+    c_idx : int = tid - r_idx * viewA.extent(1)
+    out[r_idx][c_idx] = viewA[r_idx][c_idx] + viewB[r_idx][c_idx]
 
 
 def add(viewA, viewB):
@@ -856,7 +862,7 @@ def add(viewA, viewB):
     ----------
     viewA : pykokkos view
             Input view.
-    viewB : pykokkos view
+    viewB : pykokkos view or scalar
             Input view.
 
     Returns
@@ -870,32 +876,67 @@ def add(viewA, viewB):
         view_temp[0] = viewB
         viewB = view_temp
 
-    if viewA.rank() == 2:
-        out = pk.View(viewA.shape, pk.double)
-        pk.parallel_for(
-            viewA.shape[0],
-            add_impl_2d_1d_double,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+    if len(viewA.shape) > 2 or len(viewB.shape) > 2:
+        raise NotImplementedError("only 2D views currently supported for add() ufunc.")
+    
+    if viewA.rank() == 2 and viewB.rank() == 2 and viewA.shape != viewB.shape:
+        raise RuntimeError("2D views must have the same shape for add ufunc. Mismatch: {} and {}".format(viewA.shape, viewB.shape))
 
-    elif viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
-        out = pk.View([viewA.shape[0]], pk.double)
-        pk.parallel_for(
-            viewA.shape[0],
-            add_impl_1d_double,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+    if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
+        if viewA.rank() == 1 and viewB.rank() == 1:
+            out = pk.View([viewA.shape[0]], pk.double)
+            pk.parallel_for(
+                viewA.shape[0],
+                add_impl_1d_double,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        elif viewA.rank() == 2 and viewB.rank() == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+            pk.parallel_for(
+                viewA.shape[0] * viewA.shape[1],
+                add_impl_2d_2d,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            larger = viewA if len(viewA.shape) > len(viewB.shape) else viewB
+            smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
+            out = pk.View([larger.shape[0], larger.shape[1]], pk.double)
+            pk.parallel_for(
+                larger.shape[0] * larger.shape[1],
+                add_impl_2d_1d,
+                viewA=larger,
+                viewB=smaller,
+                out=out)
 
     elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            add_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+        if viewA.rank() == 1 and viewB.rank() == 1:
+            out = pk.View([viewA.shape[0]], pk.float)
+            pk.parallel_for(
+                viewA.shape[0],
+                add_impl_1d_float,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        elif viewB.rank() == 2 and viewB.rank() == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+            pk.parallel_for(
+                viewA.shape[0] * viewA.shape[1],
+                add_impl_2d_2d,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            larger = viewA if len(viewA.shape) > len(viewB.shape) else viewB
+            smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
+            out = pk.View([larger.shape[0], larger.shape[1]], pk.float)
+            pk.parallel_for(
+                larger.shape[0] * larger.shape[1],
+                add_impl_2d_1d,
+                viewA=larger,
+                viewB=smaller,
+                out=out)
     else:
         raise RuntimeError("Incompatible Types")
     return out
@@ -911,6 +952,18 @@ def multiply_impl_1d_float(tid: int, viewA: pk.View1D[pk.float], viewB: pk.View1
     out[tid] = viewA[tid] * viewB[tid]
 
 
+@pk.workunit
+def multiply_impl_2d_with_1d(tid, viewA, viewB, out):
+    r_idx : int = tid / viewA.extent(1)
+    c_idx : int = tid - r_idx * viewA.extent(1)
+    out[r_idx][c_idx] = viewA[r_idx][c_idx] * viewB[r_idx % viewB.extent(0)]
+
+@pk.workunit
+def multiply_impl_2d_with_2d(tid, viewA, viewB, out):
+    r_idx : int = tid / viewA.extent(1)
+    c_idx : int = tid - r_idx * viewA.extent(1)
+    out[r_idx][c_idx] = viewA[r_idx][c_idx] * viewB[r_idx][c_idx]
+
 def multiply(viewA, viewB):
     """
     Multiplies positionally corresponding elements
@@ -920,7 +973,7 @@ def multiply(viewA, viewB):
     ----------
     viewA : pykokkos view
             Input view.
-    viewB : pykokkos view
+    viewB : pykokkos view or scalar
             Input view.
 
     Returns
@@ -935,26 +988,67 @@ def multiply(viewA, viewB):
         view_temp[0] = viewB
         viewB = view_temp
 
-    if len(viewA.shape) > 1 or len(viewB.shape) > 1:
-        raise NotImplementedError("only 1D views currently supported for mulitply() ufunc.")
+    if len(viewA.shape) > 2 or len(viewB.shape) > 2:
+        raise NotImplementedError("only 2D views currently supported for mulitply() ufunc.")
+
+    if viewA.rank() == 2 and viewB.rank() == 2 and viewA.shape != viewB.shape:
+        raise RuntimeError("2D views must have the same shape for add ufunc. Mismatch: {} and {}".format(viewA.shape, viewB.shape))
 
     if viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
-        out = pk.View([viewA.shape[0]], pk.double)
-        pk.parallel_for(
-            viewA.shape[0],
-            multiply_impl_1d_double,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+        if len(viewA.shape) == 1 and len(viewB.shape) == 1:
+            out = pk.View([viewA.shape[0]], pk.double)
+            pk.parallel_for(
+                viewA.shape[0],
+                multiply_impl_1d_double,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        elif len(viewA.shape) == 2 and len(viewB.shape) == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
+            pk.parallel_for(
+                viewA.shape[0] * viewA.shape[1],
+                multiply_impl_2d_with_2d,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            larger = viewA if len(viewA.shape) > len(viewB.shape) else viewB
+            smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
+            out = pk.View([larger.shape[0], larger.shape[1]], pk.double)
+            pk.parallel_for(
+                larger.shape[0] * larger.shape[1],
+                multiply_impl_2d_with_1d,
+                viewA=larger,
+                viewB=smaller,
+                out=out)
 
     elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
-        out = pk.View([viewA.shape[0]], pk.float)
-        pk.parallel_for(
-            viewA.shape[0],
-            multiply_impl_1d_float,
-            viewA=viewA,
-            viewB=viewB,
-            out=out)
+        if len(viewA.shape) == 1 and len(viewB.shape) == 1:
+            out = pk.View([viewA.shape[0]], pk.float)
+            pk.parallel_for(
+                viewA.shape[0],
+                multiply_impl_1d_float,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        elif len(viewA.shape) == 2 and len(viewB.shape) == 2:
+            out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
+            pk.parallel_for(
+                viewA.shape[0] * viewA.shape[1],
+                multiply_impl_2d_with_2d,
+                viewA=viewA,
+                viewB=viewB,
+                out=out)
+        else:
+            larger = viewA if len(viewA.shape) > len(viewB.shape) else viewB
+            smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
+            out = pk.View([larger.shape[0], larger.shape[1]], pk.float)
+            pk.parallel_for(
+                larger.shape[0] * larger.shape[1],
+                multiply_impl_2d_with_1d,
+                viewA=larger,
+                viewB=smaller,
+                out=out)
     else:
         raise RuntimeError("Incompatible Types")
     return out
