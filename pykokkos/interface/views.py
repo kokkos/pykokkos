@@ -122,6 +122,8 @@ class ViewType:
             return self.data
 
         if isinstance(key, int) or isinstance(key, TeamMember):
+            if self.trait is Trait.Unmanaged:
+                return self.xp_array[key]
             return self.data[key]
 
         length: int = 1 if isinstance(key, slice) else len(key)
@@ -179,6 +181,8 @@ class ViewType:
             runtime_singleton.runtime.flush_data(self)
 
         if self.data.ndim > 0:
+            if self.trait is Trait.Unmanaged:
+                return (n for n in self.xp_array)
             return (n for n in self.data)
         else:
             # 0-D case returns empty generator
