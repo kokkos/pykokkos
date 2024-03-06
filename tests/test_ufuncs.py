@@ -593,6 +593,8 @@ def test_np_matmul_fails(numpy_dtype, test_dim):
 
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.subtract, np.subtract),
+        (pk.add, np.add),
+        (pk.multiply, np.multiply)
 ])
 @pytest.mark.parametrize("numpy_dtype", [
         (np.float64),
