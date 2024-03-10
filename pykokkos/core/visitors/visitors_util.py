@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Set, Union
 from pykokkos import kokkos_manager as km
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.interface import Layout, Trait
+from pykokkos.interface import Layout, MemorySpace, Trait
 
 def pretty_print(node):
     print(ast.dump(node, indent=4))
@@ -325,6 +325,9 @@ def cpp_view_type(
         elif parameter in Layout.__members__:
             if parameter != "LayoutDefault":
                 params["layout"] = f"Kokkos::{parameter}"
+
+        elif parameter in MemorySpace.__members__:
+            space = f"Kokkos::{parameter}"
 
     if "layout" not in params and not unmanaged:
         if layout is not None:
