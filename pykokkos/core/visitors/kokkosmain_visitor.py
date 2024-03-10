@@ -107,9 +107,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
                 else:
                     bin_op_type: str = f"decltype({visitors_util.get_node_name(args[1])})"
-                    cpp_type = cppast.DeclRefExpr(BinSort.get_type(view_type_str, bin_op_type, Keywords.DefaultExecSpace.value))
 
                     binsort_args: List[cppast.DeclRefExpr] = [self.visit(a) for a in args]
+                    cpp_type = cppast.DeclRefExpr(BinSort.get_type(f"decltype({binsort_args[0].declname})", bin_op_type, Keywords.DefaultExecSpace.value))
                     constructor = cppast.CallExpr(cpp_type, binsort_args)
 
                 cpp_target: cppast.DeclRefExpr = self.visit(target)
