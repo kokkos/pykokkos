@@ -105,7 +105,10 @@ class ViewType:
         :param value: the scalar value
         """
 
-        self.data.fill(value)
+        if self.trait is Trait.Unmanaged:
+            self.xp_array.fill(value)
+        else:
+            self.data.fill(value)
 
     def __getitem__(self, key: Union[int, TeamMember, slice, Tuple]) -> Union[int, float, Subview]:
         """
@@ -145,7 +148,10 @@ class ViewType:
         if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
 
-        self.data[key] = value
+        if self.trait is Trait.Unmanaged:
+            self.xp_array[key] = value
+        else:
+            self.data[key] = value
 
     def __bool__(self):
         # TODO: more complete implementation
@@ -197,6 +203,9 @@ class ViewType:
 
         if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
+
+        if self.trait is Trait.Unmanaged:
+            return str(self.xp_array)
 
         return str(self.data)
 
@@ -502,6 +511,8 @@ class Subview(ViewType):
 
         self.data: np.ndarray = parent_view.data[data_slice]
         self.dtype = parent_view.dtype
+        if parent_view.trait is Trait.Unmanaged:
+            self.xp_array = parent_view.xp_array[data_slice]
 
         is_cpu: bool = self.parent_view.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
