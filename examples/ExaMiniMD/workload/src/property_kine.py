@@ -41,7 +41,7 @@ class KinE:
         self.KE = pk.parallel_reduce("KinE", self.N_local, self.work)
 
     @pk.workunit
-    def work(self, i: int, KE: pk.Acc[pk.double]) -> None:
+    def work(self, i: int, acc: pk.Acc[pk.double]) -> None:
         index: int = self.type[i]
-        KE += (self.v[i][0] * self.v[i][0] + self.v[i][1] * self.v[i][1]
+        acc += (self.v[i][0] * self.v[i][0] + self.v[i][1] * self.v[i][1]
                + self.v[i][2] * self.v[i][2]) * self.mass[index]
