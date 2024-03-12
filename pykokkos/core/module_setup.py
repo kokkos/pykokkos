@@ -5,8 +5,7 @@ import os
 from pathlib import Path
 import sys
 import sysconfig
-import time
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Set, Union
 
 from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
@@ -83,13 +82,15 @@ class ModuleSetup:
         self,
         entity: Union[Callable[..., None], type, List[Callable[..., None]]],
         space: ExecutionSpace,
-        types_signature: Optional[str] = None
+        types_signature: Optional[str] = None,
+        restricted_views: Optional[Set[str]] = None
     ):
         """
         ModuleSetup constructor
 
         :param entity: the functor/workunit/workload or list of workunits for fusion
         :param types_signature: hash/string to identify workunit signature against types
+        :param restricted_views: a set of view names that do not alias any other views
         """
 
         self.metadata: List[EntityMetadata]
@@ -103,6 +104,9 @@ class ModuleSetup:
 
         self.space: ExecutionSpace = space
         self.types_signature = types_signature
+        self.restrict_signature: Optional[str] = None
+        if restricted_views is not None:
+            self.restrict_signature = hashlib.md5("".join(sorted(restricted_views)).encode()).hexdigest()
 
         suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
         self.module_file: str = f"kernel{suffix}"
@@ -111,7 +115,7 @@ class ModuleSetup:
         self.console_main: str = "pk_console"
 
         self.main: Path = self.get_main_path()
-        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space, types_signature)
+        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space, types_signature, self.restrict_signature)
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
             self.gpu_module_files = [f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())]
@@ -128,7 +132,8 @@ class ModuleSetup:
         main: Path,
         metadata: List[EntityMetadata],
         space: ExecutionSpace,
-        types_signature: Optional[str] = None
+        types_signature: Optional[str] = None,
+        restrict_signature: Optional[str] = None
     ) -> Optional[Path]:
         """
         Get the output directory for an execution space
@@ -137,6 +142,7 @@ class ModuleSetup:
         :param metadata: the metadata of the entity or fused entities being compiled
         :param space: the execution space to compile for
         :param types_signature: optional identifier/hash string for types of parameters
+        :param restrict_signature: optional identifier/hash string from the views that do not alias any other views
         :returns: the path to the output directory for a specific execution space
         """
 
@@ -147,9 +153,14 @@ class ModuleSetup:
         if space is ExecutionSpace.Default:
             space = km.get_default_space()
 
-        out_dir: Path = self.get_entity_dir(main, metadata) / space.value
+        out_dir: Path = self.get_entity_dir(main, metadata)
         if types_signature is not None:
-            out_dir: Path = self.get_entity_dir(main, metadata) / types_signature / space.value
+            out_dir = out_dir / f"types_{types_signature}"
+        if restrict_signature is not None:
+            out_dir = out_dir / f"restrict_{restrict_signature}"
+
+        out_dir = out_dir / space.value
+
         return out_dir
 
     def get_entity_dir(self, main: Path, metadata: List[EntityMetadata]) -> Path:
@@ -213,4 +224,4 @@ class ModuleSetup:
         Check if this module is compiled for its execution space
         """
 
-        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space, self.types_signature))
+        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space, self.types_signature, self.restrict_signature))
