@@ -2,8 +2,7 @@ import ast
 from enum import auto, Enum
 from typing import Dict, Optional, Set
 
-from pykokkos.core.translators.static import StaticTranslator
-
+from .util import add_parent_refs
 
 class AccessMode(Enum):
     Read = auto()
@@ -12,7 +11,7 @@ class AccessMode(Enum):
 
 
 def get_view_access_modes(AST: ast.FunctionDef, view_args: Set[str]) -> Dict[str, AccessMode]:
-    AST = StaticTranslator.add_parent_refs(AST)
+    AST = add_parent_refs(AST)
     access_modes: Dict[str, AccessMode] = {}
 
     for node in ast.walk(AST):
