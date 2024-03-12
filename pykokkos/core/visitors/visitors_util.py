@@ -266,22 +266,22 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
     return None
 
-def cpp_view_type(
+def parse_view_template_params(
     view_type: cppast.ClassType,
     rank: Optional[int] = None,
     space: Optional[str] = None,
     layout: Optional[str] = None,
     real: Optional[str] = None,
-) -> str:
+) -> Dict[str, str]:
     """
-    Get the C++ type of a view
+    Parse the template params of a view type node
 
     :param view_type: the cppast representation of the view
     :param rank: optionally provide the rank (used by subviews)
     :param space: optionally provide a memory space
     :param layout: optionally provide a layout
     :param real: optionally provide the precision of pk.real dtypes
-    :returns: string representation of C++ view type
+    :returns: a dict with an entry for each template parameter
     """
 
     py_type: str = view_type.typename
@@ -346,6 +346,29 @@ def cpp_view_type(
 
     if is_scratch_view:
         params["trait"] = f"Kokkos::MemoryTraits<Kokkos::Unmanaged>"
+
+    return params
+
+
+def cpp_view_type(
+    view_type: cppast.ClassType,
+    rank: Optional[int] = None,
+    space: Optional[str] = None,
+    layout: Optional[str] = None,
+    real: Optional[str] = None,
+) -> str:
+    """
+    Get the C++ type of a view
+
+    :param view_type: the cppast representation of the view
+    :param rank: optionally provide the rank (used by subviews)
+    :param space: optionally provide a memory space
+    :param layout: optionally provide a layout
+    :param real: optionally provide the precision of pk.real dtypes
+    :returns: string representation of C++ view type
+    """
+
+    params = parse_view_template_params(view_type, rank, space, layout, real)
 
     params_ordered: List[str] = []
     params_ordered.append(params["dtype"])

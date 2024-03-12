@@ -1,8 +1,12 @@
 import ast
+import os
 import re
 from typing import List, Optional
 
 from pykokkos.core import cppast
+from pykokkos.core.optimizations.restrict_views import (
+    adjust_kokkos_function_call, adjust_kokkos_function_definition
+)
 
 from . import visitors_util
 from .pykokkos_visitor import PyKokkosVisitor
@@ -28,7 +32,12 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
         body = cppast.CompoundStmt([self.visit(b) for b in node.body])
         attributes: str = "KOKKOS_FUNCTION"
 
-        method = cppast.MethodDecl(attributes, return_type, name, params, body)
+        method: cppast.MethodDecl
+        if "PK_RESTRICT" in os.environ:
+            method = adjust_kokkos_function_definition(attributes, return_type, name, params, body, self.restrict_views)
+        else:
+            method = cppast.MethodDecl(attributes, return_type, name, params, body)
+
         method.is_const = True
 
         return method

@@ -1,6 +1,6 @@
 import ast
 import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
@@ -15,10 +15,10 @@ class WorkunitVisitor(PyKokkosVisitor):
         self, env, src, views: Dict[cppast.DeclRefExpr, cppast.Type],
         work_units: Dict[str, ast.FunctionDef], fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
         kokkos_functions: Dict[str, ast.FunctionDef], dependency_methods: Dict[str, List[str]],
-        pk_import: str, debug=False
+        pk_import: str, restrict_views: Set[str], debug=False
     ):
         self.has_rand_call: bool = False
-        super().__init__(env, src, views, work_units, fields, kokkos_functions, dependency_methods, pk_import, debug)
+        super().__init__(env, src, views, work_units, fields, kokkos_functions, dependency_methods, pk_import, restrict_views, debug)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Union[str, Tuple[str, cppast.MethodDecl]]:
         if self.is_nested_call(node):

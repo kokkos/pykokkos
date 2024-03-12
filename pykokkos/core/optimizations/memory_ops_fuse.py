@@ -3,9 +3,7 @@ from collections import deque
 import itertools
 from typing import Any, Deque, Dict, List, Tuple
 
-from pykokkos.core.translators import StaticTranslator
-
-from .util import ExpressionFinder, MemoryOpInfo
+from .util import add_parent_refs, ExpressionFinder, MemoryOpInfo
 
 
 def partition_by_array(memory_ops: List[MemoryOpInfo]) -> List[List[MemoryOpInfo]]:
@@ -265,7 +263,7 @@ def memory_ops_fuse(AST: ast.FunctionDef, pk_import: str) -> None:
     """
 
     # This information might be out of date following loop fusion
-    StaticTranslator.add_parent_refs(AST)
+    add_parent_refs(AST)
 
     memory_ops: Dict[int, List[MemoryOpInfo]]
     const_values: Dict[str, Any]

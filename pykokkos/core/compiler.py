@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from pykokkos.core.fusion import fuse_workunits
 from pykokkos.core.optimizations import loop_fuse, memory_ops_fuse
@@ -115,9 +115,10 @@ class Compiler:
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
-        updated_decorator: Optional[UpdatedDecorator] = None,
-        updated_types: Optional[UpdatedTypes] = None,
-        types_signature: Optional[str] = None,
+        updated_decorator: Optional[UpdatedDecorator],
+        updated_types: Optional[UpdatedTypes],
+        types_signature: Optional[str],
+        restrict_views: Set[str],
         **kwargs
     ) -> PyKokkosMembers:
         """
@@ -128,6 +129,7 @@ class Compiler:
         :param force_uvm: whether CudaUVMSpace is enabled
         :param updated_decorator: Object for decorator specifiers
         :param updated_types: Object with with inferred types
+        :param restrict_views: a set of view names that do not alias any other views
         :returns: the PyKokkos members obtained during translation
         """
 
@@ -183,7 +185,7 @@ class Compiler:
             members = self.extract_members(entity, classtypes)
             self.members[hash] = members
 
-        self.compile_entity(module_setup.main, module_setup, entity, classtypes, space, force_uvm, members)
+        self.compile_entity(module_setup.main, module_setup, entity, classtypes, space, force_uvm, members, restrict_views)
         return members
 
     def compile_entity(
@@ -194,7 +196,8 @@ class Compiler:
         classtypes: List[PyKokkosEntity],
         space: ExecutionSpace,
         force_uvm: bool,
-        members: PyKokkosMembers
+        members: PyKokkosMembers,
+        restrict_views: Set[str]
     ) -> None:
         """
         Compile the entity
@@ -206,6 +209,7 @@ class Compiler:
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
         :param members: the PyKokkos related members of the entity
+        :param restrict_views: a set of view names that do not alias any other views
         """
 
         if space is ExecutionSpace.Default:
@@ -229,12 +233,12 @@ class Compiler:
                 loop_fuse(entity.AST)
             if "PK_MEM_FUSE" in os.environ:
                 memory_ops_fuse(entity.AST, entity.pk_import)
-        functor, bindings, cast = translator.translate(entity, classtypes)
+        functor, bindings, cast = translator.translate(entity, classtypes, restrict_views)
 
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
-        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space, module_setup.types_signature)
+        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space, module_setup.types_signature, module_setup.restrict_signature)
         c_start: float = time.perf_counter()
         cpp_setup.compile(output_dir, functor, self.functor_file, cast, self.functor_cast_file, bindings, self.bindings_file, space, force_uvm, self.get_compiler())
         c_end: float = time.perf_counter() - c_start
