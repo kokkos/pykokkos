@@ -1,9 +1,12 @@
 import ast
 from ast import FunctionDef, AST
+import os
+import re
 import sys
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Set, Union
 
 from pykokkos.core import cppast
+from pykokkos.core.optimizations import adjust_kokkos_function_call, get_restrict_ptr_name, index_restrict_view
 from pykokkos.interface import View
 
 from . import visitors_util
@@ -18,6 +21,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
             kokkos_functions: Dict[str, FunctionDef],
             dependency_methods: Dict[str, List[str]],
             pk_import: str,
+            restrict_views: Set[str],
             debug=False
     ):
         self.env = env
@@ -28,6 +32,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.kokkos_functions = kokkos_functions
         self.dependency_methods = dependency_methods
         self.pk_import = pk_import
+        self.restrict_views = restrict_views
         self.debug = debug
 
         # Map from subview to parent view
@@ -260,7 +265,14 @@ class PyKokkosVisitor(ast.NodeVisitor):
             )
         ):
             args: List[cppast.Expr] = [self.visit(s) for s in slices]
-            subscript = cppast.CallExpr(ref, args)
+            # Account for fused views
+            r = re.search("fused_(.*)_[0-9]*", ref.declname)
+            unfused_name: str = r.group(1) if r else ref.declname
+
+            if "PK_RESTRICT" in os.environ and unfused_name in self.restrict_views or name in self.restrict_views:
+                subscript = index_restrict_view(ref, args)
+            else:
+                subscript = cppast.CallExpr(ref, args)
 
             return subscript
 
@@ -412,7 +424,10 @@ class PyKokkosVisitor(ast.NodeVisitor):
             return cppast.CallExpr(function, args)
 
         if function in self.kokkos_functions:
-            return cppast.CallExpr(function, args)
+            if "PK_RESTRICT" in os.environ:
+                return adjust_kokkos_function_call(function, args, self.restrict_views, self.views)
+            else:
+                return cppast.CallExpr(function, args)
 
         # Call to a dependency's constructor
         if function.declname in visitors_util.allowed_types:

@@ -1,5 +1,5 @@
 import ast
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Set, Union
 from ast import FunctionDef
 
 from pykokkos.core import cppast
@@ -20,11 +20,12 @@ class KokkosMainVisitor(PyKokkosVisitor):
             dependency_methods: Dict[str, List[str]],
             functor: str,
             pk_import: str,
+            restrict_views: Set[str] = set(),
             debug=False
     ):
         super().__init__(env, src, views, work_units, fields,
                          kokkos_functions, dependency_methods,
-                         pk_import, debug)
+                         pk_import, restrict_views, debug)
 
         self.functor: str = functor
         self.reduction_result_queue: List[str] = []
