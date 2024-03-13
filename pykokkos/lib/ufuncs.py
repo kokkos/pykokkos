@@ -1321,6 +1321,56 @@ def subtract(viewA, valB):
     return out
 
 @pk.workunit
+def copyto_impl_2d(tid, viewA, viewB):
+    r_idx : int = tid / viewA.extent(1)
+    c_idx : int = tid - r_idx * viewA.extent(1)
+
+    viewA[r_idx][c_idx] = viewB[r_idx][c_idx]
+
+@pk.workunit
+def copyto_impl_1d(tid, viewA, viewB):
+    viewA[tid] = viewB[tid]
+
+def copyto(viewA, viewB):
+    '''
+    copies values of viewB into valueA for corresponding indicies
+
+    Parameters
+    ----------
+    viewA : pykokkos view
+            Input view.
+    valB : pykokkos view or scalar
+            Input view 
+
+    Returns
+    -------
+        Void
+    '''
+
+    if not isinstance(viewA, ViewType):
+        raise ValueError("copyto: Cannot copy to a non-view type")
+    if not isinstance(viewB, ViewType):
+        raise ValueError("copyto: Cannot copy from a non-view type")
+    if viewA.shape != viewB.shape:
+        if not check_broadcastable_impl(viewA, viewB): # if shape is not same check compatibility
+            raise ValueError("copyto: Views must be broadcastable or of the same size. {} against {}".format(viewA.shape, viewB.shape))
+        # check if size is same otherwise broadcast and fix
+        viewA = broadcast_view(viewB, viewA)
+
+    # implementation constraint, for now
+    if viewA.rank() > 2:
+        raise NotImplementedError("copyto: This version of Pykokkos only supports copyto upto 2D views")
+
+    if viewA.rank() == 1:
+        pk.parallel_for(viewA.shape[0], copyto_impl_1d, viewA=viewA, viewB=viewB)
+
+    else:   
+        outRows = viewA.shape[0]
+        outCols = viewA.shape[1] 
+        totalThreads = outRows * outCols
+        pk.parallel_for(totalThreads, copyto_impl_2d, viewA=viewA, viewB=viewB)
+
+@pk.workunit
 def np_matmul_impl_2d_2d(tid, cols, vec_length, viewA, viewB, viewOut):
     r_idx : int = tid / cols
     c_idx : int = tid - r_idx * cols
