@@ -1,10 +1,12 @@
 import ast
 import copy
+import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
+from pykokkos.core.optimizations import add_restrict_views
 from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.visitors import (
     ClasstypeVisitor, KokkosFunctionVisitor, WorkunitVisitor
@@ -49,6 +51,7 @@ class StaticTranslator:
         self,
         entity: PyKokkosEntity,
         classtypes: List[PyKokkosEntity],
+        restrict_views: Set[str]
     ) -> Tuple[List[str], List[str]]:
         """
         Translate an entity into C++ code
@@ -72,14 +75,17 @@ class StaticTranslator:
 
         source: Tuple[List[str], int] = entity.source
         functor_name: str = f"pk_functor_{entity.name}"
-        classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
-        functions: List[cppast.MethodDecl] = self.translate_functions(source)
+        classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes, restrict_views)
+        functions: List[cppast.MethodDecl] = self.translate_functions(source, restrict_views)
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
         has_rand_call: bool
-        workunits, has_rand_call = self.translate_workunits(source)
+        workunits, has_rand_call = self.translate_workunits(source, restrict_views)
 
         struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
+        if "PK_RESTRICT" in os.environ:
+            for operation, workunit in workunits.values():
+                add_restrict_views(struct, operation, workunit, restrict_views)
 
         cast: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_CAST_"+"_HPP")]
         cast.append(self.generate_cast_includes())
@@ -153,11 +159,12 @@ class StaticTranslator:
             sys.exit()
 
 
-    def translate_classtypes(self, classtypes: List[PyKokkosEntity]) -> List[cppast.RecordDecl]:
+    def translate_classtypes(self, classtypes: List[PyKokkosEntity], restrict_views: Set[str]) -> List[cppast.RecordDecl]:
         """
         Translate all classtypes, i.e. classes that the workload uses internally
 
         :param classtypes: the list of classtypes needed by the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a list of strings of translated source code
         """
 
@@ -170,9 +177,8 @@ class StaticTranslator:
 
             node_visitor = ClasstypeVisitor(
                 {},
-                source, self.pk_members.views, self.pk_members.pk_workunits,
-                self.pk_members.fields, self.pk_members.pk_functions,
-                self.pk_members.classtype_methods, self.pk_import, debug=True
+                source, self.pk_members.views, self.pk_members.pk_workunits, self.pk_members.fields,
+                self.pk_members.pk_functions, self.pk_members.classtype_methods, self.pk_import, restrict_views, debug=True
             )
 
             definition: cppast.RecordDecl = node_visitor.visit(classdef)
@@ -184,11 +190,12 @@ class StaticTranslator:
 
         return declarations + definitions
 
-    def translate_functions(self, source: Tuple[List[str], int]) -> List[cppast.MethodDecl]:
+    def translate_functions(self, source: Tuple[List[str], int], restrict_views: Set[str]) -> List[cppast.MethodDecl]:
         """
         Translate all PyKokkos functions
 
         :param source: the python source code of the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a list of method declarations
         """
 
@@ -197,9 +204,8 @@ class StaticTranslator:
 
         node_visitor = KokkosFunctionVisitor(
             {},
-            source, views, self.pk_members.pk_workunits,
-            self.pk_members.fields, self.pk_members.pk_functions,
-            self.pk_members.classtype_methods, self.pk_import, debug=True)
+            source, views, self.pk_members.pk_workunits, self.pk_members.fields, self.pk_members.pk_functions,
+            self.pk_members.classtype_methods, self.pk_import, restrict_views, debug=True)
 
         translation: List[cppast.MethodDecl] = []
 
@@ -208,11 +214,12 @@ class StaticTranslator:
 
         return translation
 
-    def translate_workunits(self, source: Tuple[List[str], int]) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
+    def translate_workunits(self, source: Tuple[List[str], int], restrict_views: Set[str]) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
         """
         Translate the workunits
 
         :param source: the python source code of the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a tuple of a dictionary mapping from workload name
             to a tuple of operation name and source, and a boolean
             indicating whether the workunit has a call to pk.rand()
@@ -221,7 +228,7 @@ class StaticTranslator:
         node_visitor = WorkunitVisitor(
             {}, source, self.pk_members.views, self.pk_members.pk_workunits,
             self.pk_members.fields, self.pk_members.pk_functions,
-            self.pk_members.classtype_methods, self.pk_import, debug=True)
+            self.pk_members.classtype_methods, self.pk_import, restrict_views, debug=True)
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 

@@ -3,9 +3,8 @@ from collections import deque
 from typing import Deque, Dict, List, Set, Tuple
 
 from pykokkos.core.fusion.util import DeclarationsVisitor, VariableRenamer
-from pykokkos.core.translators import StaticTranslator
 
-from .util import ExpressionFinder, LoopInfo
+from .util import add_parent_refs, ExpressionFinder, LoopInfo
 
 
 def find_loops(AST: ast.FunctionDef) -> Dict[int, List[LoopInfo]]:
@@ -459,7 +458,7 @@ def loop_fuse(AST: ast.FunctionDef) -> None:
     :param AST: the AST of the workunit to optimize
     """
 
-    StaticTranslator.add_parent_refs(AST)
+    add_parent_refs(AST)
 
     loops_in_scope: Dict[int, List[LoopInfo]] = find_loops(AST)
     fusable_loops: List[List[LoopInfo]] = identify_fusable_loops(loops_in_scope)

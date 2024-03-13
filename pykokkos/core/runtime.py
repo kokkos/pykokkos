@@ -2,13 +2,14 @@ import importlib.util
 import os
 from pathlib import Path
 import sys
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, List
+from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
 import sysconfig
 
 import numpy as np
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params, Future, Tracer, TracerOperation
 from pykokkos.core.keywords import Keywords
+from pykokkos.core.optimizations import get_restrict_views
 from pykokkos.core.parsers import Parser
 from pykokkos.core.translators import PyKokkosMembers
 from pykokkos.core.visitors import visitors_util
@@ -54,7 +55,7 @@ class Runtime:
             return
 
         module_setup: ModuleSetup = self.get_module_setup(workload, space)
-        members: PyKokkosMembers = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), None)
+        members: PyKokkosMembers = self.compiler.compile_object(module_setup, space, km.is_uvm_enabled(), None, None, None, set())
 
         self.execute(workload, module_setup, members, space)
         self.run_callbacks(workload, members)
@@ -63,9 +64,11 @@ class Runtime:
         self,
         workunit: Callable[..., None],
         space: ExecutionSpace,
-        updated_decorator: Optional[UpdatedDecorator] = None,
-        updated_types: Optional[UpdatedTypes] = None,
-        types_signature: Optional[str] = None,
+        updated_decorator: Optional[UpdatedDecorator],
+        updated_types: Optional[UpdatedTypes],
+        types_signature: Optional[str],
+        restrict_views: Set[str],
+        restrict_signature: Optional[str],
         **kwargs,
     ) -> PyKokkosMembers:
         """
@@ -75,14 +78,16 @@ class Runtime:
         :param space: the ExecutionSpace for which the bindings are generated
         :param updated_decorator: Object for decorator specifier
         :param updated_types: Object with type inference information
+        :param restrict_views: a set of view names that do not alias any other views
         :returns: the members the functor is containing
         """
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, space, types_signature, restrict_signature)
         members: PyKokkosMembers = self.compiler.compile_object(module_setup,
                                                                 space, km.is_uvm_enabled(),
                                                                 updated_decorator,
-                                                                updated_types, types_signature, **kwargs)
+                                                                updated_types, types_signature,
+                                                                restrict_views, **kwargs)
 
         return members
 
@@ -172,13 +177,28 @@ class Runtime:
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
         types_signature: Optional[str]
-    
+
         updated_types, updated_decorator, types_signature = get_type_info(operation, parser, policy, workunit, kwargs)
+        restrict_views: Set[str] = set()
+        restrict_signature: Optional[str] = None
+
+        if "PK_RESTRICT" in os.environ:
+            restrict_kwargs: Dict[str, Any]
+
+            if self.fusion_strategy is not None and isinstance(workunit, list):
+                parsers = [self.compiler.get_parser(get_metadata(e).path) for e in workunit]
+                entity_trees = [this_parser.get_entity(get_metadata(this_entity).name).AST for this_entity, this_parser in zip(workunit, parsers)]
+                restrict_kwargs, _ = fuse_workunit_kwargs_and_params(entity_trees, kwargs, f"parallel_{operation}")
+            else:
+                restrict_kwargs = kwargs
+
+            view_dict: Dict[str, ViewType] = {arg: view for arg, view in restrict_kwargs.items() if isinstance(view, ViewType)}
+            restrict_views, restrict_signature = get_restrict_views(view_dict)
 
         execution_space: ExecutionSpace = policy.space.space
-        members: PyKokkosMembers = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, **kwargs)
+        members: PyKokkosMembers = self.precompile_workunit(workunit, execution_space, updated_decorator, updated_types, types_signature, restrict_views, restrict_signature, **kwargs)
 
-        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature)
+        module_setup: ModuleSetup = self.get_module_setup(workunit, execution_space, types_signature, restrict_signature)
         return self.execute(workunit, module_setup, members, execution_space, policy=policy, name=name, operation=operation, **kwargs)
 
     def flush_data(self, data: Union[Future, ViewType]) -> None:
@@ -534,25 +554,27 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
-        types_signature: Optional[str] = None
+        types_signature: Optional[str] = None,
+        restrict_signature: Optional[str] = None
     ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :types_signature: Hash/identifer string for workunit module against data types
+        :param types_signature: Hash/identifer string for workunit module against data types
+        :param restrict_signature: Hash/identifer string for views that do not alias any other views
         :returns: the ModuleSetup object
         """
 
         space: ExecutionSpace = km.get_default_space() if space is ExecutionSpace.Debug else space
 
-        module_setup_id = self.get_module_setup_id(entity, space, types_signature)
+        module_setup_id = self.get_module_setup_id(entity, space, types_signature, restrict_signature)
 
         if module_setup_id in self.module_setups:
             return self.module_setups[module_setup_id]
 
-        module_setup = ModuleSetup(entity, space, types_signature)
+        module_setup = ModuleSetup(entity, space, types_signature, restrict_signature)
         self.module_setups[module_setup_id] = module_setup
 
         return module_setup
@@ -561,7 +583,8 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
-        types_signature: Optional[str] = None
+        types_signature: Optional[str] = None,
+        restrict_signature: Optional[str] = None
     ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
@@ -571,12 +594,15 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
-        :param types_signature: optional identifier/hash string for types of parameters against workunit module
+        :param types_signature: optional identifier/hash string for
+            types of parameters against workunit module
+        :param restrict_signature: Hash/identifer string for views
+            that do not alias any other views
         :returns: a unique tuple per entity and space
         """
 
         if isinstance(entity, list):
-            entity = tuple(entity) # Since entity needs to be hased
+            entity = tuple(entity) # Since entity needs to be hashed
 
         is_workload: bool = not isinstance(entity, (Callable, tuple))
         is_functor: bool = hasattr(entity, "__self__")
@@ -589,10 +615,14 @@ class Runtime:
             functor_type: Type = type(entity.__self__)
             module_setup_id: Tuple[Callable, str, str, ExecutionSpace] = (
                 type(functor_type), functor_type.__module__, entity.__name__, space)
-        elif types_signature is None:
-            module_setup_id: Tuple[Callable, ExecutionSpace] = (entity, space)
         else:
-            module_setup_id: Tuple[Callable, ExecutionSpace, str] = (entity, space, types_signature)
+            module_setup_id_list: List = [entity, space]
+            if types_signature is not None:
+                module_setup_id_list.append(types_signature)
+            if restrict_signature is not None:
+                module_setup_id_list.append(restrict_signature)
+
+            module_setup_id = tuple(module_setup_id_list)
 
         return module_setup_id
 

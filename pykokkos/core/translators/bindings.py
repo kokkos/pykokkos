@@ -516,7 +516,7 @@ def translate_mains(source: Tuple[List[str], int], functor: str, members: PyKokk
     node_visitor = KokkosMainVisitor(
         {}, source, members.views, members.pk_workunits,
         members.fields, members.pk_functions,
-        members.classtype_methods, functor, pk_import, True)
+        members.classtype_methods, functor, pk_import, debug=True)
 
     translation: List[str] = []
 

@@ -151,7 +151,7 @@ class PyKokkosMembers:
         node_visitor = KokkosMainVisitor(
             {}, source, views, self.pk_workunits,
             self.fields, self.pk_functions,
-            self.classtype_methods, name, pk_import, True)
+            self.classtype_methods, name, pk_import, debug=True)
 
         for main in self.pk_mains.values():
             try:
