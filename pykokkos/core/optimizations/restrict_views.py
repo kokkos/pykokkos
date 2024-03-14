@@ -111,7 +111,7 @@ def get_restrict_ptr_type(view_type: str) -> Tuple[cppast.ClassType, int]:
     rank: int = view_dtype.count("*")
 
     # Replace "**" with "*"
-    restrict_type: str = view_dtype.replace(rank * "*", "*") + " KOKKOS_RESTRICT"
+    restrict_type: str = view_dtype.replace(rank * "*", "*") + " __restrict__"
     decltype = cppast.ClassType(restrict_type)
 
     return decltype, rank
