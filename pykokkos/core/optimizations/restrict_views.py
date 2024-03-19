@@ -7,6 +7,53 @@ from pykokkos.core import cppast
 from pykokkos.interface import Subview, View, ViewType, Trait
 
 
+def may_share_memory(a, b) -> bool:
+    """
+    Detect whether two arrays share any memory. Somewhat inspired by
+    https://github.com/cupy/cupy/blob/v13.0.0/cupy/_misc/memory_ranges.py#L30,
+    but that one is currently bugged. Right now, this checks whether
+    two subviews of the same array with the same stride share memory.
+    All other cases are assumed to share memory for now.
+    """
+
+    # Assume that array of different data types cannot share memory
+    if a.dtype is not b.dtype:
+        return False
+
+    # Don't bother with multidim arrays for now, assume they do share
+    # memory
+    if len(a.shape) > 1 or len(b.shape) > 1:
+        return True
+
+    # If they are the same Python object then they do share memory
+    if a is b and a.size != 0:
+        return True
+
+    a_base = a if a.base is None else a.base
+    b_base = b if b.base is None else b.base
+
+    # This is making the assumption that if the two arrays are
+    # different Python objects, then they do not share memory. This is
+    # not necessarily true, but will work for our purposes.
+    if a_base is not b_base:
+        return False
+
+    # This might still be True but analyzing this could be quite
+    # complex
+    if a.stride != b.stride:
+        return True
+
+    a_ptr: int = a.data.ptr
+    b_ptr: int = b.data.ptr
+
+    ptr_difference: int = abs(a_ptr - b_ptr)
+    stride: int = a.stride[0]
+
+    if ptr_difference % stride == 0:
+        return True
+
+    return False
+
 def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Set[str], str]:
     """
     Identify views that do not alias each other to apply the restrict
@@ -27,9 +74,14 @@ def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Set[str], str]:
 
         if base_view.trait is Trait.Unmanaged:
             assert hasattr(base_view, "xp_array")
-            xp_arrays[view_name] = base_view.xp_array
+            # xp_arrays[view_name] = base_view.xp_array
+            xp_arrays[view_name] = view.xp_array
+            # The intution here is that for subviews of unmanaged
+            # views, we can rely on the array libraries to figure out
+            # if they alias, so we do not need the actual base view
 
-            base_type = str(type(base_view.xp_array))
+            # base_type = str(type(base_view.xp_array))
+            base_type = str(type(view.xp_array))
             if "numpy" in base_type:
                 import numpy as np
                 xp_lib = np
@@ -47,8 +99,8 @@ def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Set[str], str]:
 
     restricted_views: Set[str] = set()
     for view_id, view_set in base_view_ids.items():
-        if len(view_set) == 1:
-            restricted_views.update(view_set)
+        # if len(view_set) == 1:
+        restricted_views.update(view_set)
 
     aliasing_arrays: Set[str] = set()
 
@@ -64,9 +116,11 @@ def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Set[str], str]:
             if other_name == name:
                 continue
 
+            # if xp_lib.shares_memory(xp_array, other_array):
             if xp_lib.may_share_memory(xp_array, other_array):
-                aliasing_arrays.add(name)
-                aliasing_arrays.add(other_name)
+                if may_share_memory(xp_array, other_array):
+                    aliasing_arrays.add(name)
+                    aliasing_arrays.add(other_name)
 
     restricted_views -= aliasing_arrays
     restricted_signature: str = hashlib.md5("".join(sorted(restricted_views)).encode()).hexdigest()
