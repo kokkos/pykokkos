@@ -1414,7 +1414,7 @@ def np_matmul(viewA, viewB):
     Returns
     -------
     Pykokkos view
-        Matmul result in a view
+        Matmul result in a view or 0.0 in case views are empty
 
 
     """
@@ -1427,6 +1427,9 @@ def np_matmul(viewA, viewB):
 
     if viewAType != viewBType:
         raise RuntimeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
+
+    if not viewA.shape and not viewB.shape:
+        return 0.0
 
     viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape[0]
     viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape[0]
