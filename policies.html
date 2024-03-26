@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Policies &mdash; pykokkos  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Work Units" href="workunits.html" />
+    <link rel="prev" title="Patterns" href="patterns.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pykokkos
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patterns.html">Patterns</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Policies</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#rangepolicy">RangePolicy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#team-policy">Team Policy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#execution-space">Execution Space</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="workunits.html">Work Units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ndarrays.html">N-dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pykokkos</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Policies</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/policies.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="policies">
+<h1>Policies<a class="headerlink" href="#policies" title="Link to this heading"></a></h1>
+<p>Policy is the second key concept (out of three) in PyKokkos
+(<a class="reference internal" href="concepts.html"><span class="doc">Concepts</span></a>).  Each pattern (<a class="reference internal" href="patterns.html"><span class="doc">Patterns</span></a>) accepts a policy as
+an argument. A policy specifies the way computation is executed and
+provides:</p>
+<ul class="simple">
+<li><p>Number of units of work to run by providing a set of unique ids</p></li>
+<li><p>Space in which the execution should happen (e.g., Cuda)</p></li>
+</ul>
+<p>PyKokkos currently supports the following policies:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#range-policy"><span class="std std-ref">RangePolicy</span></a></p></li>
+<li><p><a class="reference internal" href="#team-policy"><span class="std std-ref">TeamPolicy</span></a></p></li>
+</ul>
+<p>In this document, we will use the <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code> pattern for
+illustrations in our examples, but similar reasoning applies to other
+patterns.</p>
+<section id="rangepolicy">
+<span id="range-policy"></span><h2>RangePolicy<a class="headerlink" href="#rangepolicy" title="Link to this heading"></a></h2>
+<p>This is the simplest policy, which specifies unique ids for units of
+work as a 1-D range of values. One can create an instance of
+<code class="docutils literal notranslate"><span class="pre">RangePolicy</span></code> using the following function from the library:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pk</span><span class="o">.</span><span class="n">RangePolicy</span><span class="p">([</span><span class="n">ExecutionSpace</span><span class="p">],</span> <span class="n">begin_value</span><span class="p">,</span> <span class="n">end_value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> is optional and discussed in detail in
+<a class="reference internal" href="#execution-space"><span class="std std-ref">ExecutionSpace</span></a>. If <code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> is not
+provided, the default space will be used.</p>
+<p>We can use an range policy like so:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">pk</span><span class="o">.</span><span class="n">RangePolicy</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">work</span><span class="p">,</span> <span class="n">kwargs_for_work</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is equivalent to a simple case we have seen on other pages of
+this documentation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">kwargs_for_work</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Below is a complete example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">pk</span><span class="o">.</span><span class="n">RangePolicy</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="c1"># OR</span>
+    <span class="c1"># pk.parallel_for(&quot;work&quot;, N, work, a=a)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>An example output is shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">68</span> <span class="mi">30</span> <span class="mi">75</span> <span class="mi">59</span>  <span class="mi">0</span> <span class="mi">25</span> <span class="mi">54</span> <span class="mi">80</span> <span class="mi">36</span> <span class="mi">62</span><span class="p">]</span>
+<span class="p">[</span><span class="mi">69</span> <span class="mi">31</span> <span class="mi">76</span> <span class="mi">60</span>  <span class="mi">1</span> <span class="mi">26</span> <span class="mi">55</span> <span class="mi">81</span> <span class="mi">37</span> <span class="mi">63</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="team-policy">
+<span id="id1"></span><h2>Team Policy<a class="headerlink" href="#team-policy" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TeamPolicy</span></code> is used to implemente hierarchical parallelism.
+Threads are grouped into teams, and there can be an arbitrary many
+teams. Each team has a number of threads (the team size).  All threads
+in a team are guaranteed to run concurrently.  One can create an
+instance of <code class="docutils literal notranslate"><span class="pre">TeamPolicy</span></code> using the following function from the
+library:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pk</span><span class="o">.</span><span class="n">TeamPolicy</span><span class="p">([</span><span class="n">ExecutionSpace</span><span class="p">],</span> <span class="n">league_size</span><span class="p">,</span> <span class="n">team_size</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> is optional and discussed in detail in
+<a class="reference internal" href="#execution-space"><span class="std std-ref">ExecutionSpace</span></a>. If <code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> is not
+provided, the default space will be used.</p>
+<p>Below is an example of adding one to each element of an array, which
+uses <code class="docutils literal notranslate"><span class="pre">TeamPolicy</span></code> to organize the computation.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">team_member</span><span class="p">,</span> <span class="n">view</span><span class="p">):</span>
+    <span class="n">j</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">team_member</span><span class="o">.</span><span class="n">league_rank</span><span class="p">()</span>
+    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">team_member</span><span class="o">.</span><span class="n">team_size</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">view</span><span class="p">[</span><span class="n">j</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">view</span><span class="p">[</span><span class="n">j</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="n">pk</span><span class="o">.</span><span class="n">TeamThreadRange</span><span class="p">(</span><span class="n">team_member</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">inner</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">set_default_space</span><span class="p">(</span><span class="n">pk</span><span class="o">.</span><span class="n">OpenMP</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">pk</span><span class="o">.</span><span class="n">TeamPolicy</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">work</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Those familiar with Cuda might want to think about league_rank as
+block id, team_size as block size, and team_rank as a thread id.</p>
+</div>
+</section>
+<section id="execution-space">
+<span id="id2"></span><h2>Execution Space<a class="headerlink" href="#execution-space" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> specifies the place where units of work will be
+executed. The following are valid values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pk.OpenMP</span></code> - execution on the host using OpenMP</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pk.Cuda</span></code> - execution on a Cuda device</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pk.HIP</span></code> - execution on an AMD GPU</p></li>
+</ul>
+<p>If the execution space is not provided in a policy (at the time of a
+pattern execution), then the default execution space will be used. The
+default execution space is set to <code class="docutils literal notranslate"><span class="pre">pk.OpenMP</span></code> when an application
+starts. The default execution space can be changed at any point use
+the <code class="docutils literal notranslate"><span class="pre">pk.set_default_space()</span></code> function.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="patterns.html" class="btn btn-neutral float-left" title="Patterns" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="workunits.html" class="btn btn-neutral float-right" title="Work Units" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, PyKokkos Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

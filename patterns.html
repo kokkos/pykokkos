@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Patterns &mdash; pykokkos  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Policies" href="policies.html" />
+    <link rel="prev" title="Concepts" href="concepts.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pykokkos
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Patterns</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-for">Parallel for</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-reduce">Parallel reduce</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-scan">Parallel scan</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="policies.html">Policies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workunits.html">Work Units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ndarrays.html">N-dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pykokkos</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Patterns</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/patterns.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="patterns">
+<h1>Patterns<a class="headerlink" href="#patterns" title="Link to this heading"></a></h1>
+<p>Pattern is the first key concept (out of three) in PyKokkos
+(<a class="reference internal" href="concepts.html"><span class="doc">Concepts</span></a>).  Patterns specify the structure of computation.
+There are three key patterns available in PyKokkos:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">parallel_for</span></code>, which is also known as a <code class="docutils literal notranslate"><span class="pre">map</span></code> operation in
+other frameworks/languages</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code>, which is also known as a <code class="docutils literal notranslate"><span class="pre">fold</span></code> operation in
+other frameworks/languages</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">parallel_scan</span></code>, which implements a prefix scan</p></li>
+</ul>
+<section id="parallel-for">
+<h2>Parallel for<a class="headerlink" href="#parallel-for" title="Link to this heading"></a></h2>
+<p>The most commonly used pattern is <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code>.  The pattern is
+available as a function in the <code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> library and has the
+following signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_for</span><span class="p">([</span><span class="n">label</span><span class="p">],</span> <span class="n">policy</span><span class="p">,</span> <span class="n">workunit</span><span class="p">,</span> <span class="p">[</span><span class="n">keyword</span> <span class="n">arguments</span><span class="p">])</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>label</strong> is an optional string value helpful for debugging and
+profiling</p></li>
+<li><p><strong>policy</strong> specifies the way computations are executed (execution
+place and number of work units to run in parallel). In its simplest
+form, policy is an integer value that specifies a range of
+values. More details about policies is provided in a separate page
+(<a class="reference internal" href="policies.html"><span class="doc">Policies</span></a>)</p></li>
+<li><p><strong>workunit</strong> is the name of the <code class="docutils literal notranslate"><span class="pre">&#64;pk.workunit</span></code> function that
+performs one unit of work</p></li>
+<li><p><strong>arguments</strong> are keyword arguments passed to the workunit</p></li>
+</ul>
+<p>Based on the policy, the <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code> will execute a number of
+work units in parallel. Each work unit is executed independently and
+there are no guarantees about the execution order. At the same time,
+any number of work units might be running in parallel or they might be
+executed sequentially if the runtime determines that such an execution
+would be beneficial for the overall performance.</p>
+<p>Below is an example to illustrate the <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code> pattern.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">hello</span><span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">printf</span><span class="p">(</span><span class="s2">&quot;Hello, World! from i = </span><span class="si">%d</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">hello</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In this example, the policy is simply an integer value (<code class="docutils literal notranslate"><span class="pre">10</span></code>) that
+specifies a range (<code class="docutils literal notranslate"><span class="pre">0..9</span></code>) of unique ids for work units to be
+spawned (one work unit for one id).  Here is the output for the
+example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">8</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">4</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">9</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">6</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">3</span>
+Hello,<span class="w"> </span>World!<span class="w"> </span>from<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">7</span>
+</pre></div>
+</div>
+</section>
+<section id="parallel-reduce">
+<h2>Parallel reduce<a class="headerlink" href="#parallel-reduce" title="Link to this heading"></a></h2>
+<p>The pattern <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> implements a reduction. This pattern
+is similar in many ways to <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code> except that each work unit
+produces a value, and all the values are eventually accumulated into a
+single value (known as an accumulator).  This pattern is available as
+a function in the <code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> library and has the following
+signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_reduce</span><span class="p">([</span><span class="n">label</span><span class="p">],</span> <span class="n">policy</span><span class="p">,</span> <span class="n">workunit</span><span class="p">,</span> <span class="p">[</span><span class="n">keyword</span> <span class="n">arguments</span><span class="p">])</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>label</strong> is an optional string value helpful for debugging and
+profiling</p></li>
+<li><p><strong>policy</strong> specifies the way computations are executed (execution
+place and number of workunits to run in parallel). In its simplest
+form, policy is an integer value that specifies a range of
+values. More details about policies is provided in a separate page
+(<a class="reference internal" href="policies.html"><span class="doc">Policies</span></a>)</p></li>
+<li><p><strong>workunit</strong> is the name of the <code class="docutils literal notranslate"><span class="pre">&#64;pk.workunit</span></code> function that
+performs one unit of work</p></li>
+<li><p><strong>arguments</strong> are keyword arguments passed to the workunit</p></li>
+</ul>
+<p>Based on the policy, <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> runs a number of work units.
+Each work unit receives <cite>two</cite> arguments in addition to the specified
+keyword arguments: (1) unique id of the work unit, and (2) an
+accumulator.</p>
+<p>Below is an example to illustrate the <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> pattern:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">acc</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">acc</span> <span class="o">+=</span> <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">parallel_reduce</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In the example, we run <code class="docutils literal notranslate"><span class="pre">N</span></code> (which is set to <code class="docutils literal notranslate"><span class="pre">10</span></code>) work units to
+compute the sum of all elements in a numpy array (<code class="docutils literal notranslate"><span class="pre">a</span></code>).  Note that
+the first two arguments to the workunit (<code class="docutils literal notranslate"><span class="pre">wid</span></code> which is a unique
+identifier of a work unit, and <code class="docutils literal notranslate"><span class="pre">acc</span></code> which is an accumulator) are
+provided at runtime by the framework.</p>
+</section>
+<section id="parallel-scan">
+<h2>Parallel scan<a class="headerlink" href="#parallel-scan" title="Link to this heading"></a></h2>
+<p>The pattern <code class="docutils literal notranslate"><span class="pre">parallel_scan</span></code> implements a prefix scan.  This pattern
+is very much like <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code>, but it also stores all
+intermediate results.  The pattern is available as a function in the
+<code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> library and has the following signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_scan</span><span class="p">([</span><span class="n">label</span><span class="p">],</span> <span class="n">policy</span><span class="p">,</span> <span class="n">workunit</span><span class="p">,</span> <span class="p">[</span><span class="n">keyword</span> <span class="n">arguments</span><span class="p">])</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>label</strong> is an optional string value helpful for debugging and
+profiling</p></li>
+<li><p><strong>policy</strong> specifies the way computations are executed (execution
+place and number of workunits to run in parallel). In its simplest
+form, policy is an integer value that specifies a range of
+values. More details about policies is provided in a separate page
+(<a class="reference internal" href="policies.html"><span class="doc">Policies</span></a>)</p></li>
+<li><p><strong>workunit</strong> is the name of the <code class="docutils literal notranslate"><span class="pre">&#64;pk.workunit</span></code> function that
+performs one unit of work</p></li>
+<li><p><strong>arguments</strong> are keyword arguments passed to the workunit</p></li>
+</ul>
+<p>As before, based on the policy, <code class="docutils literal notranslate"><span class="pre">parallel_scan</span></code> runs a number of
+units of work. Each unit of work receives <cite>three</cite> arguments in
+addition to the given keyword arguments: (1) unique id of the unit of
+work, (2) an accumulator, and (3) a boolean flag to indicate if the
+scan for the current unit of work is complete.</p>
+<p>Below is an example to illustrate the <code class="docutils literal notranslate"><span class="pre">parallel_scan</span></code> pattern:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">acc</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">acc</span> <span class="o">+=</span> <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">final</span><span class="p">:</span>
+        <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">=</span> <span class="n">acc</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_scan</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The output for the example above for a single run is:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">[</span><span class="m">59</span><span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">65</span><span class="w"> </span><span class="m">41</span><span class="w"> </span><span class="m">22</span><span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="m">59</span><span class="w"> </span><span class="m">91</span><span class="w"> </span><span class="m">24</span><span class="o">]</span>
+<span class="o">[</span><span class="w"> </span><span class="m">59</span><span class="w"> </span><span class="m">119</span><span class="w"> </span><span class="m">167</span><span class="w"> </span><span class="m">232</span><span class="w"> </span><span class="m">273</span><span class="w"> </span><span class="m">295</span><span class="w"> </span><span class="m">359</span><span class="w"> </span><span class="m">418</span><span class="w"> </span><span class="m">509</span><span class="w"> </span><span class="m">533</span><span class="o">]</span>
+</pre></div>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="concepts.html" class="btn btn-neutral float-left" title="Concepts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="policies.html" class="btn btn-neutral float-right" title="Policies" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, PyKokkos Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; pykokkos  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Concepts" href="concepts.html" />
+    <link rel="prev" title="PyKokkos Documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pykokkos
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#using-docker">Using Docker</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#design-decision">Design Decision</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#native-installation">Native Installation</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patterns.html">Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="policies.html">Policies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workunits.html">Work Units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ndarrays.html">N-dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pykokkos</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
+<p>We recommend using Docker for running applications and developing (see
+<a class="reference internal" href="#using-docker"><span class="std std-ref">Using Docker</span></a>, but detailed installation
+instructions are available (see <a class="reference internal" href="#native-installation"><span class="std std-ref">Native
+Installation</span></a>).</p>
+<section id="using-docker">
+<span id="id1"></span><h2>Using Docker<a class="headerlink" href="#using-docker" title="Link to this heading"></a></h2>
+<p>You can use the PyKokkos Docker image to develop PyKokkos itself, as
+well as develop and run applications.  We recommend using the <code class="docutils literal notranslate"><span class="pre">pk</span></code>
+script for interacting with the image and containers.</p>
+<p>To run an application in a container, you can execute the following
+command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./pk<span class="w"> </span>pk_example<span class="w"> </span>examples/kokkos-tutorials/workload/01.py
+</pre></div>
+</div>
+<p>The command above will pull the image from the Docker Hub, run a
+container, include this repository as a volume, and run the example
+application from the given path.</p>
+<p>If you would like to run another example application, you can simply
+change the path (the last argument in the command above).</p>
+<p>Note that code you are running should be in the PyKokkos repository.
+If you would like to run from another directory you will need to
+include the directory as a volume; take a look at the <code class="docutils literal notranslate"><span class="pre">pk</span></code> script in
+that case.</p>
+<section id="design-decision">
+<h3>Design Decision<a class="headerlink" href="#design-decision" title="Link to this heading"></a></h3>
+<p>At the moment, we decided to include the PyKokkos repository as a
+volume when starting a container, which enables the development
+workflow. Namely, the <code class="docutils literal notranslate"><span class="pre">pk</span></code> script will include the current local
+version of this repository, which means that any local modifications
+(e.g., a change in <code class="docutils literal notranslate"><span class="pre">parallel_dispatch.py</span></code>) will be used in the
+subsequent runs of the <code class="docutils literal notranslate"><span class="pre">pk</span></code> script. In the future, we might separate
+user and development workflows.</p>
+</section>
+<section id="limitations">
+<h3>Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h3>
+<p>One, as described above, you would need to modify the <code class="docutils literal notranslate"><span class="pre">pk</span></code> script if
+you are running code that is not part of this repository.</p>
+<p>Two, if your code requires dependencies (e.g., python libraries not
+already included in the image), you would need to install it
+(temporarily) in the container or build your own image.</p>
+</section>
+</section>
+<section id="native-installation">
+<span id="id2"></span><h2>Native Installation<a class="headerlink" href="#native-installation" title="Link to this heading"></a></h2>
+<p>Clone <a class="reference external" href="https://github.com/kokkos/pykokkos-base">pykokkos-base</a> and
+create a conda environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/kokkos/pykokkos-base.git
+<span class="nb">cd</span><span class="w"> </span>pykokkos-base/
+conda<span class="w"> </span>create<span class="w"> </span>--name<span class="w"> </span>pyk<span class="w"> </span>--file<span class="w"> </span>requirements.txt<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
+conda<span class="w"> </span>activate<span class="w"> </span>pyk
+</pre></div>
+</div>
+<p>Once the necessary packages have been downloaded and installed,
+install <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code> with CUDA and OpenMP enabled:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>setup.py<span class="w"> </span>install<span class="w"> </span>--<span class="w"> </span>-DENABLE_LAYOUTS<span class="o">=</span>ON<span class="w"> </span>-DENABLE_MEMORY_TRAITS<span class="o">=</span>OFF<span class="w"> </span>-DENABLE_VIEW_RANKS<span class="o">=</span><span class="m">3</span><span class="w"> </span>-DENABLE_CUDA<span class="o">=</span>ON<span class="w"> </span>-DENABLE_THREADS<span class="o">=</span>OFF<span class="w"> </span>-DENABLE_OPENMP<span class="o">=</span>ON
+</pre></div>
+</div>
+<p>Other <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code> configuration and installation options can be
+found in that project’s <a class="reference external" href="https://github.com/kokkos/pykokkos-base/blob/main/README.md">README</a>.  Note
+that this step will compile a large number of bindings which can take
+a while to complete. Please open an issue if you run into any problems
+with <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code>.</p>
+<p>Once <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code> has been installed, clone <code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> and
+install its requirements:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>..
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/kokkos/pykokkos.git
+<span class="nb">cd</span><span class="w"> </span>pykokkos/
+conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>pybind11<span class="w"> </span>cupy<span class="w"> </span>patchelf
+pip<span class="w"> </span>install<span class="w"> </span>--user<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">cupy</span></code> is only required if CUDA is enabled in
+pykokkos-base.  In some cases, this might result in a <code class="docutils literal notranslate"><span class="pre">cupy</span></code> import
+error inside <code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> similar to the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ImportError:
+================================================================
+Failed to import CuPy.
+
+Original error:
+ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29&#39; not found (required by /PATH/TO/ENV/lib/python3.11/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
+</pre></div>
+</div>
+<p>This is due to a mismatch in <code class="docutils literal notranslate"><span class="pre">libstdc++.so</span></code> versions between the
+system library which <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code> depends on and the library in
+the conda environment which <code class="docutils literal notranslate"><span class="pre">cupy</span></code> depends on. This can be solved by
+setting the <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> environment variable to force loading of
+the correct library like so:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">LD_PRELOAD</span><span class="o">=</span>/PATH/TO/ENV/lib/libstdc++.so.6
+</pre></div>
+</div>
+<p>To verify that <code class="docutils literal notranslate"><span class="pre">pykokkos</span></code> has been installed correctly, install
+<code class="docutils literal notranslate"><span class="pre">pytest</span></code> and run the tests:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span>pytest
+python<span class="w"> </span>runtests.py
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Please open an issue for help with installation.</p>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="PyKokkos Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="concepts.html" class="btn btn-neutral float-right" title="Concepts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, PyKokkos Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

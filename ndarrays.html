@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>N-dimensional Arrays &mdash; pykokkos  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Examples" href="examples.html" />
+    <link rel="prev" title="Work Units" href="workunits.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pykokkos
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patterns.html">Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="policies.html">Policies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workunits.html">Work Units</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">N-dimensional Arrays</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#interoperability-with-numpy">Interoperability with NumPy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interoperability-with-cupy">Interoperability with CuPy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#native-views">Native Views</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pykokkos</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">N-dimensional Arrays</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/ndarrays.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="n-dimensional-arrays">
+<h1>N-dimensional Arrays<a class="headerlink" href="#n-dimensional-arrays" title="Link to this heading"></a></h1>
+<p>Two common types of arguments given to workunits (<a class="reference internal" href="workunits.html"><span class="doc">Work Units</span></a>)
+are those of primitive types and n-dimensional arrays. PyKokkos nicely
+interoperates with <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">cupy</span></code> arrays, as well as
+introduces its own abstraction (<code class="docutils literal notranslate"><span class="pre">View</span></code>) used mostly for research
+exploration. We describe the use of all three types of ndarrays on
+this page.</p>
+<p>The motivation to focus on supporting <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">cupy</span></code> is that
+both libraries are widely used and many applications already have code
+that relies on them. The idea is that users can benefit from PyKokkos
+kernels without having a need to modify their applications.</p>
+<section id="interoperability-with-numpy">
+<h2>Interoperability with NumPy<a class="headerlink" href="#interoperability-with-numpy" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">numpy</span></code> arrays can be directly passed as arguments to workunits
+(<a class="reference internal" href="workunits.html"><span class="doc">Work Units</span></a>). As any other argument to a workunit, the arrays
+are passed as keyword arguments when executing a pattern
+(<a class="reference internal" href="patterns.html"><span class="doc">Patterns</span></a>).</p>
+<p>The example below shows a way to create a <code class="docutils literal notranslate"><span class="pre">numpy</span></code> array and add
+value 1 to each element of the array using <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+    <span class="c1"># ... do anything with a using numpy</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Which will the following result:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span> <span class="mf">2.</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>As <code class="docutils literal notranslate"><span class="pre">numpy</span></code> arrays are in main memory, using execution space other
+than <code class="docutils literal notranslate"><span class="pre">OpenMP</span></code> (which is the default) would result in an error. In
+other words, arrays are not explicitly converted or transferred to a
+device. It is on the user to perform this step manually. For example,
+a user can convert numpy array to cupy array and then invoke
+processing on Cuda (<code class="docutils literal notranslate"><span class="pre">pk.Cuda</span></code>).</p>
+</section>
+<section id="interoperability-with-cupy">
+<h2>Interoperability with CuPy<a class="headerlink" href="#interoperability-with-cupy" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">cupy</span></code> arrays can be directly passed as arguments to workunits
+(<a class="reference internal" href="workunits.html"><span class="doc">Work Units</span></a>). As any other argument to a workunit, the arrays
+are passed as keyword arguments when executing a pattern
+(<a class="reference internal" href="patterns.html"><span class="doc">Patterns</span></a>).</p>
+<p>The example below shows a way to create a <code class="docutils literal notranslate"><span class="pre">cupy</span></code> array and add value
+1 to each element of the array using <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">cupy</span> <span class="k">as</span> <span class="nn">cp</span>
+<span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">set_default_space</span><span class="p">(</span><span class="n">pk</span><span class="o">.</span><span class="n">Cuda</span><span class="p">)</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>As <code class="docutils literal notranslate"><span class="pre">cupy</span></code> arrays are allocated in Cuda memory, using execution space
+other than <code class="docutils literal notranslate"><span class="pre">pk.Cuda</span></code> would result in an error. In other words,
+arrays are not explicitly converted or transferred to host.  It is on
+the user to perform this step manually.</p>
+</section>
+<section id="native-views">
+<h2>Native Views<a class="headerlink" href="#native-views" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Views are primarily used for research exploration. It is
+recommended to use Views only when targeting execution spaces other
+than Cuda and OpenMP.</p>
+</div>
+<p>Native n-dimensional arrays are available via an abstraction called
+<code class="docutils literal notranslate"><span class="pre">View</span></code>. In many ways, the <code class="docutils literal notranslate"><span class="pre">View</span></code> API is similar to those available
+for <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">cupy</span></code> arrays. The following snippet shows how a
+View can be created and some of the basic operations it supports:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">v</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">View</span><span class="p">([</span><span class="mi">10</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span> <span class="c1"># create a 1D integer view of size 10</span>
+<span class="n">v</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># initialize v with zeros</span>
+<span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="c1"># prints the contents of the view</span>
+</pre></div>
+</div>
+<p>Views and other primitive types can be passed to workunits
+normally. The following code snippet shows a workunit that adds a
+scalar to all elements of a view.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pykokkos</span> <span class="k">as</span> <span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">pk</span><span class="o">.</span><span class="n">View1D</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="n">v</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">x</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">View</span><span class="p">([</span><span class="n">n</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
+    <span class="n">v</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">add</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Recall (<a class="reference internal" href="workunits.html"><span class="doc">Work Units</span></a>) that type annotations are not required.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workunits.html" class="btn btn-neutral float-left" title="Work Units" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="examples.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, PyKokkos Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
