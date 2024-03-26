@@ -310,6 +310,8 @@ def test_1d_unary_ufunc_vs_numpy(kokkos_test_class, numpy_ufunc):
         (pk.logical_not, np.logical_not),
         (pk.exp, np.exp),
         (pk.exp2, np.exp2),
+        (pk.mean, np.mean),
+        (pk.var, np.var)
 ])
 @pytest.mark.parametrize("pk_dtype, numpy_dtype", [
         (pk.double, np.float64),
