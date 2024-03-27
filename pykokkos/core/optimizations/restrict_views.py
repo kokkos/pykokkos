@@ -40,14 +40,19 @@ def may_share_memory(a, b) -> bool:
 
     # This might still be True but analyzing this could be quite
     # complex
-    if a.stride != b.stride:
+    if a.strides != b.strides:
         return True
 
-    a_ptr: int = a.data.ptr
-    b_ptr: int = b.data.ptr
+    base_type = str(type(a_base))
+    if "numpy" in base_type:
+        a_ptr: int = a.__array_interface__["data"][0]
+        b_ptr: int = b.__array_interface__["data"][0]
+    else:
+        a_ptr: int = a.data.ptr
+        b_ptr: int = b.data.ptr
 
     ptr_difference: int = abs(a_ptr - b_ptr)
-    stride: int = a.stride[0]
+    stride: int = a.strides[0]
 
     if ptr_difference % stride == 0:
         return True
