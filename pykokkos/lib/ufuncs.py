@@ -904,7 +904,7 @@ def add(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.double)
             pk.parallel_for(
-                larger.shape[0] * larger.shape[1],
+                larger.shape[0],
                 add_impl_2d_1d,
                 viewA=larger,
                 viewB=smaller,
@@ -932,7 +932,7 @@ def add(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.float)
             pk.parallel_for(
-                larger.shape[0] * larger.shape[1],
+                larger.shape[0],
                 add_impl_2d_1d,
                 viewA=larger,
                 viewB=smaller,
@@ -1142,7 +1142,8 @@ def broadcast_view(val, viewB):
             val = val[0] if len(val.shape) == 1 else val[0][0]
 
     if is_view:
-        if not check_broadcastable_impl(val, viewB) or not val.shape < viewB.shape:
+        is_first_small = len(val.shape) < len(viewB.shape) or ((len(val.shape) == len(viewB.shape)) and val.shape < viewB.shape)
+        if not check_broadcastable_impl(val, viewB) or not is_first_small:
             raise ValueError("Incompatible broadcast")
         if not val.dtype == viewB.dtype: 
             raise ValueError("Broadcastable views must have same dtypes")
@@ -1235,9 +1236,9 @@ def subtract(viewA, valB):
             raise ValueError("Views must be broadcastable")
 
         # check if size is same otherwise broadcast and fix
-        if viewA.shape < valB.shape:
+        if len(viewA.shape) < len(valB.shape) or (len(viewA.shape) == len(valB.shape) and viewA.shape < valB.shape):
             viewA = broadcast_view(viewA, valB)
-        elif valB.shape < viewA.shape:
+        elif len(valB.shape) < len(viewA.shape) or (len(viewA.shape) == len(valB.shape) and valB.shape < viewA.shape):
             valB = broadcast_view(valB, viewA)
 
         if viewA.dtype.__name__ == "float64" and valB.dtype.__name__ == "float64":
@@ -1414,7 +1415,7 @@ def np_matmul(viewA, viewB):
     Returns
     -------
     Pykokkos view
-        Matmul result in a view
+        Matmul result in a view or 0.0 in case views are empty
 
 
     """
@@ -1427,6 +1428,9 @@ def np_matmul(viewA, viewB):
 
     if viewAType != viewBType:
         raise RuntimeError("Cannot multiply {} with {} dtype. Types must be same.".format(viewAType, viewBType))
+
+    if not viewA.shape and not viewB.shape:
+        return 0.0
 
     viewALast = viewA.shape[1] if len(viewA.shape) == 2 else viewA.shape[0]
     viewBFirst = viewB.shape[0] if len(viewB.shape) == 2 else viewB.shape[0]
@@ -2779,22 +2783,36 @@ def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk
     for i in range(view.extent(1)):
         out[tid] += (pow(view[tid][i] - view_mean[tid], 2)) / view.extent(1)
 
+@pk.workunit
+def var_impl_1d(tid, acc, view, mean):
+    acc += pow(view[tid] - mean, 2) / view.extent(0)
 
-def var(view, axis=None):
+def var(view, axis=None): # population
     if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
-    if view.dtype.__name__ == "float64":
-        if axis == 0:
-            view_mean = mean(view, 0)
-            out = pk.View([view.shape[1]], pk.double)
-            pk.parallel_for(view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
-            return out
+    if view.rank() > 2:
+        raise NotImplementedError("Current version of Pykokkos only supports variance for upto 2D views")
+    
+    if view.rank() == 2: # legacy code
+        if view.dtype.__name__ == "float64":
+            if axis == 0:
+                view_mean = mean(view, 0)
+                out = pk.View([view.shape[1]], pk.double)
+                pk.parallel_for(view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
+                return out
+            else:
+                view_mean = mean(view, 1)
+                out = pk.View([view.shape[0]], pk.double)
+                pk.parallel_for(view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
+                return out
         else:
-            view_mean = mean(view, 1)
-            out = pk.View([view.shape[0]], pk.double)
-            pk.parallel_for(view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
-            return out
+            raise RuntimeError("Incompatible Types")
+    elif view.rank() == 1: # newer impl
+        mean_val = mean(view)
+        return pk.parallel_reduce(view.shape[0], var_impl_1d, view=view, mean=mean_val)
+    else:
+        raise RuntimeError("Unexpected view of shape {}".format(view.shape))
 
 
 @pk.workunit
@@ -2810,23 +2828,36 @@ def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View
     for i in range(view.extent(1)):
         out[tid] += (view[tid][i] / view.extent(1))
 
+@pk.workunit
+def mean_impl_1d(tid, acc, view):
+    acc += view[tid] / view.extent(0)
 
 def mean(view, axis=None):
     if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
-    if view.dtype.__name__ == "float64":
-        if axis == 0:
-            out = pk.View([view.shape[1]], pk.double)
-            pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
-            return out
-        else:
-            out = pk.View([view.shape[0]], pk.double)
-            pk.parallel_for(view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
+    if view.rank() > 2:
+        raise NotImplementedError("Current version of Pykokkos only supports variance for upto 2D views")
 
-            return out
+    if view.rank() == 2:
+        if view.dtype.__name__ == "float64": # legacy
+            if axis == 0:
+                out = pk.View([view.shape[1]], pk.double)
+                pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
+                return out
+            else:
+                out = pk.View([view.shape[0]], pk.double)
+                pk.parallel_for(view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
+
+                return out
+        else:
+            raise RuntimeError("Incompatible Types")
+
+    elif view.rank() == 1:
+        return pk.parallel_reduce(view.shape[0], mean_impl_1d, view=view)
     else:
-        raise RuntimeError("Incompatible Types")
+        raise RuntimeError("Unexpected view of shape {}".format(view.shape))
+
 
 
 @pk.workunit
