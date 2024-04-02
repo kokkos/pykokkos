@@ -201,8 +201,42 @@ class Tracer:
         fused_ops: List[TracerOperation] = []
         ops_to_fuse: List[TracerOperation] = []
 
+        if len(operations) == 0:
+            return []
+
+        if len(operations) == 1:
+            return operations
+
+        fused_range: Optional[Tuple[int, int]]
+        if isinstance(operations[-1].policy, RangePolicy):
+            fused_range = (operations[-1].policy.begin, operations[-1].policy.end)
+        else:
+            fused_range = None
+
         while len(operations) > 0:
             op: TracerOperation = operations.pop()
+            if not isinstance(op.policy, RangePolicy):
+                if len(ops_to_fuse) > 0:
+                    ops_to_fuse.reverse()
+                    fused_ops.append(self.fuse_operations(ops_to_fuse))
+                    ops_to_fuse.clear()
+
+                # Can't fuse team policies now
+                fused_ops.append(op)
+                continue
+
+            current_range: Tuple[int, int] = (op.policy.begin, op.policy.end)
+            if fused_range is None:
+                fused_range = current_range
+
+            if fused_range != current_range:
+                ops_to_fuse.reverse()
+                fused_ops.append(self.fuse_operations(ops_to_fuse))
+                ops_to_fuse.clear()
+
+                ops_to_fuse.append(op)
+                fused_range = current_range
+                continue
 
             if op.operation == "for":
                 ops_to_fuse.append(op)

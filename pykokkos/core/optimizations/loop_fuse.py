@@ -438,6 +438,7 @@ def fuse_loops(fusable_loops: List[List[LoopInfo]]) -> None:
         assert len(loops) > 1
         main_loop: LoopInfo = loops[0]
         new_iterator: str = f"pk_fused_it_{idx}"
+        main_loop_added: bool = False
 
         for loop_idx, loop in enumerate(loops):
             rename_variables(loop, loop_idx, new_iterator)
@@ -448,7 +449,21 @@ def fuse_loops(fusable_loops: List[List[LoopInfo]]) -> None:
             # Append renamed statements
             main_loop.for_node.body += loop.for_node.body
             # Remove old for loops
-            loop.parent_node.body = [n for n in loop.parent_node.body if n.lineno != loop.lineno]
+            new_body = []
+            for n in loop.parent_node.body:
+                if n.lineno != loop.lineno:
+                    new_body.append(n)
+
+                # This avoids an issue where a workunit is being fused
+                # with itself and it contains a for loop. If we just
+                # keep the above condition, no loops will be added
+                # because all loops being fused have the same lineno
+                if n.lineno == loop.lineno and loop.lineno == main_loop.lineno:
+                    if not main_loop_added:
+                        new_body.append(n)
+                        main_loop_added = True
+
+            loop.parent_node.body = new_body
 
 
 def loop_fuse(AST: ast.FunctionDef) -> None:
