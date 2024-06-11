@@ -30,7 +30,7 @@ accept, as the first argument, unique id for one unit of work.
    @pk.workunit
    def work(wid, [keyword arguments])
 
-In case of ``parallel_scan``, the work unit function is required to
+In case of ``parallel_reduce``, the work unit function is required to
 accept two arguments: (1) unique id for one unit of work, and (2) an
 accumulator.
 
