@@ -115,6 +115,12 @@ class ASTTestReduceFunctor:
         pass
 
     @pk.workunit
+    def docstring(self, tid: int) -> None:
+        """
+        Test docstring
+        """
+
+    @pk.workunit
     def call(self, tid: int, acc: pk.Acc[pk.double]) -> None:
         pk.printf("Testing printf: %d\n", self.i_1)
         acc += abs(- self.i_1)
