@@ -499,6 +499,10 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.generic_error(node)  # TODO: test if possible
 
     def visit_Expr(self, node: ast.Expr) -> cppast.CallStmt:
+        # This is needed for docstrings
+        if isinstance(node.value, ast.Constant):
+            return cppast.EmptyStmt()
+
         if not isinstance(node.value, ast.Call):
             self.error(
                 node, "Only function calls are allowed as standalone statements")
