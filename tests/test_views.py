@@ -382,9 +382,13 @@ def test_asarray_consts_vs_numpy(const, np_dtype, pk_dtype):
 def test_unsigned_int_overflow(pk_dtype, np_dtype):
     # test for gh-86
     actual = pk.View([1], dtype=pk_dtype)
-    actual[:] = -1
-    expected = np.array(-1, dtype=np_dtype)
-    assert_equal(actual, expected)
+    if np.__version__.startswith("2."):
+        with pytest.raises(OverflowError):
+            actual[:] = -1
+    else:
+        actual[:] = -1
+        expected = np.array(-1, dtype=np_dtype)
+        assert_equal(actual, expected)
 
 
 @pytest.mark.parametrize("pk_dtype, pk_dtype2, expected_promo", [
