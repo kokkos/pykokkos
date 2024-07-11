@@ -121,6 +121,7 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
     """
 
     cp_available: bool
+    torch_available: bool
 
     try:
         import cupy as cp
@@ -128,10 +129,18 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
     except ImportError:
         cp_available = False
 
+    try:
+        import torch
+        torch_available = True
+    except ImportError:
+        torch_available = False
+
     for k, v in kwargs.items():
         if isinstance(v, np.ndarray):
             kwargs[k] = array(v)
         elif cp_available and isinstance(v, cp.ndarray):
+            kwargs[k] = array(v)
+        elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v)
 
 
