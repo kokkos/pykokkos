@@ -120,8 +120,8 @@ class TeamPolicy(ExecutionPolicy):
             :param space: (optional) a string or
                 ExecutionSpaceInstance object. If not specified, default
                 is used
-            :param begin: the tid of the first thread
-            :param end: the total number of threads
+            :param league_size: the total number of teams
+            :param team_size: the number of threads per team
         """
 
         unpacked: Tuple = tuple(args)
