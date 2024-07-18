@@ -39,7 +39,7 @@ def get_view_access_modes(AST: ast.FunctionDef, view_args: Set[str]) -> Dict[str
             continue
 
         # Skip inner subscripts as they will be handled by the below while loop
-        if isinstance(node.parent, ast.Subscript):
+        if isinstance(node.parent, ast.Subscript) and isinstance(node.parent.value, ast.Subscript):
             continue
 
         current_node: ast.Subscript = node
@@ -93,12 +93,18 @@ class WriteIndicesVisitor(ast.NodeVisitor):
 
         # Map from each view (str) + dimension (int) to an AccessIndex
         self.access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode]] = {}
-        self.current_iters: List[str] = []
+        self.current_iters: List[Tuple[str, bool]] = []
 
     def visit_For(self, node: ast.For) -> None:
         index_node = node.target
-        self.current_iters.append(index_node.id)
 
+        is_tid_iter: bool = False
+        range_call: ast.Call = node.iter
+        for arg in range_call.args:
+            if isinstance(arg, ast.Name) and arg.id == self.tid_name:
+                is_tid_iter = True
+
+        self.current_iters.append((index_node.id, is_tid_iter))
         for b in node.body:
             self.visit(b)
 
@@ -144,7 +150,9 @@ class WriteIndicesVisitor(ast.NodeVisitor):
                 new_index = AccessIndex.TID
             elif self.tid_name in index_node_str:
                 new_index = AccessIndex.TIDFunc
-            elif index_node_str in self.current_iters:
+            elif (index_node_str, True) in self.current_iters:
+                new_index = AccessIndex.TID
+            elif (index_node_str, False) in self.current_iters:
                 new_index = AccessIndex.Iter
             else:
                 new_index = AccessIndex.All
