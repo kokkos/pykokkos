@@ -307,6 +307,17 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             return rand_call
 
+        if name in {"cyl_bessel_j0", "cyl_bessel_j1"}:
+            if len(args) != 1:
+                self.error(node, "pk.cyl_bessel_j0/j1 accepts only one argument")
+
+            s = cppast.Serializer()
+            arg_str = s.serialize(args[0])
+            math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"), args)
+            real_number_call = cppast.MemberCallExpr(math_call, cppast.DeclRefExpr("real"), [])
+
+            return real_number_call
+
         return super().visit_Call(node)
 
     def is_nested_call(self, node: ast.FunctionDef) -> bool:
