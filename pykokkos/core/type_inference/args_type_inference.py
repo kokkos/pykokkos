@@ -428,8 +428,6 @@ def get_type_info(
         is_missing_annotations: bool = (
             workunit_str in ORIGINAL_PARAMS
             or
-            list_passed
-            or
             check_missing_annotations(this_tree.args.args)
             )
 
