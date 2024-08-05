@@ -92,7 +92,7 @@ class WriteIndicesVisitor(ast.NodeVisitor):
         self.view_args = view_args
 
         # Map from each view (str) + dimension (int) to an AccessIndex
-        self.access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode]] = {}
+        self.access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]] = {}
         self.current_iters: List[Tuple[str, bool]] = []
 
     def visit_For(self, node: ast.For) -> None:
@@ -119,7 +119,7 @@ class WriteIndicesVisitor(ast.NodeVisitor):
             if arg.id in self.view_args:
                 rank: int = self.view_args[arg.id]
                 for i in range(rank):
-                    self.access_indices[(arg.id, i)] = (AccessIndex.All, AccessMode.ReadWrite)
+                    self.access_indices[(arg.id, i)] = (AccessIndex.All, AccessMode.ReadWrite, "")
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
         current_node: ast.Subscript = node
@@ -160,7 +160,7 @@ class WriteIndicesVisitor(ast.NodeVisitor):
             index_to_set: AccessIndex
             mode_to_set: AccessMode
 
-            existing_access: Optional[Tuple[AccessIndex, AccessMode]] = self.access_indices.get((view_name, i))
+            existing_access: Optional[Tuple[AccessIndex, AccessMode, str]] = self.access_indices.get((view_name, i))
             if existing_access is None:
                 index_to_set = new_index
                 mode_to_set = AccessMode.Read if isinstance(node.ctx, ast.Load) else AccessMode.Write
@@ -191,10 +191,10 @@ class WriteIndicesVisitor(ast.NodeVisitor):
             if mode_to_set is AccessMode.Write and isinstance(node.parent, ast.AugAssign):
                 mode_to_set = AccessMode.ReadWrite
 
-            self.access_indices[(view_name, i)] = (index_to_set, mode_to_set)
+            self.access_indices[(view_name, i)] = (index_to_set, mode_to_set, index_node_str)
 
 
-def get_view_write_indices_and_modes(AST: ast.FunctionDef, view_args: Dict[str, int]) -> Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode]]:
+def get_view_write_indices_and_modes(AST: ast.FunctionDef, view_args: Dict[str, int]) -> Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]]:
     """
     Get information from the AST needed for fusion safety
 
@@ -207,6 +207,6 @@ def get_view_write_indices_and_modes(AST: ast.FunctionDef, view_args: Dict[str, 
     tid_name: str = AST.args.args[0].arg
     visitor = WriteIndicesVisitor(tid_name, view_args)
     visitor.visit(AST)
-    access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode]] = visitor.access_indices
+    access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]] = visitor.access_indices
 
     return access_indices
