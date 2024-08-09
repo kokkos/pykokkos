@@ -114,9 +114,10 @@ class WriteIndicesVisitor(ast.NodeVisitor):
         # Treat function calls like a black box
         for arg in node.args:
             if not isinstance(arg, ast.Name):
-                continue
+                self.visit(arg)
 
-            if arg.id in self.view_args:
+            # If an entire view is passed to a function
+            elif arg.id in self.view_args:
                 rank: int = self.view_args[arg.id]
                 for i in range(rank):
                     self.access_indices[(arg.id, i)] = (AccessIndex.All, AccessMode.ReadWrite, "")
