@@ -335,6 +335,20 @@ class Tracer:
                 fused_ops.append(op)
                 continue
 
+            if op.operation in {"reduce", "scan"}:
+                if len(ops_to_fuse) > 0:
+                    ops_to_fuse.reverse()
+                    fused_ops.append(self.fuse_operations(ops_to_fuse, fused_safety_info))
+                    ops_to_fuse.clear()
+                    ops_to_fuse_views.clear()
+                    fused_safety_info = {}
+                    fused_range = None
+
+                # Don't fuse reduce or scan now because that might
+                # cause slowdowns.
+                fused_ops.append(op)
+                continue
+
             current_range: Tuple[int, int] = (op.policy.begin, op.policy.end)
             if fused_range is None:
                 fused_range = current_range
