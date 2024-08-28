@@ -1,6 +1,7 @@
 import re
 import math
 from inspect import getmembers, isfunction
+from typing import Optional
 
 import numpy as np
 import pykokkos as pk
@@ -21,7 +22,8 @@ def _supported_types_check(dtype_str, supported_type_strings):
         raise NotImplementedError
 
 
-def _ufunc_kernel_dispatcher(tid,
+def _ufunc_kernel_dispatcher(profiler_name: Optional[str],
+                             tid,
                              dtype,
                              ndims,
                              op,
@@ -39,7 +41,7 @@ def _ufunc_kernel_dispatcher(tid,
     function_name_str = f"{op}_impl_{ndims}d_{dtype_str}"
     desired_workunit = kernel_dict[function_name_str]
     # call the kernel
-    ret = sub_dispatcher(tid, desired_workunit, **kwargs)
+    ret = sub_dispatcher(profiler_name, tid, desired_workunit, **kwargs)
     return ret
 
 
@@ -101,7 +103,7 @@ def _typematch_views(view1, view2):
     return view1, view2, effective_dtype
 
 
-def reciprocal(view):
+def reciprocal(view, profiler_name: Optional[str] = None):
     """
     Return the reciprocal of the argument, element-wise.
 
@@ -121,7 +123,8 @@ def reciprocal(view):
         This function is not designed to work with integers.
 
     """
-    _ufunc_kernel_dispatcher(tid=view.shape[0],
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=view.shape[0],
                              dtype=view.dtype.value,
                              ndims=len(view.shape),
                              op="reciprocal",
@@ -155,7 +158,7 @@ def log_impl_2d_float(tid: int, view: pk.View2D[pk.float], out: pk.View2D[pk.flo
         out[tid][i] = log(view[tid][i]) # type: ignore
 
 
-def log(view):
+def log(view, profiler_name: Optional[str] = None):
     """
     Natural logarithm, element-wise.
 
@@ -180,19 +183,19 @@ def log(view):
     if "double" in view.dtype.__name__ or "float64" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
-            pk.parallel_for(1, log_impl_1d_double, view=view, out=out)
+            pk.parallel_for(profiler_name, 1, log_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], log_impl_1d_double, view=view, out=out)
+            pk.parallel_for(profiler_name, view.shape[0], log_impl_1d_double, view=view, out=out)
         elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], log_impl_2d_double, view=view, out=out)
+            pk.parallel_for(profiler_name, view.shape[0], log_impl_2d_double, view=view, out=out)
     elif "float" in view.dtype.__name__:
         if view.shape == ():
             # NOTE: is this really worth sending to a kernel?
-            pk.parallel_for(1, log_impl_1d_float, view=view, out=out)
+            pk.parallel_for(profiler_name, 1, log_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 1:
-            pk.parallel_for(view.shape[0], log_impl_1d_float, view=view, out=out)
+            pk.parallel_for(profiler_name, view.shape[0], log_impl_1d_float, view=view, out=out)
         elif len(view.shape) == 2:
-            pk.parallel_for(view.shape[0], log_impl_2d_float, view=view, out=out)
+            pk.parallel_for(profiler_name, view.shape[0], log_impl_2d_float, view=view, out=out)
     return out
 
 
@@ -853,7 +856,7 @@ def add_impl_2d_2d(tid, viewA, viewB, out):
     out[r_idx][c_idx] = viewA[r_idx][c_idx] + viewB[r_idx][c_idx]
 
 
-def add(viewA, viewB):
+def add(viewA, viewB, profiler_name: Optional[str] = None):
     """
     Sums positionally corresponding elements
     of viewA with elements of viewB
@@ -886,6 +889,7 @@ def add(viewA, viewB):
         if viewA.rank() == 1 and viewB.rank() == 1:
             out = pk.View([viewA.shape[0]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0],
                 add_impl_1d_double,
                 viewA=viewA,
@@ -894,6 +898,7 @@ def add(viewA, viewB):
         elif viewA.rank() == 2 and viewB.rank() == 2:
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0] * viewA.shape[1],
                 add_impl_2d_2d,
                 viewA=viewA,
@@ -904,6 +909,7 @@ def add(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 larger.shape[0],
                 add_impl_2d_1d,
                 viewA=larger,
@@ -914,6 +920,7 @@ def add(viewA, viewB):
         if viewA.rank() == 1 and viewB.rank() == 1:
             out = pk.View([viewA.shape[0]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0],
                 add_impl_1d_float,
                 viewA=viewA,
@@ -922,6 +929,7 @@ def add(viewA, viewB):
         elif viewB.rank() == 2 and viewB.rank() == 2:
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0] * viewA.shape[1],
                 add_impl_2d_2d,
                 viewA=viewA,
@@ -932,6 +940,7 @@ def add(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 larger.shape[0],
                 add_impl_2d_1d,
                 viewA=larger,
@@ -964,7 +973,7 @@ def multiply_impl_2d_with_2d(tid, viewA, viewB, out):
     c_idx : int = tid - r_idx * viewA.extent(1)
     out[r_idx][c_idx] = viewA[r_idx][c_idx] * viewB[r_idx][c_idx]
 
-def multiply(viewA, viewB):
+def multiply(viewA, viewB, profiler_name: Optional[str] = None):
     """
     Multiplies positionally corresponding elements
     of viewA with elements of viewB
@@ -998,6 +1007,7 @@ def multiply(viewA, viewB):
         if len(viewA.shape) == 1 and len(viewB.shape) == 1:
             out = pk.View([viewA.shape[0]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0],
                 multiply_impl_1d_double,
                 viewA=viewA,
@@ -1006,6 +1016,7 @@ def multiply(viewA, viewB):
         elif len(viewA.shape) == 2 and len(viewB.shape) == 2:
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0] * viewA.shape[1],
                 multiply_impl_2d_with_2d,
                 viewA=viewA,
@@ -1016,6 +1027,7 @@ def multiply(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.double)
             pk.parallel_for(
+                profiler_name,
                 larger.shape[0] * larger.shape[1],
                 multiply_impl_2d_with_1d,
                 viewA=larger,
@@ -1026,6 +1038,7 @@ def multiply(viewA, viewB):
         if len(viewA.shape) == 1 and len(viewB.shape) == 1:
             out = pk.View([viewA.shape[0]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0],
                 multiply_impl_1d_float,
                 viewA=viewA,
@@ -1034,6 +1047,7 @@ def multiply(viewA, viewB):
         elif len(viewA.shape) == 2 and len(viewB.shape) == 2:
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 viewA.shape[0] * viewA.shape[1],
                 multiply_impl_2d_with_2d,
                 viewA=viewA,
@@ -1044,6 +1058,7 @@ def multiply(viewA, viewB):
             smaller = viewB if len(viewA.shape) == len(larger.shape) else viewA
             out = pk.View([larger.shape[0], larger.shape[1]], pk.float)
             pk.parallel_for(
+                profiler_name,
                 larger.shape[0] * larger.shape[1],
                 multiply_impl_2d_with_1d,
                 viewA=larger,
@@ -1198,7 +1213,7 @@ def subtract_impl_scalar_2d(tid, cols, viewA, scalar, viewOut):
         viewOut[tid][i] = viewA[tid][i] - scalar
     
 
-def subtract(viewA, valB):
+def subtract(viewA, valB, profiler_name: Optional[str] = None):
     """
     Subtracts positionally corresponding elements
     of viewA with elements of viewB
@@ -1246,6 +1261,7 @@ def subtract(viewA, valB):
             if len(viewA.shape) == 1:
                 out = pk.View(viewA.shape, pk.double)
                 pk.parallel_for(
+                    profiler_name,
                     viewA.shape[0],
                     subtract_impl_1d_double,
                     viewA=viewA,
@@ -1255,6 +1271,7 @@ def subtract(viewA, valB):
             if len(viewA.shape) == 2:
                 out = pk.View([viewA.shape[0], viewA.shape[1]], pk.double)
                 pk.parallel_for(
+                    profiler_name,
                     viewA.shape[0],
                     subtract_impl_2d,
                     cols=viewA.shape[1],
@@ -1267,6 +1284,7 @@ def subtract(viewA, valB):
             if len(viewA.shape) == 1:
                 out = pk.View(viewA.shape, pk.float)
                 pk.parallel_for(
+                    profiler_name,
                     viewA.shape[0],
                     subtract_impl_1d_float,
                     viewA=viewA,
@@ -1276,6 +1294,7 @@ def subtract(viewA, valB):
             if len(viewA.shape) == 2:
                 out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
                 pk.parallel_for(
+                    profiler_name,
                     viewA.shape[0],
                     subtract_impl_2d,
                     cols=viewA.shape[1],
@@ -1298,7 +1317,8 @@ def subtract(viewA, valB):
         
         if out is None: raise RuntimeError("Incompatible Types")
 
-        pk.parallel_for(viewA.shape[0], 
+        pk.parallel_for(profiler_name,
+                        viewA.shape[0], 
                         subtract_impl_scalar_1d, 
                         viewA=viewA, 
                         scalar=valB, 
@@ -1312,7 +1332,8 @@ def subtract(viewA, valB):
             out = pk.View([viewA.shape[0], viewA.shape[1]], pk.float)
         
         if out is None: raise RuntimeError("Incompatible Types")
-        pk.parallel_for(viewA.shape[0], 
+        pk.parallel_for(profiler_name,
+                        viewA.shape[0], 
                         subtract_impl_scalar_2d, 
                         cols=viewA.shape[1], 
                         viewA=viewA, 
@@ -1332,7 +1353,7 @@ def copyto_impl_2d(tid, viewA, viewB):
 def copyto_impl_1d(tid, viewA, viewB):
     viewA[tid] = viewB[tid]
 
-def copyto(viewA, viewB):
+def copyto(viewA, viewB, profiler_name: Optional[str] = None):
     '''
     copies values of viewB into valueA for corresponding indicies
 
@@ -1363,13 +1384,13 @@ def copyto(viewA, viewB):
         raise NotImplementedError("copyto: This version of Pykokkos only supports copyto upto 2D views")
 
     if viewA.rank() == 1:
-        pk.parallel_for(viewA.shape[0], copyto_impl_1d, viewA=viewA, viewB=viewB)
+        pk.parallel_for(profiler_name, viewA.shape[0], copyto_impl_1d, viewA=viewA, viewB=viewB)
 
     else:   
         outRows = viewA.shape[0]
         outCols = viewA.shape[1] 
         totalThreads = outRows * outCols
-        pk.parallel_for(totalThreads, copyto_impl_2d, viewA=viewA, viewB=viewB)
+        pk.parallel_for(profiler_name, totalThreads, copyto_impl_2d, viewA=viewA, viewB=viewB)
 
 @pk.workunit
 def np_matmul_impl_2d_2d(tid, cols, vec_length, viewA, viewB, viewOut):
@@ -1389,7 +1410,7 @@ def np_matmul_impl_2d_1d(tid, vec_length, viewA, view1D, viewOut):
     for i in range(vec_length):
         viewOut[tid] += viewA[tid][i] * view1D[i]
     
-def np_matmul(viewA, viewB):
+def np_matmul(viewA, viewB, profiler_name: Optional[str] = None):
     """
     Upto 2D Matrix Multiplication of compatible views according to numpy specification
 
@@ -1452,7 +1473,8 @@ def np_matmul(viewA, viewB):
 
     # CASE 1 BOTH 2D
     if len(viewA.shape) == len(viewB.shape) and len(viewA.shape) == 2:
-        pk.parallel_for(totalThreads, 
+        pk.parallel_for(profiler_name,
+                        totalThreads, 
                         np_matmul_impl_2d_2d, 
                         cols=outCols, 
                         vec_length=viewALast, 
@@ -1465,7 +1487,8 @@ def np_matmul(viewA, viewB):
 
     # CASE 2 Either is 1D
     elif len(viewA.shape) == 1:
-        pk.parallel_for(totalThreads,
+        pk.parallel_for(profiler_name,
+                        totalThreads,
                         np_matmul_impl_1d_2d,
                         vec_length= viewA.shape[0],
                         view1D=viewA,
@@ -1473,7 +1496,8 @@ def np_matmul(viewA, viewB):
                         viewOut=out)
 
     elif len(viewB.shape) == 1:
-        pk.parallel_for(totalThreads,
+        pk.parallel_for(profiler_name,
+                        totalThreads,
                         np_matmul_impl_2d_1d,
                         vec_length= viewB.shape[0],
                         viewA=viewA,
@@ -1486,7 +1510,7 @@ def np_matmul(viewA, viewB):
     return out
 
 
-def matmul(viewA, viewB):
+def matmul(viewA, viewB, profiler_name: Optional[str] = None):
     """
     1D Matrix Multiplication of compatible views
 
@@ -1513,7 +1537,8 @@ def matmul(viewA, viewB):
         if not(a_dtype_str == "float32" and b_dtype_str == "float32"):
             raise RuntimeError("Incompatible Types")
 
-    return _ufunc_kernel_dispatcher(tid=viewA.shape[0],
+    return _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                                    tid=viewA.shape[0],
                                     dtype=viewA.dtype.value,
                                     ndims=1,
                                     op="matmul",
@@ -1585,7 +1610,7 @@ def divide_impl_2d_1d_double(tid: int, viewA: pk.View2D[pk.double], viewB: pk.Vi
         out[tid][i] = viewA[tid][i] / viewB[i % viewB.extent(0)]
 
 
-def divide(viewA, viewB):
+def divide(viewA, viewB, profiler_name: Optional[str] = None):
     """
     Divides positionally corresponding elements
     of viewA with elements of viewB
@@ -1611,6 +1636,7 @@ def divide(viewA, viewB):
     if viewA.rank() == 2:
         out = pk.View(viewA.shape, pk.double)
         pk.parallel_for(
+            profiler_name,
             viewA.shape[0],
             divide_impl_2d_1d_double,
             viewA=viewA,
@@ -1620,6 +1646,7 @@ def divide(viewA, viewB):
     elif viewA.dtype.__name__ == "float64" and viewB.dtype.__name__ == "float64":
         out = pk.View([viewA.shape[0]], pk.double)
         pk.parallel_for(
+            profiler_name,
             viewA.shape[0],
             divide_impl_1d_double,
             viewA=viewA,
@@ -1629,6 +1656,7 @@ def divide(viewA, viewB):
     elif viewA.dtype.__name__ == "float32" and viewB.dtype.__name__ == "float32":
         out = pk.View([viewA.shape[0]], pk.float)
         pk.parallel_for(
+            profiler_name,
             viewA.shape[0],
             divide_impl_1d_float,
             viewA=viewA,
@@ -1648,7 +1676,7 @@ def negative_impl_1d_double(tid: int, view: pk.View1D[pk.double], out: pk.View1D
 def negative_impl_1d_float(tid: int, view: pk.View1D[pk.float], out: pk.View1D[pk.float]):
     out[tid] = view[tid] * -1
 
-def negative(view):
+def negative(view, profiler_name: Optional[str] = None):
     """
     Element-wise negative of the view
 
@@ -1667,10 +1695,10 @@ def negative(view):
         raise NotImplementedError("only 1D views currently supported for negative() ufunc.")
     if view.dtype.__name__ == "float64":
         out = pk.View([view.shape[0]], pk.double)
-        pk.parallel_for(view.shape[0], negative_impl_1d_double, view=view, out=out)
+        pk.parallel_for(profiler_name, view.shape[0], negative_impl_1d_double, view=view, out=out)
     elif view.dtype.__name__ == "float32":
         out = pk.View([view.shape[0]], pk.float)
-        pk.parallel_for(view.shape[0], negative_impl_1d_float, view=view, out=out)
+        pk.parallel_for(profiler_name, view.shape[0], negative_impl_1d_float, view=view, out=out)
     else:
         raise NotImplementedError
     return out
@@ -2266,7 +2294,7 @@ def floor_divide(viewA, viewB):
     return out
 
 
-def sin(view):
+def sin(view, profiler_name: Optional[str] = None):
     """
     Element-wise trigonometric sine of the view
 
@@ -2290,7 +2318,8 @@ def sin(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="sin",
@@ -2356,7 +2385,7 @@ def cos(view):
     return out
 
 
-def tan(view):
+def tan(view, profiler_name: Optional[str] = None):
     """
     Element-wise tangent of the view
 
@@ -2380,7 +2409,8 @@ def tan(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="tan",
@@ -2677,7 +2707,7 @@ def fmin(viewA, viewB):
     return out
 
 
-def exp(view):
+def exp(view, profiler_name: Optional[str] = None):
     """
     Element-wise exp of the view.
 
@@ -2703,7 +2733,8 @@ def exp(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="exp",
@@ -2787,7 +2818,7 @@ def var_imple_2d_axis1_double(tid: int, view: pk.View2D[pk.double], view_mean:pk
 def var_impl_1d(tid, acc, view, mean):
     acc += pow(view[tid] - mean, 2) / view.extent(0)
 
-def var(view, axis=None): # population
+def var(view, axis=None, profiler_name: Optional[str] = None): # population
     if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
@@ -2797,20 +2828,20 @@ def var(view, axis=None): # population
     if view.rank() == 2: # legacy code
         if view.dtype.__name__ == "float64":
             if axis == 0:
-                view_mean = mean(view, 0)
+                view_mean = mean(view, 0, profiler_name)
                 out = pk.View([view.shape[1]], pk.double)
-                pk.parallel_for(view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
+                pk.parallel_for(profiler_name, view.shape[1], var_impl_2d_axis0_double, view=view, view_mean=view_mean, out=out)
                 return out
             else:
-                view_mean = mean(view, 1)
+                view_mean = mean(view, 1, profiler_name)
                 out = pk.View([view.shape[0]], pk.double)
-                pk.parallel_for(view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
+                pk.parallel_for(profiler_name, view.shape[0], var_imple_2d_axis1_double, view=view, view_mean=view_mean, out=out)
                 return out
         else:
             raise RuntimeError("Incompatible Types")
     elif view.rank() == 1: # newer impl
-        mean_val = mean(view)
-        return pk.parallel_reduce(view.shape[0], var_impl_1d, view=view, mean=mean_val)
+        mean_val = mean(view, profiler_name)
+        return pk.parallel_reduce(profiler_name, view.shape[0], var_impl_1d, view=view, mean=mean_val)
     else:
         raise RuntimeError("Unexpected view of shape {}".format(view.shape))
 
@@ -2832,7 +2863,7 @@ def mean_impl_1d_axis1_double(tid: int, view: pk.View2D[pk.double], out: pk.View
 def mean_impl_1d(tid, acc, view):
     acc += view[tid] / view.extent(0)
 
-def mean(view, axis=None):
+def mean(view, axis=None, profiler_name: Optional[str] = None):
     if isinstance(axis, pk.ViewType):
         raise NotImplementedError
 
@@ -2843,18 +2874,18 @@ def mean(view, axis=None):
         if view.dtype.__name__ == "float64": # legacy
             if axis == 0:
                 out = pk.View([view.shape[1]], pk.double)
-                pk.parallel_for(view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
+                pk.parallel_for(profiler_name, view.shape[1], mean_impl_1d_axis0_double, view=view, out=out)
                 return out
             else:
                 out = pk.View([view.shape[0]], pk.double)
-                pk.parallel_for(view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
+                pk.parallel_for(profiler_name, view.shape[0], mean_impl_1d_axis1_double, view=view, out=out)
 
                 return out
         else:
             raise RuntimeError("Incompatible Types")
 
     elif view.rank() == 1:
-        return pk.parallel_reduce(view.shape[0], mean_impl_1d, view=view)
+        return pk.parallel_reduce(profiler_name, view.shape[0], mean_impl_1d, view=view)
     else:
         raise RuntimeError("Unexpected view of shape {}".format(view.shape))
 
@@ -2969,7 +3000,7 @@ def index(viewA, viewB):
     return out
 
 
-def isnan(view):
+def isnan(view, profiler_name: Optional[str] = None):
     dtype = view.dtype
     ndims = len(view.shape)
     if ndims > 2:
@@ -2983,7 +3014,8 @@ def isnan(view):
         new_view = pk.View([1], dtype=view.dtype)
         new_view[0] = view
         view = new_view
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="isnan",
@@ -2993,7 +3025,7 @@ def isnan(view):
     return out
 
 
-def isinf(view):
+def isinf(view, profiler_name: Optional[str] = None):
     dtype = view.dtype
     ndims = len(view.shape)
     if ndims > 2:
@@ -3003,7 +3035,8 @@ def isinf(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="isinf",
@@ -3013,7 +3046,7 @@ def isinf(view):
     return out
 
 
-def equal(view1, view2):
+def equal(view1, view2, profiler_name: Optional[str] = None):
     """
     Computes the truth value of ``view1_i`` == ``view2_i`` for each element
     ``x1_i`` of the input view ``view1`` with the respective element ``x2_i``
@@ -3057,7 +3090,8 @@ def equal(view1, view2):
         new_view = pk.View((), dtype=view2.dtype)
         new_view[:] = view2.data
         view2 = new_view
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=effective_dtype,
                              ndims=ndims,
                              op="equal",
@@ -3068,7 +3102,7 @@ def equal(view1, view2):
     return out
 
 
-def isfinite(view):
+def isfinite(view, profiler_name: Optional[str] = None):
     dtype = view.dtype
     ndims = len(view.shape)
     if ndims > 2:
@@ -3084,7 +3118,8 @@ def isfinite(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="isfinite",
@@ -3094,7 +3129,7 @@ def isfinite(view):
     return out
 
 
-def round(view):
+def round(view, profiler_name: Optional[str] = None):
     """
     Rounds each element of the input view to the nearest integer-valued number.
 
@@ -3131,7 +3166,8 @@ def round(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="round",
@@ -3141,7 +3177,7 @@ def round(view):
     return out
 
 
-def trunc(view):
+def trunc(view, profiler_name: Optional[str] = None):
     """
     Rounds each element ``i`` of the input view to the integer-valued number
     that is closest to but no greater than ``i``.
@@ -3179,7 +3215,8 @@ def trunc(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="trunc",
@@ -3189,7 +3226,7 @@ def trunc(view):
     return out
 
 
-def ceil(view):
+def ceil(view, profiler_name: Optional[str] = None):
     """
     Rounds each element of the input view to the smallest (i.e., closest to -infinity)
     integer-valued number that is not less than a given element.
@@ -3227,7 +3264,8 @@ def ceil(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="ceil",
@@ -3237,7 +3275,7 @@ def ceil(view):
     return out
 
 
-def floor(view):
+def floor(view, profiler_name: Optional[str] = None):
     """
     Rounds each element of the input view to the greatest (i.e., closest to +infinity)
     integer-valued number that is not greater than a given element.
@@ -3275,7 +3313,8 @@ def floor(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="floor",
@@ -3285,7 +3324,7 @@ def floor(view):
     return out
 
 
-def tanh(view):
+def tanh(view, profiler_name: Optional[str] = None):
     """
     Calculates an approximation to the hyperbolic tangent for each element x_i of the input view.
 
@@ -3309,7 +3348,8 @@ def tanh(view):
         tid = 1
     else:
         tid = view.shape[0]
-    _ufunc_kernel_dispatcher(tid=tid,
+    _ufunc_kernel_dispatcher(profiler_name=profiler_name,
+                             tid=tid,
                              dtype=dtype,
                              ndims=ndims,
                              op="tanh",

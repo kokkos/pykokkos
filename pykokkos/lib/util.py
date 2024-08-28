@@ -1,3 +1,4 @@
+from typing import Optional
 import pykokkos as pk
 
 import numpy as np
@@ -36,21 +37,22 @@ def sum_axis1_impl_1d_double(tid: int, viewA: pk.View2D[pk.double], out: pk.View
         out[tid] += viewA[tid][i]
 
 
-def sum(viewA, axis=None):
+def sum(viewA, axis=None, profiler_name: Optional[str] = None):
     if axis is not None:
         if axis == 0:
             out = pk.View([viewA.shape[1]], pk.double)
-            pk.parallel_for(viewA.shape[1], sum_axis0_impl_1d_double, viewA=viewA, out=out)
+            pk.parallel_for(profiler_name, viewA.shape[1], sum_axis0_impl_1d_double, viewA=viewA, out=out)
             return out
         else:
             out = pk.View([viewA.shape[0]], pk.double)
-            pk.parallel_for(viewA.shape[0], sum_axis1_impl_1d_double, viewA=viewA, out=out)
+            pk.parallel_for(profiler_name, viewA.shape[0], sum_axis1_impl_1d_double, viewA=viewA, out=out)
 
             return out
 
 
     if viewA.dtype.__name__ == "float64":
         return pk.parallel_reduce(
+            profiler_name,
             viewA.shape[0],
             sum_impl_1d_double,
             viewA=viewA)
