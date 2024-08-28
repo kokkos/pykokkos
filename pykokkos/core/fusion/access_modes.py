@@ -132,6 +132,10 @@ class WriteIndicesVisitor(ast.NodeVisitor):
             slices.insert(0, index)
             current_node = current_node.value
 
+        # The subscript itself could be indexing another view
+        for s in slices:
+            self.visit(s)
+
         # Avoid type annotations
         if isinstance(current_node, ast.Attribute):
             return
