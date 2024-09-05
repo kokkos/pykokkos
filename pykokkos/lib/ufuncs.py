@@ -874,8 +874,14 @@ def add(viewA, viewB, profiler_name: Optional[str] = None):
            Output view.
 
     """
+
+    # viewA must always be a view of type float 64 oe 32
+    if not isinstance(viewA, pk.ViewType) and viewA.dtype.__name__ not in ["float32", "float64"]:
+        raise RuntimeError("Incompatible first argument of type: {}, must be a float32 or float 64 Pykokkos view".format(viewA.dtype))
+
+    # then, if viewB is a scalar conform it to viewA's type
     if not isinstance(viewB, pk.ViewType):
-        view_temp = pk.View([1], pk.double)
+        view_temp = pk.View([1], pk.double if viewA.dtype.__name__ == "float64" else pk.float32)
         view_temp[0] = viewB
         viewB = view_temp
 
@@ -947,7 +953,7 @@ def add(viewA, viewB, profiler_name: Optional[str] = None):
                 viewB=smaller,
                 out=out)
     else:
-        raise RuntimeError("Incompatible Types")
+        raise RuntimeError("Incompatible Types {}, {}".format(viewA.dtype, viewB.dtype))
     return out
 
 
