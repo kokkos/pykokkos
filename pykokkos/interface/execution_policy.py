@@ -195,3 +195,8 @@ class ThreadVectorRange(ExecutionPolicy):
         self.team_member = team_member
         self.count: Final = count
         self.space: ExecutionSpace = ExecutionSpace.Debug
+
+
+class TeamThreadMDRange(ExecutionPolicy):
+    def __init__(self, *args) -> None:
+        pass
