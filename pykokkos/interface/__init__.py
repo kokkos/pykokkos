@@ -25,7 +25,7 @@ from .decorators import (
 )
 from .execution_policy import (
     ExecutionPolicy, RangePolicy, MDRangePolicy, TeamPolicy,
-    TeamThreadRange, ThreadVectorRange, Iterate, Rank
+    TeamThreadRange, ThreadVectorRange, TeamThreadMDRange, Iterate, Rank
 )
 from .execution_space import ExecutionSpace, ExecutionSpaceInstance, is_host_execution_space
 from .layout import Layout, get_default_layout
