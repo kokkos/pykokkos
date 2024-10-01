@@ -380,6 +380,29 @@ def test_multi_array_1d_exposed_ufuncs_vs_numpy(pk_ufunc,
 
     assert_allclose(actual, expected)
 
+# TODO: There may be more funcs that support scalars
+@pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
+        (pk.add, np.add),
+        (pk.multiply, np.multiply),
+        (pk.divide, np.divide) 
+])
+@pytest.mark.parametrize("numpy_dtype", [
+        np.float64,
+        np.float32
+])
+def test_scalar_operations_vs_numpy(pk_ufunc,
+                                    numpy_ufunc,
+                                    numpy_dtype):
+    data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    expected = numpy_ufunc(
+        np.array(data, dtype=numpy_dtype),
+        1
+    )
+    actual = pk_ufunc(
+        pk.array(np.array(data, dtype=numpy_dtype)),
+        1
+    )
+    assert_allclose(actual, expected)
 
 @pytest.mark.parametrize("pk_ufunc, numpy_ufunc", [
         (pk.matmul, np.matmul),
