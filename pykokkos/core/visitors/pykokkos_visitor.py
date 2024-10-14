@@ -420,11 +420,17 @@ class PyKokkosVisitor(ast.NodeVisitor):
             )
         elif name in ["PerTeam", "PerThread", "fence"]:
             name = "Kokkos::" + name
+        elif name in {"complex32", "complex64"}:
+            name = "Kokkos::complex"
+            if "32" in name:
+                name += "<float>"
+            else:
+                name += "<double>"
 
         function = cppast.DeclRefExpr(name)
         args: List[cppast.Expr] = [self.visit(a) for a in node.args]
 
-        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence"]:
+        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence", "Kokkos::complex<float>", "Kokkos::complex<double>"]:
             return cppast.CallExpr(function, args)
 
         if function in self.kokkos_functions:
