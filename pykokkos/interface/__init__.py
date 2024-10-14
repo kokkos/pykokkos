@@ -18,6 +18,7 @@ from .data_types import (
     uint16, uint32, uint64,
     float, double, real,
     float32, float64, bool,
+    complex32, complex64
 )
 from .decorators import (
     callback, classtype, Decorator, function, functor, main,

@@ -25,6 +25,7 @@ from .data_types import (
     uint8,
     uint16, uint32, uint64,
     double, float32, float64,
+    complex32, complex64
 )
 from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
@@ -98,12 +99,15 @@ class ViewType:
 
         return self.shape[dimension]
 
-    def fill(self, value: Union[int, float]) -> None:
+    def fill(self, value: Union[int, float, complex, complex32, complex64]) -> None:
         """
         Sets all elements to a scalar value
 
         :param value: the scalar value
         """
+
+        if isinstance(value, (complex, complex32, complex64)):
+            value = np.complex64(value.real, value.imag) if self.dtype is complex32 else np.complex128(value.real, value.imag)
 
         if self.trait is Trait.Unmanaged:
             self.xp_array.fill(value)
@@ -126,8 +130,16 @@ class ViewType:
 
         if isinstance(key, int) or isinstance(key, TeamMember):
             if self.trait is Trait.Unmanaged:
-                return self.xp_array[key]
-            return self.data[key]
+                return_val = self.xp_array[key]
+            else:
+                return_val = self.data[key]
+
+            if self.dtype is complex32:
+                return_val = complex32(return_val.real, return_val.imag)
+            elif self.dtype is complex64:
+                return_val = complex64(return_val.real, return_val.imag)
+
+            return return_val
 
         length: int = 1 if isinstance(key, slice) else len(key)
         if length != self.rank():
@@ -137,7 +149,7 @@ class ViewType:
 
         return subview
 
-    def __setitem__(self, key: Union[int, TeamMember], value: Union[int, float]) -> None:
+    def __setitem__(self, key: Union[int, TeamMember], value: Union[int, float, complex, complex32, complex64]) -> None:
         """
         Overloads the indexing operator setting an item in the View.
 
@@ -147,6 +159,9 @@ class ViewType:
 
         if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
+
+        if isinstance(value, (complex, complex32, complex64)):
+            value = np.complex64(value.real, value.imag) if self.dtype is complex32 else np.complex128(value.real, value.imag)
 
         if self.trait is Trait.Unmanaged:
             self.xp_array[key] = value
@@ -674,6 +689,10 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         dtype = float64
     elif np_dtype is np.bool_:
         dtype = uint8
+    elif np_dtype is np.complex64:
+        dtype = complex32
+    elif np_dtype is np.complex128:
+        dtype = complex64
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -736,6 +755,10 @@ def from_array(array) -> ViewType:
         ctype = ctypes.c_double
     elif np_dtype is np.bool_:
         ctype = ctypes.c_uint8
+    elif np_dtype is np.complex64:
+        dtype = complex32
+    elif np_dtype is np.complex128:
+        dtype = complex64
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
