@@ -667,6 +667,13 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     dtype: DataTypeClass
     np_dtype = array.dtype.type
 
+    if np_dtype is np.void and cp_array is not None:
+        # This means that this is a cupy array passed through
+        # from_array(). When this happens, if the cupy array was
+        # originally a complex number dtype, np_dtype will be void. We
+        # should therefore retreive the data type from cp_array.
+        np_dtype = cp_array.dtype.type
+
     if np_dtype is np.int8:
         dtype = int8
     elif np_dtype is np.int16:
@@ -724,6 +731,12 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
 
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout, cp_array=cp_array)
 
+class ctypes_complex32(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
+
+class ctypes_complex64(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
+
 def from_array(array) -> ViewType:
     """
     Create a PyKokkos View from a cupy (or other numpy-like) array
@@ -756,9 +769,9 @@ def from_array(array) -> ViewType:
     elif np_dtype is np.bool_:
         ctype = ctypes.c_uint8
     elif np_dtype is np.complex64:
-        dtype = complex32
+        ctype = ctypes_complex32
     elif np_dtype is np.complex128:
-        dtype = complex64
+        ctype = ctypes_complex64
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -768,6 +781,11 @@ def from_array(array) -> ViewType:
     ptr = array.data.ptr
     ptr = ctypes.cast(ptr, ctypes.POINTER(ctype))
     np_array = np.ctypeslib.as_array(ptr, shape=array.shape)
+
+    if np_dtype in {np.complex64, np.complex128}:
+        # This sets the arrays dtype to numpy's complex number types.
+        # Without this the type would be np.void.
+        np_array = np_array.view(np_dtype)
 
     # need to select the layout here since the np_array flags do not
     # preserve the original flags
