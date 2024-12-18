@@ -1,7 +1,7 @@
 def expint1(input: float) -> float:
     pass
 
-def erfc(input: float) -> float:
+def erfcx(input: float) -> float:
     pass
 
 def cyl_bessel_j0(input: float) -> float:
