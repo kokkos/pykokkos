@@ -116,6 +116,23 @@ math_functions: Set = {
     "nan",
 }
 
+math_special_functions: Set = {
+    "expint1",
+    "erfcx",
+    "cyl_bessel_j0", 
+    "cyl_bessel_y0", 
+    "cyl_bessel_i0", 
+    "cyl_bessel_k0",
+    "cyl_bessel_j1", 
+    "cyl_bessel_y1", 
+    "cyl_bessel_i1", 
+    "cyl_bessel_k1", 
+    "cyl_bessel_h10", 
+    "cyl_bessel_h11", 
+    "cyl_bessel_h20", 
+    "cyl_bessel_h21",
+}
+
 math_constants: Dict[str, str] = {
     "e": "M_E",
     "pi": "M_PI",
@@ -171,6 +188,8 @@ def get_allowed_type_str(python_type: str) -> str:
 def is_math_function(function: str) -> bool:
     return function in math_functions
 
+def is_math_special_function(function: str) -> bool:
+    return function in math_special_functions
 
 def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
     name: str = ""
