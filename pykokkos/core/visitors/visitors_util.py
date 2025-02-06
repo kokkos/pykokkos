@@ -99,7 +99,7 @@ math_functions: Set = {
     "isfinite",
     "isinf",
     "isnan",
-    "isqrt",
+    "rsqrt",
     "lgamma",
     "log",
     "log10",
