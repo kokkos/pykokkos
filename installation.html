@@ -149,17 +149,16 @@ install <code class="docutils literal notranslate"><span class="pre">pykokkos-ba
 </pre></div>
 </div>
 <div>
-<p>If <code class="docutils literal notranslate"><span
-class="pre">ninja</span></code> is installed on your system and you encountered
-system freezes or system crashes during <code class="docutils literal
+<p>If you encountered
+resource problems (overallocation) during <code class="docutils literal
 notranslate"><span class="pre">pykokkos-base</span></code> compilation process,
-try assigning fewer threads to the compilation by setting cmake variable:
+try compiling with fewer processes via setting cmake variable:
 
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CMAKE_BUILD_PARALLEL_LEVEL</span><span class="o">=</span>X</pre>
 </div></div>
 
 variable, where <code class="docutils literal notranslate"><span
-class="pre">X</NUM></span></code> is a number of assigned processors.
+class="pre">X</NUM></span></code> is a number of assigned processes.
 </p></div>
 
 <p>Other <code class="docutils literal notranslate"><span class="pre">pykokkos-base</span></code> configuration and installation options can be
