@@ -1,4 +1,5 @@
 # PyKokkos
+[![Test against Kokkos development branch](https://github.com/kokkos/pykokkos/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kokkos/pykokkos/actions/workflows/nightly.yml)
 
 PyKokkos is a framework for writing high-performance Python code
 similar to Numba. In contrast to Numba, PyKokkos kernels are primarily
