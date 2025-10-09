@@ -1,4 +1,4 @@
-name: Nightly_Testing_vs_Kokkos_develop
+name: Nightly build against Kokkos
 
 on:
   schedule:
