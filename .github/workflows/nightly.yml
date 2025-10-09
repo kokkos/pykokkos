@@ -5,6 +5,7 @@ on:
     # 5 am UTC is late evening for current dev
     # team
     - cron: '00 5 * * *'
+  workflow_dispatch:
 
 jobs:
   test_vs_kokkos_develop:
