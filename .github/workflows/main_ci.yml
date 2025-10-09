@@ -25,12 +25,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf
+          cmake --version
       - name: Install pykokkos-base
         run: |
           cd /tmp
           git clone https://github.com/kokkos/pykokkos-base.git
           cd pykokkos-base
-          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5
+          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5 -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       - name: Install pykokkos
         run: |
           python -m pip install .
