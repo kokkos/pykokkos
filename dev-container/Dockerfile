@@ -46,9 +46,8 @@ RUN --mount=type=secret,id=ssh_key \
     fi
 
 # Set up custom entrypoint
-ENV entrypoint_name="custom-entrypoint.sh"
 WORKDIR /home/${username}/
-COPY ./custom-entrypoint.sh /opt/custom-entrypoint.sh
+COPY dev-container/scripts/custom-entrypoint.sh /opt/custom-entrypoint.sh
 RUN chmod +x /opt/custom-entrypoint.sh
 
 # Set up and initialize conda environment
@@ -62,35 +61,18 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
 # Initialize user's conda environment, TOS agreements
 USER ${username}
 WORKDIR /home/${username}/
-RUN ${condaPath}/conda init bash
+# Initialize conda in bash and ensure it's loaded in every shell
 RUN ${condaPath}/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    ${condaPath}/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+    ${condaPath}/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    ${condaPath}/conda init
 
-# Initialize pykokkos-base conda environment
-RUN git clone https://github.com/kokkos/pykokkos-base.git && \
-    chown -R ${username}:${username} /home/${username}/pykokkos-base
-WORKDIR /home/${username}/pykokkos-base
-RUN ${condaPath}/conda create -y --name pyk --file requirements.txt python=3.11
-
-# Copy pykokkos installation script into container. 
-# It would be executed only once on first container execution
-WORKDIR /home/${username}
-COPY ./pykokkos-install.sh /opt/pykokkos-install.sh
+# Clone myself to this container
+RUN git clone https://github.com/kokkos/pykokkos.git
 
 # Expose port in order to be able to connect from IDEs
-USER root
-RUN chmod +x /opt/pykokkos-install.sh
-RUN chown ${username}:${username} /opt/pykokkos-install.sh
 EXPOSE 2222
 
 # Add ~/.local/bin to PATH (for pip installs etc.)
 RUN echo "export PATH=\"/home/${username}/miniconda3/bin:/home/${username}/miniconda3/condabin:/home/${username}/.local/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" >> /home/${username}/.bashrc
 
-# Add pykokkos installation to .bashrc so it runs on login (including docker exec)
-RUN echo "" >> /home/${username}/.bashrc && \
-    echo "# Auto-install pykokkos-base on first login" >> /home/${username}/.bashrc && \
-    echo "if [ -f /opt/pykokkos-install.sh ] && [ ! -f ~/.pykokkos_installed ]; then" >> /home/${username}/.bashrc && \
-    echo "    /opt/pykokkos-install.sh" >> /home/${username}/.bashrc && \
-    echo "fi" >> /home/${username}/.bashrc
-r
 ENTRYPOINT ["/opt/custom-entrypoint.sh"]
