@@ -56,7 +56,7 @@ function detect_compiler {
 
 # Check if conda is available
 function check_conda {
-    if [[ -x $(conda --version) ]]; then
+    if ! command -v conda &> /dev/null; then
         echo "ERROR: conda not found."
         dirs -c
         exit 1
@@ -91,7 +91,7 @@ function prompt_arch {
     echo -e "\nSelect architectures to enable:"
 
     for arch in "${!ARCH_CONFIG[@]}"; do
-        if [ ${ARCH_AVAILABLE[$arch]:-0} -eq 0 ] && [ "$arch" != "Threads" ]; then
+        if [ ${ARCH_AVAILABLE[$arch]:-0} -eq 0 ]; then
             continue
         fi
 
@@ -161,6 +161,7 @@ function install_base {
 function install {
     install_base
 
+    pushd "$SCRIPT_DIR"
     conda install -c conda-forge pybind11 cupy patchelf -y
     pip install --user -e .
 
