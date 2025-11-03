@@ -70,6 +70,7 @@ RUN ${condaPath}/conda tos accept --override-channels --channel https://repo.ana
 RUN git clone https://github.com/kokkos/pykokkos.git
 
 # Expose port in order to be able to connect from IDEs
+USER root
 EXPOSE 2222
 
 # Add ~/.local/bin to PATH (for pip installs etc.)
