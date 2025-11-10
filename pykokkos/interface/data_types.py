@@ -28,8 +28,8 @@ class DataType(Enum):
     float64 = kokkos.double
     real = None
     bool = np.bool_
-    complex32 = kokkos.complex_float32_dtype
-    complex64 = kokkos.complex_float64_dtype
+    complex32 = getattr(kokkos, 'complex_float32_dtype', None)
+    complex64 = getattr(kokkos, 'complex_float64_dtype', None)
 
 
 class DataTypeClass:
@@ -174,22 +174,32 @@ class complex(DataTypeClass):
         return self.kokkos_complex.imag_const()
 
 class complex32(complex):
-    value = kokkos.complex_float32_dtype
+    value = getattr(kokkos, 'complex_float32_dtype', None)
     np_equiv = np.complex64 # 32 bits from real + 32 from imaginary
 
     def __init__(self, real: float, imaginary: float = 0.0):
-        if isinstance(real, kokkos.complex_float32):
+        complex_float32_type = getattr(kokkos, 'complex_float32', None)
+        if complex_float32_type is not None and isinstance(real, complex_float32_type):
             self.kokkos_complex = real
         else:
-            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float32(real, imaginary)
+            kokkos_module = km.get_kokkos_module(is_cpu=True)
+            if hasattr(kokkos_module, 'complex_float32'):
+                self.kokkos_complex = kokkos_module.complex_float32(real, imaginary)
+            else:
+                raise NotImplementedError("complex_float32 not available in kokkos bindings")
 
 
 class complex64(complex):
-    value = kokkos.complex_float64_dtype
+    value = getattr(kokkos, 'complex_float64_dtype', None)
     np_equiv = np.complex128 # 64 bits from real + 64 from imaginary
 
     def __init__(self, real: float, imaginary: float = 0.0):
-        if isinstance(real, kokkos.complex_float64):
+        complex_float64_type = getattr(kokkos, 'complex_float64', None)
+        if complex_float64_type is not None and isinstance(real, complex_float64_type):
             self.kokkos_complex = real
         else:
-            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float64(real, imaginary)
+            kokkos_module = km.get_kokkos_module(is_cpu=True)
+            if hasattr(kokkos_module, 'complex_float64'):
+                self.kokkos_complex = kokkos_module.complex_float64(real, imaginary)
+            else:
+                raise NotImplementedError("complex_float64 not available in kokkos bindings")
