@@ -12,7 +12,6 @@ from typing import (
 
 import numpy as np
 
-import pykokkos as pk
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 from pykokkos.runtime import runtime_singleton
@@ -31,6 +30,11 @@ from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
 from .hierarchical import TeamMember
+from .execution_space import ExecutionSpace
+
+# Import constants and functions that were previously accessed via pk.*
+from pykokkos.lib.constants import e, pi, inf, nan
+from pykokkos.lib.info import iinfo, finfo
 
 ARRAY_REQ_ATTR = ["dtype", "data", "shape", "flags"]
 
@@ -435,35 +439,35 @@ class View(ViewType):
         # avoid circular import with scoped import
         from pykokkos.lib.ufuncs import equal
         if isinstance(other, float):
-            new_other = pk.View((), dtype=pk.double)
+            new_other = View((), dtype=double)
             new_other[:] = other
         elif isinstance(other, bool):
-            new_other = pk.View((), dtype=pk.bool)
+            new_other = View((), dtype=bool)
             new_other[:] = other
         elif isinstance(other, int):
             if self.ndim == 0:
-                ret = pk.View((), dtype=pk.bool)
+                ret = View((), dtype=bool)
                 ret[:] = int(self) == other
                 return ret
             if 0 <= other <= 255:
-                other_dtype = pk.uint8
+                other_dtype = uint8
             elif 0 <= other <= 65535:
-                other_dtype = pk.uint16
+                other_dtype = uint16
             elif 0 <= other <= 4294967295:
-                other_dtype = pk.uint32
+                other_dtype = uint32
             elif 0 <= other <= 18446744073709551615:
-                other_dtype = pk.uint64
+                other_dtype = uint64
             elif -128 <= other <= 127:
-                other_dtype = pk.int8
+                other_dtype = int8
             elif -32768 <= other <= 32767:
-                other_dtype = pk.int16
+                other_dtype = int16
             elif -2147483648 <= other <= 2147483647:
-                other_dtype = pk.int32
+                other_dtype = int32
             elif -9223372036854775808 <= other <= 9223372036854775807:
-                other_dtype = pk.int64
-            new_other = pk.View((), dtype=other_dtype)
+                other_dtype = int64
+            new_other = View((), dtype=other_dtype)
             new_other[:] = other
-        elif isinstance(other, pk.View):
+        elif isinstance(other, View):
             new_other = other
         else:
             raise ValueError("unexpected types!")
@@ -488,7 +492,8 @@ class View(ViewType):
 
 
     def __pos__(self):
-        return pk.positive(self)
+        from pykokkos.lib.ufuncs import positive
+        return positive(self)
 
 
     @staticmethod
@@ -598,35 +603,35 @@ class Subview(ViewType):
         # avoid circular import with scoped import
         from pykokkos.lib.ufuncs import equal
         if isinstance(other, float):
-            new_other = pk.View((), dtype=pk.double)
+            new_other = View((), dtype=double)
             new_other[:] = other
         elif isinstance(other, bool):
-            new_other = pk.View((), dtype=pk.bool)
+            new_other = View((), dtype=bool)
             new_other[:] = other
         elif isinstance(other, int):
             if self.ndim == 0:
-                ret = pk.View((), dtype=pk.bool)
+                ret = View((), dtype=bool)
                 ret[:] = int(self) == other
                 return ret
             if 0 <= other <= 255:
-                other_dtype = pk.uint8
+                other_dtype = uint8
             elif 0 <= other <= 65535:
-                other_dtype = pk.uint16
+                other_dtype = uint16
             elif 0 <= other <= 4294967295:
-                other_dtype = pk.uint32
+                other_dtype = uint32
             elif 0 <= other <= 18446744073709551615:
-                other_dtype = pk.uint64
+                other_dtype = uint64
             elif -128 <= other <= 127:
-                other_dtype = pk.int8
+                other_dtype = int8
             elif -32768 <= other <= 32767:
-                other_dtype = pk.int16
+                other_dtype = int16
             elif -2147483648 <= other <= 2147483647:
-                other_dtype = pk.int32
+                other_dtype = int32
             elif -9223372036854775808 <= other <= 9223372036854775807:
-                other_dtype = pk.int64
-            new_other = pk.View((), dtype=other_dtype)
+                other_dtype = int64
+            new_other = View((), dtype=other_dtype)
             new_other[:] = other
-        elif isinstance(other, pk.Subview):
+        elif isinstance(other, Subview):
             new_other = other
         else:
             raise ValueError("unexpected types!")
@@ -796,9 +801,9 @@ def from_array(array) -> ViewType:
         layout = Layout.LayoutRight
 
     memory_space: MemorySpace
-    if km.get_gpu_framework() is pk.Cuda:
+    if km.get_gpu_framework() is ExecutionSpace.Cuda:
         memory_space = MemorySpace.CudaSpace
-    elif km.get_gpu_framework() is pk.HIP:
+    elif km.get_gpu_framework() is ExecutionSpace.HIP:
         memory_space = MemorySpace.HIPSpace
 
     return from_numpy(np_array, memory_space, layout, array)
@@ -852,10 +857,10 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # for now, let's cheat and use NumPy asarray() followed
     # by pykokkos from_numpy()
 
-    if not isinstance(obj, list) and obj in {pk.e, pk.pi, pk.inf, pk.nan}:
+    if not isinstance(obj, list) and obj in {e, pi, inf, nan}:
         if dtype is None:
-            dtype = pk.float64
-        view = pk.View([1], dtype=dtype)
+            dtype = float64
+        view = View([1], dtype=dtype)
         view[:] = obj
         return view
     if dtype is not None:
@@ -889,7 +894,7 @@ def result_type(*arrays_and_dtypes: DataTypeClass) -> DataTypeClass:
     int_types_seen = []
     float_types_seen = []
     for element in arrays_and_dtypes:
-        if isinstance(element, pk.View):
+        if isinstance(element, View):
             raise NotImplementedError("type promotion not yet implemented for Views")
         # dtypes may be added directly
         for known_dtype in DataType.__members__.items():
@@ -910,13 +915,13 @@ def result_type(*arrays_and_dtypes: DataTypeClass) -> DataTypeClass:
     # we simply use the largest one
     if uint_types_seen and (not int_types_seen) and (not float_types_seen):
         return _get_largest_type(type_list=uint_types_seen,
-                                 type_info=pk.iinfo)
+                                 type_info=iinfo)
     if int_types_seen and (not uint_types_seen) and (not float_types_seen):
         return _get_largest_type(type_list=int_types_seen,
-                                 type_info=pk.iinfo)
+                                 type_info=iinfo)
     if float_types_seen and (not uint_types_seen) and (not int_types_seen):
         return _get_largest_type(type_list=float_types_seen,
-                                 type_info=pk.finfo)
+                                 type_info=finfo)
     raise NotImplementedError("Casting rules not implemented for the input.")
 
 
@@ -993,6 +998,6 @@ class ScratchView8D(ScratchView, Generic[T]):
 
 
 def astype(view, dtype):
-    new_view = pk.View([*view.shape], dtype=dtype)
+    new_view = View([*view.shape], dtype=dtype)
     new_view[:] = view
     return new_view
