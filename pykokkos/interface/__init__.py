@@ -33,7 +33,10 @@ from .hierarchical import (
     AUTO, TeamMember, PerTeam, PerThread, single
 )
 from .mathematical_special_functions import (
-    cyl_bessel_j0, cyl_bessel_j1
+    expint1, erfcx, 
+    cyl_bessel_j0, cyl_bessel_y0, cyl_bessel_k0, cyl_bessel_i0,  
+    cyl_bessel_j1, cyl_bessel_y1, cyl_bessel_k1, cyl_bessel_i1, 
+    cyl_bessel_h10, cyl_bessel_h11, cyl_bessel_h20, cyl_bessel_h21
 )
 from .memory_space import MemorySpace, get_default_memory_space
 from .parallel_dispatch import (

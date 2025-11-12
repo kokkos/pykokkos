@@ -427,6 +427,23 @@ class PyKokkosVisitor(ast.NodeVisitor):
         if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence"]:
             return cppast.CallExpr(function, args)
 
+        if visitors_util.is_math_special_function(name):
+            if name in ["expint1", "erfcx"]:
+                if len(args) != 1:
+                    self.error(node, f"pk.{name}() accepts only one argument")
+                s = cppast.Serializer()
+                math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<double>"), args)
+
+                return math_call
+            else:
+                if len(args) != 1:
+                    self.error(node, f"pk.{name}() accepts only one argument")
+                s = cppast.Serializer()
+                arg_str = s.serialize(args[0])
+                math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"), args)
+                real_number_call = cppast.MemberCallExpr(math_call, cppast.DeclRefExpr("real"), [])
+                return real_number_call
+
         if function in self.kokkos_functions:
             if "PK_RESTRICT" in os.environ:
                 return adjust_kokkos_function_call(function, args, self.restrict_views, self.views)

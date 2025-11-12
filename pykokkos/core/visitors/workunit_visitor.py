@@ -307,9 +307,22 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             return rand_call
 
-        if name in {"cyl_bessel_j0", "cyl_bessel_j1"}:
+        if name in {"expint1", "erfcx"}:
             if len(args) != 1:
-                self.error(node, "pk.cyl_bessel_j0/j1 accepts only one argument")
+                self.error(node, f"pk.{name}() accepts only one argument")
+
+            s = cppast.Serializer()
+            math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<double>"), args)
+
+            return math_call
+        
+        if name in {
+                "cyl_bessel_j0", "cyl_bessel_y0", "cyl_bessel_i0", "cyl_bessel_k0",  
+                "cyl_bessel_j1", "cyl_bessel_y1", "cyl_bessel_i1", "cyl_bessel_k1", 
+                "cyl_bessel_h10", "cyl_bessel_h11", "cyl_bessel_h20", "cyl_bessel_h21"
+                }:
+            if len(args) != 1:
+                self.error(node, f"pk.{name}() accepts only one argument")
 
             s = cppast.Serializer()
             arg_str = s.serialize(args[0])
