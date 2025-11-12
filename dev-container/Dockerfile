@@ -68,6 +68,7 @@ RUN ${condaPath}/conda tos accept --override-channels --channel https://repo.ana
 
 # Clone myself to this container
 RUN git clone https://github.com/kokkos/pykokkos.git
+RUN git clone https://github.com/kokkos/pykokkos-base.git
 
 # Expose port in order to be able to connect from IDEs
 USER root
