@@ -45,3 +45,6 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+
+# Docker files and secrets
+dev-container/secrets/
