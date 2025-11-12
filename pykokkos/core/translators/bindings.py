@@ -174,8 +174,8 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
 
     constructor: str = f"{functor} {Keywords.Instance.value}"
     constructor += "(" + ",".join(args) + ");"
-
-    return mirror_views + constructor
+    gil_release = "pybind11::gil_scoped_release release;"
+    return gil_release + mirror_views + constructor
 
 def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[str,str]) -> str:
     """
