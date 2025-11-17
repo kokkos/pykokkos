@@ -197,6 +197,8 @@ class CppSetup:
 
             return lib_path, include_path, compiler_path
 
+        import sys
+        
         is_cpu: bool = is_host_execution_space(space)
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
         install_path = Path(kokkos_lib.__path__[0])
@@ -206,21 +208,46 @@ class CppSetup:
         else:
             lib_parent_path = install_path.parent
 
+        lib_path = None
         if (lib_parent_path / "lib").is_dir():
             lib_path = lib_parent_path / "lib"
         elif (lib_parent_path / "lib64").is_dir():
             lib_path = lib_parent_path / "lib64"
         else:
+            # Try checking sys.prefix/lib and sys.prefix/lib64
+            sys_prefix = Path(sys.prefix)
+            if (sys_prefix / "lib").is_dir():
+                # Verify that kokkos libraries actually exist here
+                kokkos_lib_files = list((sys_prefix / "lib").glob("libkokkoscore.*"))
+                if kokkos_lib_files:
+                    lib_path = sys_prefix / "lib"
+            if lib_path is None and (sys_prefix / "lib64").is_dir():
+                kokkos_lib_files = list((sys_prefix / "lib64").glob("libkokkoscore.*"))
+                if kokkos_lib_files:
+                    lib_path = sys_prefix / "lib64"
+        
+        if lib_path is None:
             raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
                                f" Try setting {self.lib_path_env} instead.")
 
         include_path = install_path.parent / "include/kokkos"
+        if not include_path.exists():
+            # scikit-build may install includes to sys.prefix/include
+            sys_prefix = Path(sys.prefix)
+            if (sys_prefix / "include/kokkos").exists():
+                include_path = sys_prefix / "include/kokkos"
 
         compiler_path: Path
         if compiler != "nvcc":
             compiler_path = Path(compiler)
         else:
+            # Try traditional location first, then sys.prefix
             compiler_path = install_path.parent / "bin/nvcc_wrapper"
+            if not compiler_path.exists():
+                sys_prefix = Path(sys.prefix)
+                alt_compiler_path = sys_prefix / "bin/nvcc_wrapper"
+                if alt_compiler_path.exists():
+                    compiler_path = alt_compiler_path
 
         return lib_path, include_path, compiler_path
 
