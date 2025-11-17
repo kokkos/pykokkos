@@ -1,4 +1,5 @@
 from enum import Enum
+from builtins import float as builtin_float
 
 from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
@@ -177,7 +178,7 @@ class complex32(complex):
     value = kokkos.complex_float32_dtype
     np_equiv = np.complex64 # 32 bits from real + 32 from imaginary
 
-    def __init__(self, real: float, imaginary: float = 0.0):
+    def __init__(self, real: "builtin_float | kokkos.complex_float32", imaginary: builtin_float = 0.0):
         if isinstance(real, kokkos.complex_float32):
             self.kokkos_complex = real
         else:
@@ -188,7 +189,7 @@ class complex64(complex):
     value = kokkos.complex_float64_dtype
     np_equiv = np.complex128 # 64 bits from real + 64 from imaginary
 
-    def __init__(self, real: float, imaginary: float = 0.0):
+    def __init__(self, real: "builtin_float | kokkos.complex_float64", imaginary: builtin_float = 0.0):
         if isinstance(real, kokkos.complex_float64):
             self.kokkos_complex = real
         else:
