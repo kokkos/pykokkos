@@ -270,7 +270,11 @@ class PyKokkosVisitor(ast.NodeVisitor):
             unfused_name: str = r.group(1) if r else ref.declname
 
             if "PK_RESTRICT" in os.environ and unfused_name in self.restrict_views or name in self.restrict_views:
-                subscript = index_restrict_view(ref, args)
+                if unfused_name in self.restrict_views:
+                    v = self.restrict_views[unfused_name]
+                else:
+                    v = self.restrict_views[name]
+                subscript = index_restrict_view(ref, args, v)
             else:
                 subscript = cppast.CallExpr(ref, args)
 

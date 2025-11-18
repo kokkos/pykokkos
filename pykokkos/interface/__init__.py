@@ -25,12 +25,15 @@ from .decorators import (
 )
 from .execution_policy import (
     ExecutionPolicy, RangePolicy, MDRangePolicy, TeamPolicy,
-    TeamThreadRange, ThreadVectorRange, Iterate, Rank
+    TeamThreadRange, ThreadVectorRange, TeamThreadMDRange, Iterate, Rank
 )
 from .execution_space import ExecutionSpace, ExecutionSpaceInstance, is_host_execution_space
 from .layout import Layout, get_default_layout
 from .hierarchical import (
     AUTO, TeamMember, PerTeam, PerThread, single
+)
+from .mathematical_special_functions import (
+    cyl_bessel_j0, cyl_bessel_j1
 )
 from .memory_space import MemorySpace, get_default_memory_space
 from .parallel_dispatch import (

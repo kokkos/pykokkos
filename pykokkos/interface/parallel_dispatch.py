@@ -50,7 +50,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
         workunit = unpacked[1]
 
     elif len(unpacked) == 3:
-        if isinstance(unpacked[0], str):
+        if isinstance(unpacked[0], str) or unpacked[0] is None:
             name = unpacked[0]
             policy = unpacked[1]
             workunit = unpacked[2]
@@ -66,7 +66,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
             raise TypeError(f"ERROR: wrong arguments {unpacked}")
 
     elif len(unpacked) == 4:
-        if isinstance(unpacked[0], str):
+        if isinstance(unpacked[0], str) or unpacked[0] is None:
             name = unpacked[0]
             policy = unpacked[1]
             workunit = unpacked[2]

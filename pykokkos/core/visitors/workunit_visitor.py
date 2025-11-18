@@ -255,7 +255,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             return call
 
         function = cppast.DeclRefExpr(f"Kokkos::{name}")
-        if name in ("TeamThreadRange", "ThreadVectorRange"):
+        if name in ("TeamThreadRange", "ThreadVectorRange", "TeamThreadMDRange"):
             return cppast.CallExpr(function, args)
 
         if name in ("parallel_for", "single"):
@@ -306,6 +306,17 @@ class WorkunitVisitor(PyKokkosVisitor):
             rand_call.is_static = True
 
             return rand_call
+
+        if name in {"cyl_bessel_j0", "cyl_bessel_j1"}:
+            if len(args) != 1:
+                self.error(node, "pk.cyl_bessel_j0/j1 accepts only one argument")
+
+            s = cppast.Serializer()
+            arg_str = s.serialize(args[0])
+            math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"), args)
+            real_number_call = cppast.MemberCallExpr(math_call, cppast.DeclRefExpr("real"), [])
+
+            return real_number_call
 
         return super().visit_Call(node)
 
