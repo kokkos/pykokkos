@@ -11,6 +11,10 @@ from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
 from .views import ViewType, array
 
+from .interface_util import generic_error, get_filename, get_lineno
+
+import inspect
+
 workunit_cache: Dict[int, Callable] = {}
 
 
@@ -131,7 +135,7 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
 
     try:
         import torch
-        torch_available = True
+        torch_available = False
     except ImportError:
         torch_available = False
 
@@ -142,6 +146,12 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
             kwargs[k] = array(v)
         elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v)
+        else:
+            caller_frame = inspect.currentframe().f_back.f_back  # Go up two frames to get the actual caller
+            filename = get_filename(caller_frame)
+            lineno = get_lineno(caller_frame)
+            msg = f"Type {type(v)} is unsupported"
+            generic_error(filename, lineno, msg, "Conversion failed")
 
 
 def parallel_for(*args, **kwargs) -> None:
