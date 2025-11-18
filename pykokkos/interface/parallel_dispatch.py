@@ -135,22 +135,25 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
 
     try:
         import torch
-        torch_available = False
+        torch_available = True
     except ImportError:
         torch_available = False
 
     for k, v in kwargs.items():
-        if isinstance(v, np.ndarray):
+        if isinstance(v, ViewType):
+            continue
+        elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)
         elif cp_available and isinstance(v, cp.ndarray):
             kwargs[k] = array(v)
         elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v)
-        else:
-            caller_frame = inspect.currentframe().f_back.f_back  # Go up two frames to get the actual caller
+        elif hasattr(v, '__array__') or hasattr(v, '__cuda_array_interface__') or hasattr(v, '__array_interface__'):
+            # This is some array-like object we don't support
+            caller_frame = inspect.currentframe().f_back.f_back
             filename = get_filename(caller_frame)
             lineno = get_lineno(caller_frame)
-            msg = f"Type {type(v)} is unsupported"
+            msg = f"Type {type(v)} is not supported. Only numpy arrays, cupy arrays, and torch tensors are supported."
             generic_error(filename, lineno, msg, "Conversion failed")
 
 
