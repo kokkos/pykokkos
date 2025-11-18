@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        python-version: ["3.11"]
+        python-version: ["3.13"]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
@@ -47,6 +47,6 @@ jobs:
           # to circumvent the currently slow performance of
           # JIT compile/link, which can otherwise cause issues
           # for hypothesis-driven test case generation
-          pytest $GITHUB_WORKSPACE/pre_compile_tools/pre_compile_ufuncs.py -s
+          pytest $GITHUB_WORKSPACE/tools/pre_compile_ufuncs.py -s
           # only run a subset of the conformance tests to get started
           pytest array_api_tests/meta/test_broadcasting.py array_api_tests/meta/test_equality_mapping.py array_api_tests/meta/test_signatures.py array_api_tests/meta/test_special_cases.py array_api_tests/test_constants.py array_api_tests/meta/test_utils.py array_api_tests/test_creation_functions.py::test_ones array_api_tests/test_creation_functions.py::test_ones_like array_api_tests/test_data_type_functions.py::test_result_type array_api_tests/test_operators_and_elementwise_functions.py::test_log10 array_api_tests/test_operators_and_elementwise_functions.py::test_sqrt array_api_tests/test_operators_and_elementwise_functions.py::test_isfinite array_api_tests/test_operators_and_elementwise_functions.py::test_log2 array_api_tests/test_operators_and_elementwise_functions.py::test_log1p array_api_tests/test_operators_and_elementwise_functions.py::test_isinf array_api_tests/test_operators_and_elementwise_functions.py::test_log array_api_tests/test_array_object.py::test_scalar_casting array_api_tests/test_operators_and_elementwise_functions.py::test_sign array_api_tests/test_operators_and_elementwise_functions.py::test_square array_api_tests/test_operators_and_elementwise_functions.py::test_cos array_api_tests/test_operators_and_elementwise_functions.py::test_round array_api_tests/test_operators_and_elementwise_functions.py::test_trunc array_api_tests/test_operators_and_elementwise_functions.py::test_ceil array_api_tests/test_operators_and_elementwise_functions.py::test_floor array_api_tests/test_operators_and_elementwise_functions.py::test_exp array_api_tests/test_operators_and_elementwise_functions.py::test_sin array_api_tests/test_operators_and_elementwise_functions.py::test_tan array_api_tests/test_operators_and_elementwise_functions.py::test_tanh array_api_tests/test_creation_functions.py::test_zeros array_api_tests/test_creation_functions.py::test_zeros_like array_api_tests/test_creation_functions.py::test_full_like array_api_tests/test_operators_and_elementwise_functions.py::test_positive array_api_tests/test_operators_and_elementwise_functions.py::test_isnan array_api_tests/test_operators_and_elementwise_functions.py::test_equal "array_api_tests/test_has_names.py::test_has_names[array_method-__pos__]"
