@@ -25,6 +25,7 @@ from .data_types import (
     uint8,
     uint16, uint32, uint64,
     double, float32, float64,
+    complex64, complex128
 )
 from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
@@ -98,12 +99,15 @@ class ViewType:
 
         return self.shape[dimension]
 
-    def fill(self, value: Union[int, float]) -> None:
+    def fill(self, value: Union[int, float, complex, complex64, complex128]) -> None:
         """
         Sets all elements to a scalar value
 
         :param value: the scalar value
         """
+
+        if isinstance(value, (complex, complex64, complex128)):
+            value = np.complex64(value.real, value.imag) if self.dtype is complex64 else np.complex128(value.real, value.imag)
 
         if self.trait is Trait.Unmanaged:
             self.xp_array.fill(value)
@@ -126,8 +130,16 @@ class ViewType:
 
         if isinstance(key, int) or isinstance(key, TeamMember):
             if self.trait is Trait.Unmanaged:
-                return self.xp_array[key]
-            return self.data[key]
+                return_val = self.xp_array[key]
+            else:
+                return_val = self.data[key]
+
+            if self.dtype is complex64:
+                return_val = complex64(return_val.real, return_val.imag)
+            elif self.dtype is complex128:
+                return_val = complex128(return_val.real, return_val.imag)
+
+            return return_val
 
         length: int = 1 if isinstance(key, slice) else len(key)
         if length != self.rank():
@@ -137,7 +149,7 @@ class ViewType:
 
         return subview
 
-    def __setitem__(self, key: Union[int, TeamMember], value: Union[int, float]) -> None:
+    def __setitem__(self, key: Union[int, TeamMember], value: Union[int, float, complex, complex64, complex128]) -> None:
         """
         Overloads the indexing operator setting an item in the View.
 
@@ -147,6 +159,9 @@ class ViewType:
 
         if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
+
+        if isinstance(value, (complex, complex64, complex128)):
+            value = np.complex64(value.real, value.imag) if self.dtype is complex64 else np.complex128(value.real, value.imag)
 
         if self.trait is Trait.Unmanaged:
             self.xp_array[key] = value
@@ -652,6 +667,13 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     dtype: DataTypeClass
     np_dtype = array.dtype.type
 
+    if np_dtype is np.void and cp_array is not None:
+        # This means that this is a cupy array passed through
+        # from_array(). When this happens, if the cupy array was
+        # originally a complex number dtype, np_dtype will be void. We
+        # should therefore retreive the data type from cp_array.
+        np_dtype = cp_array.dtype.type
+
     if np_dtype is np.int8:
         dtype = int8
     elif np_dtype is np.int16:
@@ -674,6 +696,10 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         dtype = float64
     elif np_dtype is np.bool_:
         dtype = uint8
+    elif np_dtype is np.complex64:
+        dtype = complex64
+    elif np_dtype is np.complex128:
+        dtype = complex128
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -704,6 +730,12 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
         ret_list = list((array.shape))
 
     return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout, cp_array=cp_array)
+
+class ctypes_complex64(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
+
+class ctypes_complex128(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
 
 def from_array(array) -> ViewType:
     """
@@ -736,6 +768,10 @@ def from_array(array) -> ViewType:
         ctype = ctypes.c_double
     elif np_dtype is np.bool_:
         ctype = ctypes.c_uint8
+    elif np_dtype is np.complex64:
+        ctype = ctypes_complex64
+    elif np_dtype is np.complex128:
+        ctype = ctypes_complex128
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -745,6 +781,11 @@ def from_array(array) -> ViewType:
     ptr = array.data.ptr
     ptr = ctypes.cast(ptr, ctypes.POINTER(ctype))
     np_array = np.ctypeslib.as_array(ptr, shape=array.shape)
+
+    if np_dtype in {np.complex64, np.complex128}:
+        # This sets the arrays dtype to numpy's complex number types.
+        # Without this the type would be np.void.
+        np_array = np_array.view(np_dtype)
 
     # need to select the layout here since the np_array flags do not
     # preserve the original flags
