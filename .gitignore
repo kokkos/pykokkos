@@ -45,3 +45,6 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+
+# Output files and directories
+build/
