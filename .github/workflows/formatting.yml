@@ -1,0 +1,50 @@
+# This workflow will install Python formatting tool black and check correctness of code format for all python files
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+name: python-package
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  formatting:
+    strategy:
+      matrix:
+        python-version: [3.13]
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      # - name: Install dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install black
+      # - name: black format
+      #   run: |
+      #     black --diff --check .
+      - name: Check files end with newline
+        run: |
+          # Find all files (excluding binary and git files) and check if they end with a newline
+          EXIT_CODE=0
+          while IFS= read -r -d '' file; do
+            # Skip __init__.py files (should not end with newline)
+            if [[ "$file" == *"__init__.py" ]]; then
+              continue
+            fi
+            # Skip binary files
+            if file "$file" | grep -q "text"; then
+              # Check if file ends with a newline
+              if [ -n "$(tail -c 1 "$file")" ]; then
+                echo "ERROR: $file does not end with a newline"
+                EXIT_CODE=1
+              fi
+            fi
+          done < <(find . -type f -not -path '*/\.git/*' -print0)
+          exit $EXIT_CODE
