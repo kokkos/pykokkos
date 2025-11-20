@@ -119,7 +119,7 @@ def check_workunit(workunit: Any) -> None:
 
 def convert_arrays(kwargs: Dict[str, Any]) -> None:
     """
-    Convert all numpy and cupy ndarray objects into pk Views
+    Convert all numpy, cupy and pytorch ndarray objects into pk Views
 
     :param kwargs: the list of keyword arguments passed to the workunit
     """
