@@ -140,7 +140,7 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
         torch_available = False
 
     for k, v in kwargs.items():
-        if isinstance(v, ViewType):
+        if isinstance(v, ViewType) or isinstance(v, np.generic):
             continue
         elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)
