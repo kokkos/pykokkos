@@ -57,6 +57,7 @@ from .views import (
 )
 
 from .ext_module import compile_into_module
+from .interface_util import generic_error
 
 def fence():
     pass
