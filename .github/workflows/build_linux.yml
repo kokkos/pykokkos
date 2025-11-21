@@ -1,0 +1,42 @@
+name: Linux
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test_pykokkos:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        python-version: ["3.13"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf
+      - name: Install pykokkos-base
+        run: |
+          cd /tmp
+          git clone https://github.com/kokkos/pykokkos-base.git
+          cd pykokkos-base
+          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=1
+      - name: Install pykokkos
+        run: |
+          python -m pip install .
+      - name: mypy check
+        run: |
+          mypy pykokkos
+      - name: import pykokkos
+        run: |
+          python -c "import pykokkos"
