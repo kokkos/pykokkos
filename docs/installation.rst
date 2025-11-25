@@ -2,10 +2,12 @@
 Installation
 ============
 
-We recommend using Docker for running applications and developing (see
-:ref:`Using Docker<using_docker>`, but detailed installation
-instructions are available (see :ref:`Native
-Installation<native_installation>`).
+We provide a Docker container for running applications and developing
+on Linux x86 systems with the Serial and OpenMP host execution space
+(see :ref:`Using Docker<using_docker>`).
+We provide detailed install instructions for all other
+operating systems and executions spaces
+(see :ref:`Native Installation<native_installation>`).
 
 .. _using_docker:
 
@@ -68,22 +70,37 @@ create a conda environment:
 
    git clone https://github.com/kokkos/pykokkos-base.git
    cd pykokkos-base/
-   conda create --name pyk --file requirements.txt python=3.11
+   conda create --name pyk --file requirements.txt python=3.13
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
-install ``pykokkos-base`` with CUDA and OpenMP enabled:
+install ``pykokkos-base`` with required CMake flags (example performs a OpenMP+Cuda install):
 
 .. code-block:: bash
 
-   python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
-
+   PYKOKKOS_BASE_SETUP_ARGS="\
+    -DKokkos_ENABLE_THREADS=OFF \ # trigger pthreads execution space
+    -DKokkos_ENABLE_OPENMP=ON \   # trigger openmp execution space
+    -DENABLE_CUDA=ON \            # trigger cuda execution space
+    -DENABLE_HIP=OFF \            # trigger hip execution space
+    -DENABLE_LAYOUTS=ON \         # trigger layout left/right ordering
+    -DENABLE_MEMORY_TRAITS=OFF \  # trigger memory space concept
+    -DENABLE_VIEW_RANKS=3 \       # maximum number of view ranks enabled
+    " \      
+    pip install ./ --verbose
+See `Kokkos CMake Options <https://kokkos.org/kokkos-kernels/docs/cmake-keywords.html>`_ for a complete list of CMake flags.
 Other ``pykokkos-base`` configuration and installation options can be
 found in that project's `README
 <https://github.com/kokkos/pykokkos-base/blob/main/README.md>`_.  Note
 that this step will compile a large number of bindings which can take
-a while to complete. Please open an issue if you run into any problems
-with ``pykokkos-base``.
+a while to complete. 
+
+.. note::
+        Please open an issue
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_ 
+        **#pykokkos** channel
+        if you run into any problems
+        with ``pykokkos-base``.
 
 Once ``pykokkos-base`` has been installed, clone ``pykokkos`` and
 install its requirements:
@@ -128,8 +145,11 @@ To verify that ``pykokkos`` has been installed correctly, install
    python runtests.py
 
 .. note::
-
-  Please open an issue for help with installation.
+        Please open an issue
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_ 
+        **#pykokkos** channel
+        if you run into any problems
+        with ``pykokkos``.
 
 .. toctree::
    :maxdepth: 2
