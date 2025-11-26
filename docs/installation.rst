@@ -74,7 +74,7 @@ create a conda environment:
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
-install ``pykokkos-base`` with required CMake flags (example performs a OpenMP+Cuda install):
+install ``pykokkos-base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
 
 .. code-block:: bash
 
