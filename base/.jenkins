@@ -1,0 +1,253 @@
+pipeline {
+    agent none
+
+    environment {
+        CCACHE_DIR = '/tmp/ccache'
+        CCACHE_MAXSIZE = '10G'
+        CCACHE_CPP2 = 'true'
+        BUILD_JOBS = 8
+        SITE = 'Jenkins'
+    }
+    stages {
+        stage('Build') {
+            parallel {
+                stage('HIP') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.hipcc'
+                            dir 'scripts/docker'
+                            additionalBuildArgs ''
+                            label 'rocm-docker && vega'
+                            args '-v /tmp/ccache.kokkos:/tmp/ccache --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video --env HIP_VISIBLE_DEVICES=$HIP_VISIBLE_DEVICES'
+                        }
+                    }
+                    environment {
+                        OMP_NUM_THREADS = 8
+                        OMP_PLACES = 'threads'
+                        OMP_PROC_BIND = 'spread'
+                        LC_ALL = 'C'
+                        PYTHONPATH = '/usr/local/lib/python3.10/site-packages'
+                    }
+                    steps {
+                        sh 'echo "/opt/rocm/llvm/lib" > /etc/ld.so.conf.d/llvm.conf && ldconfig'
+                        sh 'ccache --zero-stats'
+                        sh 'rm -rf build /tmp/kokkos-build /tmp/kokkos-source'
+                        sh 'git status && git submodule update --init external'
+                        sh 'git clone -b develop https://github.com/kokkos/kokkos.git /tmp/kokkos-source'
+                        sh '''cmake -B /tmp/kokkos-build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_CXX_COMPILER=hipcc \
+                                -DCMAKE_CXX_STANDARD=14 \
+                                -DKokkos_ENABLE_SERIAL=ON \
+                                -DKokkos_ENABLE_HIP=ON \
+                                -DBUILD_SHARED_LIBS=ON \
+                                /tmp/kokkos-source'''
+                        sh 'cmake --build /tmp/kokkos-build --target all --parallel ${BUILD_JOBS} -- VERBOSE=1'
+                        sh 'cmake --build /tmp/kokkos-build --target install --parallel ${BUILD_JOBS}'
+                        sh 'python3 -m pip install -r requirements.txt'
+                        sh 'python3 -m pip install pytest'
+                        sh '''cmake -B build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_UNITY_BUILD=OFF \
+                                -DENABLE_LAYOUTS=ON \
+                                -DENABLE_MEMORY_TRAITS=OFF \
+                                -DENABLE_EXAMPLES=ON \
+                                -DENABLE_WERROR=ON \
+                                -DENABLE_CTP=ON \
+                                -DPython3_EXECUTABLE=$(which python3)'''
+                        sh 'cmake --build build --target all --parallel ${BUILD_JOBS} -- VERBOSE=1'
+                        sh 'cmake --build build --target analyze-pykokkos-base-compile-time | tee build/${STAGE_NAME}-pykokkos-base-compile-time.txt'
+                        sh 'cmake --build build --target install --parallel ${BUILD_JOBS}'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 $(which pytest) -s .'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 ./ex-numpy.py'
+                        sh 'cd /tmp && DEBUG_OUTPUT=ON python3 -c "import kokkos; print(kokkos.__file__)"'
+                    }
+                    post {
+                        always {
+                            sh 'ls build/*-compile-time.*'
+                            archiveArtifacts 'build/*-compile-time.*'
+                        }
+                    }
+                }
+                stage('CUDA') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.nvcc'
+                            dir 'scripts/docker'
+                            additionalBuildArgs ''
+                            label 'nvidia-docker && volta'
+                            args '-v /tmp/ccache.kokkos:/tmp/ccache --env NVIDIA_VISIBLE_DEVICES=$NVIDIA_VISIBLE_DEVICES'
+                        }
+                    }
+                    environment {
+                        OMP_NUM_THREADS = 8
+                        OMP_PLACES = 'threads'
+                        OMP_PROC_BIND = 'spread'
+                        PYTHONPATH = '/usr/local/lib/python3.10/site-packages'
+                    }
+                    steps {
+                        sh 'ccache --zero-stats'
+                        sh 'rm -rf build /tmp/kokkos-build /tmp/kokkos-source'
+                        sh 'git status && git submodule update --init external'
+                        sh 'git clone -b develop https://github.com/kokkos/kokkos.git /tmp/kokkos-source'
+                        sh '''cmake -B /tmp/kokkos-build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_CXX_COMPILER=g++ \
+                                -DCMAKE_CXX_STANDARD=14 \
+                                -DKokkos_ENABLE_SERIAL=ON \
+                                -DKokkos_ENABLE_CUDA=ON \
+                                -DKokkos_ENABLE_CUDA_UVM=OFF \
+                                -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+                                -DBUILD_SHARED_LIBS=ON \
+                                /tmp/kokkos-source'''
+                        sh 'cmake --build /tmp/kokkos-build --target all --parallel ${BUILD_JOBS}'
+                        sh 'cmake --build /tmp/kokkos-build --target install --parallel ${BUILD_JOBS}'
+                        sh 'python3 -m pip install -r requirements.txt'
+                        sh 'python3 -m pip install pytest'
+                        sh '''cmake -B build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_UNITY_BUILD=OFF \
+                                -DENABLE_LAYOUTS=ON \
+                                -DENABLE_MEMORY_TRAITS=OFF \
+                                -DENABLE_VIEW_RANKS=2 \
+                                -DENABLE_EXAMPLES=ON \
+                                -DENABLE_WERROR=OFF \
+                                -DENABLE_CTP=ON \
+                                -DENABLE_TIMING=ON \
+                                -DPython3_EXECUTABLE=$(which python3)'''
+                        sh 'cmake --build build --target all --parallel $((${BUILD_JOBS}/2)) -- VERBOSE=1'
+                        sh 'cmake --build build --target analyze-pykokkos-base-compile-time | tee build/${STAGE_NAME}-pykokkos-base-compile-time.txt'
+                        sh 'cmake --build build --target install --parallel ${BUILD_JOBS}'
+                        sh 'cd build && mv nvcc-compile-time.csv ${STAGE_NAME}-nvcc-compile-time.csv && cat ${STAGE_NAME}-nvcc-compile-time.csv'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 $(which pytest) -s .'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 ./ex-numpy.py'
+                        sh 'cd /tmp && DEBUG_OUTPUT=ON python3 -c "import kokkos; print(kokkos.__file__)"'
+                    }
+                    post {
+                        always {
+                            sh 'ls build/*-compile-time.*'
+                            archiveArtifacts 'build/*-compile-time.*'
+                        }
+                    }
+                }
+                stage('CUDA-UVM') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.nvcc'
+                            dir 'scripts/docker'
+                            additionalBuildArgs ''
+                            label 'nvidia-docker && volta'
+                            args '-v /tmp/ccache.kokkos:/tmp/ccache --env NVIDIA_VISIBLE_DEVICES=$NVIDIA_VISIBLE_DEVICES'
+                        }
+                    }
+                    environment {
+                        OMP_NUM_THREADS = 8
+                        OMP_PLACES = 'threads'
+                        OMP_PROC_BIND = 'spread'
+                        PYTHONPATH = '/usr/local/lib/python3.10/site-packages'
+                    }
+                    steps {
+                        sh 'ccache --zero-stats'
+                        sh 'rm -rf build /tmp/kokkos-build /tmp/kokkos-source'
+                        sh 'git status && git submodule update --init external'
+                        sh 'git clone -b develop https://github.com/kokkos/kokkos.git /tmp/kokkos-source'
+                        sh '''cmake -B /tmp/kokkos-build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_CXX_COMPILER=g++ \
+                                -DCMAKE_CXX_STANDARD=14 \
+                                -DKokkos_ENABLE_SERIAL=ON \
+                                -DKokkos_ENABLE_CUDA=ON \
+                                -DKokkos_ENABLE_CUDA_UVM=ON \
+                                -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+                                -DBUILD_SHARED_LIBS=ON \
+                                /tmp/kokkos-source'''
+                        sh 'cmake --build /tmp/kokkos-build --target all --parallel ${BUILD_JOBS}'
+                        sh 'cmake --build /tmp/kokkos-build --target install --parallel ${BUILD_JOBS}'
+                        sh 'python3 -m pip install -r requirements.txt'
+                        sh 'python3 -m pip install pytest'
+                        sh '''cmake -B build \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_UNITY_BUILD=OFF \
+                                -DENABLE_VIEW_RANKS=2 \
+                                -DENABLE_LAYOUTS=ON \
+                                -DENABLE_MEMORY_TRAITS=OFF \
+                                -DENABLE_EXAMPLES=ON \
+                                -DENABLE_TIMING=ON \
+                                -DENABLE_WERROR=OFF \
+                                -DENABLE_CTP=ON \
+                                -DPython3_EXECUTABLE=$(which python3)'''
+                        sh 'cmake --build build --target all --parallel $((${BUILD_JOBS}/2)) -- VERBOSE=1'
+                        sh 'cmake --build build --target analyze-pykokkos-base-compile-time | tee build/${STAGE_NAME}-pykokkos-base-compile-time.txt'
+                        sh 'cmake --build build --target install --parallel ${BUILD_JOBS}'
+                        sh 'cd build && mv nvcc-compile-time.csv ${STAGE_NAME}-nvcc-compile-time.csv && cat ${STAGE_NAME}-nvcc-compile-time.csv'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 $(which pytest) -s .'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 ./ex-numpy.py'
+                        sh 'cd /tmp && DEBUG_OUTPUT=ON python3 -c "import kokkos; print(kokkos.__file__)"'
+                    }
+                    post {
+                        always {
+                            sh 'ls build/*-compile-time.*'
+                            archiveArtifacts 'build/*-compile-time.*'
+                        }
+                    }
+                }
+                stage('OpenMPTarget') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile.hipcc'
+                            dir 'scripts/docker'
+                            label 'rocm-docker && vega && AMD_Radeon_Instinct_MI60'
+                            args '-v /tmp/ccache.kokkos:/tmp/ccache --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video --env HIP_VISIBLE_DEVICES=$HIP_VISIBLE_DEVICES'
+                        }
+                    }
+                    environment {
+                        OMP_NUM_THREADS = 8
+                        OMP_PLACES = 'threads'
+                        OMP_PROC_BIND = 'spread'
+                        PYTHONPATH = '/usr/local/lib/python3.10/site-packages'
+                    }
+                    steps {
+                        sh 'echo "/opt/rocm/llvm/lib" > /etc/ld.so.conf.d/llvm.conf && ldconfig'
+                        sh 'ccache --zero-stats'
+                        sh 'rm -rf build /tmp/kokkos-build /tmp/kokkos-source'
+                        sh 'git clone -b develop https://github.com/kokkos/kokkos.git /tmp/kokkos-source'
+                        sh '''cmake -B /tmp/kokkos-build \
+                                -DCMAKE_BUILD_TYPE=Debug \
+                                -DCMAKE_CXX_COMPILER=clang++ \
+                                -DCMAKE_CXX_STANDARD=17 \
+                                -DKokkos_ENABLE_SERIAL=ON \
+                                -DKokkos_ENABLE_OPENMPTARGET=ON \
+                                -DKokkos_ARCH_VEGA906=ON \
+                                -DBUILD_SHARED_LIBS=ON \
+                                /tmp/kokkos-source'''
+                        sh 'cmake --build /tmp/kokkos-build --target all --parallel ${BUILD_JOBS}'
+                        sh 'cmake --build /tmp/kokkos-build --target install --parallel ${BUILD_JOBS}'
+                        sh 'python3 -m pip install -r requirements.txt'
+                        sh 'python3 -m pip install pytest'
+                        sh '''cmake -B build \
+                                -DCMAKE_BUILD_TYPE=Debug \
+                                -DCMAKE_UNITY_BUILD=OFF \
+                                -DENABLE_LAYOUTS=ON \
+                                -DENABLE_MEMORY_TRAITS=OFF \
+                                -DENABLE_EXAMPLES=ON \
+                                -DENABLE_WERROR=OFF \
+                                -DENABLE_CTP=ON \
+                                -DPython3_EXECUTABLE=$(which python3)'''
+                        sh 'cmake --build build --target all --parallel ${BUILD_JOBS} -- VERBOSE=1'
+                        sh 'cmake --build build --target analyze-pykokkos-base-compile-time | tee build/${STAGE_NAME}-pykokkos-base-compile-time.txt'
+                        sh 'cmake --build build --target install --parallel ${BUILD_JOBS}'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 $(which pytest) -s .'
+                        sh 'cd build && PYTHONPATH=${PWD} python3 ./ex-numpy.py'
+                        sh 'cd /tmp && DEBUG_OUTPUT=ON python3 -c "import kokkos; print(kokkos.__file__)"'
+                    }
+                    post {
+                        always {
+                            sh 'ls build/*-compile-time.*'
+                            archiveArtifacts 'build/*-compile-time.*'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
