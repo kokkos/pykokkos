@@ -49,7 +49,7 @@ jobs:
 
     - name: Configure CMake
       run:
-        python -m pip install -r requirements.txt &&
+        python -m pip install -r base/requirements.txt &&
         python -m pip install pytest &&
         cmake -B ${{github.workspace}}/base/build
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
@@ -59,6 +59,7 @@ jobs:
           -DENABLE_WERROR=ON
           -DENABLE_PRECOMPILED_HEADERS=ON
           -DPython3_EXECUTABLE=$(which python)
+          ${{github.workspace}}/base
 
     - name: Build
       run:
@@ -78,7 +79,7 @@ jobs:
       run:
         export PYTHONPATH=${PWD}:/usr/local/lib/python${{ matrix.python-version }}/site-packages:${PYTHONPATH} &&
         ls &&
-        pytest . --ignore=_deps/ &&
+        pytest . &&
         python ./ex-numpy.py
 
   pip-build:
@@ -147,7 +148,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        path: ${{github.workspace}}/pykokkos-base
+        path: ${{github.workspace}}/pykokkos
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -163,12 +164,12 @@ jobs:
 
     - name: Generate CMakeLists.txt
       run: |
-        echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(pykokkos-base)" > ${{github.workspace}}/CMakeLists.txt
-        cat ${{github.workspace}}/CMakeLists.txt
+        echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(pykokkos/base)" > ${{github.workspace}}/base/CMakeLists.txt
+        cat ${{github.workspace}}/base/CMakeLists.txt
 
     - name: Configure CMake
       run:
-        python -m pip install -r ${{github.workspace}}/pykokkos-base/requirements.txt &&
+        python -m pip install -r base/requirements.txt &&
         python -m pip install pytest &&
         cmake -B ${{github.workspace}}/build
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
@@ -182,12 +183,12 @@ jobs:
           -DBUILD_SHARED_LIBS=ON
           -DPYTHON_EXECUTABLE=$(which python)
           -DPython3_EXECUTABLE=$(which python)
-          ${{github.workspace}}
+          ${{github.workspace}}/base
 
     - name: Build
       run:
-        cmake --build ${{github.workspace}}/build --target all --parallel 2 &&
-        sudo cmake --build ${{github.workspace}}/build --target install --parallel 2
+        cmake --build ${{github.workspace}}/base/build --target all --parallel 2 &&
+        sudo cmake --build ${{github.workspace}}/base/build --target install --parallel 2
 
     - name: Setup PYTHONPATH
       run:
