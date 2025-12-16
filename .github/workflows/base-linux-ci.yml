@@ -147,8 +147,6 @@ jobs:
     runs-on: ${{matrix.os}}
     steps:
     - uses: actions/checkout@v3
-      with:
-        path: ${{github.workspace}}
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -164,8 +162,8 @@ jobs:
 
     - name: Generate CMakeLists.txt
       run: |
-        echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(pykokkos/base)" > ${{github.workspace}}/base/CMakeLists.txt
-        cat ${{github.workspace}}/base/CMakeLists.txt
+        echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(base)" > ${{github.workspace}}/CMakeLists.txt
+        cat ${{github.workspace}}/CMakeLists.txt
 
     - name: Configure CMake
       run:
@@ -183,12 +181,12 @@ jobs:
           -DBUILD_SHARED_LIBS=ON
           -DPYTHON_EXECUTABLE=$(which python)
           -DPython3_EXECUTABLE=$(which python)
-          ${{github.workspace}}/base
+          ${{github.workspace}}
 
     - name: Build
       run:
-        cmake --build ${{github.workspace}}/base/build --target all --parallel 2 &&
-        sudo cmake --build ${{github.workspace}}/base/build --target install --parallel 2
+        cmake --build ${{github.workspace}}/build --target all --parallel 2 &&
+        sudo cmake --build ${{github.workspace}}/build --target install --parallel 2
 
     - name: Setup PYTHONPATH
       run:
