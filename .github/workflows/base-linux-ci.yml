@@ -148,7 +148,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        path: ${{github.workspace}}/pykokkos
+        path: ${{github.workspace}}
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
