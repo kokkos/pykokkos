@@ -14,7 +14,38 @@ https://kokkos.github.io/pykokkos/index.html
 
 ## Installation
 
-Please follow the instructions at:
+### Quick Start
+
+PyKokkos consists of two components that need to be installed separately:
+
+1. **pykokkos-base** (C++ bindings to Kokkos)
+2. **pykokkos** (Python translation layer)
+
+#### Installing pykokkos-base
+
+```bash
+# Clone the repository
+git clone https://github.com/kokkos/pykokkos.git
+cd pykokkos/
+
+# Create and activate conda environment
+conda create --name pyk --file base/requirements.txt python=3.11
+conda activate pyk
+
+# Install pykokkos-base from the root directory
+python install_base.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
+```
+
+#### Installing pykokkos
+
+After installing pykokkos-base:
+
+```bash
+# Install pykokkos (ensure you're in the pyk environment)
+pip install -e .
+```
+
+For more detailed installation instructions, please visit:
 https://kokkos.github.io/pykokkos/installation.html
 
 ## Citation
