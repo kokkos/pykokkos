@@ -134,7 +134,7 @@ jobs:
         DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
 
     - name: Test
-      working-directory: ${{github.workspace}}/scratch
+      working-directory: base/scratch
       run:
         python -m kokkos.test
 
