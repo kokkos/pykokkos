@@ -2,4 +2,4 @@ pybind11>=2.11.1
 cupy>=12.2.0
 patchelf>=0.17.2
 pytest>=7.4.3
-python>=3.9,<3.12
+python>=3.11,<=3.13
