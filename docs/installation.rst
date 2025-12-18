@@ -14,28 +14,29 @@ operating systems and executions spaces
 Using Docker
 ------------
 
-You can use the PyKokkos Docker image to develop PyKokkos itself, as
-well as develop and run applications.  We recommend using the ``pk``
-script for interacting with the image and containers.
+Currently deprecated. Work in progress.
+.. You can use the PyKokkos Docker image to develop PyKokkos itself, as
+.. well as develop and run applications.  We recommend using the ``pk``
+.. script for interacting with the image and containers.
 
-To run an application in a container, you can execute the following
-command:
+.. To run an application in a container, you can execute the following
+.. command:
 
-.. code-block:: bash
+.. .. code-block:: bash
 
-   ./pk pk_example examples/kokkos-tutorials/workload/01.py
+..    ./pk pk_example examples/kokkos-tutorials/workload/01.py
 
-The command above will pull the image from the Docker Hub, run a
-container, include this repository as a volume, and run the example
-application from the given path.
+.. The command above will pull the image from the Docker Hub, run a
+.. container, include this repository as a volume, and run the example
+.. application from the given path.
 
-If you would like to run another example application, you can simply
-change the path (the last argument in the command above).
+.. If you would like to run another example application, you can simply
+.. change the path (the last argument in the command above).
 
-Note that code you are running should be in the PyKokkos repository.
-If you would like to run from another directory you will need to
-include the directory as a volume; take a look at the ``pk`` script in
-that case.
+.. Note that code you are running should be in the PyKokkos repository.
+.. If you would like to run from another directory you will need to
+.. include the directory as a volume; take a look at the ``pk`` script in
+.. that case.
 
 Design Decision
 ^^^^^^^^^^^^^^^
@@ -63,21 +64,20 @@ already included in the image), you would need to install it
 Native Installation
 -------------------
 
-Clone `pykokkos-base <https://github.com/kokkos/pykokkos-base>`_ and
+Clone `pykokkos <https://github.com/kokkos/pykokkos>`_ and
 create a conda environment:
 
 .. code-block:: bash
 
-   git clone https://github.com/kokkos/pykokkos-base.git
-   cd pykokkos-base/
-   conda create --name pyk --file requirements.txt python=3.13
+   git clone https://github.com/kokkos/pykokkos.git
+   cd pykokkos/
+   conda create --name pyk --file base/requirements.txt python=3.13
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
-install ``pykokkos-base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
+install ``base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
 
 .. code-block:: bash
-
    PYKOKKOS_BASE_SETUP_ARGS="\
     -DKokkos_ENABLE_THREADS=OFF \ # trigger pthreads execution space
     -DKokkos_ENABLE_OPENMP=ON \   # trigger openmp execution space
@@ -86,12 +86,12 @@ install ``pykokkos-base`` with required CMake flags (example performs an install
     -DENABLE_LAYOUTS=ON \         # trigger layout left/right ordering
     -DENABLE_MEMORY_TRAITS=OFF \  # trigger memory space concept
     -DENABLE_VIEW_RANKS=3 \       # maximum number of view ranks enabled
-    " \      
-    pip install ./ --verbose
+    " \
+   python install_base.py install
 See `Kokkos CMake Options <https://kokkos.org/kokkos-kernels/docs/cmake-keywords.html>`_ for a complete list of CMake flags.
-Other ``pykokkos-base`` configuration and installation options can be
+Other ``pykokkos`` configuration and installation options can be
 found in that project's `README
-<https://github.com/kokkos/pykokkos-base/blob/main/README.md>`_.  Note
+<https://github.com/kokkos/pykokkos/blob/main/base/README.md>`_.  Note
 that this step will compile a large number of bindings which can take
 a while to complete. 
 
@@ -100,21 +100,16 @@ a while to complete.
         or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_ 
         **#pykokkos** channel
         if you run into any problems
-        with ``pykokkos-base``.
+        with ``base``.
 
-Once ``pykokkos-base`` has been installed, clone ``pykokkos`` and
-install its requirements:
+Once ``base`` has been installed, you can install ``pykokkos`` itself:
 
 .. code-block:: bash
-
-   cd ..
-   git clone https://github.com/kokkos/pykokkos.git
-   cd pykokkos/
    conda install -c conda-forge pybind11 cupy patchelf
    pip install --user -e .
 
 Note that ``cupy`` is only required if CUDA is enabled in
-pykokkos-base.  In some cases, this might result in a ``cupy`` import
+base.  In some cases, this might result in a ``cupy`` import
 error inside ``pykokkos`` similar to the following:
 
 .. code-block::
@@ -127,7 +122,7 @@ error inside ``pykokkos`` similar to the following:
    ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.11/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
 
 This is due to a mismatch in ``libstdc++.so`` versions between the
-system library which ``pykokkos-base`` depends on and the library in
+system library which ``base`` depends on and the library in
 the conda environment which ``cupy`` depends on. This can be solved by
 setting the ``LD_PRELOAD`` environment variable to force loading of
 the correct library like so:
