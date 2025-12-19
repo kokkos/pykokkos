@@ -37,10 +37,8 @@ jobs:
           cmake --build .
           cmake --install .
       - name: Install pykokkos-base
+        working-directory: base
         run: |
-          cd /tmp
-          git clone https://github.com/kokkos/pykokkos-base.git
-          cd pykokkos-base
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DKokkos_DIR=/tmp/kokkos_install/lib/cmake/Kokkos/ -DENABLE_INTERNAL_KOKKOS=OFF
       - name: Install pykokkos
         run: |

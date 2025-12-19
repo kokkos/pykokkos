@@ -481,6 +481,36 @@ class Runtime:
             args["pk_team_size"] = policy.team_size
             args["pk_vector_length"] = policy.vector_length
 
+            # Add scratch size information if it was set, otherwise use -1 to indicate not set
+            if policy.scratch_size_level is not None:
+                args["pk_scratch_size_level"] = policy.scratch_size_level
+                # Extract the actual size value from PerTeam/PerThread wrapper if present
+                from pykokkos.interface.hierarchical import PerTeam, PerThread
+
+                if isinstance(policy.scratch_size_value, PerTeam):
+                    # PerTeam wrapper - extract the value and set flag
+                    args["pk_scratch_size_is_per_team"] = True
+                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
+                elif isinstance(policy.scratch_size_value, PerThread):
+                    # PerThread wrapper - extract the value and set flag
+                    args["pk_scratch_size_is_per_team"] = False
+                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
+                elif isinstance(policy.scratch_size_value, (int, np.integer)):
+                    # Direct size value (workunit case without wrapper)
+                    args["pk_scratch_size_is_per_team"] = (
+                        True  # Default to PerTeam for simple int
+                    )
+                    args["pk_scratch_size_value"] = int(policy.scratch_size_value)
+                else:
+                    # Unknown type, treat as PerTeam with value from variable
+                    args["pk_scratch_size_is_per_team"] = True
+                    args["pk_scratch_size_value"] = policy.scratch_size_value
+            else:
+                # No scratch size set, use -1 as indicator
+                args["pk_scratch_size_level"] = -1
+                args["pk_scratch_size_value"] = 0
+                args["pk_scratch_size_is_per_team"] = True
+
         return args
 
     def get_fields(self, members: Dict[str, type]) -> Dict[str, Any]:

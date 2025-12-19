@@ -1,0 +1,9 @@
+// clang-format off
+
+#include "fwd.hpp"
+#include "variants/@TYPE_VARIANT@_view.hpp"
+
+void @FUNC@(py::module &kokkos) {
+  generate_@TYPE_VARIANT@_view_variant<@ENUM@>(
+      kokkos, std::make_index_sequence<MemorySpacesEnd>{});
+}

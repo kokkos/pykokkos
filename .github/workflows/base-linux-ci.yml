@@ -1,0 +1,201 @@
+name: "[Base] Linux CI"
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'base/**'
+      - '.github/workflows/base-linux-ci.yml'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  cmake-build:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+        kokkos-branch: ['release-candidate-4.7.01']
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Update container
+      run:
+        sudo apt-get update &&
+        sudo apt-get install -y build-essential gcc g++ ninja-build &&
+        python -m pip install --upgrade pip &&
+        python -m pip install 'cmake==3.22.0'
+
+    - name: Install Kokkos
+      run:
+        git clone -b ${{ matrix.kokkos-branch }} https://github.com/kokkos/kokkos.git /tmp/kokkos-source &&
+        cmake -B /tmp/kokkos-build
+          -DKokkos_ENABLE_SERIAL=ON
+          -DKokkos_ENABLE_OPENMP=OFF
+          -DBUILD_SHARED_LIBS=ON
+          /tmp/kokkos-source &&
+        cmake --build /tmp/kokkos-build --target all --parallel 2 &&
+        sudo cmake --build /tmp/kokkos-build --target install --parallel 2
+
+    - name: Configure CMake
+      run:
+        python -m pip install -r base/requirements.txt &&
+        python -m pip install pytest &&
+        cmake -B ${{github.workspace}}/base/build
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DENABLE_LAYOUTS=OFF
+          -DENABLE_MEMORY_TRAITS=OFF
+          -DENABLE_EXAMPLES=ON
+          -DENABLE_WERROR=ON
+          -DENABLE_PRECOMPILED_HEADERS=ON
+          -DPython3_EXECUTABLE=$(which python)
+          ${{github.workspace}}/base
+
+    - name: Build
+      run:
+        cmake --build ${{github.workspace}}/base/build --target all --parallel 2 &&
+        sudo cmake --build ${{github.workspace}}/base/build --target install --parallel 2
+
+    - name: Import Test
+      working-directory: ${{github.workspace}}/base/build
+      run:
+        mkdir -p scratch &&
+        cd scratch &&
+        export PYTHONPATH=/usr/local/lib/python${{ matrix.python-version }}/site-packages:${PYTHONPATH} &&
+        DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
+
+    - name: Test
+      working-directory: ${{github.workspace}}/base/build
+      run:
+        export PYTHONPATH=${PWD}:/usr/local/lib/python${{ matrix.python-version }}/site-packages:${PYTHONPATH} &&
+        ls &&
+        pytest . &&
+        python ./ex-numpy.py
+
+  pip-build:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+        kokkos-branch: ['release-candidate-4.7.01']
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    defaults:
+      run:
+        working-directory: base
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Update container
+      run:
+        sudo apt-get update &&
+        sudo apt-get install -y build-essential gcc g++ ninja-build &&
+        python -m pip install --upgrade pip &&
+        python -m pip install 'cmake==3.22.0'
+
+    - name: Install Kokkos
+      run:
+        git clone -b ${{ matrix.kokkos-branch }} https://github.com/kokkos/kokkos.git /tmp/kokkos-source &&
+        cmake -B /tmp/kokkos-build
+          -DKokkos_ENABLE_SERIAL=ON
+          -DKokkos_ENABLE_THREADS=ON
+          -DCMAKE_CXX_STANDARD=20
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          /tmp/kokkos-source &&
+        cmake --build /tmp/kokkos-build --target all --parallel 2 &&
+        sudo cmake --build /tmp/kokkos-build --target install --parallel 2
+
+    - name: Build
+      run:
+        python -m pip install -r requirements.txt &&
+        python -m pip install pytest &&
+        CMAKE_BUILD_PARALLEL_LEVEL=2 PYKOKKOS_BASE_SETUP_ARGS="-DENABLE_WERROR=ON -DENABLE_MEMORY_TRAITS=ON -DENABLE_LAYOUTS=ON -DENABLE_VIEW_RANKS=2 -DCMAKE_CXX_STANDARD=17 -DKokkos_ENABLE_THREADS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF"
+          python -m pip install -v --user --no-deps .
+
+    - name: Import Test
+      run:
+        mkdir -p scratch &&
+        cd scratch &&
+        DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
+
+    - name: Test
+      working-directory: base/scratch
+      run:
+        python -m kokkos.test
+
+  subproject:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Update container
+      run:
+        sudo apt-get update &&
+        sudo apt-get install -y build-essential gcc g++ ninja-build &&
+        python -m pip install --upgrade pip &&
+        python -m pip install 'cmake==3.22.0'
+
+    - name: Generate CMakeLists.txt
+      run: |
+        echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(base)" > ${{github.workspace}}/CMakeLists.txt
+        cat ${{github.workspace}}/CMakeLists.txt
+
+    - name: Configure CMake
+      run:
+        python -m pip install -r base/requirements.txt &&
+        python -m pip install pytest &&
+        cmake -B ${{github.workspace}}/build
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DENABLE_LAYOUTS=OFF
+          -DENABLE_MEMORY_TRAITS=OFF
+          -DENABLE_VIEW_RANKS=1
+          -DENABLE_EXAMPLES=ON
+          -DENABLE_WERROR=ON
+          -DENABLE_SERIAL=ON
+          -DENABLE_OPENMP=ON
+          -DBUILD_SHARED_LIBS=ON
+          -DPYTHON_EXECUTABLE=$(which python)
+          -DPython3_EXECUTABLE=$(which python)
+          ${{github.workspace}}
+
+    - name: Build
+      run:
+        cmake --build ${{github.workspace}}/build --target all --parallel 2 &&
+        sudo cmake --build ${{github.workspace}}/build --target install --parallel 2
+
+    - name: Setup PYTHONPATH
+      run:
+        echo "PYTHONPATH=/usr/local/lib/python${{ matrix.python-version }}/site-packages:${PYTHONPATH}" >> $GITHUB_ENV
+
+    - name: Import Test
+      run:
+        DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
+
+    - name: Test
+      run:
+        python -m kokkos.test

@@ -92,6 +92,9 @@ def get_kernel_params(
             params[Keywords.LeagueSize.value] = "int"
             params[Keywords.TeamSize.value] = "int"
             params[Keywords.VectorLength.value] = "int"
+            params[Keywords.ScratchSizeLevel.value] = "int"
+            params[Keywords.ScratchSizeValue.value] = "int"
+            params[Keywords.ScratchSizeIsPerTeam.value] = "bool"
         else:
             params[Keywords.ThreadsBegin.value] = "int"
             params[Keywords.ThreadsEnd.value] = "int"
@@ -285,15 +288,34 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
     :returns: the source code for creating the subviews
     """
 
+    policy_decl: str = ""  # Will hold policy declaration if needed
     call: str = f"Kokkos::parallel_{operation}("
 
     args: List[str] = [Keywords.KernelName.value]
 
-    tag_name: str = tag.declname+"_tag"
+    tag_name: str = tag.declname + "_tag"
     if is_hierarchical:
-        args.append(f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})")
+        tag_name_str = f"{functor}::{tag_name}"
+        base_policy_auto = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})"
+        base_policy_custom = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{Keywords.TeamSize.value},{Keywords.VectorLength.value})"
+
+        def add_scratch_size(policy, is_per_team):
+            per_type = "PerTeam" if is_per_team else "PerThread"
+            return f"({policy}).set_scratch_size({Keywords.ScratchSizeLevel.value}, Kokkos::{per_type}({Keywords.ScratchSizeValue.value}))"
+
+        per_team_auto = add_scratch_size(base_policy_auto, True)
+        per_thread_auto = add_scratch_size(base_policy_auto, False)
+        per_team_custom = add_scratch_size(base_policy_custom, True)
+        per_thread_custom = add_scratch_size(base_policy_custom, False)
+
+        policy_var = "pk_policy"
+        policy_decl = f"auto {policy_var} = ({Keywords.TeamSize.value} == -1) ? (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_auto} : {per_thread_auto}) : {base_policy_auto}) : (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_custom} : {per_thread_custom}) : {base_policy_custom});"
+
+        args.append(policy_var)
     else:
-        args.append(f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})")
+        args.append(
+            f"Kokkos::RangePolicy<{Keywords.DefaultExecSpace.value},{functor}::{tag_name}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.ThreadsBegin.value},{Keywords.ThreadsEnd.value})"
+        )
 
     args.append(Keywords.Instance.value)
 
@@ -303,16 +325,11 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
     call += ",".join(args)
     call += ");"
 
-    if is_hierarchical:
-        # Create an if-else statement. In the body of the if, call the workunit
-        # with Kokkos::AUTO for team_size. In the else, pass in pk_team_size
+    if policy_decl:
+        call = policy_decl + " " + call
 
-        custom_call: str = call.replace("Kokkos::AUTO", Keywords.TeamSize.value)
-        call = f"if({Keywords.TeamSize.value} == -1) {{ {call}"
-        call += f"}} else {{ {custom_call} }}"
-
+    call += generate_fence_call()
     call += generate_copy_back(members)
-    # call += generate_fence_call()
 
     if operation in ("reduce", "scan"):
         call += f"return {Keywords.Accumulator.value};"

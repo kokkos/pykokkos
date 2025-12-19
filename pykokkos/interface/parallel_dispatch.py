@@ -11,6 +11,10 @@ from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
 from .views import ViewType, array
 
+from .interface_util import generic_error, get_filename, get_lineno
+
+import inspect
+
 workunit_cache: Dict[int, Callable] = {}
 
 
@@ -115,12 +119,13 @@ def check_workunit(workunit: Any) -> None:
 
 def convert_arrays(kwargs: Dict[str, Any]) -> None:
     """
-    Convert all numpy and cupy ndarray objects into pk Views
+    Convert all numpy, cupy and pytorch ndarray objects into pk Views
 
     :param kwargs: the list of keyword arguments passed to the workunit
     """
 
     cp_available: bool
+    torch_available: bool
 
     try:
         import cupy as cp
@@ -128,11 +133,28 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
     except ImportError:
         cp_available = False
 
+    try:
+        import torch
+        torch_available = True
+    except ImportError:
+        torch_available = False
+
     for k, v in kwargs.items():
-        if isinstance(v, np.ndarray):
+        if isinstance(v, ViewType) or isinstance(v, np.generic):
+            continue
+        elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)
         elif cp_available and isinstance(v, cp.ndarray):
             kwargs[k] = array(v)
+        elif torch_available and torch.is_tensor(v):
+            kwargs[k] = array(v)
+        elif hasattr(v, '__array__') or hasattr(v, '__cuda_array_interface__') or hasattr(v, '__array_interface__'):
+            # This is some array-like object we don't support
+            caller_frame = inspect.currentframe().f_back.f_back
+            filename = get_filename(caller_frame)
+            lineno = get_lineno(caller_frame)
+            msg = f"Type {type(v)} is not supported. Only numpy arrays, cupy arrays, and torch tensors are supported."
+            generic_error(filename, lineno, msg, "Conversion failed")
 
 
 def parallel_for(*args, **kwargs) -> None:

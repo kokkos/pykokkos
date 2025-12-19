@@ -21,3 +21,6 @@ class Keywords(Enum):
     RandPoolState = "pk_rgen"
     RandPoolSeed = "pk_randpool_seed"
     RandPoolNumStates = "pk_randpool_num_states"
+    ScratchSizeLevel = "pk_scratch_size_level"
+    ScratchSizeValue = "pk_scratch_size_value"
+    ScratchSizeIsPerTeam = "pk_scratch_size_is_per_team"

@@ -1,0 +1,11 @@
+// clang-format off
+
+#include "common.hpp"
+#include "fwd.hpp"
+#include "defines.hpp"
+
+@PROTOTYPES@
+
+void generate_pool_variants(py::module &kokkos) {
+@INVOCATIONS@
+}

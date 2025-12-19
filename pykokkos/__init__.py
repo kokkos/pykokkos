@@ -84,11 +84,26 @@ __all__ = ["__array_api_version__"]
 
 runtime_singleton.runtime = Runtime()
 
+import weakref
+_view_registry: weakref.WeakSet = weakref.WeakSet()
+
 def cleanup():
     """
     Delete the runtime instance to avoid Kokkos errors caused by
     deallocation after calling Kokkos::finalize()
+    Also cleanup all View objects before finalization
     """
+
+    for view in list(_view_registry):
+        try:
+            if hasattr(view, "array"):
+                view.array = None
+            if hasattr(view, "data"):
+                view.data = None
+        except (ReferenceError, AttributeError):
+            pass
+
+    _view_registry.clear()
 
     global runtime_singleton
     del runtime_singleton.runtime

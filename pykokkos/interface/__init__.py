@@ -18,6 +18,7 @@ from .data_types import (
     uint16, uint32, uint64,
     float, double, real,
     float32, float64, bool,
+    complex64, complex128
 )
 from .decorators import (
     callback, classtype, Decorator, function, functor, main,
@@ -56,6 +57,7 @@ from .views import (
 )
 
 from .ext_module import compile_into_module
+from .interface_util import generic_error
 
 def fence():
     pass
