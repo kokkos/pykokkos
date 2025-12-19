@@ -37,4 +37,4 @@ jobs:
           mypy pykokkos
       - name: import pykokkos
         run: |
-          python -c "import pykokkos"
+          python examples/kokkos/01_hello_world.py
