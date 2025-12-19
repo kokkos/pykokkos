@@ -1,5 +1,6 @@
 
 # PyKokkos
+[![Build with latest Kokkos](https://github.com/kokkos/pykokkos/actions/workflows/nightly.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/nightly.yml)
 [![Python Testing](https://github.com/kokkos/pykokkos/actions/workflows/main_ci.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/main_ci.yml)
 [![Documentation](https://github.com/kokkos/pykokkos/actions/workflows/documentation.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/documentation.yml)
 
