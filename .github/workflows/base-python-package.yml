@@ -1,0 +1,89 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: "[Base] Python Package"
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'base/**'
+      - '.github/workflows/base-python-package.yml'
+
+jobs:
+  linting:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        if [ -f base/requirements.txt ]; then pip install -r base/requirements.txt; fi
+    - name: Lint with flake8
+      working-directory: base
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # flake8 options are defined in setup.cfg
+        flake8 . --count --statistics
+
+  formatting:
+    strategy:
+      matrix:
+        python-version: [3.13]
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black
+        if [ -f base/requirements.txt ]; then pip install -r base/requirements.txt; fi
+        # Add LLVM key and install clang-16
+        sudo apt-get update
+        sudo apt-get install -y software-properties-common wget gnupg
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        DISTRIB_CODENAME=$(lsb_release -sc)
+        echo "deb http://apt.llvm.org/${DISTRIB_CODENAME}/ llvm-toolchain-${DISTRIB_CODENAME}-16 main" | sudo tee /etc/apt/sources.list.d/llvm-16.list
+        if sudo apt-get update 2>&1 | grep -q "llvm-toolchain-${DISTRIB_CODENAME}-16"; then
+          echo "LLVM repository added successfully"
+        fi
+        if sudo apt-get install -y clang-format-16 2>/dev/null; then
+          echo "Installed clang-format-16"
+          echo "CLANG_FORMAT=clang-format-16" >> $GITHUB_ENV
+        fi
+    - name: black format
+      working-directory: base
+      run: |
+        black --diff --check .
+    - name: clang-format
+      working-directory: base
+      run: |
+        set +e
+        FILES=$(find include src examples -type f | egrep '\.hpp$|\.cpp$|\.cpp\.in$')
+        FORMAT_OUT=$($CLANG_FORMAT -output-replacements-xml ${FILES})
+        RET=$(echo ${FORMAT_OUT} | grep -c '<replacement ')
+        if [ "${RET}" -ne 0 ]; then
+          echo -e "\nError! Code not formatted. Detected ${RET} lines\n"
+          $CLANG_FORMAT -i ${FILES}
+          git diff
+          exit ${RET}
+        fi

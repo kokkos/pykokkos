@@ -1,0 +1,34 @@
+[build-system]
+requires = [
+    "setuptools >= 65.5.0",
+    "setuptools_scm >= 2.0.0",
+    "wheel >= 0.29.0",
+    "scikit-build >= 0.8.0",
+    "cmake >= 3.16.0",
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312', 'py313']
+include = '\.pyi?'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | external
+  | scripts
+  | _skbuild
+  | __pycache__
+  | \.pyc
+  | \.pytest_cache
+)/
+'''

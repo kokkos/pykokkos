@@ -1,0 +1,24 @@
+name: "[Base] Cancel Builds on Update"
+on:
+  workflow_run:
+    workflows: ['[Base] Linux CI',  '[Base] Python Package']
+    types: ['requested']
+
+jobs:
+  cancel-duplicate-workflow-runs:
+    name: "Cancel duplicate workflow runs"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
+
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: potiuk/cancel-workflow-runs@master
+        name: "Cancel duplicate workflow runs"
+        with:
+          cancelMode: duplicates
+          cancelFutureDuplicates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sourceRunId: ${{ github.event.workflow_run.id }}
+          notifyPRCancel: true
+          skipEventTypes: '["schedule"]'
