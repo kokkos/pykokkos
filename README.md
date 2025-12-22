@@ -42,6 +42,7 @@ After installing pykokkos-base:
 
 ```bash
 # Install pykokkos (ensure you're in the pyk environment)
+conda install -c conda-forge pybind11 cupy patchelf
 pip install -e .
 ```
 

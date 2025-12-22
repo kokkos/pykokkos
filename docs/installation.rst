@@ -78,35 +78,40 @@ Once the necessary packages have been downloaded and installed,
 install ``base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
 
 .. code-block:: bash
-   PYKOKKOS_BASE_SETUP_ARGS="\
-    -DKokkos_ENABLE_THREADS=OFF \ # trigger pthreads execution space
-    -DKokkos_ENABLE_OPENMP=ON \   # trigger openmp execution space
-    -DENABLE_CUDA=ON \            # trigger cuda execution space
-    -DENABLE_HIP=OFF \            # trigger hip execution space
-    -DENABLE_LAYOUTS=ON \         # trigger layout left/right ordering
-    -DENABLE_MEMORY_TRAITS=OFF \  # trigger memory space concept
-    -DENABLE_VIEW_RANKS=3 \       # maximum number of view ranks enabled
-    " \
-   python install_base.py install
+
+   python install_base.py install -- \
+      -DENABLE_VIEW_RANKS=3 \             # maximum number of view ranks enabled
+      -DENABLE_MEMORY_TRAITS=OFF \        # disable memory space concept
+      -DENABLE_THREADS=OFF \              # disable pthreads execution space
+      -DENABLE_LAYOUTS=ON \               # enable layout left/right ordering
+      -DENABLE_CUDA=ON \                  # enable cuda execution space
+      -DENABLE_OPENMP=ON                  # enable openmp execution space
+
+
 See `Kokkos CMake Options <https://kokkos.org/kokkos-kernels/docs/cmake-keywords.html>`_ for a complete list of CMake flags.
 Other ``pykokkos`` configuration and installation options can be
 found in that project's `README
 <https://github.com/kokkos/pykokkos/blob/main/base/README.md>`_.  Note
 that this step will compile a large number of bindings which can take
-a while to complete. 
-
-.. note::
-        Please open an issue
-        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_ 
-        **#pykokkos** channel
-        if you run into any problems
-        with ``base``.
+a while to complete.
 
 Once ``base`` has been installed, you can install ``pykokkos`` itself:
 
 .. code-block:: bash
+
    conda install -c conda-forge pybind11 cupy patchelf
    pip install --user -e .
+
+.. note::
+        Please open an issue
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_
+        **#pykokkos** channel
+        if you run into any problems
+        with ``base``.
+
+.. raw:: html
+
+   <hr style="border: 0; height: 2px; background-color: #AAA; margin: 24px 0;">
 
 Note that ``cupy`` is only required if CUDA is enabled in
 base.  In some cases, this might result in a ``cupy`` import
@@ -141,7 +146,7 @@ To verify that ``pykokkos`` has been installed correctly, install
 
 .. note::
         Please open an issue
-        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_ 
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_
         **#pykokkos** channel
         if you run into any problems
         with ``pykokkos``.
