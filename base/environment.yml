@@ -1,0 +1,12 @@
+name: pyk
+channels:
+  - conda-forge
+dependencies:
+  - cmake>=3.16
+  - scikit-build
+  - numpy
+  - gcc_linux-64=11.4
+  - gxx_linux-64=11.4
+  - gcc=11.4.0
+  - gxx=11.4.0
+

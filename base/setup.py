@@ -5,6 +5,7 @@ import sys
 import argparse
 import warnings
 import platform
+import shutil
 from skbuild import setup
 
 # some Cray systems default to static libraries and the build
@@ -17,6 +18,13 @@ cmake_args = [
     f"-DPython3_EXECUTABLE:FILEPATH={sys.executable}",
     "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH:BOOL=ON",
 ]
+
+# Use conda GCC if available (ensures we use the version from environment.yml)
+if conda_prefix := os.environ.get("CONDA_PREFIX"):
+    for compiler, cmake_var in [("gcc", "CMAKE_C_COMPILER"), ("g++", "CMAKE_CXX_COMPILER")]:
+        compiler_path = shutil.which(compiler)
+        if compiler_path and conda_prefix in compiler_path:
+            cmake_args.append(f"-D{cmake_var}:FILEPATH={compiler_path}")
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("-h", "--help", help="Print help", action="store_true")
