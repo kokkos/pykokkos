@@ -34,6 +34,7 @@ jobs:
       - name: Install pykokkos-base
         working-directory: base
         run: |
+          export CMAKE_BUILD_PARALLEL_LEVEL=2 &&
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5
       - name: Install pykokkos
         run: |
