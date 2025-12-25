@@ -5,8 +5,6 @@ dependencies:
   - cmake>=3.16
   - scikit-build
   - numpy
-  - pytest
-  - ninja
   - gcc_linux-64=11.4
   - gxx_linux-64=11.4
   - gcc=11.4.0

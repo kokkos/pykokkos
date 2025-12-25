@@ -35,6 +35,9 @@ jobs:
         activate-environment: pyk
         auto-activate-base: false
 
+    - name: Install pytest and ninja
+      run: conda install -c conda-forge pytest ninja
+
     - name: Install Kokkos
       run:
         git clone -b ${{ matrix.kokkos-branch }} https://github.com/kokkos/kokkos.git /tmp/kokkos-source &&
@@ -101,6 +104,9 @@ jobs:
         activate-environment: pyk
         auto-activate-base: false
 
+    - name: Install pytest and ninja
+      run: conda install -c conda-forge pytest ninja
+
     - name: Install Kokkos
       run:
         git clone -b ${{ matrix.kokkos-branch }} https://github.com/kokkos/kokkos.git /tmp/kokkos-source &&
@@ -148,6 +154,9 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+
+    - name: Install pytest and ninja
+      run: conda install -c conda-forge pytest ninja
 
     - name: Generate CMakeLists.txt
       run: |
