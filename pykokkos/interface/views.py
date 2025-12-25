@@ -1102,6 +1102,7 @@ def _calculate_scratch_size(type_size: int, *dims: int, alignment: int = 8) -> i
 
 
 class ScratchView:
+    @classmethod
     def __class_getitem__(cls, item):
         generic_alias = super().__class_getitem__(item)
         generic_alias.type_param = item
