@@ -21,10 +21,15 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Set up conda environment
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          environment-file: base/environment.yml
+          activate-environment: pyk
+          auto-activate-base: false
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf tqdm
+          conda install -c conda-forge numpy mypy cmake pytest pybind11 scikit-build patchelf tqdm
       - name: Install pykokkos-base
         working-directory: base
         run: |
@@ -39,7 +44,7 @@ jobs:
           cd array-api-tests
           git checkout 2022.09.30
           git submodule update --init
-          pip install -r requirements.txt
+          conda install -c conda-forge --file requirements.txt
           export ARRAY_API_TESTS_MODULE=pykokkos
           # we precompile some of the ufunc implementations
           # to circumvent the currently slow performance of
