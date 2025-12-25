@@ -21,20 +21,19 @@ jobs:
         os: [ubuntu-latest, ubuntu-22.04]
 
     runs-on: ${{matrix.os}}
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+    - name: Set up conda environment
+      uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Update container
-      run:
-        sudo apt-get update &&
-        sudo apt-get install -y build-essential gcc g++ ninja-build &&
-        python -m pip install --upgrade pip &&
-        python -m pip install 'cmake==3.22.0'
+        environment-file: base/environment.yml
+        activate-environment: pyk
+        auto-activate-base: false
 
     - name: Install Kokkos
       run:
@@ -46,15 +45,6 @@ jobs:
           /tmp/kokkos-source &&
         cmake --build /tmp/kokkos-build --target all --parallel 2 &&
         sudo cmake --build /tmp/kokkos-build --target install --parallel 2
-
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate-base: false
-    - name: Install pytest
-      run: conda install -c conda-forge pytest
     - name: Configure CMake
       run: |
         cmake -B ${{github.workspace}}/base/build \
@@ -98,21 +88,18 @@ jobs:
     runs-on: ${{matrix.os}}
     defaults:
       run:
+        shell: bash -l {0}
         working-directory: base
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+    - name: Set up conda environment
+      uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Update container
-      run:
-        sudo apt-get update &&
-        sudo apt-get install -y build-essential gcc g++ ninja-build &&
-        python -m pip install --upgrade pip &&
-        python -m pip install 'cmake==3.22.0'
+        environment-file: base/environment.yml
+        activate-environment: pyk
+        auto-activate-base: false
 
     - name: Install Kokkos
       run:
@@ -125,15 +112,6 @@ jobs:
           /tmp/kokkos-source &&
         cmake --build /tmp/kokkos-build --target all --parallel 2 &&
         sudo cmake --build /tmp/kokkos-build --target install --parallel 2
-
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate-base: false
-    - name: Install pytest
-      run: conda install -c conda-forge pytest
     - name: Build
       run: |
         CMAKE_BUILD_PARALLEL_LEVEL=2 PYKOKKOS_BASE_SETUP_ARGS="-DENABLE_WERROR=ON -DENABLE_MEMORY_TRAITS=ON -DENABLE_LAYOUTS=ON -DENABLE_VIEW_RANKS=2 -DCMAKE_CXX_STANDARD=17 -DKokkos_ENABLE_THREADS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF" \
@@ -157,34 +135,24 @@ jobs:
         os: [ubuntu-latest, ubuntu-22.04]
 
     runs-on: ${{matrix.os}}
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+    - name: Set up conda environment
+      uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Update container
-      run:
-        sudo apt-get update &&
-        sudo apt-get install -y build-essential gcc g++ ninja-build &&
-        python -m pip install --upgrade pip &&
-        python -m pip install 'cmake==3.22.0'
+        environment-file: base/environment.yml
+        activate-environment: pyk
+        auto-activate-base: false
 
     - name: Generate CMakeLists.txt
       run: |
         echo -e "cmake_minimum_required(VERSION 3.22.0 FATAL_ERROR)\nproject(pykokkos-base-as-subproject LANGUAGES CXX)\nadd_subdirectory(base)" > ${{github.workspace}}/CMakeLists.txt
         cat ${{github.workspace}}/CMakeLists.txt
-
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate-base: false
-    - name: Install pytest
-      run: conda install -c conda-forge pytest
     - name: Configure CMake
       run: |
         cmake -B ${{github.workspace}}/build \
@@ -211,9 +179,7 @@ jobs:
         echo "PYTHONPATH=/usr/local/lib/python${{ matrix.python-version }}/site-packages:${PYTHONPATH}" >> $GITHUB_ENV
 
     - name: Import Test
-      run:
-        DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
+      run: DEBUG_OUTPUT=ON python -c "import kokkos; print(kokkos.__file__)"
 
     - name: Test
-      run:
-        python -m kokkos.test
+      run: python -m kokkos.test
