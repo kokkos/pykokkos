@@ -22,13 +22,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      # - name: Install dependencies
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install black
-      # - name: black format
-      #   run: |
-      #     black --diff --check .
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+      - name: black format
+        run: |
+          black --diff --check .
       - name: Check files end with newline
         run: |
           # Find all files (excluding binary and git files) and check if they end with a newline
