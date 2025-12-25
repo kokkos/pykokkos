@@ -29,7 +29,8 @@ git clone https://github.com/kokkos/pykokkos.git
 cd pykokkos/
 
 # Create and activate conda environment
-conda create --name pyk --file base/requirements.txt python=3.11
+conda create -n pyk python=3.11 -y
+conda env update -n pyk -f base/environment.yml
 conda activate pyk
 
 # Install pykokkos-base from the root directory
@@ -42,6 +43,7 @@ After installing pykokkos-base:
 
 ```bash
 # Install pykokkos (ensure you're in the pyk environment)
+conda install -c conda-forge pybind11 cupy patchelf
 pip install -e .
 ```
 

@@ -71,10 +71,7 @@ if __name__ == "__main__":
     acc = 0
 
     timer = pk.Timer()
-    # For workunits, pass M and let the C++ code compute scratch size
-    # Approximate scratch size: M * sizeof(double) = M * 8 bytes
-    # scratch_size: int = pk.ScratchView1D[float].shmem_size(M)
-    scratch_size: int = M * 8
+    scratch_size: int = pk.ScratchView1D[float].shmem_size(M)
     print(f"Before: {N} | {M} | {E}")
 
     for i in range(nrepeat):
@@ -90,4 +87,3 @@ if __name__ == "__main__":
     print(
         f"result: {result} | solution {solution} | result==soluton: {result==solution}"
     )
-    print(f"Total size S = {N * M} N = {N} M = {M} E = {E}")

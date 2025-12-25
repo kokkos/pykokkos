@@ -5,6 +5,7 @@ import sys
 import argparse
 import warnings
 import platform
+import shutil
 from skbuild import setup
 
 # some Cray systems default to static libraries and the build
@@ -17,6 +18,16 @@ cmake_args = [
     f"-DPython3_EXECUTABLE:FILEPATH={sys.executable}",
     "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH:BOOL=ON",
 ]
+
+# Use conda GCC if available (ensures we use the version from environment.yml)
+if conda_prefix := os.environ.get("CONDA_PREFIX"):
+    for compiler, cmake_var in [
+        ("gcc", "CMAKE_C_COMPILER"),
+        ("g++", "CMAKE_CXX_COMPILER"),
+    ]:
+        compiler_path = shutil.which(compiler)
+        if compiler_path and conda_prefix in compiler_path:
+            cmake_args.append(f"-D{cmake_var}:FILEPATH={compiler_path}")
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("-h", "--help", help="Print help", action="store_true")
@@ -163,24 +174,25 @@ def get_long_description():
 
 # --------------------------------------------------------------------------- #
 #
-def parse_requirements(fname="requirements.txt"):
-    _req = []
-    requirements = []
-    # read in the initial set of requirements
-    with open(fname, "r") as fp:
-        _req = list(filter(bool, (line.strip() for line in fp)))
-    # look for entries which read other files
-    for itr in _req:
-        if itr.startswith("-r "):
-            # read another file
-            for fitr in itr.split(" "):
-                if os.path.exists(fitr):
-                    requirements.extend(parse_requirements(fitr))
-        else:
-            # append package
-            requirements.append(itr)
-    # return the requirements
-    return requirements
+# parse_requirements function no longer needed - dependencies managed by conda
+# def parse_requirements(fname="requirements.txt"):
+#     _req = []
+#     requirements = []
+#     # read in the initial set of requirements
+#     with open(fname, "r") as fp:
+#         _req = list(filter(bool, (line.strip() for line in fp)))
+#     # look for entries which read other files
+#     for itr in _req:
+#         if itr.startswith("-r "):
+#             # read another file
+#             for fitr in itr.split(" "):
+#                 if os.path.exists(fitr):
+#                     requirements.extend(parse_requirements(fitr))
+#         else:
+#             # append package
+#             requirements.append(itr)
+#     # return the requirements
+#     return requirements
 
 
 # suppress:
@@ -197,6 +209,6 @@ with warnings.catch_warnings():
         cmake_languages=("C", "CXX"),
         long_description=get_long_description(),
         long_description_content_type="text/markdown",
-        install_requires=parse_requirements("requirements.txt"),
+        install_requires=[],  # Dependencies managed by conda environment.yml
         project_urls={"kokkos": "https://github.com/kokkos/kokkos"},
     )
