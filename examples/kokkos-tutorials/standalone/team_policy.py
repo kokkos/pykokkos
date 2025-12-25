@@ -4,6 +4,7 @@ import pykokkos as pk
 
 from parse_args import parse_args
 
+
 @pk.workunit
 def yAx(team_member, acc, cols, y_view, x_view, A_view):
     j: int = team_member.league_rank()
@@ -12,10 +13,12 @@ def yAx(team_member, acc, cols, y_view, x_view, A_view):
         inner_acc += A_view[j][i] * x_view[i]
 
     temp2: float = pk.parallel_reduce(
-        pk.TeamThreadRange(team_member, cols), inner_reduce)
+        pk.TeamThreadRange(team_member, cols), inner_reduce
+    )
 
     if team_member.team_rank() == 0:
         acc += y_view[j] * temp2
+
 
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
@@ -57,10 +60,12 @@ def run() -> None:
     solution: float = N * M
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
+
 
 if __name__ == "__main__":
     run()

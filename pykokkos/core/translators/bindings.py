@@ -9,6 +9,7 @@ from pykokkos.interface.data_types import DataType
 
 from .members import PyKokkosMembers
 
+
 def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
     """
     Checks if a workunit uses hierarchical parallelism by checking if it has a TeamMember instead of a thread ID
@@ -26,6 +27,7 @@ def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
             return True
 
     return False
+
 
 def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
     """
@@ -52,11 +54,12 @@ def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
     if location == "bindings":
         return Keywords.ArgMemSpace.value
 
+
 def get_kernel_params(
     members: PyKokkosMembers,
     is_hierarchical: bool,
     is_workload: bool,
-    real: Optional[str]
+    real: Optional[str],
 ) -> Dict[str, str]:
     """
     Get the parameters of the kernel. The parameters include the fields, the views,
@@ -107,16 +110,21 @@ def get_kernel_params(
         view_type = cppast.ClassType("View1D")
         view_type.add_template_param(cppast.DeclRefExpr("double"))
         view_type.add_template_param(cppast.DeclRefExpr("HostSpace"))
-        params[view_name] = cpp_view_type(view_type, space="Kokkos::HostSpace", layout="Kokkos::LayoutRight")
+        params[view_name] = cpp_view_type(
+            view_type, space="Kokkos::HostSpace", layout="Kokkos::LayoutRight"
+        )
 
     for result in members.timer_result_queue:
         view_name = f"timer_result_{result}"
         view_type = cppast.ClassType("View1D")
         view_type.add_template_param(cppast.DeclRefExpr("double"))
         view_type.add_template_param(cppast.DeclRefExpr("HostSpace"))
-        params[view_name] = cpp_view_type(view_type, space="Kokkos::HostSpace", layout="Kokkos::LayoutRight")
+        params[view_name] = cpp_view_type(
+            view_type, space="Kokkos::HostSpace", layout="Kokkos::LayoutRight"
+        )
 
     return params
+
 
 def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     """
@@ -126,10 +134,20 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     :returns: a list of names of the device names
     """
 
-    return {v.declname: f"pk_d_{v.declname}" for v in members.views \
-            if members.views[v] is not None}
+    return {
+        v.declname: f"pk_d_{v.declname}"
+        for v in members.views
+        if members.views[v] is not None
+    }
 
-def generate_functor_instance(functor: str, members: PyKokkosMembers, with_random_args: bool=True, functor_exec_space: Optional[str] = None, always_use_kokkos_copy: bool = False) -> str:
+
+def generate_functor_instance(
+    functor: str,
+    members: PyKokkosMembers,
+    with_random_args: bool = True,
+    functor_exec_space: Optional[str] = None,
+    always_use_kokkos_copy: bool = False,
+) -> str:
     """
     Generate the functor instance
 
@@ -160,7 +178,10 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
 
         if not always_use_kokkos_copy:
             view_type: cppast.ClassType = members.views[cppast.DeclRefExpr(v)]
-            if get_view_memory_space(view_type, "bindings") == Keywords.ArgMemSpace.value:
+            if (
+                get_view_memory_space(view_type, "bindings")
+                == Keywords.ArgMemSpace.value
+            ):
                 mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
             else:
                 mirror_views += f"auto {d_v} = {v};"
@@ -180,7 +201,10 @@ def generate_functor_instance(functor: str, members: PyKokkosMembers, with_rando
 
     return mirror_views + constructor
 
-def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[str,str]) -> str:
+
+def generate_copy_back_from_dict(
+    members: PyKokkosMembers, deep_copy_args: Dict[str, str]
+) -> str:
     """
     Generate the code that does the resize and deep_copy
 
@@ -203,7 +227,7 @@ def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[s
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.
         if cppast.DeclRefExpr("Unmanaged") not in view_type.template_params:
-            rank = int(re.search(r'\d+', view_type.typename).group())
+            rank = int(re.search(r"\d+", view_type.typename).group())
             resize_args: List[str] = [v]
 
             for i in range(rank):
@@ -217,6 +241,7 @@ def generate_copy_back_from_dict(members: PyKokkosMembers,deep_copy_args: Dict[s
 
     return copy_back
 
+
 def generate_copy_back(members: PyKokkosMembers) -> str:
     """
     Generate the code that copies back the views
@@ -226,7 +251,8 @@ def generate_copy_back(members: PyKokkosMembers) -> str:
     """
     device_views: Dict[str, str] = get_device_views(members)
 
-    return generate_copy_back_from_dict(members,device_views)
+    return generate_copy_back_from_dict(members, device_views)
+
 
 def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     """
@@ -235,7 +261,7 @@ def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     :param operation: the type of the operation (for, reduce, scan, or workload)
     :param workunit: the workunit for which the binding is being generated
     :returns: the return type as a string
-    """ 
+    """
 
     acc_decl: Optional[cppast.ParmVarDecl] = None
     if operation == "reduce":
@@ -251,7 +277,10 @@ def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
 
     return return_type
 
-def generate_kernel_signature(return_type: str, kernel: str, params: Dict[str, str]) -> str:
+
+def generate_kernel_signature(
+    return_type: str, kernel: str, params: Dict[str, str]
+) -> str:
     """
     Generate the kernel signature
 
@@ -267,6 +296,7 @@ def generate_kernel_signature(return_type: str, kernel: str, params: Dict[str, s
 
     return signature
 
+
 def generate_fence_call() -> str:
     """
     Generate a C++ function call to Kokkos fence
@@ -276,7 +306,14 @@ def generate_fence_call() -> str:
 
     return f"{Keywords.DefaultExecSpaceInstance.value}.fence();"
 
-def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: cppast.DeclRefExpr, is_hierarchical: bool) -> str:
+
+def generate_call(
+    operation: str,
+    functor: str,
+    members: PyKokkosMembers,
+    tag: cppast.DeclRefExpr,
+    is_hierarchical: bool,
+) -> str:
     """
     Generate the calls to the operation
 
@@ -336,13 +373,14 @@ def generate_call(operation: str, functor: str, members: PyKokkosMembers, tag: c
 
     return call
 
+
 def generate_wrapper(
     members: PyKokkosMembers,
     operation: str,
     workunit: cppast.MethodDecl,
     wrapper: str,
     kernel: str,
-    real: Optional[str]
+    real: Optional[str],
 ) -> str:
     """
     Generate the wrapper that calls the kernel and its binding
@@ -357,15 +395,17 @@ def generate_wrapper(
     """
 
     is_workload: bool = True if operation == "workload" else False
-    params: Dict[str, str] = get_kernel_params(members, is_hierarchical(workunit), is_workload, real)
+    params: Dict[str, str] = get_kernel_params(
+        members, is_hierarchical(workunit), is_workload, real
+    )
     return_type: str = get_return_type(operation, workunit)
 
     args: List[str] = []
     for name, param_type in params.items():
         if param_type == "const std::string&":
-            args.append(f"kwargs[\"{name}\"].cast<std::string>()")
+            args.append(f'kwargs["{name}"].cast<std::string>()')
         else:
-            args.append(f"kwargs[\"{name}\"].cast<{param_type}>()")
+            args.append(f'kwargs["{name}"].cast<{param_type}>()')
 
     kernel_call: str = f"{kernel}("
     kernel_call += ",".join(args)
@@ -380,6 +420,7 @@ def generate_wrapper(
 
     return definition
 
+
 def generate_kernel(
     functor: str,
     members: PyKokkosMembers,
@@ -387,7 +428,7 @@ def generate_kernel(
     workunit: cppast.MethodDecl,
     tag: cppast.DeclRefExpr,
     kernel: str,
-    real: Optional[str]
+    real: Optional[str],
 ) -> str:
     """
     Generate the kernel that calls the workunit
@@ -423,6 +464,7 @@ def generate_kernel(
 
     return kernel
 
+
 def bind_wrappers(module: str, wrappers: List[str]) -> str:
     """
     Generate the binding code for all wrappers
@@ -433,16 +475,17 @@ def bind_wrappers(module: str, wrappers: List[str]) -> str:
     variable: str = "k"
     binding: str = f"PYBIND11_MODULE({module}, {variable}) {{"
     for w in wrappers:
-        binding += f"{variable}.def(\"{w}\", &{w});"
+        binding += f'{variable}.def("{w}", &{w});'
     binding += "}"
 
     return binding
+
 
 def bind_workunits_single(
     functor: str,
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
-    precision: Optional[DataType]
+    precision: Optional[DataType],
 ) -> Tuple[List[str], List[str]]:
     """
     Generates the bindings for a group of workunits. Each workunit is
@@ -477,18 +520,23 @@ def bind_workunits_single(
         operation: str = t[0]
         workunit: cppast.MethodDecl = t[1]
 
-        kernel: str = generate_kernel(functor, members, operation, workunit, n, kernel_name, real)
-        wrapper: str = generate_wrapper(members, operation, workunit, wrapper_name, kernel_name, real)
+        kernel: str = generate_kernel(
+            functor, members, operation, workunit, n, kernel_name, real
+        )
+        wrapper: str = generate_wrapper(
+            members, operation, workunit, wrapper_name, kernel_name, real
+        )
 
         bindings.extend([kernel, wrapper])
 
     return wrappers, bindings
 
+
 def bind_workunits(
     functor: str,
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
-    module: str
+    module: str,
 ) -> List[str]:
     """
     Generates the bindings for a group of workunits. Each workunit is
@@ -520,7 +568,13 @@ def bind_workunits(
 
     return bindings
 
-def translate_mains(source: Tuple[List[str], int], functor: str, members: PyKokkosMembers, pk_import: str) -> List[str]:
+
+def translate_mains(
+    source: Tuple[List[str], int],
+    functor: str,
+    members: PyKokkosMembers,
+    pk_import: str,
+) -> List[str]:
     """
     Translate all PyKokkos main functions
 
@@ -531,9 +585,17 @@ def translate_mains(source: Tuple[List[str], int], functor: str, members: PyKokk
     """
 
     node_visitor = KokkosMainVisitor(
-        {}, source, members.views, members.pk_workunits,
-        members.fields, members.pk_functions,
-        members.classtype_methods, functor, pk_import, debug=True)
+        {},
+        source,
+        members.views,
+        members.pk_workunits,
+        members.fields,
+        members.pk_functions,
+        members.classtype_methods,
+        functor,
+        pk_import,
+        debug=True,
+    )
 
     translation: List[str] = []
 
@@ -549,12 +611,13 @@ def translate_mains(source: Tuple[List[str], int], functor: str, members: PyKokk
 
     return translation
 
+
 def bind_main_single(
     functor: str,
     members: PyKokkosMembers,
     source: Tuple[List[str], int],
     pk_import: str,
-    precision: Optional[DataType]
+    precision: Optional[DataType],
 ) -> Tuple[str, str]:
     """
     Generates the kernel and its python binding
@@ -603,17 +666,20 @@ def bind_main_single(
     # fence: str = generate_fence_call()
 
     kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
-    wrapper: str = generate_wrapper(members, "workload", None, wrapper_name, kernel_name, real)
+    wrapper: str = generate_wrapper(
+        members, "workload", None, wrapper_name, kernel_name, real
+    )
     binding: str = f"{kernel} {wrapper}"
 
     return wrapper_name, binding
+
 
 def bind_main(
     functor: str,
     members: PyKokkosMembers,
     source: Tuple[List[str], int],
     pk_import: str,
-    module: str
+    module: str,
 ) -> List[str]:
     """
     Generates the kernel and its python binding

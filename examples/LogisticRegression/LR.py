@@ -37,7 +37,11 @@ import warnings
 from joblib import Parallel, effective_n_jobs
 from scipy import optimize
 from sklearn._loss.loss import HalfBinomialLoss, HalfMultinomialLoss
-from sklearn.linear_model._base import LinearClassifierMixin, SparseCoefMixin, BaseEstimator
+from sklearn.linear_model._base import (
+    LinearClassifierMixin,
+    SparseCoefMixin,
+    BaseEstimator,
+)
 from sklearn.linear_model._linear_loss import LinearModelLoss
 from sklearn.linear_model._sag import sag_solver
 from sklearn.preprocessing import LabelEncoder, LabelBinarizer
@@ -56,6 +60,7 @@ _LOGISTIC_SOLVER_CONVERGENCE_MSG = (
     "    https://scikit-learn.org/stable/modules/linear_model.html"
     "#logistic-regression"
 )
+
 
 def asarray(arr, dtype=pk.double):
     arr = np.asarray(arr)
@@ -119,6 +124,7 @@ def _check_multi_class(multi_class, solver, n_classes):
     if multi_class == "multinomial" and solver == "liblinear":
         raise ValueError("Solver %s does not support a multinomial backend." % solver)
     return multi_class
+
 
 def _logistic_regression_path(
     X,
@@ -327,11 +333,11 @@ def _logistic_regression_path(
             lbin = LabelBinarizer()
             Y_multi = asarray(lbin.fit_transform(y))
             if Y_multi.shape[1] == 1:
-                Y_multi = pk.hstack(pk.negative(pk.subtract(Y_multi, asarray([1]))), Y_multi)
+                Y_multi = pk.hstack(
+                    pk.negative(pk.subtract(Y_multi, asarray([1]))), Y_multi
+                )
 
-        w0 = pk.zeros(
-            (classes.size, n_features + int(fit_intercept)), dtype=X.dtype
-        )
+        w0 = pk.zeros((classes.size, n_features + int(fit_intercept)), dtype=X.dtype)
 
     if coef is not None:
         # it must work both giving the bias term and not
@@ -409,20 +415,24 @@ def _logistic_regression_path(
         warm_start_sag = {"coef": pk.expand_dims(w0, axis=1)}
 
     coefs = list()
-    
+
     n_iter = pk.zeros(len(Cs), dtype=pk.int32)
     for i, C in enumerate(Cs):
         if solver == "lbfgs":
             l2_reg_strength = 1.0 / C
-            iprint = [-1, 50, 1, 100, 101][
-                pk.searchsorted([0, 1, 2, 3], verbose)
-            ]
+            iprint = [-1, 50, 1, 100, 101][pk.searchsorted([0, 1, 2, 3], verbose)]
             opt_res = optimize.minimize(
                 func,
                 np.asarray(w0),
                 method="L-BFGS-B",
                 jac=True,
-                args=(np.asarray(X), np.asarray(target), sample_weight, l2_reg_strength, n_threads),
+                args=(
+                    np.asarray(X),
+                    np.asarray(target),
+                    sample_weight,
+                    l2_reg_strength,
+                    n_threads,
+                ),
                 options={"iprint": iprint, "gtol": tol, "maxiter": max_iter},
             )
 
@@ -440,7 +450,11 @@ def _logistic_regression_path(
                 hess, func, grad, w0, args=args, maxiter=max_iter, tol=tol
             )
         elif solver == "liblinear":
-            coef_, intercept_, n_iter_i, = _fit_liblinear(
+            (
+                coef_,
+                intercept_,
+                n_iter_i,
+            ) = _fit_liblinear(
                 X,
                 target,
                 C,
@@ -845,7 +859,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             accept_large_sparse=solver not in ["liblinear", "sag", "saga"],
         )
         check_classification_targets(y)
-        
+
         X = asarray(X)
         y = asarray(y)
         self.classes_ = pk.unique(y)
@@ -887,8 +901,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             raise ValueError(
                 "This solver needs samples of at least 2 classes"
                 " in the data, but the data contains only one"
-                " class: %r"
-                % classes_[0]
+                " class: %r" % classes_[0]
             )
 
         if len(self.classes_) == 2:
@@ -1033,7 +1046,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             model, where classes are ordered as they are in ``self.classes_``.
         """
         return pk.log(self.predict_proba(X))
-    
+
     def predict(self, X):
         """
         Predict class labels for samples in X.
@@ -1051,15 +1064,18 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             indices = (scores > 0).astype(int)
         else:
             indices = scores.argmax(axis=1)
-        
+
         return pk.index(self.classes_, asarray(indices, dtype=pk.int32))
+
 
 def main():
     from sklearn.datasets import load_iris
+
     X, y = load_iris(return_X_y=True)
     clf = LogisticRegression(random_state=0, max_iter=1000).fit(asarray(X), asarray(y))
     clf.predict(asarray(X[:2, :]))
     clf.predict_proba(asarray(X[:2, :]))
     print(clf.score(asarray(X), asarray(y)))
+
 
 main()

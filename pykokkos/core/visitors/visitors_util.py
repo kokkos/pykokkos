@@ -9,6 +9,7 @@ from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, MemorySpace, Trait
 
+
 def pretty_print(node):
     print(ast.dump(node, indent=4))
 
@@ -21,7 +22,7 @@ allowed_types: Dict[str, str] = {
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
     "cpp_auto": "auto",
     "complex64": "Kokkos::complex<float>",
-    "complex128": "Kokkos::complex<double>"
+    "complex128": "Kokkos::complex<double>",
 }
 
 # Maps from the DataType enum to cppast
@@ -36,10 +37,8 @@ view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
     "uint64": cppast.BuiltinType.UINT64,
     "float": cppast.BuiltinType.FLOAT,
     "double": cppast.BuiltinType.DOUBLE,
-
     "int": cppast.BuiltinType.INT32,
-
-    "real": Keywords.RealPrecision.value
+    "real": Keywords.RealPrecision.value,
 }
 
 op2str: Dict[type, str] = {
@@ -189,7 +188,9 @@ def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
     return name
 
 
-def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str) -> Optional[cppast.Type]:
+def get_type(
+    annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str
+) -> Optional[cppast.Type]:
     if isinstance(annotation, ast.Attribute):
         if annotation.value.id == pk_import:
             type_name: str = get_node_name(annotation)
@@ -254,7 +255,9 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             if sys.version_info.minor <= 8:
                 # In Python >= 3.9, ast.Index is deprecated
                 # (see # https://docs.python.org/3/whatsnew/3.9.html)
-                dtype_node = subscript.value if isinstance(subscript, ast.Index) else subscript
+                dtype_node = (
+                    subscript.value if isinstance(subscript, ast.Index) else subscript
+                )
             else:
                 dtype_node: ast.Attribute = subscript
 
@@ -271,6 +274,7 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             return view_type
 
     return None
+
 
 def parse_view_template_params(
     view_type: cppast.ClassType,
@@ -294,7 +298,7 @@ def parse_view_template_params(
     is_scratch_view: bool = py_type.startswith("ScratchView")
 
     if rank is None:
-        rank = int(re.search(r'\d+', py_type).group())
+        rank = int(re.search(r"\d+", py_type).group())
 
     if not 0 < rank < 8:
         raise ValueError(f"View rank {rank} is not allowed")
@@ -311,10 +315,21 @@ def parse_view_template_params(
     for t in template_params:
         parameter: str = s.serialize(t)
 
-        if parameter in ("int", "double", "float",
-                            "int8_t", "int16_t", "int32_t", "int64_t",
-                            "uint8_t", "uint16_t", "uint32_t", "uint64_t",
-                            "Kokkos::complex<float>", "Kokkos::complex<double>"):
+        if parameter in (
+            "int",
+            "double",
+            "float",
+            "int8_t",
+            "int16_t",
+            "int32_t",
+            "int64_t",
+            "uint8_t",
+            "uint16_t",
+            "uint32_t",
+            "uint64_t",
+            "Kokkos::complex<float>",
+            "Kokkos::complex<double>",
+        ):
             datatype: str = parameter + "*" * rank
             params["dtype"] = datatype
 

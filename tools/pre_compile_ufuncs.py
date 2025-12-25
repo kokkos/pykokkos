@@ -27,26 +27,31 @@ def main():
     # level kernels/workunits directly
     filtered_function_list = []
     for f in function_list:
-        if not "impl" in f[0] and not f[0].startswith("_") and "broadcast_view" not in f[0]:
+        if (
+            not "impl" in f[0]
+            and not f[0].startswith("_")
+            and "broadcast_view" not in f[0]
+        ):
             filtered_function_list.append(f)
     # TODO: expand types and view dimensions for
     # ufunc pre-compilation as the support
     # grows more broadly for more dims and types in ufuncs
-    for dtype in [pk.float64,
-                  pk.float32,
-                  pk.int8,
-                  pk.int16,
-                  pk.int32,
-                  pk.int64,
-                  pk.uint8,
-                  pk.uint16,
-                  pk.uint32,
-                  pk.uint64,
-                  ]:
+    for dtype in [
+        pk.float64,
+        pk.float32,
+        pk.int8,
+        pk.int16,
+        pk.int32,
+        pk.int64,
+        pk.uint8,
+        pk.uint16,
+        pk.uint32,
+        pk.uint64,
+    ]:
         for shape_v in [[2], [2, 2]]:
             v = pk.View(shape_v, dtype=dtype)
             for func in tqdm(filtered_function_list):
-                if len(shape_v) > 1 and "matmul" in func[0]: 
+                if len(shape_v) > 1 and "matmul" in func[0]:
                     continue
                 func_obj = func[1]
                 # try compiling the ufunc as binary, then

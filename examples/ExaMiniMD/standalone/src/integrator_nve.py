@@ -6,9 +6,14 @@ from system import System
 
 @pk.workunit
 def initial_integrate(
-    i: int, x: pk.View2D[float], v: pk.View2D[float],
-    f: pk.View2D[float], type: pk.View1D[int], mass: pk.View1D[float],
-    dtf: float, dtv: float
+    i: int,
+    x: pk.View2D[float],
+    v: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
+    mass: pk.View1D[float],
+    dtf: float,
+    dtv: float,
 ) -> None:
     index: int = type[i]
     dtfm: float = dtf / mass[index]
@@ -22,9 +27,12 @@ def initial_integrate(
 
 @pk.workunit
 def final_integrate(
-    i: int, v: pk.View2D[float], f: pk.View2D[float],
-    type: pk.View1D[int], mass: pk.View1D[float],
-    dtf: float
+    i: int,
+    v: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
+    mass: pk.View1D[float],
+    dtf: float,
 ) -> None:
     index: int = type[i]
     dtfm: float = dtf / mass[index]
@@ -42,13 +50,31 @@ class IntegratorNVE(Integrator):
         self.step: int = 1
 
     def initial_integrate(self) -> None:
-        pk.parallel_for("IntegratorNVE::initial_integrate", self.system.N_local, initial_integrate, 
-            x=self.system.x, v=self.system.v, f=self.system.f, type=self.system.type, mass=self.system.mass, dtf=self.dtf, dtv=self.dtv)
+        pk.parallel_for(
+            "IntegratorNVE::initial_integrate",
+            self.system.N_local,
+            initial_integrate,
+            x=self.system.x,
+            v=self.system.v,
+            f=self.system.f,
+            type=self.system.type,
+            mass=self.system.mass,
+            dtf=self.dtf,
+            dtv=self.dtv,
+        )
 
         self.step += 1
 
     def final_integrate(self) -> None:
-        pk.parallel_for("IntegratorNVE::final_integrate", self.system.N_local, final_integrate, 
-            v=self.system.v, f=self.system.f, type=self.system.type, mass=self.system.mass, dtf=self.dtf)
+        pk.parallel_for(
+            "IntegratorNVE::final_integrate",
+            self.system.N_local,
+            final_integrate,
+            v=self.system.v,
+            f=self.system.f,
+            type=self.system.type,
+            mass=self.system.mass,
+            dtf=self.dtf,
+        )
 
         self.step += 1

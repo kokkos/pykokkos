@@ -7,8 +7,7 @@ from system import System
 from types_h import t_x, t_v, t_f, t_id, t_type, t_q, t_mass
 
 
-@pk.workload(
-    x=pk.ViewTypeInfo(layout=pk.LayoutRight))
+@pk.workload(x=pk.ViewTypeInfo(layout=pk.LayoutRight))
 class BinningKKSort(Binning):
     def __init__(self, s: System):
         super().__init__(s)
@@ -26,8 +25,12 @@ class BinningKKSort(Binning):
         self.maxz: float = 0.0
 
         # copied from self.create_binning()
-        self.bincount: pk.View3D[pk.int32] = self.t_bincount(self.nbinx, self.nbiny, self.nbinz)
-        self.binoffsets: pk.View3D[pk.int32] = self.t_binoffsets(self.nbinx, self.nbiny, self.nbinz)
+        self.bincount: pk.View3D[pk.int32] = self.t_bincount(
+            self.nbinx, self.nbiny, self.nbinz
+        )
+        self.binoffsets: pk.View3D[pk.int32] = self.t_binoffsets(
+            self.nbinx, self.nbiny, self.nbinz
+        )
 
         self.x: pk.View2D[pk.double] = s.x
         self.v: pk.View2D[pk.double] = s.v
@@ -46,13 +49,25 @@ class BinningKKSort(Binning):
         self.sort: bool = False
 
     def create_binning(
-            self, dx_in: float, dy_in: float, dz_in: float, halo_depth: int,
-            do_local: bool, do_ghost: bool, sort: bool) -> None:
+        self,
+        dx_in: float,
+        dy_in: float,
+        dz_in: float,
+        halo_depth: int,
+        do_local: bool,
+        do_ghost: bool,
+        sort: bool,
+    ) -> None:
         if do_local or do_ghost:
             self.nhalo = halo_depth
             range_min: int = 0 if do_local else self.system.N_local
             range_max: int = int(
-                ((self.system.N_local + self.system.N_ghost) if do_ghost else self.system.N_local))
+                (
+                    (self.system.N_local + self.system.N_ghost)
+                    if do_ghost
+                    else self.system.N_local
+                )
+            )
 
             self.range_min = range_min
             self.range_max = range_max
@@ -94,14 +109,15 @@ class BinningKKSort(Binning):
 
             # Views
             self.bincount: pk.View3D = self.t_bincount(
-                self.nbinx, self.nbiny, self.nbinz, pk.int32)
+                self.nbinx, self.nbiny, self.nbinz, pk.int32
+            )
             self.binoffsets: pk.View3D = self.t_binoffsets(
-                self.nbinx, self.nbiny, self.nbinz, pk.int32)
+                self.nbinx, self.nbiny, self.nbinz, pk.int32
+            )
 
             self.sort = sort
             self.permute_vector.resize(0, range_max - range_min)
             pk.execute(pk.ExecutionSpace.Default, self)
-
 
     @pk.main
     def run(self) -> None:
@@ -109,7 +125,7 @@ class BinningKKSort(Binning):
         min_values: List[float] = [self.minx, self.miny, self.miny]
         max_values: List[float] = [self.maxx, self.maxy, self.maxz]
 
-        x_sub = self.x[self.range_min:self.range_max, :]
+        x_sub = self.x[self.range_min : self.range_max, :]
         binop = pk.BinOp3D(x_sub, nbin, min_values, max_values)
         sorter = pk.BinSort(x_sub, binop)
         sorter.create_permute_vector()
@@ -118,14 +134,17 @@ class BinningKKSort(Binning):
         self.bin_count_1d = sorter.get_bin_count()
         self.bin_offsets_1d = sorter.get_bin_offsets()
 
-        pk.parallel_for("Binning::AssignOffsets",
-            self.nbinx * self.nbiny * self.nbinz, self.assign_offsets)
+        pk.parallel_for(
+            "Binning::AssignOffsets",
+            self.nbinx * self.nbiny * self.nbinz,
+            self.assign_offsets,
+        )
 
         if self.sort:
             sorter.sort(x_sub)
-            v_sub = self.v[self.range_min:self.range_max, :]
+            v_sub = self.v[self.range_min : self.range_max, :]
             sorter.sort(v_sub)
-            f_sub = self.f[self.range_min:self.range_max, :]
+            f_sub = self.f[self.range_min : self.range_max, :]
             sorter.sort(f_sub)
             sorter.sort(self.type)
             sorter.sort(self.id)

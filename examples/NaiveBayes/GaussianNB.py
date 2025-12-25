@@ -40,13 +40,14 @@ import pykokkos as pk
 import numpy as np
 from sklearn.base import BaseEstimator
 
+
 def asarray(arr):
     arr = np.asarray(arr)
 
     view = pk.View(arr.shape, pk.double)
     view[:] = arr
     return view
-    
+
 
 def type_of_target(y, input_name=""):
     valid = True
@@ -81,7 +82,9 @@ def type_of_target(y, input_name=""):
         pass
 
     # Invalid inputs
-    if len(y.shape) > 2 or (y.dtype == object and len(y) and not isinstance(y.flat[0], str)):
+    if len(y.shape) > 2 or (
+        y.dtype == object and len(y) and not isinstance(y.flat[0], str)
+    ):
         return "unknown"  # [[[1, 2]]] or [obj_1] and not ["label_1"]
 
     if len(y.shape) == 2 and y.shape[1] == 0:
@@ -97,16 +100,19 @@ def type_of_target(y, input_name=""):
     else:
         return "binary"  # [1, 2] or [["a"], ["b"]]
 
+
 def _unique_multiclass(y):
     if hasattr(y, "__array__"):
         return pk.unique(asarray(y))
     else:
         return set(y)
 
+
 _FN_UNIQUE_LABELS = {
     "binary": _unique_multiclass,
     "multiclass": _unique_multiclass,
 }
+
 
 def unique_labels(*ys):
     if not ys:
@@ -223,6 +229,7 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     if not fitted:
         raise Exception(msg % {"name": type(estimator).__name__})
 
+
 class _BaseNB(BaseEstimator, metaclass=ABCMeta):
     """Abstract base class for naive Bayes estimators"""
 
@@ -295,6 +302,7 @@ class _BaseNB(BaseEstimator, metaclass=ABCMeta):
             order, as they appear in the attribute :term:`classes_`.
         """
         return pk.exp(self.predict_log_proba(X))
+
 
 class GaussianNB(_BaseNB):
     """
@@ -582,11 +590,7 @@ class GaussianNB(_BaseNB):
                 N_i = X_i.shape[0]
 
             new_theta, new_sigma = self._update_mean_variance(
-                self.class_count_[i],
-                self.theta_[i, :],
-                self.var_[i, :],
-                X_i,
-                sw_i
+                self.class_count_[i], self.theta_[i, :], self.var_[i, :], X_i, sw_i
             )
             # print(self.theta_[i, :], new_theta)
             self.theta_[i, :] = new_theta
@@ -604,27 +608,48 @@ class GaussianNB(_BaseNB):
 
     def _joint_log_likelihood(self, X):
         joint_log_likelihood = []
-        total_classes = reduce(lambda a, b: a * b , self.classes_.shape, 1)
+        total_classes = reduce(lambda a, b: a * b, self.classes_.shape, 1)
 
         for i in range(total_classes):
             jointi = pk.log(self.class_prior_[i])
 
             n_ij = -0.5 * pk.sum(pk.log(pk.multiply(self.var_[i, :], 2.0 * pi)))
-            n_ij = pk.add(pk.negative(pk.multiply(pk.sum(pk.divide(pk.power(pk.add(X, pk.negative(self.theta_[i, :])), 2), self.var_[i, :]), 1), 0.5)), n_ij)
+            n_ij = pk.add(
+                pk.negative(
+                    pk.multiply(
+                        pk.sum(
+                            pk.divide(
+                                pk.power(pk.add(X, pk.negative(self.theta_[i, :])), 2),
+                                self.var_[i, :],
+                            ),
+                            1,
+                        ),
+                        0.5,
+                    )
+                ),
+                n_ij,
+            )
 
             joint_log_likelihood.append(pk.add(n_ij, jointi))
 
         joint_log_likelihood = pk.transpose(asarray(joint_log_likelihood))
         return joint_log_likelihood
 
+
 def main():
     from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
 
     X, y = load_iris(return_X_y=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.5, random_state=0
+    )
     gnb = GaussianNB()
     y_pred = gnb.fit(asarray(X_train), asarray(y_train)).predict(asarray(X_test))
-    print("Number of mislabeled points out of a total %d points : %d" % (X_test.shape[0], (y_test != y_pred).sum()))
+    print(
+        "Number of mislabeled points out of a total %d points : %d"
+        % (X_test.shape[0], (y_test != y_pred).sum())
+    )
+
 
 main()

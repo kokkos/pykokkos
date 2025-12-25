@@ -27,7 +27,8 @@ class Particle:
 @pk.workload(
     x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     pack_indicies_all=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    pack_indicies=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
+    pack_indicies=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
+)
 class CommSerial(Comm):
     def __init__(self, s: System, comm_depth: float):
         super().__init__(s, comm_depth)
@@ -62,7 +63,9 @@ class CommSerial(Comm):
 
         print("CommSerial")
         self.pack_count: pk.View1D[pk.int32] = pk.View([1], pk.int32)
-        self.pack_indicies_all: pk.View2D[pk.int32] = pk.View([6, 0], pk.int32, layout=pk.Layout.LayoutRight)
+        self.pack_indicies_all: pk.View2D[pk.int32] = pk.View(
+            [6, 0], pk.int32, layout=pk.Layout.LayoutRight
+        )
 
         self.num_ghost: List[int] = [0] * 6
         self.ghost_offsets: List[int] = [0] * 6
@@ -152,8 +155,9 @@ class CommSerial(Comm):
         self.s = copy.copy(self.system)
         self.ghost_offsets[0] = self.s.N_local
         for self.phase in range(1, 6):
-            self.ghost_offsets[self.phase] = self.ghost_offsets[self.phase -
-                                                                1] + self.num_ghost[self.phase - 1]
+            self.ghost_offsets[self.phase] = (
+                self.ghost_offsets[self.phase - 1] + self.num_ghost[self.phase - 1]
+            )
 
         for self.phase in range(5, -1, -1):
             self.pack_indicies = self.pack_indicies_all[self.phase, :]
@@ -192,13 +196,25 @@ class CommSerial(Comm):
     @pk.main
     def run(self) -> None:
         if self.workunit_id == 0:
-            pk.parallel_for("CommSerial::exchange_self", self.N_local, self.tag_exchange_self)
+            pk.parallel_for(
+                "CommSerial::exchange_self", self.N_local, self.tag_exchange_self
+            )
         elif self.workunit_id == 1:
-            pk.parallel_for("CommSerial::halo_exchange_self", self.nparticles, self.tag_halo_self)
+            pk.parallel_for(
+                "CommSerial::halo_exchange_self", self.nparticles, self.tag_halo_self
+            )
         elif self.workunit_id == 2:
-            pk.parallel_for("CommSerial::halo_update_self", self.update_threads, self.tag_halo_update_self)
+            pk.parallel_for(
+                "CommSerial::halo_update_self",
+                self.update_threads,
+                self.tag_halo_update_self,
+            )
         elif self.workunit_id == 3:
-            pk.parallel_for("CommSerial::halo_force_self", self.force_threads, self.tag_halo_force_self)
+            pk.parallel_for(
+                "CommSerial::halo_force_self",
+                self.force_threads,
+                self.tag_halo_force_self,
+            )
 
     @pk.workunit
     def tag_exchange_self(self, i: int) -> None:
@@ -224,87 +240,69 @@ class CommSerial(Comm):
     def tag_halo_self(self, i: int) -> None:
         if self.phase == 0:
             if self.x[i][0] >= self.sub_domain_hi_x - self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.x -= self.domain_x
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
         if self.phase == 1:
             if self.x[i][0] <= self.sub_domain_lo_x + self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.x += self.domain_x
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
         if self.phase == 2:
             if self.x[i][1] >= self.sub_domain_hi_y - self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.y -= self.domain_y
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
         if self.phase == 3:
             if self.x[i][1] <= self.sub_domain_lo_y + self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.y += self.domain_y
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
         if self.phase == 4:
             if self.x[i][2] >= self.sub_domain_hi_z - self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.z -= self.domain_z
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
         if self.phase == 5:
             if self.x[i][2] <= self.sub_domain_lo_z + self.comm_depth:
-                pack_idx: int = pk.atomic_fetch_add(
-                    self.pack_count, [0], 1)
-                if (
-                    pack_idx < self.pack_indicies.extent(0)
-                    and self.N_local + self.N_ghost + pack_idx < self.x.extent(0)
-                ):
+                pack_idx: int = pk.atomic_fetch_add(self.pack_count, [0], 1)
+                if pack_idx < self.pack_indicies.extent(
+                    0
+                ) and self.N_local + self.N_ghost + pack_idx < self.x.extent(0):
                     self.pack_indicies[pack_idx] = i
                     p: Particle = self.get_particle(i)
                     p.z += self.domain_z
-                    self.set_particle(
-                        self.N_local + self.N_ghost + pack_idx, p)
+                    self.set_particle(self.N_local + self.N_ghost + pack_idx, p)
 
     @pk.workunit
     def tag_halo_update_self(self, i: int) -> None:

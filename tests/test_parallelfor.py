@@ -9,7 +9,7 @@
 #         self.initial_value = initial_value
 #         self.added_value = added_value
 #         self.view = View1D(total_threads)
-    
+
 #     def run_work_units(self):
 #         pykokkos.parallel_for(self.total_threads, self.add_work_unit)
 
@@ -27,7 +27,7 @@
 # class ParallelForTest(unittest.TestCase):
 #     def setUp(self):
 #         self.total_threads: int = 10000
-        
+
 #     def test_add_workload_1D(self):
 #         initial_value: int = 5
 #         added_value: int = 7

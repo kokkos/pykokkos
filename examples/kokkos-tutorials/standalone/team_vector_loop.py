@@ -4,6 +4,7 @@ import pykokkos as pk
 
 from parse_args import parse_args
 
+
 @pk.workunit
 def yAx(team_member, acc, rows, cols, y_view, x_view, A_view):
     e: int = team_member.league_rank()
@@ -13,12 +14,14 @@ def yAx(team_member, acc, rows, cols, y_view, x_view, A_view):
             vector_acc += A_view[e][j][i] * x_view[e][i]
 
         tempM: float = pk.parallel_reduce(
-            pk.ThreadVectorRange(team_member, cols), vector_reduce)
+            pk.ThreadVectorRange(team_member, cols), vector_reduce
+        )
 
         team_acc += y_view[e][j] * tempM
 
     tempN: float = pk.parallel_reduce(
-        pk.TeamThreadRange(team_member, rows), team_reduce)
+        pk.TeamThreadRange(team_member, rows), team_reduce
+    )
 
     def single_closure():
         nonlocal acc
@@ -61,19 +64,22 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, rows=N, cols=M, y_view=y, x_view=x, A_view=A)
+        result = pk.parallel_reduce(
+            p, yAx, rows=N, cols=M, y_view=y, x_view=x, A_view=A
+        )
 
     timer_result = timer.seconds()
 
-    print(
-        f"Computed result for {N} x {M} x {E} is {result}")
+    print(f"Computed result for {N} x {M} x {E} is {result}")
     solution: float = N * M * E
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) E({E}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) E({E}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
+
 
 if __name__ == "__main__":
     run()

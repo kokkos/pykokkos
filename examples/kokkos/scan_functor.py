@@ -1,5 +1,6 @@
 import pykokkos as pk
 
+
 @pk.functor
 class Workload:
     def __init__(self, N: int):
@@ -15,6 +16,7 @@ class Workload:
         if last_pass:
             self.A[i] = acc
 
+
 def run() -> None:
     N = 10
     w = Workload(N)
@@ -26,6 +28,7 @@ def run() -> None:
     timer_result = timer.seconds()
 
     print(f"{w.A} total={result} time({timer_result})")
+
 
 if __name__ == "__main__":
     run()

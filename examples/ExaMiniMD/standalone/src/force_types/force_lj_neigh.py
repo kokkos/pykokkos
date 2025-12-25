@@ -12,10 +12,15 @@ from types_h import MAX_TYPES_STACKPARAMS, t_f
 
 @pk.workunit
 def fullneigh_for(
-    i: int, rnd_lj1: pk.View2D[float], rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float], num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int], x: pk.View2D[float], f: pk.View2D[float],
-    type: pk.View1D[int]
+    i: int,
+    rnd_lj1: pk.View2D[float],
+    rnd_lj2: pk.View2D[float],
+    rnd_cutsq: pk.View2D[float],
+    num_neighs_view: pk.View1D[int],
+    neighs_view: pk.View2D[int],
+    x: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
 ) -> None:
     x_i: float = x[i][0]
     y_i: float = x[i][1]
@@ -56,10 +61,16 @@ def fullneigh_for(
 
 @pk.workunit
 def halfneigh_for(
-    i: int, rnd_lj1: pk.View2D[float], rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float], num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int], x: pk.View2D[float], f: pk.View2D[float],
-    type: pk.View1D[int], use_stackparams: bool
+    i: int,
+    rnd_lj1: pk.View2D[float],
+    rnd_lj2: pk.View2D[float],
+    rnd_cutsq: pk.View2D[float],
+    num_neighs_view: pk.View1D[int],
+    neighs_view: pk.View2D[int],
+    x: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
+    use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
     y_i: float = x[i][1]
@@ -122,11 +133,17 @@ def halfneigh_for(
 
 @pk.workunit
 def fullneigh_reduce(
-    i: int, PE: pk.Acc[float], rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float], rnd_cutsq: pk.View2D[float],
-    num_neighs_view: pk.View1D[int], neighs_view: pk.View2D[int],
-    x: pk.View2D[float], f: pk.View2D[float], type: pk.View1D[int],
-    use_stackparams: bool
+    i: int,
+    PE: pk.Acc[float],
+    rnd_lj1: pk.View2D[float],
+    rnd_lj2: pk.View2D[float],
+    rnd_cutsq: pk.View2D[float],
+    num_neighs_view: pk.View1D[int],
+    neighs_view: pk.View2D[int],
+    x: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
+    use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
     y_i: float = x[i][1]
@@ -176,11 +193,18 @@ def fullneigh_reduce(
 
 @pk.workunit
 def halfneigh_reduce(
-    i: int, PE: pk.Acc[float], rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float], rnd_cutsq: pk.View2D[float], N_local: int,
-    num_neighs_view: pk.View1D[int], neighs_view: pk.View2D[int],
-    x: pk.View2D[float], f: pk.View2D[float], type: pk.View1D[int],
-    use_stackparams: bool
+    i: int,
+    PE: pk.Acc[float],
+    rnd_lj1: pk.View2D[float],
+    rnd_lj2: pk.View2D[float],
+    rnd_cutsq: pk.View2D[float],
+    N_local: int,
+    num_neighs_view: pk.View1D[int],
+    neighs_view: pk.View2D[int],
+    x: pk.View2D[float],
+    f: pk.View2D[float],
+    type: pk.View1D[int],
+    use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
     y_i: float = x[i][1]
@@ -236,11 +260,15 @@ def halfneigh_reduce(
 
 class ForceLJNeigh(Force):
     class t_fparams(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        def __init__(
+            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
+        ):
             super().__init__([x, y], data_type)
 
     class t_fparams_rnd(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        def __init__(
+            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
+        ):
             super().__init__([x, y], data_type)
 
     def __init__(self, args: List[str], system: System, half_neigh: bool):
@@ -267,12 +295,18 @@ class ForceLJNeigh(Force):
 
         self.step: int = 0
 
-        self.stack_lj1: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
-        self.stack_lj2: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
-        self.stack_cutsq: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
+        self.stack_lj1: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
+        self.stack_lj2: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
+        self.stack_cutsq: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
 
     def init_coeff(self, nargs: int, args: List[str]) -> None:
         self.step = 0
@@ -287,13 +321,13 @@ class ForceLJNeigh(Force):
         if self.use_stackparams:
             for i in range(self.ntypes):
                 for j in range(self.ntypes):
-                    self.stack_lj1[i][j] = 48.0 * eps * (sigma ** 12.0)
-                    self.stack_lj2[i][j] = 24.0 * eps * (sigma ** 6.0)
-                    self.stack_cutsq[i][j] = cut*cut
+                    self.stack_lj1[i][j] = 48.0 * eps * (sigma**12.0)
+                    self.stack_lj2[i][j] = 24.0 * eps * (sigma**6.0)
+                    self.stack_cutsq[i][j] = cut * cut
 
         else:
-            self.lj1[t1][t2] = 48.0 * eps * (sigma ** 12.0)
-            self.lj2[t1][t2] = 24.0 * eps * (sigma ** 6.0)
+            self.lj1[t1][t2] = 48.0 * eps * (sigma**12.0)
+            self.lj2[t1][t2] = 24.0 * eps * (sigma**6.0)
             self.lj1[t2][t1] = self.lj1[t1][t2]
             self.lj2[t2][t1] = self.lj2[t1][t2]
             self.cutsq[t1][t2] = cut * cut
@@ -311,17 +345,40 @@ class ForceLJNeigh(Force):
         # f_a: pk.View2D[pk.double] = system.f
 
         if self.half_neigh:
-            pk.parallel_for("ForceLJNeigh::compute", system.N_local, halfneigh_for, use_stackparams=self.use_stackparams,
-                rnd_lj1=self.rnd_lj1, rnd_lj2=self.rnd_lj2, rnd_cutsq=self.rnd_cutsq, num_neighs_view=neigh_list.num_neighs,
-                neighs_view=neigh_list.neighs, x=system.x, f=system.f, type=system.type)
+            pk.parallel_for(
+                "ForceLJNeigh::compute",
+                system.N_local,
+                halfneigh_for,
+                use_stackparams=self.use_stackparams,
+                rnd_lj1=self.rnd_lj1,
+                rnd_lj2=self.rnd_lj2,
+                rnd_cutsq=self.rnd_cutsq,
+                num_neighs_view=neigh_list.num_neighs,
+                neighs_view=neigh_list.neighs,
+                x=system.x,
+                f=system.f,
+                type=system.type,
+            )
         else:
-            pk.parallel_for("ForceLJNeigh::compute", system.N_local, fullneigh_for, rnd_lj1=self.rnd_lj1,
-                rnd_lj2=self.rnd_lj2, rnd_cutsq=self.rnd_cutsq, num_neighs_view=neigh_list.num_neighs,
-                neighs_view=neigh_list.neighs, x=system.x, f=system.f, type=system.type)
+            pk.parallel_for(
+                "ForceLJNeigh::compute",
+                system.N_local,
+                fullneigh_for,
+                rnd_lj1=self.rnd_lj1,
+                rnd_lj2=self.rnd_lj2,
+                rnd_cutsq=self.rnd_cutsq,
+                num_neighs_view=neigh_list.num_neighs,
+                neighs_view=neigh_list.neighs,
+                x=system.x,
+                f=system.f,
+                type=system.type,
+            )
 
         self.step += 1
 
-    def compute_energy(self, system: System, binning: Binning, neighbor: Neighbor) -> float:
+    def compute_energy(
+        self, system: System, binning: Binning, neighbor: Neighbor
+    ) -> float:
         neigh_list: NeighList2D = neighbor.get_neigh_list()
 
         # TODO: this should be atomic. Disabled since it is
@@ -329,13 +386,36 @@ class ForceLJNeigh(Force):
         # f_a: pk.View2D[pk.double] = system.f
 
         if self.half_neigh:
-            self.energy = pk.parallel_reduce("ForceLJNeigh::compute_energy", system.N_local, halfneigh_reduce, use_stackparams=self.use_stackparams,
-                rnd_lj1=self.rnd_lj1, rnd_lj2=self.rnd_lj2, rnd_cutsq=self.rnd_cutsq, N_local=system.N_local, num_neighs_view=neigh_list.num_neighs,
-                neighs_view=neigh_list.neighs, x=system.x, f=system.f, type=system.type)
+            self.energy = pk.parallel_reduce(
+                "ForceLJNeigh::compute_energy",
+                system.N_local,
+                halfneigh_reduce,
+                use_stackparams=self.use_stackparams,
+                rnd_lj1=self.rnd_lj1,
+                rnd_lj2=self.rnd_lj2,
+                rnd_cutsq=self.rnd_cutsq,
+                N_local=system.N_local,
+                num_neighs_view=neigh_list.num_neighs,
+                neighs_view=neigh_list.neighs,
+                x=system.x,
+                f=system.f,
+                type=system.type,
+            )
         else:
-            self.energy = pk.parallel_reduce("ForceLJNeigh::compute_energy", system.N_local, fullneigh_reduce, use_stackparams=self.use_stackparams,
-                rnd_lj1=self.rnd_lj1, rnd_lj2=self.rnd_lj2, rnd_cutsq=self.rnd_cutsq, num_neighs_view=neigh_list.num_neighs,
-                neighs_view=neigh_list.neighs, x=system.x, f=system.f, type=system.type)
+            self.energy = pk.parallel_reduce(
+                "ForceLJNeigh::compute_energy",
+                system.N_local,
+                fullneigh_reduce,
+                use_stackparams=self.use_stackparams,
+                rnd_lj1=self.rnd_lj1,
+                rnd_lj2=self.rnd_lj2,
+                rnd_cutsq=self.rnd_cutsq,
+                num_neighs_view=neigh_list.num_neighs,
+                neighs_view=neigh_list.neighs,
+                x=system.x,
+                f=system.f,
+                type=system.type,
+            )
 
         self.step += 1
         return self.energy

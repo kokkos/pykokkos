@@ -1,5 +1,6 @@
 import pykokkos as pk
 
+
 @pk.workload
 class Workload:
     def __init__(self, N: int):
@@ -29,8 +30,10 @@ class Workload:
         if last_pass:
             self.A[i] = acc
 
+
 def run() -> None:
     pk.execute(pk.ExecutionSpace.OpenMP, Workload(10))
+
 
 if __name__ == "__main__":
     run()

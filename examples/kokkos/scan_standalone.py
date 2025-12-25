@@ -1,14 +1,17 @@
 import pykokkos as pk
 
+
 @pk.workunit
 def init(i, view):
     view[i] = i
+
 
 @pk.workunit
 def scan(i, acc, last_pass, view):
     acc += view[i]
     if last_pass:
         view[i] = acc
+
 
 def run() -> None:
     N = 10
@@ -22,6 +25,7 @@ def run() -> None:
     timer_result = timer.seconds()
 
     print(f"{A} total={result} time({timer_result})")
+
 
 if __name__ == "__main__":
     run()

@@ -12,7 +12,9 @@ class ConstructorVisitor(ast.NodeVisitor):
     Gets the members of a functor
     """
 
-    def __init__(self, src: Tuple[List[str], int], member_type: str, pk_import: str, debug: bool):
+    def __init__(
+        self, src: Tuple[List[str], int], member_type: str, pk_import: str, debug: bool
+    ):
         """
         ConstructorVisitor constructor
 
@@ -23,7 +25,9 @@ class ConstructorVisitor(ast.NodeVisitor):
         """
 
         if member_type not in ("fields", "views", "typeinfo", "randpool"):
-            raise ValueError("member_type has to be either \"fields\", \"views\", \"typeinfo\", or \"randpool\"")
+            raise ValueError(
+                'member_type has to be either "fields", "views", "typeinfo", or "randpool"'
+            )
 
         self.src: Tuple[List[str], int] = src
         self.member_type: str = member_type
@@ -48,14 +52,18 @@ class ConstructorVisitor(ast.NodeVisitor):
         members: List[Tuple] = []
 
         for statement in node.body:
-            if self.member_type in ("fields", "views", "randpool") and isinstance(statement, ast.AnnAssign):
+            if self.member_type in ("fields", "views", "randpool") and isinstance(
+                statement, ast.AnnAssign
+            ):
                 ann_assign: Tuple = self.visit(statement)
                 if len(ann_assign) != 0:
                     members.append(ann_assign)
 
         return members
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> Tuple[cppast.DeclRefExpr, cppast.Type]:
+    def visit_AnnAssign(
+        self, node: ast.AnnAssign
+    ) -> Tuple[cppast.DeclRefExpr, cppast.Type]:
         declref: cppast.DeclRefExpr = self.visit(node.target)
         decltype: cppast.Type
 
@@ -66,7 +74,10 @@ class ConstructorVisitor(ast.NodeVisitor):
                     return ()
 
             decltype = visitors_util.get_type(node.annotation, self.pk_import)
-            if decltype.typename in ("Random_XorShift64_Pool", "Random_XorShift1024_Pool"):
+            if decltype.typename in (
+                "Random_XorShift64_Pool",
+                "Random_XorShift1024_Pool",
+            ):
                 return ()
 
             if decltype is None:
@@ -77,7 +88,9 @@ class ConstructorVisitor(ast.NodeVisitor):
             if not isinstance(node.annotation, ast.Subscript):
                 return ()
 
-            decltype: cppast.ClassType = visitors_util.get_type(node.annotation, self.pk_import)
+            decltype: cppast.ClassType = visitors_util.get_type(
+                node.annotation, self.pk_import
+            )
             # do not return lists
             if isinstance(decltype, cppast.PrimitiveType):
                 return ()
@@ -88,7 +101,10 @@ class ConstructorVisitor(ast.NodeVisitor):
 
             rand_pool_type: str = node.annotation.attr
 
-            if rand_pool_type not in ("Random_XorShift64_Pool", "Random_XorShift1024_Pool"):
+            if rand_pool_type not in (
+                "Random_XorShift64_Pool",
+                "Random_XorShift1024_Pool",
+            ):
                 return ()
 
             decltype: cppast.ClassType = cppast.ClassType(rand_pool_type)
@@ -132,7 +148,9 @@ class ConstructorVisitor(ast.NodeVisitor):
 
         return template_params
 
-    def get_typeinfo(self, node: Union[ast.Call, ast.FunctionDef]) -> Dict[cppast.DeclRefExpr, List[cppast.DeclRefExpr]]:
+    def get_typeinfo(
+        self, node: Union[ast.Call, ast.FunctionDef]
+    ) -> Dict[cppast.DeclRefExpr, List[cppast.DeclRefExpr]]:
         """
         Get the view type info from a decorator
 
@@ -147,7 +165,11 @@ class ConstructorVisitor(ast.NodeVisitor):
                 func = d.func
 
                 if isinstance(func, ast.Attribute):
-                    if func.value.id == self.pk_import and func.attr in ("functor", "workload", "workunit"):
+                    if func.value.id == self.pk_import and func.attr in (
+                        "functor",
+                        "workload",
+                        "workunit",
+                    ):
                         decorator = d
 
         type_info: Dict[cppast.DeclRefExpr, List[cppast.DeclRefExpr]] = {}
@@ -167,8 +189,13 @@ class ConstructorVisitor(ast.NodeVisitor):
 
         for a in args:
             if a.arg == "layout":
-                if not isinstance(a.value, ast.Attribute) and not isinstance(a.value.value, ast.Attribute):
-                    self.error(node, "Layout argument should be of the form pk.layout.Layout...")
+                if not isinstance(a.value, ast.Attribute) and not isinstance(
+                    a.value.value, ast.Attribute
+                ):
+                    self.error(
+                        node,
+                        "Layout argument should be of the form pk.layout.Layout...",
+                    )
 
                 layout: str = visitors_util.get_node_name(a.value)
 
@@ -187,8 +214,13 @@ class ConstructorVisitor(ast.NodeVisitor):
 
         for a in args:
             if a.arg == "space":
-                if not isinstance(a.value, ast.Attribute) and not isinstance(a.value.value, ast.Attribute):
-                    self.error(node, "MemorySpace argument should be of the form pk.MemorySpace.HostSpace...")
+                if not isinstance(a.value, ast.Attribute) and not isinstance(
+                    a.value.value, ast.Attribute
+                ):
+                    self.error(
+                        node,
+                        "MemorySpace argument should be of the form pk.MemorySpace.HostSpace...",
+                    )
 
                 space: str = visitors_util.get_node_name(a.value)
 
@@ -207,7 +239,9 @@ class ConstructorVisitor(ast.NodeVisitor):
         for a in args:
             if a.arg == "trait":
                 if not isinstance(a.value, ast.Attribute):
-                    self.error(node, "Trait argument should be of the form pk.Trait.Atomic...")
+                    self.error(
+                        node, "Trait argument should be of the form pk.Trait.Atomic..."
+                    )
 
                 trait: str = visitors_util.get_node_name(a.value)
 

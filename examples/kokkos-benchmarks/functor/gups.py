@@ -4,6 +4,7 @@ from typing import Tuple
 
 import pykokkos as pk
 
+
 @pk.functor
 class Benchmark:
     def __init__(self, indices: int, data: int, repeats: int, use_atomics: bool):
@@ -26,6 +27,7 @@ class Benchmark:
     @pk.workunit
     def run_gups(self, i: int):
         self.data[self.indices[i]] ^= self.datum
+
 
 def run() -> None:
     random.seed(1010101)
@@ -85,6 +87,7 @@ def run() -> None:
     gupsTime = timer.seconds()
     print(f"GUP/s Random: {1e-9 * repeats * indices / gupsTime}")
     print(w.data)
+
 
 if __name__ == "__main__":
     run()

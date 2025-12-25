@@ -41,21 +41,26 @@ class uint8(DataTypeClass):
     value = kokkos.uint8
     np_equiv = np.uint8
 
+
 class int8(DataTypeClass):
     value = kokkos.int8
     np_equiv = np.int8
+
 
 class int16(DataTypeClass):
     value = kokkos.int16
     np_equiv = np.int16
 
+
 class int32(DataTypeClass):
     value = kokkos.int32
     np_equiv = np.int32
 
+
 class int64(DataTypeClass):
     value = kokkos.int64
     np_equiv = np.int64
+
 
 class uint16(DataTypeClass):
     value = kokkos.uint16
@@ -76,6 +81,7 @@ class float(DataTypeClass):
     value = kokkos.float
     np_equiv = np.float32
 
+
 class double(DataTypeClass):
     value = kokkos.double
     np_equiv = np.float64
@@ -85,13 +91,16 @@ class real(DataTypeClass):
     value = None
     np_equiv = None
 
+
 class float32(DataTypeClass):
     value = kokkos.float
     np_equiv = np.float32
 
+
 class float64(DataTypeClass):
     value = kokkos.double
     np_equiv = np.float64
+
 
 class bool(DataTypeClass):
     value = kokkos.uint8
@@ -117,7 +126,9 @@ class complex(DataTypeClass):
 
     def __sub__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot subtract '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot subtract '{}' and '{}'".format(type(other), type(self))
+            )
 
         if isinstance(self, complex64):
             return complex64(self.kokkos_complex - other.kokkos_complex)
@@ -126,14 +137,18 @@ class complex(DataTypeClass):
 
     def __isub__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot subtract '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot subtract '{}' and '{}'".format(type(other), type(self))
+            )
 
         self.kokkos_complex -= other.kokkos_complex
         return self
 
     def __mul__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot multiply '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot multiply '{}' and '{}'".format(type(other), type(self))
+            )
 
         if isinstance(self, complex64):
             return complex64(self.kokkos_complex * other.kokkos_complex)
@@ -142,14 +157,18 @@ class complex(DataTypeClass):
 
     def __imul__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot multiply '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot multiply '{}' and '{}'".format(type(other), type(self))
+            )
 
         self.kokkos_complex *= other.kokkos_complex
         return self
 
     def __truediv__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot divide '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot divide '{}' and '{}'".format(type(other), type(self))
+            )
 
         if isinstance(self, complex64):
             return complex64(self.kokkos_complex / other.kokkos_complex)
@@ -158,13 +177,17 @@ class complex(DataTypeClass):
 
     def __itruediv__(self, other):
         if not isinstance(other, type(self)):
-            raise TypeError("cannot divide '{}' and '{}'".format(type(other), type(self)))
+            raise TypeError(
+                "cannot divide '{}' and '{}'".format(type(other), type(self))
+            )
 
         self.kokkos_complex /= other.kokkos_complex
         return self
 
     def __repr__(self):
-        return f"({self.kokkos_complex.real_const()}, {self.kokkos_complex.imag_const()})"
+        return (
+            f"({self.kokkos_complex.real_const()}, {self.kokkos_complex.imag_const()})"
+        )
 
     @property
     def real(self):
@@ -174,23 +197,36 @@ class complex(DataTypeClass):
     def imag(self):
         return self.kokkos_complex.imag_const()
 
+
 class complex64(complex):
     value = kokkos.complex_float32_dtype
-    np_equiv = np.complex64 # 32 bits from real + 32 from imaginary
+    np_equiv = np.complex64  # 32 bits from real + 32 from imaginary
 
-    def __init__(self, real: "builtin_float | kokkos.complex_float32", imaginary: builtin_float = 0.0):
+    def __init__(
+        self,
+        real: "builtin_float | kokkos.complex_float32",
+        imaginary: builtin_float = 0.0,
+    ):
         if isinstance(real, kokkos.complex_float32):
             self.kokkos_complex = real
         else:
-            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float32(real, imaginary)
+            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float32(
+                real, imaginary
+            )
 
 
 class complex128(complex):
     value = kokkos.complex_float64_dtype
-    np_equiv = np.complex128 # 64 bits from real + 64 from imaginary
+    np_equiv = np.complex128  # 64 bits from real + 64 from imaginary
 
-    def __init__(self, real: "builtin_float | kokkos.complex_float64", imaginary: builtin_float = 0.0):
+    def __init__(
+        self,
+        real: "builtin_float | kokkos.complex_float64",
+        imaginary: builtin_float = 0.0,
+    ):
         if isinstance(real, kokkos.complex_float64):
             self.kokkos_complex = real
         else:
-            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float64(real, imaginary)
+            self.kokkos_complex = km.get_kokkos_module(is_cpu=True).complex_float64(
+                real, imaginary
+            )

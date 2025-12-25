@@ -22,8 +22,8 @@ class EntityMetadata:
     """
 
     entity: Union[Callable[..., None], type, None]
-    name: str # the name of the functor/workunit
-    path: str # the path to the file containing the entity
+    name: str  # the name of the functor/workunit
+    path: str  # the path to the file containing the entity
 
 
 def get_functor(workunit: Callable[..., None]) -> type:
@@ -83,7 +83,7 @@ class ModuleSetup:
         entity: Union[Callable[..., None], type, List[Callable[..., None]]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None,
-        restricted_views: Optional[Set[str]] = None
+        restricted_views: Optional[Set[str]] = None,
     ):
         """
         ModuleSetup constructor
@@ -106,7 +106,9 @@ class ModuleSetup:
         self.types_signature = types_signature
         self.restrict_signature: Optional[str] = None
         if restricted_views is not None:
-            self.restrict_signature = hashlib.md5("".join(sorted(restricted_views)).encode()).hexdigest()
+            self.restrict_signature = hashlib.md5(
+                "".join(sorted(restricted_views)).encode()
+            ).hexdigest()
 
         suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
         self.module_file: str = f"kernel{suffix}"
@@ -115,15 +117,22 @@ class ModuleSetup:
         self.console_main: str = "pk_console"
 
         self.main: Path = self.get_main_path()
-        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space, types_signature, self.restrict_signature)
+        self.output_dir: Optional[Path] = self.get_output_dir(
+            self.main, self.metadata, space, types_signature, self.restrict_signature
+        )
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
-            self.gpu_module_files = [f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())]
+            self.gpu_module_files = [
+                f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())
+            ]
 
         if self.output_dir is not None:
             self.path: str = os.path.join(self.output_dir, self.module_file)
             if km.is_multi_gpu_enabled():
-                self.gpu_module_paths: str = [os.path.join(self.output_dir, module_file) for module_file in self.gpu_module_files]
+                self.gpu_module_paths: str = [
+                    os.path.join(self.output_dir, module_file)
+                    for module_file in self.gpu_module_files
+                ]
 
             self.name: str = hashlib.sha256(self.path.encode()).hexdigest()
 
@@ -133,7 +142,7 @@ class ModuleSetup:
         metadata: List[EntityMetadata],
         space: ExecutionSpace,
         types_signature: Optional[str] = None,
-        restrict_signature: Optional[str] = None
+        restrict_signature: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Get the output directory for an execution space
@@ -214,7 +223,7 @@ class ModuleSetup:
 
         if hasattr(sys.modules["__main__"], "__file__"):
             path: str = sys.modules["__main__"].__file__
-            path = path[:-3] # remove the .py extensions
+            path = path[:-3]  # remove the .py extensions
             return Path(path)
 
         return Path(self.console_main)
@@ -224,4 +233,12 @@ class ModuleSetup:
         Check if this module is compiled for its execution space
         """
 
-        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space, self.types_signature, self.restrict_signature))
+        return CppSetup.is_compiled(
+            self.get_output_dir(
+                self.main,
+                self.metadata,
+                self.space,
+                self.types_signature,
+                self.restrict_signature,
+            )
+        )

@@ -24,7 +24,7 @@ def find_loops(AST: ast.FunctionDef) -> Dict[int, List[LoopInfo]]:
 def group_equivalent_ranges(loops: List[LoopInfo]) -> List[List[LoopInfo]]:
     """
     Partition a list of loops into sets that have equivalent iteration
-    spaces 
+    spaces
 
     :param loops: the list of loops to be partitioned (already in the
         same scope)
@@ -89,10 +89,16 @@ def can_make_adjacent(current_loop: LoopInfo, next_loop: LoopInfo) -> bool:
 
     nodes_between: List[ast.stmt]
     if current_parent is next_parent:
-        nodes_between = current_parent.body[current_loop.original_idx_in_parent + 1:next_loop.original_idx_in_parent]
+        nodes_between = current_parent.body[
+            current_loop.original_idx_in_parent + 1 : next_loop.original_idx_in_parent
+        ]
     else:
-        nodes_current: List[ast.stmt] = current_parent.body[current_loop.original_idx_in_parent + 1:]
-        nodes_next: List[ast.stmt] = next_parent.body[:next_loop.original_idx_in_parent]
+        nodes_current: List[ast.stmt] = current_parent.body[
+            current_loop.original_idx_in_parent + 1 :
+        ]
+        nodes_next: List[ast.stmt] = next_parent.body[
+            : next_loop.original_idx_in_parent
+        ]
         nodes_between = nodes_current + nodes_next
 
     for node in nodes_between:
@@ -118,9 +124,9 @@ def make_adjacent(current_loop: LoopInfo, next_loop: LoopInfo) -> None:
     if current_idx + 1 == next_idx:
         return
 
-    between_nodes: List[ast.stmt] = current_parent.body[current_idx + 1: next_idx]
+    between_nodes: List[ast.stmt] = current_parent.body[current_idx + 1 : next_idx]
 
-    del current_parent.body[current_idx + 1: next_idx]
+    del current_parent.body[current_idx + 1 : next_idx]
 
     # Insert these nodes right before the loop
     current_parent.body[current_idx:current_idx] = between_nodes
@@ -152,18 +158,23 @@ def group_adjacent_loops(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo]
             current_loop: LoopInfo = current_list[-1]
             next_loop: LoopInfo = loop_list.pop()
 
-            if next_loop.idx_in_parent == current_loop.idx_in_parent + 1 or can_make_adjacent(current_loop, next_loop):
+            if (
+                next_loop.idx_in_parent == current_loop.idx_in_parent + 1
+                or can_make_adjacent(current_loop, next_loop)
+            ):
                 current_list.append(next_loop)
             else:
                 adjacent_loops.append(current_list)
                 current_list = [next_loop]
 
-        adjacent_loops.append(current_list)        
+        adjacent_loops.append(current_list)
 
     return adjacent_loops
 
 
-def fuse_scopes(loop_list: List[LoopInfo], loops_in_scope: Dict[int, List[LoopInfo]]) -> None:
+def fuse_scopes(
+    loop_list: List[LoopInfo], loops_in_scope: Dict[int, List[LoopInfo]]
+) -> None:
     """
     After fusing loops, the different scopes must be combined into
     one. We will need to update the loops_in_scope to reflect these
@@ -236,13 +247,17 @@ def get_loop_reads_writes(loop: LoopInfo) -> Tuple[Set[str], Set[str]]:
                     index_name = str(index.value)
                 elif isinstance(index, ast.Name):
                     if index_name in local_vars:
-                        raise RuntimeError("Can't fuse loops with local vars as indices")
+                        raise RuntimeError(
+                            "Can't fuse loops with local vars as indices"
+                        )
 
                     # Still making a big assumption that differently
                     # named indices won't have the same value
                     index_name = index.id
                 else:
-                    raise RuntimeError("Can't analyze deps with complex indices (for now)")
+                    raise RuntimeError(
+                        "Can't analyze deps with complex indices (for now)"
+                    )
 
                 if index_name == iterator_name:
                     array_name += f"_pk_it"
@@ -265,7 +280,9 @@ def get_loop_reads_writes(loop: LoopInfo) -> Tuple[Set[str], Set[str]]:
     return loop_reads, loop_writes
 
 
-def split_negative_dependencies(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo]]:
+def split_negative_dependencies(
+    loop_sets: List[List[LoopInfo]],
+) -> List[List[LoopInfo]]:
     """
     Split loops that have negative dependencies. According to
     https://llvm.org/devmtg/2018-10/slides/Barton-LoopFusion.pdf, a
@@ -363,9 +380,11 @@ def split_unfusable_loops(loop_sets: List[List[LoopInfo]]) -> List[List[LoopInfo
     return split_loops
 
 
-def identify_fusable_loops(loops_in_scope: Dict[int, List[LoopInfo]]) -> List[List[LoopInfo]]:
+def identify_fusable_loops(
+    loops_in_scope: Dict[int, List[LoopInfo]],
+) -> List[List[LoopInfo]]:
     """
-    Partition the list of loops into sets that can be fused    
+    Partition the list of loops into sets that can be fused
 
     :param loops_in_scope: a dict mapping from each scope to the list of
         loops it contains
@@ -398,7 +417,9 @@ def identify_fusable_loops(loops_in_scope: Dict[int, List[LoopInfo]]) -> List[Li
     return fusable_loops
 
 
-def rename_variables(loop: LoopInfo, loop_idx: int, new_iterator: str) -> List[ast.stmt]:
+def rename_variables(
+    loop: LoopInfo, loop_idx: int, new_iterator: str
+) -> List[ast.stmt]:
     """
     Rename the variables in a loop's body according to the loop's
     index

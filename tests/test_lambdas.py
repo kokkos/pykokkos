@@ -13,7 +13,9 @@ class Add1DTestReduce:
 
     @pk.main
     def run(self):
-        self.sum = pk.parallel_reduce("name", self.threads, lambda i, acc: acc + self.value)
+        self.sum = pk.parallel_reduce(
+            "name", self.threads, lambda i, acc: acc + self.value
+        )
 
 
 @pk.workload
@@ -25,7 +27,9 @@ class Add1DSquareTestReduce:
 
     @pk.main
     def run(self):
-        self.sum = pk.parallel_reduce(self.threads, lambda i, acc: acc + self.value * self.value)
+        self.sum = pk.parallel_reduce(
+            self.threads, lambda i, acc: acc + self.value * self.value
+        )
 
 
 @pk.workload
@@ -35,11 +39,13 @@ class Add1DTestFor:
         self.initial_value: int = initial_value
         self.added_value: int = added_value
         self.view: pk.View1D[pk.int32] = pk.View([threads], pk.int32)
-  
+
     @pk.main
     def run(self):
         pk.parallel_for("name", self.threads, lambda i: self.initial_value, self.view)
-        pk.parallel_for(self.threads, lambda i: self.view[i] + self.added_value, self.view)
+        pk.parallel_for(
+            self.threads, lambda i: self.view[i] + self.added_value, self.view
+        )
 
 
 class TestLambda(unittest.TestCase):
@@ -76,5 +82,5 @@ class TestLambda(unittest.TestCase):
             self.assertEqual(result, expected_result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

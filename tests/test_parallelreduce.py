@@ -33,7 +33,9 @@ class TestParallelReduce(unittest.TestCase):
 
     def test_add(self):
         expected_result: int = self.value * self.threads
-        result: int = pk.parallel_reduce("reduction", self.range_policy, self.functor.add)
+        result: int = pk.parallel_reduce(
+            "reduction", self.range_policy, self.functor.add
+        )
 
         self.assertEqual(expected_result, result)
 
@@ -88,5 +90,6 @@ def test_squaresum_types(series_max, dtype):
     actual = ss_instance.total
     assert_allclose(actual, expected)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -6,10 +6,13 @@ from numpy.testing import assert_allclose
 
 # Tests translation of KOKKOS_FUNCTIONS to C++
 @pk.functor(
-        subview_1=pk.ViewTypeInfo(trait=pk.Unmanaged),
-        subview_2=pk.ViewTypeInfo(trait=pk.Unmanaged))
+    subview_1=pk.ViewTypeInfo(trait=pk.Unmanaged),
+    subview_2=pk.ViewTypeInfo(trait=pk.Unmanaged),
+)
 class KokkosFunctionsTestReduceFunctor:
-    def __init__(self, threads: int, i_1: int, i_2: int, f_1: float, f_2: float, b_1: bool):
+    def __init__(
+        self, threads: int, i_1: int, i_2: int, f_1: float, f_2: float, b_1: bool
+    ):
         self.threads: int = threads
         self.i_1: int = i_1
         self.i_2: int = i_2
@@ -19,10 +22,12 @@ class KokkosFunctionsTestReduceFunctor:
 
         self.view1D: pk.View1D[pk.int32] = pk.View([threads], pk.int32)
         self.view2D: pk.View2D[pk.int32] = pk.View([threads, threads], pk.int32)
-        self.view3D: pk.View3D[pk.int32] = pk.View([threads, threads, threads], pk.int32)
+        self.view3D: pk.View3D[pk.int32] = pk.View(
+            [threads, threads, threads], pk.int32
+        )
 
-        self.subview_1: pk.View1D[pk.int32] = self.view1D[threads // 2:]
-        self.subview_2: pk.View2D[pk.int32] = self.view2D[threads // 2:, :]
+        self.subview_1: pk.View1D[pk.int32] = self.view1D[threads // 2 :]
+        self.subview_2: pk.View2D[pk.int32] = self.view2D[threads // 2 :, :]
 
     @pk.function
     def return_constant(self) -> int:
@@ -129,10 +134,9 @@ class TestKokkosFunctionsTranslator(unittest.TestCase):
         self.f_2: float = 1.3
         self.b_1: bool = True
 
-        self.functor = KokkosFunctionsTestReduceFunctor(self.threads,
-                                                       self.i_1, self.i_2,
-                                                       self.f_1, self.f_2,
-                                                       self.b_1)
+        self.functor = KokkosFunctionsTestReduceFunctor(
+            self.threads, self.i_1, self.i_2, self.f_1, self.f_2, self.b_1
+        )
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
 
     def test_constant_sum(self):
@@ -188,7 +192,9 @@ class TestKokkosFunctionsTranslator(unittest.TestCase):
 
     def test_subviews_sum(self):
         expected_result: int = self.threads * (self.i_1 * 2)
-        temp: int = pk.parallel_reduce(self.range_policy, self.functor.views) # initialize views
+        temp: int = pk.parallel_reduce(
+            self.range_policy, self.functor.views
+        )  # initialize views
         result: int = pk.parallel_reduce(self.range_policy, self.functor.subviews)
 
         self.assertEqual(expected_result, result)

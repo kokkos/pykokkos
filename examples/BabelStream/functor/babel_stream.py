@@ -4,9 +4,12 @@ import argparse
 from functools import reduce
 import sys
 
+
 @pk.functor
 class KokkosStream:
-    def __init__(self, ARRAY_SIZE: int, initA: float, initB: float, initC: float, scalar: float):
+    def __init__(
+        self, ARRAY_SIZE: int, initA: float, initB: float, initC: float, scalar: float
+    ):
         self.a: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
         self.b: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
         self.c: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
@@ -44,7 +47,7 @@ class KokkosStream:
 
 
 def run() -> None:
-    array_size: int = 2**25 # 100000
+    array_size: int = 2**25  # 100000
     startA: float = 0.1
     startB: float = 0.2
     startC: float = 0.0
@@ -53,8 +56,12 @@ def run() -> None:
     space = pk.ExecutionSpace.OpenMP
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--arraysize", type=int, help="Use SIZE elemnts in the array")
-    parser.add_argument("-n", "--numtimes", type=int, help="Run the test NUM times (NUM >= 2)")
+    parser.add_argument(
+        "-s", "--arraysize", type=int, help="Use SIZE elemnts in the array"
+    )
+    parser.add_argument(
+        "-n", "--numtimes", type=int, help="Run the test NUM times (NUM >= 2)"
+    )
     parser.add_argument("-space", "--execution_space", type=str)
     args = parser.parse_args()
 
@@ -111,19 +118,22 @@ def run() -> None:
 
     # epsi = sys.float_info.epsilon * 100
     epsi = 1e-8
-    if (errA > epsi):
+    if errA > epsi:
         print(f"Validation failed on a[]. Average error {errA}")
-    if (errB > epsi):
+    if errB > epsi:
         print(f"Validation failed on b[]. Average error {errB}")
-    if (errC > epsi):
+    if errC > epsi:
         print(f"Validation failed on c[]. Average error {errC}")
 
     goldSum = goldA * goldB * array_size
     errSum = n_sum - goldSum
-    if (abs(errSum) > 1e-8):
+    if abs(errSum) > 1e-8:
         print(f"Validation failed on sum. Error {errSum}")
 
-    print("%-12s%-12s%-12s%-12s%-12s" % ("Function", "MBytes/sec", "Min (sec)", "Max", "Average"))
+    print(
+        "%-12s%-12s%-12s%-12s%-12s"
+        % ("Function", "MBytes/sec", "Min (sec)", "Max", "Average")
+    )
     double_size = 8
     sizes = [
         2 * double_size * array_size,
@@ -136,13 +146,17 @@ def run() -> None:
     for i in range(5):
         t_min = min(timings[i])
         t_max = max(timings[i])
-        t_average = sum(timings[i])/len(timings[i])
-        print("%-12s%-12.3f%-12.5f%-12.5f%-12.5f" % (labels[i], 1e-6*sizes[i]/t_min, t_min, t_max, t_average))
+        t_average = sum(timings[i]) / len(timings[i])
+        print(
+            "%-12s%-12.3f%-12.5f%-12.5f%-12.5f"
+            % (labels[i], 1e-6 * sizes[i] / t_min, t_min, t_max, t_average)
+        )
 
     # total_bytes = 3 * sys.getsizeof(0.0) * array_size * num_times;
     # bandwidth = 1.0e-9 * (total_bytes / runtime)
     # print(f"Runtime (seconds): {runtime}")
     # print(f"Bandwidth (GB/s): {bandwidth}")
+
 
 if __name__ == "__main__":
     run()

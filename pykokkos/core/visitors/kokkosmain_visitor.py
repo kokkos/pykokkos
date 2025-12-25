@@ -12,20 +12,31 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 class KokkosMainVisitor(PyKokkosVisitor):
     def __init__(
-            self, env, src,
-            views: Dict[str, View],
-            work_units: Dict[str, FunctionDef],
-            fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
-            kokkos_functions: Dict[str, FunctionDef],
-            dependency_methods: Dict[str, List[str]],
-            functor: str,
-            pk_import: str,
-            restrict_views: Set[str] = set(),
-            debug=False
+        self,
+        env,
+        src,
+        views: Dict[str, View],
+        work_units: Dict[str, FunctionDef],
+        fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+        kokkos_functions: Dict[str, FunctionDef],
+        dependency_methods: Dict[str, List[str]],
+        functor: str,
+        pk_import: str,
+        restrict_views: Set[str] = set(),
+        debug=False,
     ):
-        super().__init__(env, src, views, work_units, fields,
-                         kokkos_functions, dependency_methods,
-                         pk_import, restrict_views, debug)
+        super().__init__(
+            env,
+            src,
+            views,
+            work_units,
+            fields,
+            kokkos_functions,
+            dependency_methods,
+            pk_import,
+            restrict_views,
+            debug,
+        )
 
         self.functor: str = functor
         self.reduction_result_queue: List[str] = []
@@ -59,18 +70,16 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
                 call = cppast.CallStmt(self.visit(node.value))
                 target_ref = cppast.DeclRefExpr(target_name)
-                target_view_ref = cppast.DeclRefExpr(
-                    f"timer_result_{target_name}")
+                target_view_ref = cppast.DeclRefExpr(f"timer_result_{target_name}")
                 subscript = cppast.ArraySubscriptExpr(
-                    target_view_ref, [cppast.IntegerLiteral(0)])
+                    target_view_ref, [cppast.IntegerLiteral(0)]
+                )
                 assign_op = cppast.BinaryOperatorKind.Assign
 
                 # Holds the result of the reduction temporarily
                 temp_ref = cppast.DeclRefExpr("pk_acc")
-                target_assign = cppast.AssignOperator(
-                    [target_ref], temp_ref, assign_op)
-                view_assign = cppast.AssignOperator(
-                    [subscript], target_ref, assign_op)
+                target_assign = cppast.AssignOperator([target_ref], temp_ref, assign_op)
+                view_assign = cppast.AssignOperator([subscript], target_ref, assign_op)
 
                 return cppast.CompoundStmt([call, target_assign, view_assign])
 
@@ -100,28 +109,43 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 if name != "BinSort":
                     dimension: int = 1 if name == "BinOp1D" else 3
                     cpp_type = cppast.DeclRefExpr(
-                        BinOp.get_type(dimension, view_type_str))
+                        BinOp.get_type(dimension, view_type_str)
+                    )
 
                     # Do not translate the first argument (view)
                     constructor = cppast.CallExpr(
-                        cpp_type, [self.visit(a) for a in args[1:]])
+                        cpp_type, [self.visit(a) for a in args[1:]]
+                    )
 
                 else:
-                    bin_op_type: str = f"decltype({visitors_util.get_node_name(args[1])})"
+                    bin_op_type: str = (
+                        f"decltype({visitors_util.get_node_name(args[1])})"
+                    )
 
-                    binsort_args: List[cppast.DeclRefExpr] = [self.visit(a) for a in args]
-                    cpp_type = cppast.DeclRefExpr(BinSort.get_type(f"decltype({binsort_args[0].declname})", bin_op_type, Keywords.DefaultExecSpace.value))
+                    binsort_args: List[cppast.DeclRefExpr] = [
+                        self.visit(a) for a in args
+                    ]
+                    cpp_type = cppast.DeclRefExpr(
+                        BinSort.get_type(
+                            f"decltype({binsort_args[0].declname})",
+                            bin_op_type,
+                            Keywords.DefaultExecSpace.value,
+                        )
+                    )
                     constructor = cppast.CallExpr(cpp_type, binsort_args)
 
                 cpp_target: cppast.DeclRefExpr = self.visit(target)
                 auto_type = cppast.ClassType("auto")
 
-                return cppast.DeclStmt(cppast.VarDecl(auto_type, cpp_target, constructor))
+                return cppast.DeclStmt(
+                    cppast.VarDecl(auto_type, cpp_target, constructor)
+                )
 
             if name in ("get_bin_count", "get_bin_offsets", "get_permute_vector"):
                 if not isinstance(target, ast.Attribute) or target.value.id != "self":
                     self.error(
-                        node, "Views defined in pk.main must be an instance variable")
+                        node, "Views defined in pk.main must be an instance variable"
+                    )
 
                 cpp_target: str = visitors_util.get_node_name(target)
                 cpp_device_target = f"pk_d_{cpp_target}"
@@ -129,10 +153,10 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 sorter: cppast.DeclRefExpr = self.visit(node.value.func.value)
 
                 initial_target_ref = cppast.DeclRefExpr(
-                    f"_pk_{cpp_target_ref.declname}")
+                    f"_pk_{cpp_target_ref.declname}"
+                )
 
-                function = cppast.MemberCallExpr(
-                    sorter, cppast.DeclRefExpr(name), [])
+                function = cppast.MemberCallExpr(sorter, cppast.DeclRefExpr(name), [])
 
                 # Add to the dict of declarations made in pk.main
                 if name == "get_permute_vector":
@@ -141,38 +165,55 @@ class KokkosMainVisitor(PyKokkosVisitor):
                     # so it needs to be classified as a pkmain_view.
                     if cpp_target in self.views:
                         self.views[cpp_target_ref].add_template_param(
-                            cppast.PrimitiveType(cppast.BuiltinType.INT))
+                            cppast.PrimitiveType(cppast.BuiltinType.INT)
+                        )
 
-                        return cppast.AssignOperator([cpp_target_ref], function, cppast.BinaryOperatorKind.Assign)
+                        return cppast.AssignOperator(
+                            [cpp_target_ref], function, cppast.BinaryOperatorKind.Assign
+                        )
                         # return f"{cpp_target} = {sorter}.{name}();"
 
-                    self.pkmain_views[cpp_target_ref] = cppast.ClassType(
-                        "View1D")
+                    self.pkmain_views[cpp_target_ref] = cppast.ClassType("View1D")
                 else:
                     self.pkmain_views[cpp_target_ref] = None
 
                 auto_type = cppast.ClassType("auto")
-                decl = cppast.DeclStmt(cppast.VarDecl(
-                    auto_type, initial_target_ref, function))
+                decl = cppast.DeclStmt(
+                    cppast.VarDecl(auto_type, initial_target_ref, function)
+                )
 
                 # resize the workload's vector to match the generated vector
                 resize_call = cppast.CallStmt(
-                    cppast.CallExpr(cppast.DeclRefExpr("Kokkos::resize"),
-                                    [cpp_target_ref,
-                                     cppast.MemberCallExpr(
-                                         initial_target_ref,
-                                         cppast.DeclRefExpr("extent"),
-                                         [cppast.IntegerLiteral(0)])]))
+                    cppast.CallExpr(
+                        cppast.DeclRefExpr("Kokkos::resize"),
+                        [
+                            cpp_target_ref,
+                            cppast.MemberCallExpr(
+                                initial_target_ref,
+                                cppast.DeclRefExpr("extent"),
+                                [cppast.IntegerLiteral(0)],
+                            ),
+                        ],
+                    )
+                )
 
-                copy_call = cppast.CallStmt(cppast.CallExpr(cppast.DeclRefExpr(
-                    "Kokkos::deep_copy"), [cpp_target_ref, initial_target_ref]))
+                copy_call = cppast.CallStmt(
+                    cppast.CallExpr(
+                        cppast.DeclRefExpr("Kokkos::deep_copy"),
+                        [cpp_target_ref, initial_target_ref],
+                    )
+                )
 
                 # Assign to the functor after resizing
                 functor = cppast.DeclRefExpr("pk_f")
                 functor_access = cppast.MemberExpr(functor, cpp_target)
-                functor_assign = cppast.AssignOperator([functor_access], cpp_target_ref, cppast.BinaryOperatorKind.Assign)
+                functor_assign = cppast.AssignOperator(
+                    [functor_access], cpp_target_ref, cppast.BinaryOperatorKind.Assign
+                )
 
-                return cppast.CompoundStmt([decl, resize_call, copy_call, functor_assign])
+                return cppast.CompoundStmt(
+                    [decl, resize_call, copy_call, functor_assign]
+                )
 
         # Assign result of parallel_reduce
         if type(target) not in {ast.Name, ast.Subscript} and target.value.id == "self":
@@ -182,18 +223,16 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
             call = cppast.CallStmt(self.visit(node.value))
             target_ref = cppast.DeclRefExpr(target_name)
-            target_view_ref = cppast.DeclRefExpr(
-                f"reduction_result_{target_name}")
+            target_view_ref = cppast.DeclRefExpr(f"reduction_result_{target_name}")
             subscript = cppast.ArraySubscriptExpr(
-                target_view_ref, [cppast.IntegerLiteral(0)])
+                target_view_ref, [cppast.IntegerLiteral(0)]
+            )
             assign_op = cppast.BinaryOperatorKind.Assign
 
             # Holds the result of the reduction temporarily
             temp_ref = cppast.DeclRefExpr("pk_acc")
-            target_assign = cppast.AssignOperator(
-                [target_ref], temp_ref, assign_op)
-            view_assign = cppast.AssignOperator(
-                [subscript], target_ref, assign_op)
+            target_assign = cppast.AssignOperator([target_ref], temp_ref, assign_op)
+            view_assign = cppast.AssignOperator([subscript], target_ref, assign_op)
 
             return cppast.CompoundStmt([call, target_assign, view_assign])
 
@@ -213,11 +252,15 @@ class KokkosMainVisitor(PyKokkosVisitor):
         return super().visit_Attribute(node)
 
     def visit_Lambda(self, node: ast.Lambda) -> cppast.Expr:
-        #NOTE: should handle args, kwonlyargs, varargs, kwargs, defaults
+        # NOTE: should handle args, kwonlyargs, varargs, kwargs, defaults
         return self.visit(node.body)
 
-    def visit_Subscript(self, node: ast.Subscript) -> Union[cppast.ArraySubscriptExpr, cppast.CallExpr]:
-        call: Union[cppast.ArraySubscriptExpr, cppast.CallExpr] = super().visit_Subscript(node)
+    def visit_Subscript(
+        self, node: ast.Subscript
+    ) -> Union[cppast.ArraySubscriptExpr, cppast.CallExpr]:
+        call: Union[cppast.ArraySubscriptExpr, cppast.CallExpr] = (
+            super().visit_Subscript(node)
+        )
         if isinstance(call, cppast.CallExpr):
             view_name: str = call.function.declname
             call._function._declname = f"pk_d_{view_name}"
@@ -264,31 +307,40 @@ class KokkosMainVisitor(PyKokkosVisitor):
                     explicit_rank = keyword.value.args[0].value
                     if explicit_rank != rank:
                         self.error(node.value, "RangePolicy dimension mismatch")
-                        
+
                     iter_outer = getattr(Iterate, keyword.value.args[1].attr)
                     iter_inner = getattr(Iterate, keyword.value.args[2].attr)
 
-            function = cppast.DeclRefExpr(f"Kokkos::{name}<Kokkos::Rank<{rank},{iter_outer.value},{iter_inner.value}>>")
+            function = cppast.DeclRefExpr(
+                f"Kokkos::{name}<Kokkos::Rank<{rank},{iter_outer.value},{iter_inner.value}>>"
+            )
             policy = cppast.ConstructExpr(cppast.DeclRefExpr(f"Kokkos::{name}"), args)
             if name == "MDRangePolicy":
-                policy.add_template_param(cppast.DeclRefExpr(f"Kokkos::Rank<{rank},{iter_outer.value},{iter_inner.value}>"))
+                policy.add_template_param(
+                    cppast.DeclRefExpr(
+                        f"Kokkos::Rank<{rank},{iter_outer.value},{iter_inner.value}>"
+                    )
+                )
 
             return policy
 
         if name == "seconds":
-            fence = cppast.CallStmt(cppast.CallExpr(
-                cppast.DeclRefExpr("Kokkos::fence"), []))
+            fence = cppast.CallStmt(
+                cppast.CallExpr(cppast.DeclRefExpr("Kokkos::fence"), [])
+            )
             temp_decl = cppast.DeclRefExpr("pk_acc")
-            seconds = cppast.MemberCallExpr(cppast.DeclRefExpr(
-                "timer"), cppast.DeclRefExpr("seconds"), [])
+            seconds = cppast.MemberCallExpr(
+                cppast.DeclRefExpr("timer"), cppast.DeclRefExpr("seconds"), []
+            )
             result = cppast.AssignOperator(
-                [temp_decl], seconds, cppast.BinaryOperatorKind.Assign)
+                [temp_decl], seconds, cppast.BinaryOperatorKind.Assign
+            )
 
             return cppast.CompoundStmt([fence, result])
 
         function = cppast.DeclRefExpr(f"Kokkos::{name}")
         if name == "parallel_for":
-            arg_start: int = 0 # Accounts for the optional kernel name
+            arg_start: int = 0  # Accounts for the optional kernel name
             kernel_name: Optional[cppast.StringLiteral] = None
             if isinstance(args[0], cppast.StringLiteral):
                 kernel_name = args[0]
@@ -301,10 +353,12 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 decl: str = "KOKKOS_LAMBDA ("
                 tid = cppast.DeclRefExpr(node.args[arg_start + 1].args.args[0].arg)
 
-                # if target exists 
+                # if target exists
                 if len(args) == arg_start + 3:
                     target = cppast.ArraySubscriptExpr(args[arg_start + 2], [tid])
-                    args[arg_start + 1] = cppast.AssignOperator([target], args[arg_start + 1], cppast.BinaryOperatorKind.Assign)
+                    args[arg_start + 1] = cppast.AssignOperator(
+                        [target], args[arg_start + 1], cppast.BinaryOperatorKind.Assign
+                    )
 
                 serializer = cppast.Serializer()
                 decl += f"int {tid.declname}) {{"
@@ -327,7 +381,7 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 return cppast.CallExpr(function, call_args)
 
         if name in ("parallel_reduce", "parallel_scan"):
-            arg_start: int = 0 # Accounts for the optional kernel name
+            arg_start: int = 0  # Accounts for the optional kernel name
             kernel_name: Optional[cppast.StringLiteral] = None
             if isinstance(args[0], cppast.StringLiteral):
                 kernel_name = args[0]
@@ -340,7 +394,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 initial_value = cppast.IntegerLiteral(0)
 
             acc_decl = cppast.DeclRefExpr("pk_acc")
-            init_var = cppast.BinaryOperator(acc_decl, initial_value, cppast.BinaryOperatorKind.Assign)
+            init_var = cppast.BinaryOperator(
+                acc_decl, initial_value, cppast.BinaryOperatorKind.Assign
+            )
 
             policy: cppast.ConstructExpr = args[arg_start]
             policy = self.add_space_to_policy(policy)
@@ -351,7 +407,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 acc = cppast.DeclRefExpr(node.args[arg_start + 1].args.args[1].arg)
 
                 # assign to accumulator
-                args[arg_start + 1] = cppast.AssignOperator([acc], args[arg_start + 1], cppast.BinaryOperatorKind.Assign)
+                args[arg_start + 1] = cppast.AssignOperator(
+                    [acc], args[arg_start + 1], cppast.BinaryOperatorKind.Assign
+                )
 
                 serializer = cppast.Serializer()
                 decl += f"int {tid.declname}, double& {acc.declname}) {{"
@@ -367,13 +425,19 @@ class KokkosMainVisitor(PyKokkosVisitor):
                 work_unit: str = args[arg_start + 1].declname
                 policy = self.add_workunit_to_policy(policy, work_unit)
 
-                call_args: List[cppast.Expr] = [policy, cppast.DeclRefExpr("pk_f"), acc_decl]
+                call_args: List[cppast.Expr] = [
+                    policy,
+                    cppast.DeclRefExpr("pk_f"),
+                    acc_decl,
+                ]
                 if kernel_name is not None:
                     call_args.insert(0, kernel_name)
 
                 return cppast.CallExpr(function, call_args)
 
-            return cppast.BinaryOperator(init_var, call, cppast.BinaryOperatorKind.Comma)
+            return cppast.BinaryOperator(
+                init_var, call, cppast.BinaryOperatorKind.Comma
+            )
 
         if name in dir(BinSort):
             sorter: str = visitors_util.get_node_name(node.func.value)
@@ -406,7 +470,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
         return super().visit_Constant(node)
 
-    def add_space_to_policy(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
+    def add_space_to_policy(
+        self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]
+    ) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
         """
         Add the execution space to the execution policy
 
@@ -417,7 +483,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
         # Replace the number of threads with a RangePolicy
         if type(policy) not in (cppast.ConstructExpr, cppast.MemberCallExpr):
             begin = cppast.IntegerLiteral(0)
-            policy = cppast.ConstructExpr(cppast.DeclRefExpr("Kokkos::RangePolicy"), [begin, policy])
+            policy = cppast.ConstructExpr(
+                cppast.DeclRefExpr("Kokkos::RangePolicy"), [begin, policy]
+            )
 
         space = cppast.DeclRefExpr(Keywords.DefaultExecSpace.value)
         policy_constructor = self.get_policy_constructor(policy)
@@ -425,7 +493,9 @@ class KokkosMainVisitor(PyKokkosVisitor):
 
         return policy
 
-    def add_workunit_to_policy(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr], work_unit: str) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
+    def add_workunit_to_policy(
+        self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr], work_unit: str
+    ) -> Union[cppast.ConstructExpr, cppast.MemberCallExpr]:
         """
         Add the workunit tag to the execution policy
 
@@ -435,11 +505,15 @@ class KokkosMainVisitor(PyKokkosVisitor):
         """
 
         policy_constructor = self.get_policy_constructor(policy)
-        policy_constructor.add_template_param(cppast.DeclRefExpr(f"{self.functor}::{work_unit}_tag"))
+        policy_constructor.add_template_param(
+            cppast.DeclRefExpr(f"{self.functor}::{work_unit}_tag")
+        )
 
         return policy
 
-    def get_policy_constructor(self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]) -> cppast.ConstructExpr:
+    def get_policy_constructor(
+        self, policy: Union[cppast.ConstructExpr, cppast.MemberCallExpr]
+    ) -> cppast.ConstructExpr:
         """
         Get the call to the policy constructor from the policy object
 

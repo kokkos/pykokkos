@@ -25,6 +25,7 @@ class Benchmark_double_8:
     def benchmark(self, team: pk.TeamMember):
         n: int = team.league_rank()
         for r in range(self.R):
+
             def team_for(i: int):
                 a1: pk.double = self.A[n][i][0]
                 b: pk.double = self.B[n][i][0]
@@ -48,8 +49,8 @@ class Benchmark_double_8:
 
                 self.C[n][i][0] = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
 
-
             pk.parallel_for(pk.TeamThreadRange(team, self.K), team_for)
+
 
 def run() -> None:
     # example args
@@ -63,13 +64,21 @@ def run() -> None:
     parser.add_argument("P", type=int, help="Precision (1==float, 2==double)")
     parser.add_argument("N", type=int, help="N dimensions of the 2D array to allocate")
     parser.add_argument("K", type=int, help="K dimension of the 2D array to allocate")
-    parser.add_argument("R", type=int, help="how often to loop through the K dimension with each team")
+    parser.add_argument(
+        "R", type=int, help="how often to loop through the K dimension with each team"
+    )
     parser.add_argument("D", type=int, help="distance between loaded elements (stride)")
     parser.add_argument("U", type=int, help="how many independent flops to do per load")
-    parser.add_argument("F", type=int, help="how many times to repeat the U unrolled operations before reading next element")
+    parser.add_argument(
+        "F",
+        type=int,
+        help="how many times to repeat the U unrolled operations before reading next element",
+    )
     parser.add_argument("T", type=int, help="team size")
     # NOTE: S ignored
-    parser.add_argument("S", type=int, help="shared memory per team (used to control occupancy on GPUs)")
+    parser.add_argument(
+        "S", type=int, help="shared memory per team (used to control occupancy on GPUs)"
+    )
     parser.add_argument("--execution_space", type=str)
     args = parser.parse_args()
 
@@ -110,8 +119,10 @@ def run() -> None:
 
     num_bytes = 1.0 * N * K * R * 3 * scalar_size
     flops = 1.0 * N * K * R * (F * 2 * U + 2 * (U - 1))
-    print(f"NKRUFTS: {N} {K} {R} {U} {F} {T} {S} Time: {seconds} " +
-            f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds}")
+    print(
+        f"NKRUFTS: {N} {K} {R} {U} {F} {T} {S} Time: {seconds} "
+        + f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds}"
+    )
     print(w.C)
 
 

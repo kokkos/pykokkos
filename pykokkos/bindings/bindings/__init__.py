@@ -46,7 +46,9 @@ import sys
 import traceback
 
 __author__ = "Jonathan R. Madsen"
-__copyright__ = "Copyright 2020, National Technology & Engineering Solutions of Sandia, LLC (NTESS)"
+__copyright__ = (
+    "Copyright 2020, National Technology & Engineering Solutions of Sandia, LLC (NTESS)"
+)
 __credits__ = ["Kokkos"]
 __license__ = "BSD-3"
 __version__ = "3.1.1"
@@ -59,41 +61,39 @@ try:
     from .libpykokkos import *
     from .utility import *
 
-    __all__ = ['version_info',
-               'build_info',
-               'version',
-               'libpykokkos',
-               'array',
-               ]
+    __all__ = [
+        "version_info",
+        "build_info",
+        "version",
+        "libpykokkos",
+        "array",
+    ]
 
 except Exception as e:
     exc_type, exc_value, exc_traceback = sys.exc_info()
     traceback.print_exception(exc_type, exc_value, exc_traceback)
     sys.exit(1)
 
-sys.modules[__name__].__setattr__(
-    "version_info",
-    (0,
-     0,
-     1))
-sys.modules[__name__].__setattr__(
-    "version",
-    "0.0.1")
+sys.modules[__name__].__setattr__("version_info", (0, 0, 1))
+sys.modules[__name__].__setattr__("version", "0.0.1")
 sys.modules[__name__].__setattr__(
     "build_info",
-    {"library_architecture": "x86_64",
-     "system_name": "Linux",
-     "system_version": "5.4.0-51-generic",
-     "build_type": "Release",
-     "compiler": "/home/nalawar/Kokkos/kokkos/bin/nvcc_wrapper",
-     "compiler_id": "GNU",
-     "compiler_version": "7.5.0"})
+    {
+        "library_architecture": "x86_64",
+        "system_name": "Linux",
+        "system_version": "5.4.0-51-generic",
+        "build_type": "Release",
+        "compiler": "/home/nalawar/Kokkos/kokkos/bin/nvcc_wrapper",
+        "compiler_id": "GNU",
+        "compiler_version": "7.5.0",
+    },
+)
 
 version_info = sys.modules[__name__].__getattribute__("version_info")
-'''Tuple of version fields'''
+"""Tuple of version fields"""
 
 build_info = sys.modules[__name__].__getattribute__("build_info")
-'''Build information'''
+"""Build information"""
 
 version = sys.modules[__name__].__getattribute__("version")
-'''Version string'''
+"""Version string"""

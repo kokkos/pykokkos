@@ -4,14 +4,17 @@ import pykokkos as pk
 
 from parse_args import parse_args
 
+
 @pk.workunit
 def y_init(i, y_view):
     y_view[i] = 1
+
 
 @pk.workunit
 def matrix_init(j, cols, A_view):
     for i in range(cols):
         A_view[j * cols + i] = 1
+
 
 @pk.workunit
 def yAx(j, acc, cols, y_view, x_view, A_view):
@@ -21,11 +24,12 @@ def yAx(j, acc, cols, y_view, x_view, A_view):
 
     acc += y_view[j] * temp2
 
+
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
-    N: int = values[0] # Rows
-    M: int = values[1] # Cols
-    nrepeat: int = 1 
+    N: int = values[0]  # Rows
+    M: int = values[1]  # Cols
+    nrepeat: int = 1
     print(f"Total size S = {N * M} N = {N} M = {M}")
 
     y = pk.View([N], pk.double)
@@ -50,7 +54,10 @@ def run() -> None:
     if result != solution:
         pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
+
 
 if __name__ == "__main__":
     run()

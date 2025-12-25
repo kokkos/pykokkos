@@ -5,11 +5,21 @@ from typing import Dict, List, Optional, Set, Union
 
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.visitors.visitors_util import (
-    math_constants, math_functions, allowed_types, view_dtypes
+    math_constants,
+    math_functions,
+    allowed_types,
+    view_dtypes,
 )
 from pykokkos.interface import (
-    View, TeamMember, BinSort, ViewType, Timer,
-    Iterate, Rank, ScratchView, TeamPolicy
+    View,
+    TeamMember,
+    BinSort,
+    ViewType,
+    Timer,
+    Iterate,
+    Rank,
+    ScratchView,
+    TeamPolicy,
 )
 from .members import PyKokkosMembers
 
@@ -59,13 +69,16 @@ class SymbolsPass:
 
         self.global_symbols.update([field.declname for field in members.fields])
         self.global_symbols.update([view.declname for view in members.views])
-        self.global_symbols.update([workunit.declname for workunit in members.pk_workunits])
-        self.global_symbols.update([function.declname for function in members.pk_functions])
+        self.global_symbols.update(
+            [workunit.declname for workunit in members.pk_workunits]
+        )
+        self.global_symbols.update(
+            [function.declname for function in members.pk_functions]
+        )
 
         for classtype, methods in members.classtype_methods.items():
             self.global_symbols.add(classtype.declname)
             self.global_symbols.update([method.declname for method in methods])
-
 
     def check_symbols(self, AST: Union[ast.ClassDef, ast.FunctionDef]) -> List[str]:
         """
@@ -89,16 +102,14 @@ class SymbolsPass:
             if symbol in self.reserved_symbols:
                 error_nodes[node] = ErrorStatus.reserved
 
-
         return self.get_error_messages(error_nodes)
-
 
     def get_local_symbols(self, AST: Union[ast.ClassDef, ast.FunctionDef]) -> Set[str]:
         """
         Get a set of all symbols used in an AST locally
-        
+
         :param AST: the parent node of the AST being checked
-        :returns: a set of all local symbols defined in the AST 
+        :returns: a set of all local symbols defined in the AST
         """
 
         symbols: Set[str] = set()
@@ -118,14 +129,12 @@ class SymbolsPass:
 
         return symbols
 
-
     def is_nested_call(self, node: ast.FunctionDef) -> bool:
         args = node.args.args
         if len(args) == 0 or (args[0].arg != "self" and len(node.decorator_list) == 0):
             return True
 
         return False
-
 
     def get_symbol(self, node: ast.AST) -> Optional[str]:
         """
@@ -145,7 +154,6 @@ class SymbolsPass:
 
         return None
 
-
     def is_classtype_member(self, node: ast.AST) -> bool:
         """
         Check if an ast node is a member variable of a classtype
@@ -156,12 +164,11 @@ class SymbolsPass:
 
         if isinstance(node, ast.Attribute):
             if isinstance(node.value, ast.Name):
-                name: str = node.value.id   
+                name: str = node.value.id
                 if name not in self.global_symbols:
                     return True
 
         return False
-
 
     def get_error_messages(self, nodes: Dict[ast.AST, ErrorStatus]) -> List[str]:
         """
@@ -178,7 +185,9 @@ class SymbolsPass:
             if symbol is None:
                 sys.exit("Internal Error")
 
-            message: str = f"File \"{self.path}\", line {node.lineno}:\n {error.value} symbol {symbol} used"
+            message: str = (
+                f'File "{self.path}", line {node.lineno}:\n {error.value} symbol {symbol} used'
+            )
             messages.append(message)
 
         return messages

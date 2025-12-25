@@ -6,10 +6,7 @@ from enum import Enum
 import os
 import sys
 from types import ModuleType
-from typing import (
-    Dict, Generic, Iterator, List, Optional,
-    Tuple, TypeVar, Union
-)
+from typing import Dict, Generic, Iterator, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
@@ -19,14 +16,22 @@ import pykokkos.kokkos_manager as km
 from pykokkos.runtime import runtime_singleton
 
 from .data_types import (
-    DataType, DataTypeClass,
+    DataType,
+    DataTypeClass,
     real,
     int8,
-    int16, int32, int64,
+    int16,
+    int32,
+    int64,
     uint8,
-    uint16, uint32, uint64,
-    double, float32, float64,
-    complex64, complex128
+    uint16,
+    uint32,
+    uint64,
+    double,
+    float32,
+    float64,
+    complex64,
+    complex128,
 )
 from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
@@ -35,6 +40,7 @@ from .hierarchical import TeamMember
 
 ARRAY_REQ_ATTR = ["dtype", "data", "shape", "flags"]
 
+
 class Trait(Enum):
     Atomic = kokkos.Atomic
     TraitDefault = None
@@ -42,12 +48,19 @@ class Trait(Enum):
     Restrict = kokkos.Restrict
     Unmanaged = kokkos.Unmanaged
 
+
 class ViewTypeInfo:
     """
     Contains type information for a view that is used by a functor
     """
 
-    def __init__(self, *, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None, trait: Optional[Trait] = None):
+    def __init__(
+        self,
+        *,
+        space: Optional[MemorySpace] = None,
+        layout: Optional[Layout] = None,
+        trait: Optional[Trait] = None,
+    ):
         """
         ViewTypeInfo constructor
 
@@ -92,8 +105,7 @@ class ViewType:
         """
 
         if dimension >= self.rank() and not (dimension == 0 and self.shape == ()):
-            raise ValueError(
-                "\"dimension\" must be less than the view's rank")
+            raise ValueError('"dimension" must be less than the view\'s rank')
 
         if self.shape == ():
             return 0
@@ -108,14 +120,20 @@ class ViewType:
         """
 
         if isinstance(value, (complex, complex64, complex128)):
-            value = np.complex64(value.real, value.imag) if self.dtype is complex64 else np.complex128(value.real, value.imag)
+            value = (
+                np.complex64(value.real, value.imag)
+                if self.dtype is complex64
+                else np.complex128(value.real, value.imag)
+            )
 
         if self.trait is Trait.Unmanaged:
             self.xp_array.fill(value)
         else:
             self.data.fill(value)
 
-    def __getitem__(self, key: Union[int, TeamMember, slice, Tuple]) -> Union[int, float, Subview]:
+    def __getitem__(
+        self, key: Union[int, TeamMember, slice, Tuple]
+    ) -> Union[int, float, Subview]:
         """
         Overloads the indexing operator accessing the View
 
@@ -150,7 +168,11 @@ class ViewType:
 
         return subview
 
-    def __setitem__(self, key: Union[int, TeamMember], value: Union[int, float, complex, complex64, complex128]) -> None:
+    def __setitem__(
+        self,
+        key: Union[int, TeamMember],
+        value: Union[int, float, complex, complex64, complex128],
+    ) -> None:
         """
         Overloads the indexing operator setting an item in the View.
 
@@ -162,7 +184,11 @@ class ViewType:
             runtime_singleton.runtime.flush_data(self)
 
         if isinstance(value, (complex, complex64, complex128)):
-            value = np.complex64(value.real, value.imag) if self.dtype is complex64 else np.complex128(value.real, value.imag)
+            value = (
+                np.complex64(value.real, value.imag)
+                if self.dtype is complex64
+                else np.complex128(value.real, value.imag)
+            )
 
         if self.trait is Trait.Unmanaged:
             self.xp_array[key] = value
@@ -173,7 +199,6 @@ class ViewType:
         # TODO: more complete implementation
         if self.shape == (1,) or self.shape == ():
             return bool(self.data)
-
 
     def __len__(self) -> int:
         """
@@ -232,7 +257,6 @@ class ViewType:
 
         return self
 
-
     def _scalarfunc(self, func):
         if "PK_FUSION" in os.environ:
             runtime_singleton.runtime.flush_data(self)
@@ -243,16 +267,16 @@ class ViewType:
         if self.ndim == 0 or (self.ndim == 1 and self.size == 1):
             val = self[0]
             # Handle case where val might be a numpy/cupy array (0-D array)
-            if hasattr(val, 'item'):
+            if hasattr(val, "item"):
                 return func(val.item())
             return func(val)
         else:
-            raise TypeError("only single element arrays can be converted to Python scalars.")
-
+            raise TypeError(
+                "only single element arrays can be converted to Python scalars."
+            )
 
     def __float__(self):
         return self._scalarfunc(float)
-
 
     def __int__(self):
         return self._scalarfunc(int)
@@ -267,7 +291,7 @@ class View(ViewType):
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
         array: Optional[np.ndarray] = None,
-        cp_array = None
+        cp_array=None,
     ):
         """
         View constructor.
@@ -300,7 +324,8 @@ class View(ViewType):
 
         if dimension >= self.rank() and not (dimension == 0 and self.shape == ()):
             raise ValueError(
-                f"Cannot resize dimension {dimension} since rank = {self.rank()}")
+                f"Cannot resize dimension {dimension} since rank = {self.rank()}"
+            )
 
         if self.shape != () and self.shape[dimension] == size:
             return
@@ -318,7 +343,15 @@ class View(ViewType):
         is_cpu: bool = self.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
         self.array = kokkos_lib.array(
-            "", self.shape, None, None, self.dtype.value, self.space.value, self.layout.value, self.trait.value)
+            "",
+            self.shape,
+            None,
+            None,
+            self.dtype.value,
+            self.space.value,
+            self.layout.value,
+            self.trait.value,
+        )
         self.data = np.array(self.array, copy=False)
 
         smaller: np.ndarray = old_data if old_data.size < self.data.size else self.data
@@ -344,7 +377,7 @@ class View(ViewType):
         layout: Layout = Layout.LayoutDefault,
         trait: Trait = Trait.TraitDefault,
         array: Optional[np.ndarray] = None,
-        cp_array = None
+        cp_array=None,
     ) -> None:
         """
         Initialize the view
@@ -372,7 +405,9 @@ class View(ViewType):
             layout = get_default_layout(space)
 
         # only allow CudaSpace/HIPSpace view for cupy arrays
-        if (space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}) and trait is not trait.Unmanaged:
+        if (
+            space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}
+        ) and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
         self.space: MemorySpace = space
@@ -399,7 +434,12 @@ class View(ViewType):
             else:
                 if array.dtype == np.bool_:
                     array = array.astype(np.uint8)
-                self.array = kokkos_lib.unmanaged_array(array, dtype=self.dtype.value, space=self.space.value, layout=self.layout.value)
+                self.array = kokkos_lib.unmanaged_array(
+                    array,
+                    dtype=self.dtype.value,
+                    space=self.space.value,
+                    layout=self.layout.value,
+                )
                 # Store a reference here in case the array goes out of
                 # scope and gets garbage collected, which would
                 # invalidate the data. Currently, this happens when
@@ -414,10 +454,19 @@ class View(ViewType):
         else:
             if len(self.shape) == 0:
                 shape = [1]
-            self.array = kokkos_lib.array("", shape, None, None, self.dtype.value, space.value, layout.value, trait.value)
-        
+            self.array = kokkos_lib.array(
+                "",
+                shape,
+                None,
+                None,
+                self.dtype.value,
+                space.value,
+                layout.value,
+                trait.value,
+            )
+
         # For 0-D cupy arrays stored in self.array, get numpy version for self.data
-        if hasattr(self, 'array') and hasattr(self.array, 'get'):
+        if hasattr(self, "array") and hasattr(self.array, "get"):
             # It's a cupy array, convert to numpy for self.data
             self.data = self.array.get()
         else:
@@ -453,10 +502,10 @@ class View(ViewType):
 
         return None
 
-
     def __eq__(self, other):
         # avoid circular import with scoped import
         from pykokkos.lib.ufuncs import equal
+
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
             new_other[:] = other
@@ -492,8 +541,6 @@ class View(ViewType):
             raise ValueError("unexpected types!")
         return equal(self, new_other)
 
-
-
     def __hash__(self):
         try:
             hash_value = hash(self.array)
@@ -501,18 +548,14 @@ class View(ViewType):
             hash_value = hash(self.array.data.tobytes())
         return hash_value
 
-
     def __index__(self) -> int:
         return int(self.data[0])
-
 
     def __array__(self, dtype=None):
         return self.data
 
-
     def __pos__(self):
         return pk.positive(self)
-
 
     @staticmethod
     def _get_dtype_name(type_name: str) -> str:
@@ -528,6 +571,7 @@ class View(ViewType):
 
         return dtype
 
+
 class Subview(ViewType):
     """
     A Subview wraps the "data" member of a View (or Subview) and references a slice of that data.
@@ -536,7 +580,9 @@ class Subview(ViewType):
     the constructor directly, instead they should slice the original View object.
     """
 
-    def __init__(self, parent_view: Union[Subview, View], data_slice: Union[slice, Tuple]):
+    def __init__(
+        self, parent_view: Union[Subview, View], data_slice: Union[slice, Tuple]
+    ):
         """
         Subview constructor.
 
@@ -565,8 +611,12 @@ class Subview(ViewType):
             self.array = self.data
         else:
             self.array = kokkos_lib.array(
-                self.data, dtype=parent_view.dtype.value, space=parent_view.space.value,
-                layout=parent_view.layout.value, trait=kokkos.Unmanaged)
+                self.data,
+                dtype=parent_view.dtype.value,
+                space=parent_view.space.value,
+                layout=parent_view.layout.value,
+                trait=kokkos.Unmanaged,
+            )
         self.shape: Tuple[int] = self.data.shape
 
         if self.data.shape == (0,):
@@ -593,8 +643,7 @@ class Subview(ViewType):
         for i, s in enumerate(data_slice):
             if isinstance(s, slice):
                 start: int = 0 if s.start is None else s.start
-                stop: int = self.parent_view.extent(
-                    i) if s.stop is None else s.stop
+                stop: int = self.parent_view.extent(i) if s.stop is None else s.stop
                 parent_slice.append(slice(start, stop, None))
             elif isinstance(s, int):
                 parent_slice.append(s)
@@ -620,6 +669,7 @@ class Subview(ViewType):
     def __eq__(self, other):
         # avoid circular import with scoped import
         from pykokkos.lib.ufuncs import equal
+
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
             new_other[:] = other
@@ -655,12 +705,10 @@ class Subview(ViewType):
             raise ValueError("unexpected types!")
         return equal(self, new_other)
 
-
     def __add__(self, other):
         if isinstance(other, float):
             result = self[0] + other
             return result
-
 
     def __mul__(self, other):
         if isinstance(other, float):
@@ -671,12 +719,17 @@ class Subview(ViewType):
                 result = self[0] * other[0]
                 return result
 
-
     def __hash__(self):
         hash_value = hash(self.array)
         return hash_value
 
-def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None, cp_array = None) -> ViewType:
+
+def from_numpy(
+    array: np.ndarray,
+    space: Optional[MemorySpace] = None,
+    layout: Optional[Layout] = None,
+    cp_array=None,
+) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
 
@@ -714,7 +767,7 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     elif np_dtype is np.uint64:
         dtype = uint64
     elif np_dtype is np.float32:
-        dtype = DataType.float # PyKokkos float
+        dtype = DataType.float  # PyKokkos float
     elif np_dtype is np.float64:
         dtype = float64
     elif np_dtype is np.bool_:
@@ -746,7 +799,9 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
             # For bool, convert to uint8
             if cp_array is not None:
                 # Get the array module from cp_array's type
-                array_module = importlib.import_module(type(cp_array).__module__.split('.')[0])
+                array_module = importlib.import_module(
+                    type(cp_array).__module__.split(".")[0]
+                )
                 scalar_val = 1 if array == 1 else 0
                 array = array_module.array(scalar_val, dtype=np.uint8)
             else:
@@ -756,7 +811,9 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
             # For other dtypes, recreate the array with proper dtype
             if cp_array is not None:
                 # Get the array module from cp_array's type
-                array_module = importlib.import_module(type(cp_array).__module__.split('.')[0])
+                array_module = importlib.import_module(
+                    type(cp_array).__module__.split(".")[0]
+                )
                 scalar_val = array.item()
                 array = array_module.array(scalar_val, dtype=np_dtype)
             else:
@@ -764,13 +821,24 @@ def from_numpy(array: np.ndarray, space: Optional[MemorySpace] = None, layout: O
     else:
         ret_list = list((array.shape))
 
-    return View(ret_list, dtype, space=space, trait=Trait.Unmanaged, array=array, layout=layout, cp_array=cp_array)
+    return View(
+        ret_list,
+        dtype,
+        space=space,
+        trait=Trait.Unmanaged,
+        array=array,
+        layout=layout,
+        cp_array=cp_array,
+    )
+
 
 class ctypes_complex64(ctypes.Structure):
     _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
 
+
 class ctypes_complex128(ctypes.Structure):
     _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
+
 
 def from_array(array) -> ViewType:
     """
@@ -784,7 +852,7 @@ def from_array(array) -> ViewType:
         # For 0-D arrays, use the scalar value directly
         scalar_val = array.item()
         np_array = np.array(scalar_val, dtype=array.dtype.type)
-        
+
         memory_space: MemorySpace
         if km.get_gpu_framework() is pk.Cuda:
             memory_space = MemorySpace.CudaSpace
@@ -792,7 +860,7 @@ def from_array(array) -> ViewType:
             memory_space = MemorySpace.HIPSpace
         else:
             memory_space = MemorySpace.HostSpace
-        
+
         return from_numpy(np_array, memory_space, Layout.LayoutDefault, array)
 
     np_dtype = array.dtype.type
@@ -854,6 +922,7 @@ def from_array(array) -> ViewType:
 
     return from_numpy(np_array, memory_space, layout, array)
 
+
 def is_array(array) -> bool:
     """
     Check if an object conforms to enough numpy array standards to be treated as an array
@@ -866,7 +935,7 @@ def is_array(array) -> bool:
 
     test_attr = dir(array)
 
-    if(not set(ARRAY_REQ_ATTR).issubset(set(test_attr))):
+    if not set(ARRAY_REQ_ATTR).issubset(set(test_attr)):
         return False
 
     for d in ARRAY_REQ_ATTR:
@@ -875,7 +944,10 @@ def is_array(array) -> bool:
 
     return True
 
-def array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None) -> ViewType:
+
+def array(
+    array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
+) -> ViewType:
     """
     Create a PyKokkos View from a generic array
 
@@ -895,8 +967,10 @@ def array(array, space: Optional[MemorySpace] = None, layout: Optional[Layout] =
     # try converting the input data to numpy and using that route to convert
     return from_numpy(np.asarray(array), space, layout)
 
+
 # asarray is required for comformance with the array API:
 # https://data-apis.org/array-api/2021.12/API_specification/creation_functions.html#objects-in-api
+
 
 def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # TODO: proper implementation/design
@@ -917,7 +991,9 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     return ret
 
 
-def _get_largest_type(type_list: List[DataTypeClass], type_info: Callable) -> DataTypeClass:
+def _get_largest_type(
+    type_list: List[DataTypeClass], type_info: Callable
+) -> DataTypeClass:
     largest_type = type_list[0]
     for dtype in type_list[1:]:
         if type_info(dtype).max > type_info(largest_type).max:
@@ -960,19 +1036,16 @@ def result_type(*arrays_and_dtypes: DataTypeClass) -> DataTypeClass:
     # if we have a mixture of a single "category of types"
     # we simply use the largest one
     if uint_types_seen and (not int_types_seen) and (not float_types_seen):
-        return _get_largest_type(type_list=uint_types_seen,
-                                 type_info=pk.iinfo)
+        return _get_largest_type(type_list=uint_types_seen, type_info=pk.iinfo)
     if int_types_seen and (not uint_types_seen) and (not float_types_seen):
-        return _get_largest_type(type_list=int_types_seen,
-                                 type_info=pk.iinfo)
+        return _get_largest_type(type_list=int_types_seen, type_info=pk.iinfo)
     if float_types_seen and (not uint_types_seen) and (not int_types_seen):
-        return _get_largest_type(type_list=float_types_seen,
-                                 type_info=pk.finfo)
+        return _get_largest_type(type_list=float_types_seen, type_info=pk.finfo)
     raise NotImplementedError("Casting rules not implemented for the input.")
 
 
-
 T = TypeVar("T")
+
 
 class View1D(Generic[T]):
     pass
@@ -1014,8 +1087,10 @@ def _get_type_size_from_generic(cls) -> int:
     :returns: The size of the type in bytes
     """
     # Check if this is a parameterized generic (has __args__)
-    if not hasattr(cls, 'type_param') or not cls.type_param:
-        raise TypeError(f"Cannot determine type size for unparameterized {cls.__name__}. Use {cls.__name__}[type] format.")
+    if not hasattr(cls, "type_param") or not cls.type_param:
+        raise TypeError(
+            f"Cannot determine type size for unparameterized {cls.__name__}. Use {cls.__name__}[type] format."
+        )
 
     type_param = cls.type_param
 
@@ -1113,7 +1188,9 @@ class ScratchView:
         Calculate shared memory size for a scratch view.
         This is a base implementation that should be overridden by specific view types.
         """
-        raise NotImplementedError("shmem_size must be implemented by specific ScratchView types")
+        raise NotImplementedError(
+            "shmem_size must be implemented by specific ScratchView types"
+        )
 
 
 class ScratchView1D(ScratchView, Generic[T]):
@@ -1193,7 +1270,9 @@ class ScratchView5D(ScratchView, Generic[T]):
 
 class ScratchView6D(ScratchView, Generic[T]):
     @classmethod
-    def shmem_size(cls, dim0: int, dim1: int, dim2: int, dim3: int, dim4: int, dim5: int) -> int:
+    def shmem_size(
+        cls, dim0: int, dim1: int, dim2: int, dim3: int, dim4: int, dim5: int
+    ) -> int:
         """
         Calculate shared memory size for a 6D scratch view.
 
@@ -1211,7 +1290,9 @@ class ScratchView6D(ScratchView, Generic[T]):
 
 class ScratchView7D(ScratchView, Generic[T]):
     @classmethod
-    def shmem_size(cls, dim0: int, dim1: int, dim2: int, dim3: int, dim4: int, dim5: int, dim6: int) -> int:
+    def shmem_size(
+        cls, dim0: int, dim1: int, dim2: int, dim3: int, dim4: int, dim5: int, dim6: int
+    ) -> int:
         """
         Calculate shared memory size for a 7D scratch view.
 
@@ -1225,12 +1306,24 @@ class ScratchView7D(ScratchView, Generic[T]):
         :returns: Total scratch memory size in bytes
         """
         type_size = _get_type_size_from_generic(cls)
-        return _calculate_scratch_size(type_size, dim0, dim1, dim2, dim3, dim4, dim5, dim6)
+        return _calculate_scratch_size(
+            type_size, dim0, dim1, dim2, dim3, dim4, dim5, dim6
+        )
 
 
 class ScratchView8D(ScratchView, Generic[T]):
     @classmethod
-    def shmem_size(cls, dim0: int, dim1: int, dim2: int, dim3: int, dim4: int, dim5: int, dim6: int, dim7: int) -> int:
+    def shmem_size(
+        cls,
+        dim0: int,
+        dim1: int,
+        dim2: int,
+        dim3: int,
+        dim4: int,
+        dim5: int,
+        dim6: int,
+        dim7: int,
+    ) -> int:
         """
         Calculate shared memory size for an 8D scratch view.
 
@@ -1245,7 +1338,9 @@ class ScratchView8D(ScratchView, Generic[T]):
         :returns: Total scratch memory size in bytes
         """
         type_size = _get_type_size_from_generic(cls)
-        return _calculate_scratch_size(type_size, dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7)
+        return _calculate_scratch_size(
+            type_size, dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7
+        )
 
 
 def astype(view, dtype):

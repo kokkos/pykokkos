@@ -4,10 +4,18 @@ import argparse
 from functools import reduce
 import sys
 
+
 @pk.workload
 class KokkosStream:
-    def __init__(self, ARRAY_SIZE: int, initA: float, initB: float, initC: float,
-            scalar: float, num_times: int):
+    def __init__(
+        self,
+        ARRAY_SIZE: int,
+        initA: float,
+        initB: float,
+        initC: float,
+        scalar: float,
+        num_times: int,
+    ):
         self.array_size: int = ARRAY_SIZE
 
         self.a: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
@@ -69,23 +77,22 @@ class KokkosStream:
 
         # epsi = sys.float_info.epsilon * 100
         epsi = 1e-8
-        if (errA > epsi):
+        if errA > epsi:
             print(f"Validation failed on a[]. Average error {errA}")
-        if (errB > epsi):
+        if errB > epsi:
             print(f"Validation failed on b[]. Average error {errB}")
-        if (errC > epsi):
+        if errC > epsi:
             print(f"Validation failed on c[]. Average error {errC}")
 
         goldSum = goldA * goldB * self.array_size
         errSum = self.sum - goldSum
-        if (abs(errSum) > 1e-8):
+        if abs(errSum) > 1e-8:
             print(f"Validation failed on sum. Error {errSum}")
 
     #     total_bytes = 3 * sys.getsizeof(0.0) * self.array_size * num_times;
     #     bandwidth = 1.0e-9 * (total_bytes / self.runtime)
     #     print(f"Runtime (seconds): {self.runtime}")
     #     print(f"Bandwidth (GB/s): {bandwidth}")
-
 
     @pk.workunit
     def init_arrays(self, index: int):
@@ -115,7 +122,7 @@ class KokkosStream:
 
 
 def run() -> None:
-    array_size: int = 2**25 # 100000
+    array_size: int = 2**25  # 100000
     startA: float = 0.1
     startB: float = 0.2
     startC: float = 0.0
@@ -124,20 +131,27 @@ def run() -> None:
     space = pk.ExecutionSpace.OpenMP
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--arraysize", type=int, help="Use SIZE elemnts in the array")
-    parser.add_argument("-n", "--numtimes", type=int, help="Run the test NUM times (NUM >= 2)")
+    parser.add_argument(
+        "-s", "--arraysize", type=int, help="Use SIZE elemnts in the array"
+    )
+    parser.add_argument(
+        "-n", "--numtimes", type=int, help="Run the test NUM times (NUM >= 2)"
+    )
     parser.add_argument("-space", "--execution_space", type=str)
     args = parser.parse_args()
 
     if args.arraysize:
-        array_size = 2 ** args.arraysize
+        array_size = 2**args.arraysize
     if args.numtimes:
         num_times = args.numtimes
     if args.execution_space:
         space = pk.ExecutionSpace(args.execution_space)
 
     pk.set_default_space(space)
-    pk.execute(space, KokkosStream(array_size, startA, startB, startC, startScalar, num_times))
+    pk.execute(
+        space, KokkosStream(array_size, startA, startB, startC, startScalar, num_times)
+    )
+
 
 if __name__ == "__main__":
     run()

@@ -12,15 +12,35 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 class WorkunitVisitor(PyKokkosVisitor):
     def __init__(
-        self, env, src, views: Dict[cppast.DeclRefExpr, cppast.Type],
-        work_units: Dict[str, ast.FunctionDef], fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
-        kokkos_functions: Dict[str, ast.FunctionDef], dependency_methods: Dict[str, List[str]],
-        pk_import: str, restrict_views: Set[str], debug=False
+        self,
+        env,
+        src,
+        views: Dict[cppast.DeclRefExpr, cppast.Type],
+        work_units: Dict[str, ast.FunctionDef],
+        fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+        kokkos_functions: Dict[str, ast.FunctionDef],
+        dependency_methods: Dict[str, List[str]],
+        pk_import: str,
+        restrict_views: Set[str],
+        debug=False,
     ):
         self.has_rand_call: bool = False
-        super().__init__(env, src, views, work_units, fields, kokkos_functions, dependency_methods, pk_import, restrict_views, debug)
+        super().__init__(
+            env,
+            src,
+            views,
+            work_units,
+            fields,
+            kokkos_functions,
+            dependency_methods,
+            pk_import,
+            restrict_views,
+            debug,
+        )
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> Union[str, Tuple[str, cppast.MethodDecl]]:
+    def visit_FunctionDef(
+        self, node: ast.FunctionDef
+    ) -> Union[str, Tuple[str, cppast.MethodDecl]]:
         if self.is_nested_call(node):
             params: List[cppast.ParmVarDecl] = [a for a in self.visit(node.args)]
             body = cppast.CompoundStmt([self.visit(b) for b in node.body])
@@ -96,7 +116,9 @@ class WorkunitVisitor(PyKokkosVisitor):
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> cppast.Stmt:
         if isinstance(node.value, ast.Call):
-            decltype: cppast.Type = visitors_util.get_type(node.annotation, self.pk_import)
+            decltype: cppast.Type = visitors_util.get_type(
+                node.annotation, self.pk_import
+            )
             if decltype is None:
                 self.error(node, "Type not supported")
             declname: cppast.DeclRefExpr = self.visit(node.target)
@@ -104,14 +126,12 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             # Call to a TeamMember method
             if function_name in dir(TeamMember):
-                vardecl = cppast.VarDecl(
-                    decltype, declname, self.visit(node.value))
+                vardecl = cppast.VarDecl(decltype, declname, self.visit(node.value))
                 return cppast.DeclStmt(vardecl)
 
             # Nested parallelism
             if function_name in ("parallel_reduce", "parallel_scan"):
-                args: List[cppast.Expr] = [
-                    self.visit(a) for a in node.value.args]
+                args: List[cppast.Expr] = [self.visit(a) for a in node.value.args]
 
                 initial_value: cppast.Expr
                 if len(args) == 3:
@@ -127,9 +147,13 @@ class WorkunitVisitor(PyKokkosVisitor):
 
                 call: cppast.CallExpr
                 if work_unit in self.nested_work_units:
-                    call = cppast.CallExpr(function, [args[0], self.nested_work_units[work_unit], declname])
+                    call = cppast.CallExpr(
+                        function, [args[0], self.nested_work_units[work_unit], declname]
+                    )
                 else:
-                    call = cppast.CallExpr(function, [args[0], f"pk_id_{work_unit}", declname])
+                    call = cppast.CallExpr(
+                        function, [args[0], f"pk_id_{work_unit}", declname]
+                    )
 
                 callstmt = cppast.CallStmt(call)
 
@@ -138,7 +162,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             if function_name.startswith("ScratchView"):
                 cpp_view_type: str = self.get_scratch_view_type(node.annotation)
                 py_view_type: str = node.annotation.value.attr
-                rank = int(re.search(r'\d+', py_view_type).group())
+                rank = int(re.search(r"\d+", py_view_type).group())
 
                 typeref = cppast.ClassType(cpp_view_type)
                 args: List[cppast.Expr] = [self.visit(a) for a in node.value.args]
@@ -162,7 +186,7 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         self_arg: ast.arg = args[0]
         if not is_nested and self_arg.arg != "self":
-            self.error(args[0], "First argument has to be \"self\"")
+            self.error(args[0], 'First argument has to be "self"')
 
         # Skip self argument
         if not is_nested:
@@ -238,8 +262,9 @@ class WorkunitVisitor(PyKokkosVisitor):
         # Call to a TeamMember method
         if name in dir(TeamMember):
             team_member: str = visitors_util.get_node_name(node.func.value)
-            call = cppast.MemberCallExpr(cppast.DeclRefExpr(
-                team_member), cppast.DeclRefExpr(name), args)
+            call = cppast.MemberCallExpr(
+                cppast.DeclRefExpr(team_member), cppast.DeclRefExpr(name), args
+            )
 
             return call
 
@@ -249,8 +274,9 @@ class WorkunitVisitor(PyKokkosVisitor):
                 self.error(node, "the extent method takes exactly 1 argument")
 
             view: str = visitors_util.get_node_name(node.func.value)
-            call = cppast.MemberCallExpr(cppast.DeclRefExpr(
-                view), cppast.DeclRefExpr(name), [args[0]])
+            call = cppast.MemberCallExpr(
+                cppast.DeclRefExpr(view), cppast.DeclRefExpr(name), [args[0]]
+            )
 
             return call
 
@@ -261,7 +287,9 @@ class WorkunitVisitor(PyKokkosVisitor):
         if name in ("parallel_for", "single"):
             work_unit: str = args[1].declname
             if work_unit in self.nested_work_units:
-                return cppast.CallExpr(function, [args[0], self.nested_work_units[work_unit]])
+                return cppast.CallExpr(
+                    function, [args[0], self.nested_work_units[work_unit]]
+                )
             else:
                 return cppast.CallExpr(function, [args[0], f"pk_id_{work_unit}"])
 
@@ -298,11 +326,19 @@ class WorkunitVisitor(PyKokkosVisitor):
             self.has_rand_call = True
 
             rand_type = cppast.ClassType("Kokkos::rand")
-            pool_type = cppast.ClassType("Kokkos::Random_XorShift64_Pool<>::generator_type")
+            pool_type = cppast.ClassType(
+                "Kokkos::Random_XorShift64_Pool<>::generator_type"
+            )
             rand_type.add_template_param(pool_type)
-            rand_type.add_template_param(visitors_util.get_type(node.args[0], self.pk_import))
+            rand_type.add_template_param(
+                visitors_util.get_type(node.args[0], self.pk_import)
+            )
 
-            rand_call = cppast.MemberCallExpr(rand_type, cppast.DeclRefExpr("draw"), [cppast.DeclRefExpr(Keywords.RandPoolState.value)])
+            rand_call = cppast.MemberCallExpr(
+                rand_type,
+                cppast.DeclRefExpr("draw"),
+                [cppast.DeclRefExpr(Keywords.RandPoolState.value)],
+            )
             rand_call.is_static = True
 
             return rand_call
@@ -313,15 +349,22 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             s = cppast.Serializer()
             arg_str = s.serialize(args[0])
-            math_call = cppast.CallExpr(cppast.DeclRefExpr(f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"), args)
-            real_number_call = cppast.MemberCallExpr(math_call, cppast.DeclRefExpr("real"), [])
+            math_call = cppast.CallExpr(
+                cppast.DeclRefExpr(
+                    f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"
+                ),
+                args,
+            )
+            real_number_call = cppast.MemberCallExpr(
+                math_call, cppast.DeclRefExpr("real"), []
+            )
 
             return real_number_call
 
         return super().visit_Call(node)
 
     def is_nested_call(self, node: ast.FunctionDef) -> bool:
-        while (hasattr(node, "parent")):
+        while hasattr(node, "parent"):
             node = node.parent
             if isinstance(node, ast.FunctionDef):
                 return True

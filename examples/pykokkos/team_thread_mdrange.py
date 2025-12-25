@@ -11,6 +11,7 @@ def kernel(team, A, B, C, N1, N2):
     pk.parallel_for(pk.TeamThreadMDRange(team, N1, N2), inner_for)
     team.team_barrier()
 
+
 def run():
     N0 = 16
     N1 = 4
@@ -30,6 +31,7 @@ def run():
     pk.parallel_for(policy, kernel, A=A, B=B, C=C, N1=N1, N2=N2)
 
     print(A)
+
 
 if __name__ == "__main__":
     run()

@@ -26,8 +26,7 @@ class Math:
     def my_calculation(self, i: int):
         pk.printf("Running index %d\n", i)
         self.a[i] += (
-            math.cos(self.a[i]) + 2 ** i - math.pi /
-            math.fabs(self.a[(i + 1) % self.N])
+            math.cos(self.a[i]) + 2**i - math.pi / math.fabs(self.a[(i + 1) % self.N])
         )
 
 

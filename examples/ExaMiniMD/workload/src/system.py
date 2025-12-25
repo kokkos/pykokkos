@@ -84,17 +84,21 @@ class System:
         print("Print all particles:")
         print(f"  Owned: {self.N_local}")
         for i in range(self.N_local):
-            print(f"    {i} {self.x[i][0]} {self.x[i][1]} {self.x[i][0]} |"
-                  f"{self.v[i][0]} {self.v[i][1]} {self.v[i][0]} |"
-                  f"{self.f[i][0]} {self.f[i][1]} {self.f[i][0]} |"
-                  f"{self.type[i]} {self.q[i]}")
+            print(
+                f"    {i} {self.x[i][0]} {self.x[i][1]} {self.x[i][0]} |"
+                f"{self.v[i][0]} {self.v[i][1]} {self.v[i][0]} |"
+                f"{self.f[i][0]} {self.f[i][1]} {self.f[i][0]} |"
+                f"{self.type[i]} {self.q[i]}"
+            )
 
         print(f"  Ghost: {self.N_ghost}")
         for i in range(self.N_local + self.N_ghost):
-            print(f"    {i} {self.x[i][0]} {self.x[i][1]} {self.x[i][0]} |"
-                  f"{self.v[i][0]} {self.v[i][1]} {self.v[i][0]} |"
-                  f"{self.f[i][0]} {self.f[i][1]} {self.f[i][0]} |"
-                  f"{self.type[i]} {self.q[i]}")
+            print(
+                f"    {i} {self.x[i][0]} {self.x[i][1]} {self.x[i][0]} |"
+                f"{self.v[i][0]} {self.v[i][1]} {self.v[i][0]} |"
+                f"{self.f[i][0]} {self.f[i][1]} {self.f[i][0]} |"
+                f"{self.type[i]} {self.q[i]}"
+            )
 
     @pk.function
     def get_particle(self, i: int) -> Particle:

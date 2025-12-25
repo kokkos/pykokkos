@@ -8,7 +8,7 @@ from parse_args import parse_args
 @pk.workunit
 def yAx(j, acc, cols, y_view, x_view, A_view):
     temp2: float = 0
-    A_row_j = A_view[j,:];
+    A_row_j = A_view[j, :]
     for i in range(cols):
         temp2 += A_row_j[i] * x_view[i]
 
@@ -63,10 +63,11 @@ def run() -> None:
     solution: float = N * M
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import pykokkos as pk
 import numpy as np
 
+
 @pk.workunit
 def plus_ten(i, out, a):
     out[i] = a[i] + 10

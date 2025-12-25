@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -47,7 +46,6 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     workunit: Callable
     view: Optional[ViewType] = None
     initial_value: Union[int, float] = 0
-
 
     if len(unpacked) == 2:
         policy = unpacked[0]
@@ -129,12 +127,14 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
 
     try:
         import cupy as cp
+
         cp_available = True
     except ImportError:
         cp_available = False
 
     try:
         import torch
+
         torch_available = True
     except ImportError:
         torch_available = False
@@ -148,7 +148,11 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
             kwargs[k] = array(v)
         elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v)
-        elif hasattr(v, '__array__') or hasattr(v, '__cuda_array_interface__') or hasattr(v, '__array_interface__'):
+        elif (
+            hasattr(v, "__array__")
+            or hasattr(v, "__cuda_array_interface__")
+            or hasattr(v, "__array_interface__")
+        ):
             # This is some array-like object we don't support
             caller_frame = inspect.currentframe().f_back.f_back
             filename = get_filename(caller_frame)
@@ -161,7 +165,7 @@ def parallel_for(*args, **kwargs) -> None:
     """
     Run a parallel for loop
 
-    :param *args: 
+    :param *args:
         :param name: (optional) name of the kernel
         :param policy: the execution policy, either a RangePolicy,
             TeamPolicy, TeamThreadRange, ThreadVectorRange, or an
@@ -178,11 +182,8 @@ def parallel_for(*args, **kwargs) -> None:
     handled_args: HandledArgs = handle_args(True, args)
 
     runtime_singleton.runtime.run_workunit(
-        handled_args.name,
-        handled_args.policy,
-        handled_args.workunit,
-        "for",
-        **kwargs)
+        handled_args.name, handled_args.policy, handled_args.workunit, "for", **kwargs
+    )
 
 
 def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
@@ -225,14 +226,15 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         handled_args.policy,
         handled_args.workunit,
         operation,
-        **kwargs)
+        **kwargs,
+    )
 
 
 def parallel_reduce(*args, **kwargs) -> Union[float, int]:
     """
     Run a parallel reduction
 
-    :param *args: 
+    :param *args:
         :param name: (optional) name of the kernel
         :param policy: the execution policy, either a RangePolicy,
             TeamPolicy, TeamThreadRange, ThreadVectorRange, or an
@@ -252,7 +254,7 @@ def parallel_scan(*args, **kwargs) -> Union[float, int]:
     """
     Run a parallel reduction
 
-    :param *args: 
+    :param *args:
         :param name: (optional) name of the kernel
         :param policy: the execution policy, either a RangePolicy,
             TeamPolicy, TeamThreadRange, ThreadVectorRange, or an

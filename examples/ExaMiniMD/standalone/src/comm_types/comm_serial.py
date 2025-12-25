@@ -24,8 +24,12 @@ class Particle:
 
 @pk.function
 def get_particle(
-    i: int, x: pk.View2D[float], v: pk.View2D[float],
-    q: pk.View1D[float], id: pk.View1D[int], type: pk.View1D[int]
+    i: int,
+    x: pk.View2D[float],
+    v: pk.View2D[float],
+    q: pk.View1D[float],
+    id: pk.View1D[int],
+    type: pk.View1D[int],
 ) -> Particle:
     p: Particle = Particle()
 
@@ -46,8 +50,13 @@ def get_particle(
 
 @pk.function
 def set_particle(
-    i: int, p: Particle, x: pk.View2D[float], v: pk.View2D[float],
-    q: pk.View1D[float], id: pk.View1D[int], type: pk.View1D[int]
+    i: int,
+    p: Particle,
+    x: pk.View2D[float],
+    v: pk.View2D[float],
+    q: pk.View1D[float],
+    id: pk.View1D[int],
+    type: pk.View1D[int],
 ) -> None:
     x[i][0] = p.x
     x[i][1] = p.y
@@ -63,7 +72,9 @@ def set_particle(
 
 
 @pk.workunit
-def tag_exchange_self(i: int, domain_x: float, domain_y: float, domain_z: float, x: pk.View2D[float]) -> None:
+def tag_exchange_self(
+    i: int, domain_x: float, domain_y: float, domain_z: float, x: pk.View2D[float]
+) -> None:
     x_: float = x[i][0]
     if x_ > domain_x:
         x[i][0] -= domain_x
@@ -85,21 +96,34 @@ def tag_exchange_self(i: int, domain_x: float, domain_y: float, domain_z: float,
 
 @pk.workunit
 def tag_halo_self(
-    i: int, domain_x: float, domain_y: float, domain_z: float,
-    sub_domain_hi_x: float, sub_domain_hi_y: float, sub_domain_hi_z: float,
-    sub_domain_lo_x: float, sub_domain_lo_y: float, sub_domain_lo_z: float,
-    x: pk.View2D[float], v: pk.View2D[float], q: pk.View1D[float], id: pk.View1D[int],
-    type: pk.View1D[int], comm_depth: float, pack_count: pk.View1D[int],
-    phase: int, N_local: int, N_ghost: int, pack_indicies: pk.View1D[int]
+    i: int,
+    domain_x: float,
+    domain_y: float,
+    domain_z: float,
+    sub_domain_hi_x: float,
+    sub_domain_hi_y: float,
+    sub_domain_hi_z: float,
+    sub_domain_lo_x: float,
+    sub_domain_lo_y: float,
+    sub_domain_lo_z: float,
+    x: pk.View2D[float],
+    v: pk.View2D[float],
+    q: pk.View1D[float],
+    id: pk.View1D[int],
+    type: pk.View1D[int],
+    comm_depth: float,
+    pack_count: pk.View1D[int],
+    phase: int,
+    N_local: int,
+    N_ghost: int,
+    pack_indicies: pk.View1D[int],
 ) -> None:
     if phase == 0:
         if x[i][0] >= sub_domain_hi_x - comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.x -= domain_x
@@ -107,12 +131,10 @@ def tag_halo_self(
 
     if phase == 1:
         if x[i][0] <= sub_domain_lo_x + comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.x += domain_x
@@ -120,12 +142,10 @@ def tag_halo_self(
 
     if phase == 2:
         if x[i][1] >= sub_domain_hi_y - comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.y -= domain_y
@@ -133,12 +153,10 @@ def tag_halo_self(
 
     if phase == 3:
         if x[i][1] <= sub_domain_lo_y + comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.y += domain_y
@@ -146,12 +164,10 @@ def tag_halo_self(
 
     if phase == 4:
         if x[i][2] >= sub_domain_hi_z - comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.z -= domain_z
@@ -159,12 +175,10 @@ def tag_halo_self(
 
     if phase == 5:
         if x[i][2] <= sub_domain_lo_z + comm_depth:
-            pack_idx: int = pk.atomic_fetch_add(
-                pack_count, [0], 1)
-            if (
-                pack_idx < pack_indicies.extent(0)
-                and N_local + N_ghost + pack_idx < x.extent(0)
-            ):
+            pack_idx: int = pk.atomic_fetch_add(pack_count, [0], 1)
+            if pack_idx < pack_indicies.extent(
+                0
+            ) and N_local + N_ghost + pack_idx < x.extent(0):
                 pack_indicies[pack_idx] = i
                 p: Particle = get_particle(i, x, v, q, id, type)
                 p.z += domain_z
@@ -173,10 +187,19 @@ def tag_halo_self(
 
 @pk.workunit
 def tag_halo_update_self(
-    i: int, domain_x: float, domain_y: float, domain_z: float,
-    x: pk.View2D[float], v: pk.View2D[float], q: pk.View1D[float],
-    id: pk.View1D[int], type: pk.View1D[int], phase: int,
-    N_local: int, N_ghost: int, pack_indicies: pk.View1D[int]
+    i: int,
+    domain_x: float,
+    domain_y: float,
+    domain_z: float,
+    x: pk.View2D[float],
+    v: pk.View2D[float],
+    q: pk.View1D[float],
+    id: pk.View1D[int],
+    type: pk.View1D[int],
+    phase: int,
+    N_local: int,
+    N_ghost: int,
+    pack_indicies: pk.View1D[int],
 ) -> None:
     p: Particle = get_particle(pack_indicies[i], x, v, q, id, type)
     if phase == 0:
@@ -196,7 +219,13 @@ def tag_halo_update_self(
 
 
 @pk.workunit
-def tag_halo_force_self(ii: int, f: pk.View2D[float], phase: int, pack_indicies: pk.View1D[int], ghost_offsets: pk.View1D[int]) -> None:
+def tag_halo_force_self(
+    ii: int,
+    f: pk.View2D[float],
+    phase: int,
+    pack_indicies: pk.View1D[int],
+    ghost_offsets: pk.View1D[int],
+) -> None:
     i: int = pack_indicies[ii]
     ghost_offsets_index: int = ghost_offsets[phase]
     fx_i: float = f[ghost_offsets_index + ii][0]
@@ -214,7 +243,9 @@ class CommSerial(Comm):
 
         print("CommSerial")
         self.pack_count: pk.View1D[int] = pk.View([1], int)
-        self.pack_indicies_all: pk.View2D[int] = pk.View([6, 0], int, layout=pk.Layout.LayoutRight)
+        self.pack_indicies_all: pk.View2D[int] = pk.View(
+            [6, 0], int, layout=pk.Layout.LayoutRight
+        )
 
         self.num_ghost: List[int] = [0] * 6
         self.ghost_offsets: List[int] = [0] * 6
@@ -225,8 +256,15 @@ class CommSerial(Comm):
         self.ghost_offsets: pk.View1D[int] = pk.View([6], int)
 
     def exchange(self) -> None:
-        pk.parallel_for("CommSerial::exchange_self", self.system.N_local, tag_exchange_self,
-            domain_x=self.system.domain_x, domain_y=self.system.domain_y, domain_z=self.system.domain_z, x=self.system.x)
+        pk.parallel_for(
+            "CommSerial::exchange_self",
+            self.system.N_local,
+            tag_exchange_self,
+            domain_x=self.system.domain_x,
+            domain_y=self.system.domain_y,
+            domain_z=self.system.domain_z,
+            x=self.system.x,
+        )
 
     def exchange_halo(self) -> None:
         N_ghost = 0
@@ -241,13 +279,31 @@ class CommSerial(Comm):
                 sub = self.num_ghost[self.phase - 1]
 
             nparticles = self.system.N_local + N_ghost - sub
-            pk.parallel_for("CommSerial::halo_exchange_self", nparticles, tag_halo_self,
-                domain_x=self.system.domain_x, domain_y=self.system.domain_y, domain_z=self.system.domain_z,
-                sub_domain_hi_x=self.system.sub_domain_hi_x, sub_domain_hi_y=self.system.sub_domain_hi_y,
-                sub_domain_hi_z=self.system.sub_domain_hi_z, sub_domain_lo_x=self.system.sub_domain_lo_x,
-                sub_domain_lo_y=self.system.sub_domain_lo_y, sub_domain_lo_z=self.system.sub_domain_lo_z, x=self.system.x,
-                v=self.system.v, q=self.system.q, id=self.system.id, type=self.system.type, comm_depth=self.comm_depth,
-                pack_count=self.pack_count, phase=self.phase, N_local=self.system.N_local, N_ghost=N_ghost, pack_indicies=self.pack_indicies)
+            pk.parallel_for(
+                "CommSerial::halo_exchange_self",
+                nparticles,
+                tag_halo_self,
+                domain_x=self.system.domain_x,
+                domain_y=self.system.domain_y,
+                domain_z=self.system.domain_z,
+                sub_domain_hi_x=self.system.sub_domain_hi_x,
+                sub_domain_hi_y=self.system.sub_domain_hi_y,
+                sub_domain_hi_z=self.system.sub_domain_hi_z,
+                sub_domain_lo_x=self.system.sub_domain_lo_x,
+                sub_domain_lo_y=self.system.sub_domain_lo_y,
+                sub_domain_lo_z=self.system.sub_domain_lo_z,
+                x=self.system.x,
+                v=self.system.v,
+                q=self.system.q,
+                id=self.system.id,
+                type=self.system.type,
+                comm_depth=self.comm_depth,
+                pack_count=self.pack_count,
+                phase=self.phase,
+                N_local=self.system.N_local,
+                N_ghost=N_ghost,
+                pack_indicies=self.pack_indicies,
+            )
 
             count = self.pack_count[0]
 
@@ -265,13 +321,31 @@ class CommSerial(Comm):
 
             if redo:
                 self.pack_count[0] = 0
-                pk.parallel_for("CommSerial::halo_exchange_self", nparticles, tag_halo_self,
-                    domain_x=self.system.domain_x, domain_y=self.system.domain_y, domain_z=self.system.domain_z,
-                    sub_domain_hi_x=self.system.sub_domain_hi_x, sub_domain_hi_y=self.system.sub_domain_hi_y,
-                    sub_domain_hi_z=self.system.sub_domain_hi_z, sub_domain_lo_x=self.system.sub_domain_lo_x,
-                    sub_domain_lo_y=self.system.sub_domain_lo_y, sub_domain_lo_z=self.system.sub_domain_lo_z, x=self.system.x,
-                    v=self.system.v, q=self.system.q, id=self.system.id, type=self.system.type, comm_depth=self.comm_depth,
-                    pack_count=self.pack_count, phase=self.phase, N_local=self.system.N_local, N_ghost=N_ghost, pack_indicies=self.pack_indicies)
+                pk.parallel_for(
+                    "CommSerial::halo_exchange_self",
+                    nparticles,
+                    tag_halo_self,
+                    domain_x=self.system.domain_x,
+                    domain_y=self.system.domain_y,
+                    domain_z=self.system.domain_z,
+                    sub_domain_hi_x=self.system.sub_domain_hi_x,
+                    sub_domain_hi_y=self.system.sub_domain_hi_y,
+                    sub_domain_hi_z=self.system.sub_domain_hi_z,
+                    sub_domain_lo_x=self.system.sub_domain_lo_x,
+                    sub_domain_lo_y=self.system.sub_domain_lo_y,
+                    sub_domain_lo_z=self.system.sub_domain_lo_z,
+                    x=self.system.x,
+                    v=self.system.v,
+                    q=self.system.q,
+                    id=self.system.id,
+                    type=self.system.type,
+                    comm_depth=self.comm_depth,
+                    pack_count=self.pack_count,
+                    phase=self.phase,
+                    N_local=self.system.N_local,
+                    N_ghost=N_ghost,
+                    pack_indicies=self.pack_indicies,
+                )
 
             self.num_ghost[self.phase] = count
 
@@ -284,24 +358,45 @@ class CommSerial(Comm):
         for self.phase in range(0, 6):
             self.pack_indicies = self.pack_indicies_all[self.phase, :]
 
-            pk.parallel_for("CommSerial::halo_update_self", self.num_ghost[self.phase], tag_halo_update_self,
-                domain_x=self.system.domain_x, domain_y=self.system.domain_y, domain_z=self.system.domain_z,
-                x=self.system.x, v=self.system.v, q=self.system.q, id=self.system.id, type=self.system.type, phase=self.phase,
-                N_local=self.system.N_local, N_ghost=N_ghost, pack_indicies=self.pack_indicies)
+            pk.parallel_for(
+                "CommSerial::halo_update_self",
+                self.num_ghost[self.phase],
+                tag_halo_update_self,
+                domain_x=self.system.domain_x,
+                domain_y=self.system.domain_y,
+                domain_z=self.system.domain_z,
+                x=self.system.x,
+                v=self.system.v,
+                q=self.system.q,
+                id=self.system.id,
+                type=self.system.type,
+                phase=self.phase,
+                N_local=self.system.N_local,
+                N_ghost=N_ghost,
+                pack_indicies=self.pack_indicies,
+            )
 
             N_ghost += self.num_ghost[self.phase]
 
     def update_force(self) -> None:
         self.ghost_offsets[0] = self.system.N_local
         for self.phase in range(1, 6):
-            self.ghost_offsets[self.phase] = self.ghost_offsets[self.phase -
-                                                                1] + self.num_ghost[self.phase - 1]
+            self.ghost_offsets[self.phase] = (
+                self.ghost_offsets[self.phase - 1] + self.num_ghost[self.phase - 1]
+            )
 
         for self.phase in range(5, -1, -1):
             self.pack_indicies = self.pack_indicies_all[self.phase, :]
 
-            pk.parallel_for("CommSerial::halo_force_self", self.num_ghost[self.phase], tag_halo_force_self,
-                f=self.system.f, phase=self.phase, pack_indicies=self.pack_indicies, ghost_offsets=self.ghost_offsets)
+            pk.parallel_for(
+                "CommSerial::halo_force_self",
+                self.num_ghost[self.phase],
+                tag_halo_force_self,
+                f=self.system.f,
+                phase=self.phase,
+                pack_indicies=self.pack_indicies,
+                ghost_offsets=self.ghost_offsets,
+            )
 
     def name(self) -> str:
         return "CommSerial"

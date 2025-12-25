@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Keywords(Enum):
     """
     A group of keywords reserved by PyKokkos

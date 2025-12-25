@@ -11,7 +11,9 @@ class ParameterVisitor(ast.NodeVisitor):
     Gets the members of a workunit
     """
 
-    def __init__(self, src: Tuple[List[str], int], param_begin: int, pk_import: str, debug: bool):
+    def __init__(
+        self, src: Tuple[List[str], int], param_begin: int, pk_import: str, debug: bool
+    ):
         """
         ParameterVisitor constructor
 
@@ -50,7 +52,7 @@ class ParameterVisitor(ast.NodeVisitor):
         if len(node.args) < self.param_begin:
             self.error(node.parent, "Missing tid and/or accumulator argument")
 
-        args = node.args[self.param_begin:]
+        args = node.args[self.param_begin :]
 
         for a in args:
             self.visit(a)
@@ -65,14 +67,17 @@ class ParameterVisitor(ast.NodeVisitor):
         annotation: Union[ast.Name, ast.Attribute] = node.annotation
 
         declref = cppast.DeclRefExpr(node.arg)
-        decltype: Optional[cppast.Type] = visitors_util.get_type(annotation, self.pk_import)
+        decltype: Optional[cppast.Type] = visitors_util.get_type(
+            annotation, self.pk_import
+        )
 
         if decltype is None:
             self.error(node, "Type is not supported")
 
         # just checking decltype might be enough
-        is_field: bool = isinstance(annotation, ast.Name) or \
-                isinstance(decltype, cppast.PrimitiveType)
+        is_field: bool = isinstance(annotation, ast.Name) or isinstance(
+            decltype, cppast.PrimitiveType
+        )
         if is_field:
             self.fields[declref] = decltype
         else:

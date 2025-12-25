@@ -78,7 +78,13 @@ if __name__ == "__main__":
         result = pk.parallel_reduce(
             "team_scratch_workunit",
             pk.TeamPolicy(E, "auto", 32).set_scratch_size(0, pk.PerTeam(scratch_size)),
-            yAx, acc=acc, y=y, x=x, A=A, M=M, N=N
+            yAx,
+            acc=acc,
+            y=y,
+            x=x,
+            A=A,
+            M=M,
+            N=N,
         )
 
     timer_result = timer.seconds()

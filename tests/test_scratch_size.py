@@ -199,7 +199,9 @@ class TestScratchViewShmemSize(unittest.TestCase):
     Tests correctness of return values for all dimensions and types.
     """
 
-    def _calculate_expected_size(self, dtype_or_size, *dims: int, alignment: int = 8) -> int:
+    def _calculate_expected_size(
+        self, dtype_or_size, *dims: int, alignment: int = 8
+    ) -> int:
         """
         Helper to calculate expected scratch size with alignment.
 
@@ -240,7 +242,9 @@ class TestScratchViewShmemSize(unittest.TestCase):
         """Test ScratchView1D[pk.double].shmem_size"""
         dim = 10
         result = pk.ScratchView1D[pk.double].shmem_size(dim)
-        expected = self._calculate_expected_size(np.float64, dim)  # pk.double is float64
+        expected = self._calculate_expected_size(
+            np.float64, dim
+        )  # pk.double is float64
         self.assertEqual(result, expected)
 
     def test_scratch_view_1d_int(self):
@@ -276,7 +280,9 @@ class TestScratchViewShmemSize(unittest.TestCase):
         # 3 elements of float32 (4 bytes) = 12 bytes, should align to 16 bytes
         dim = 3
         result = pk.ScratchView1D[pk.float].shmem_size(dim)
-        expected = self._calculate_expected_size(np.float32, dim)  # 12 bytes -> 16 bytes aligned
+        expected = self._calculate_expected_size(
+            np.float32, dim
+        )  # 12 bytes -> 16 bytes aligned
         self.assertEqual(result, expected)
         # Explicit check: 3 * 4 = 12, aligned to 8 = 16
         self.assertEqual(result, 16)
@@ -341,7 +347,9 @@ class TestScratchViewShmemSize(unittest.TestCase):
         """Test ScratchView5D[float].shmem_size"""
         dim0, dim1, dim2, dim3, dim4 = 2, 2, 2, 2, 2
         result = pk.ScratchView5D[float].shmem_size(dim0, dim1, dim2, dim3, dim4)
-        expected = self._calculate_expected_size(np.float64, dim0, dim1, dim2, dim3, dim4)
+        expected = self._calculate_expected_size(
+            np.float64, dim0, dim1, dim2, dim3, dim4
+        )
         self.assertEqual(result, expected)
 
     # Test ScratchView6D
@@ -349,23 +357,33 @@ class TestScratchViewShmemSize(unittest.TestCase):
         """Test ScratchView6D[float].shmem_size"""
         dim0, dim1, dim2, dim3, dim4, dim5 = 2, 2, 2, 2, 2, 2
         result = pk.ScratchView6D[float].shmem_size(dim0, dim1, dim2, dim3, dim4, dim5)
-        expected = self._calculate_expected_size(np.float64, dim0, dim1, dim2, dim3, dim4, dim5)
+        expected = self._calculate_expected_size(
+            np.float64, dim0, dim1, dim2, dim3, dim4, dim5
+        )
         self.assertEqual(result, expected)
 
     # Test ScratchView7D
     def test_scratch_view_7d_float(self):
         """Test ScratchView7D[float].shmem_size"""
         dim0, dim1, dim2, dim3, dim4, dim5, dim6 = 2, 2, 2, 2, 2, 2, 2
-        result = pk.ScratchView7D[float].shmem_size(dim0, dim1, dim2, dim3, dim4, dim5, dim6)
-        expected = self._calculate_expected_size(np.float64, dim0, dim1, dim2, dim3, dim4, dim5, dim6)
+        result = pk.ScratchView7D[float].shmem_size(
+            dim0, dim1, dim2, dim3, dim4, dim5, dim6
+        )
+        expected = self._calculate_expected_size(
+            np.float64, dim0, dim1, dim2, dim3, dim4, dim5, dim6
+        )
         self.assertEqual(result, expected)
 
     # Test ScratchView8D
     def test_scratch_view_8d_float(self):
         """Test ScratchView8D[float].shmem_size"""
         dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7 = 2, 2, 2, 2, 2, 2, 2, 2
-        result = pk.ScratchView8D[float].shmem_size(dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7)
-        expected = self._calculate_expected_size(np.float64, dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7)
+        result = pk.ScratchView8D[float].shmem_size(
+            dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7
+        )
+        expected = self._calculate_expected_size(
+            np.float64, dim0, dim1, dim2, dim3, dim4, dim5, dim6, dim7
+        )
         self.assertEqual(result, expected)
 
     # Test edge cases
