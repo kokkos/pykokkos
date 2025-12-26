@@ -84,7 +84,10 @@ IF(_INTERNAL_KOKKOS)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
 
-    FIND_PACKAGE(OpenMP QUIET)
+    # Only search for OpenMP if not explicitly disabled and Threads not explicitly enabled
+    IF(NOT DEFINED Kokkos_ENABLE_THREADS OR NOT Kokkos_ENABLE_THREADS)
+        FIND_PACKAGE(OpenMP QUIET)
+    ENDIF()
 
     # Only check for Threads if OpenMP was not found and not explicitly disabled
     IF(NOT OpenMP_FOUND AND NOT DEFINED Kokkos_ENABLE_OPENMP)
@@ -287,6 +290,21 @@ IF(_INTERNAL_KOKKOS)
     # make sure this pykokkos-base option is synced to Kokkos option
     IF(DEFINED Kokkos_ENABLE_CUDA)
         SET(ENABLE_CUDA ${Kokkos_ENABLE_CUDA})
+    ENDIF()
+
+    # Enforce mutual exclusion AFTER syncing from command-line options
+    # Kokkos doesn't allow both OpenMP and Threads to be enabled
+    IF(ENABLE_OPENMP AND ENABLE_THREADS)
+        # Prefer the explicitly set option, or OpenMP if both are explicit
+        IF(DEFINED Kokkos_ENABLE_THREADS AND NOT DEFINED Kokkos_ENABLE_OPENMP)
+            SET(ENABLE_OPENMP OFF)
+            SET(Kokkos_ENABLE_OPENMP OFF CACHE BOOL "Build Kokkos submodule with OpenMP support" FORCE)
+            MESSAGE(STATUS "Disabling OpenMP because Threads was explicitly enabled")
+        ELSE()
+            SET(ENABLE_THREADS OFF)
+            SET(Kokkos_ENABLE_THREADS OFF CACHE BOOL "Build Kokkos submodule with Pthread support" FORCE)
+            MESSAGE(STATUS "Disabling Threads because OpenMP is enabled")
+        ENDIF()
     ENDIF()
 
     # define the kokkos option as default and/or get it to display
