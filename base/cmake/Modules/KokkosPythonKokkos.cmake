@@ -84,26 +84,181 @@ IF(_INTERNAL_KOKKOS)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
 
-    IF(NOT Kokkos_ENABLE_THREADS)
-        FIND_PACKAGE(OpenMP QUIET)
-    ENDIF()
+    FIND_PACKAGE(OpenMP QUIET)
 
-    IF(NOT DEFINED Kokkos_ENABLE_THREADS AND NOT OpenMP_FOUND)
+    # Only check for Threads if OpenMP was not found and not explicitly disabled
+    IF(NOT OpenMP_FOUND AND NOT DEFINED Kokkos_ENABLE_OPENMP)
         FIND_PACKAGE(Threads QUIET)
+    ELSE()
+        SET(Threads_FOUND OFF)
     ENDIF()
 
-    IF(NOT DEFINED Kokkos_ENABLE_CUDA)
-        FIND_PACKAGE(CUDA QUIET)
+    # Only enable CUDA if EXPLICITLY requested
+    # Check both ENABLE_CUDA and Kokkos_ENABLE_CUDA
+    SET(_CUDA_EXPLICITLY_ENABLED OFF)
+
+    # Check if explicitly enabled
+    IF((DEFINED ENABLE_CUDA AND ENABLE_CUDA) OR (DEFINED Kokkos_ENABLE_CUDA AND Kokkos_ENABLE_CUDA))
+        SET(_CUDA_EXPLICITLY_ENABLED ON)
+    ENDIF()
+
+    # Only search for CUDA if explicitly enabled
+    IF(_CUDA_EXPLICITLY_ENABLED AND NOT DEFINED Kokkos_ENABLE_CUDA)
+        # Use modern CUDAToolkit package instead of deprecated CUDA module
+        # First, search for CUDA in common installation directories
+        FILE(GLOB CUDA_SEARCH_PATHS
+            "/usr/local/cuda-*"
+            "/usr/local/cuda"
+            "/opt/cuda-*"
+            "/opt/cuda"
+        )
+
+        # Add common CUDA paths to CMAKE_PREFIX_PATH to help find complete installations
+        IF(CUDA_SEARCH_PATHS)
+            LIST(SORT CUDA_SEARCH_PATHS ORDER DESCENDING)  # Prefer newer versions
+            FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
+                IF(EXISTS "${CUDA_PATH}/bin/nvcc" AND EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
+                    LIST(APPEND CMAKE_PREFIX_PATH "${CUDA_PATH}")
+                ENDIF()
+            ENDFOREACH()
+        ENDIF()
+
+        FIND_PACKAGE(CUDAToolkit QUIET)
+        IF(CUDAToolkit_FOUND)
+            SET(CUDA_FOUND ON)
+
+            # Set CUDA paths for the build system
+            GET_FILENAME_COMPONENT(CUDA_TOOLKIT_ROOT "${CUDAToolkit_BIN_DIR}" DIRECTORY)
+
+            # Verify we have cuda_runtime.h in the include directory
+            IF(NOT EXISTS "${CUDAToolkit_INCLUDE_DIRS}/cuda_runtime.h")
+
+                # Try to find a complete CUDA installation manually
+                FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
+                    IF(EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
+                        SET(CUDA_TOOLKIT_ROOT "${CUDA_PATH}")
+                        SET(CUDAToolkit_BIN_DIR "${CUDA_PATH}/bin")
+                        SET(CUDAToolkit_INCLUDE_DIRS "${CUDA_PATH}/include")
+                        SET(CUDAToolkit_NVCC_EXECUTABLE "${CUDA_PATH}/bin/nvcc")
+                        BREAK()
+                    ENDIF()
+                ENDFOREACH()
+            ENDIF()
+
+            # Set environment variables for the build
+            SET(ENV{CUDA_HOME} "${CUDA_TOOLKIT_ROOT}")
+            SET(ENV{CUDACXX} "${CUDAToolkit_NVCC_EXECUTABLE}")
+
+            # Set CMAKE_CUDA_COMPILER if not already set
+            IF(NOT CMAKE_CUDA_COMPILER)
+                SET(CMAKE_CUDA_COMPILER "${CUDAToolkit_NVCC_EXECUTABLE}" CACHE FILEPATH "CUDA compiler" FORCE)
+            ENDIF()
+
+            # Enable CUDA language now that we have the correct compiler
+            INCLUDE(CheckLanguage)
+            CHECK_LANGUAGE(CUDA)
+            IF(CMAKE_CUDA_COMPILER)
+                ENABLE_LANGUAGE(CUDA)
+            ENDIF()
+
+            # Set default CUDA architectures if not specified
+            IF(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+                SET(CMAKE_CUDA_ARCHITECTURES "70;75;80" CACHE STRING "CUDA architectures" FORCE)
+            ENDIF()
+
+            # Pass CUDA paths to Kokkos
+            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
+
+            # Add CUDA include directories to the include path
+            INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
+        ELSE()
+            SET(CUDA_FOUND OFF)
+        ENDIF()
+    ELSEIF(_CUDA_EXPLICITLY_ENABLED)
+        # CUDA explicitly enabled - ensure we have it
+        # Search for CUDA in common installation directories
+        FILE(GLOB CUDA_SEARCH_PATHS
+            "/usr/local/cuda-*"
+            "/usr/local/cuda"
+            "/opt/cuda-*"
+            "/opt/cuda"
+        )
+
+        # Add common CUDA paths to CMAKE_PREFIX_PATH
+        IF(CUDA_SEARCH_PATHS)
+            LIST(SORT CUDA_SEARCH_PATHS ORDER DESCENDING)
+            FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
+                IF(EXISTS "${CUDA_PATH}/bin/nvcc" AND EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
+                    LIST(APPEND CMAKE_PREFIX_PATH "${CUDA_PATH}")
+                ENDIF()
+            ENDFOREACH()
+        ENDIF()
+
+        FIND_PACKAGE(CUDAToolkit REQUIRED)
+        SET(CUDA_FOUND ON)
+
+        # Set CUDA paths for the build system
+        GET_FILENAME_COMPONENT(CUDA_TOOLKIT_ROOT "${CUDAToolkit_BIN_DIR}" DIRECTORY)
+
+        # Verify we have cuda_runtime.h
+        IF(NOT EXISTS "${CUDAToolkit_INCLUDE_DIRS}/cuda_runtime.h")
+            # Try to find complete installation
+            FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
+                IF(EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
+                    SET(CUDA_TOOLKIT_ROOT "${CUDA_PATH}")
+                    SET(CUDAToolkit_BIN_DIR "${CUDA_PATH}/bin")
+                    SET(CUDAToolkit_INCLUDE_DIRS "${CUDA_PATH}/include")
+                    SET(CUDAToolkit_NVCC_EXECUTABLE "${CUDA_PATH}/bin/nvcc")
+                    BREAK()
+                ENDIF()
+            ENDFOREACH()
+        ENDIF()
+
+        # Set environment variables
+        SET(ENV{CUDA_HOME} "${CUDA_TOOLKIT_ROOT}")
+        SET(ENV{CUDACXX} "${CUDAToolkit_NVCC_EXECUTABLE}")
+
+        IF(NOT CMAKE_CUDA_COMPILER)
+            SET(CMAKE_CUDA_COMPILER "${CUDAToolkit_NVCC_EXECUTABLE}" CACHE FILEPATH "CUDA compiler" FORCE)
+        ENDIF()
+
+        # Enable CUDA language now that we have the correct compiler
+        INCLUDE(CheckLanguage)
+        CHECK_LANGUAGE(CUDA)
+        IF(CMAKE_CUDA_COMPILER)
+            ENABLE_LANGUAGE(CUDA)
+        ENDIF()
+
+        IF(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+            SET(CMAKE_CUDA_ARCHITECTURES "70;75;80" CACHE STRING "CUDA architectures" FORCE)
+        ENDIF()
+
+        SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
+        INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
+    ELSE()
+        # CUDA not explicitly enabled or not found
+        SET(CUDA_FOUND OFF)
     ENDIF()
 
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
     ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
-    ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" ${Threads_FOUND})
-    ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" ${CUDA_FOUND})
+    # Only enable Threads if OpenMP is not available
+    IF(OpenMP_FOUND)
+        ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" OFF)
+    ELSE()
+        ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" ${Threads_FOUND})
+    ENDIF()
+    # CUDA must be explicitly enabled - default to OFF
+    ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" OFF)
 
-    # if OpenMP defaulted to ON but Kokkos_ENABLE_THREADS was explicitly set,
-    # disable OpenMP defaulting to ON
-    IF(ENABLE_OPENMP AND Kokkos_ENABLE_THREADS)
+    # if OpenMP is enabled, ensure Threads is disabled (Kokkos doesn't allow both)
+    IF(ENABLE_OPENMP)
+        SET(ENABLE_THREADS OFF)
+        SET(Kokkos_ENABLE_THREADS OFF)
+    ENDIF()
+
+    # if Threads was explicitly enabled, disable OpenMP
+    IF(Kokkos_ENABLE_THREADS)
         SET(ENABLE_OPENMP OFF)
         SET(Kokkos_ENABLE_OPENMP OFF)
     ENDIF()
