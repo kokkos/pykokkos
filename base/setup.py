@@ -172,29 +172,6 @@ def get_long_description():
     return long_descript
 
 
-# --------------------------------------------------------------------------- #
-#
-# parse_requirements function no longer needed - dependencies managed by conda
-# def parse_requirements(fname="requirements.txt"):
-#     _req = []
-#     requirements = []
-#     # read in the initial set of requirements
-#     with open(fname, "r") as fp:
-#         _req = list(filter(bool, (line.strip() for line in fp)))
-#     # look for entries which read other files
-#     for itr in _req:
-#         if itr.startswith("-r "):
-#             # read another file
-#             for fitr in itr.split(" "):
-#                 if os.path.exists(fitr):
-#                     requirements.extend(parse_requirements(fitr))
-#         else:
-#             # append package
-#             requirements.append(itr)
-#     # return the requirements
-#     return requirements
-
-
 # suppress:
 #  "setuptools_scm/git.py:68: UserWarning: "/.../<PACKAGE>"
 #       is shallow and may cause errors"
@@ -209,6 +186,6 @@ with warnings.catch_warnings():
         cmake_languages=("C", "CXX"),
         long_description=get_long_description(),
         long_description_content_type="text/markdown",
-        install_requires=[],  # Dependencies managed by conda environment.yml
+        install_requires=[],
         project_urls={"kokkos": "https://github.com/kokkos/kokkos"},
     )
