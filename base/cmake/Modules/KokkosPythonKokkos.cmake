@@ -222,18 +222,18 @@ IF(_INTERNAL_KOKKOS)
         SET(ENABLE_CUDA ${Kokkos_ENABLE_CUDA})
     ENDIF()
 
-    # Enforce mutual exclusion AFTER syncing from command-line options
-    # Kokkos doesn't allow both OpenMP and Threads to be enabled
+    # Kokkos doesn't allow both OpenMP and Threads - enforce mutual exclusion
     IF(ENABLE_OPENMP AND ENABLE_THREADS)
-        # Prefer the explicitly set option, or OpenMP if both are explicit
-        IF(DEFINED Kokkos_ENABLE_THREADS AND NOT DEFINED Kokkos_ENABLE_OPENMP)
+        IF(Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_THREADS)
+            MESSAGE(FATAL_ERROR "Cannot enable both OpenMP and Threads execution spaces.")
+        ELSEIF(Kokkos_ENABLE_THREADS)
             SET(ENABLE_OPENMP OFF)
-            SET(Kokkos_ENABLE_OPENMP OFF CACHE BOOL "Build Kokkos submodule with OpenMP support" FORCE)
-            MESSAGE(STATUS "Disabling OpenMP because Threads was explicitly enabled")
+            SET(Kokkos_ENABLE_OPENMP OFF CACHE BOOL "" FORCE)
+            MESSAGE(STATUS "Disabling auto-detected OpenMP (Threads explicitly enabled)")
         ELSE()
             SET(ENABLE_THREADS OFF)
-            SET(Kokkos_ENABLE_THREADS OFF CACHE BOOL "Build Kokkos submodule with Pthread support" FORCE)
-            MESSAGE(STATUS "Disabling Threads because OpenMP is enabled")
+            SET(Kokkos_ENABLE_THREADS OFF CACHE BOOL "" FORCE)
+            MESSAGE(STATUS "Disabling Threads (OpenMP enabled)")
         ENDIF()
     ENDIF()
 
