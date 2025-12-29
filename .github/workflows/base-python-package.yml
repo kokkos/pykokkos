@@ -32,6 +32,7 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
     - name: Install flake8
       run: conda install -c conda-forge flake8
     - name: Lint with flake8
@@ -61,6 +62,7 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
     - name: Install black and clang-format
       run: |
         conda install -c conda-forge black

@@ -34,6 +34,7 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
 
     - name: Install pytest and ninja
       run: conda install -c conda-forge pytest ninja
@@ -103,6 +104,7 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
 
     - name: Install pytest and ninja
       run: conda install -c conda-forge pytest ninja
@@ -154,6 +156,7 @@ jobs:
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
 
     - name: Install pytest and ninja
       run: conda install -c conda-forge pytest ninja
