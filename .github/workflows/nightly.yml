@@ -10,9 +10,9 @@ jobs:
   test_vs_kokkos_develop:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
         python-version: ["3.13"]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - run: git checkout develop
@@ -34,11 +34,12 @@ jobs:
           git checkout develop
           mkdir build && cd build
           cmake -G Ninja .. -DCMAKE_INSTALL_PREFIX=/tmp/kokkos_install -DKokkos_ENABLE_OPENMP=On -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build .
+          cmake --build . --parallel 2
           cmake --install .
       - name: Install pykokkos-base
         working-directory: base
         run: |
+          export CMAKE_BUILD_PARALLEL_LEVEL=2
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DKokkos_DIR=/tmp/kokkos_install/lib/cmake/Kokkos/ -DENABLE_INTERNAL_KOKKOS=OFF
       - name: Install pykokkos
         run: |

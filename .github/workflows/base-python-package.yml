@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest, ubuntu-22.04]
+        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
     defaults:
@@ -26,12 +26,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
+        architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
     - name: Install flake8
       run: conda install -c conda-forge flake8
     - name: Lint with flake8
@@ -46,7 +48,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.13]
-        os: [ubuntu-latest, ubuntu-22.04]
+        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
     defaults:
@@ -55,12 +57,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
         environment-file: base/environment.yml
         activate-environment: pyk
         auto-activate-base: false
+        miniforge-version: "latest"
+        architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
     - name: Install black and clang-format
       run: |
         conda install -c conda-forge black

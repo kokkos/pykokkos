@@ -12,21 +12,23 @@ jobs:
   test_array_api:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
         python-version: [3.11, 3.12, 3.13]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash -l {0}
     steps:
       - uses: actions/checkout@v3
       - name: Set up conda environment
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
           environment-file: base/environment.yml
           activate-environment: pyk
           auto-activate-base: false
+          miniforge-version: "latest"
+          architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
       - name: Install dependencies
         run: |
           conda install -c conda-forge numpy mypy cmake pytest pybind11 scikit-build patchelf tqdm &&

@@ -1,4 +1,5 @@
 from .accumulator import Acc
+from .algorithms.inclusive_scan import inclusive_scan
 from .atomic.atomic_fetch_op import (
     atomic_fetch_add,
     atomic_fetch_and,

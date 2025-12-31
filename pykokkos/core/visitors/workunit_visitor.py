@@ -361,6 +361,51 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             return real_number_call
 
+        # Kokkos `inclusive_scan`
+        if name == "inclusive_scan":
+            # Check if it's called via pk.inclusive_scan
+            is_pk_call = (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == self.pk_import
+            )
+
+            if not is_pk_call:
+                return super().visit_Call(node)
+
+            # Expected signature: pk.inclusive_scan(team_member, view, length)
+            # or: pk.inclusive_scan(team_member, view) - uses view size
+            if len(args) < 2 or len(args) > 3:
+                self.error(
+                    node,
+                    "pk.inclusive_scan() takes 2 or 3 arguments: team_member, view, [length]",
+                )
+
+            team_member_expr = args[0]
+            view_expr = args[1]
+
+            # Create Kokkos::Experimental::begin() and end() calls
+            begin_function = cppast.DeclRefExpr("Kokkos::Experimental::begin")
+            end_function = cppast.DeclRefExpr("Kokkos::Experimental::end")
+            view_begin = cppast.CallExpr(begin_function, [view_expr])
+
+            if len(args) == 3:
+                # Use provided length: begin + length
+                length_expr = args[2]
+                view_begin_for_end = cppast.CallExpr(begin_function, [view_expr])
+                view_end = cppast.BinaryOperator(
+                    view_begin_for_end, length_expr, cppast.BinaryOperatorKind.Add
+                )
+            else:
+                # Use end() when no length is provided
+                view_end = cppast.CallExpr(end_function, [view_expr])
+
+            # Create Kokkos::Experimental::inclusive_scan call
+            function = cppast.DeclRefExpr("Kokkos::Experimental::inclusive_scan")
+            scan_args = [team_member_expr, view_begin, view_end, view_begin]
+
+            return cppast.CallExpr(function, scan_args)
+
         return super().visit_Call(node)
 
     def is_nested_call(self, node: ast.FunctionDef) -> bool:
