@@ -92,75 +92,28 @@ IF(_INTERNAL_KOKKOS)
         FIND_PACKAGE(Threads QUIET)
     ENDIF()
 
-    # Only enable CUDA if EXPLICITLY requested
-    SET(_CUDA_EXPLICITLY_ENABLED OFF)
-
-    # Check if explicitly enabled
-    IF((DEFINED ENABLE_CUDA AND ENABLE_CUDA) OR (DEFINED Kokkos_ENABLE_CUDA AND Kokkos_ENABLE_CUDA))
-        SET(_CUDA_EXPLICITLY_ENABLED ON)
-    ENDIF()
-
     # Only search for CUDA if explicitly enabled
-    IF(_CUDA_EXPLICITLY_ENABLED)
-        FILE(GLOB CUDA_SEARCH_PATHS
-            "/usr/local/cuda-*"
-            "/usr/local/cuda"
-            "/opt/cuda-*"
-            "/opt/cuda"
-        )
-
-        # Add common CUDA paths to CMAKE_PREFIX_PATH to help find complete installations
-        IF(CUDA_SEARCH_PATHS)
-            LIST(SORT CUDA_SEARCH_PATHS ORDER DESCENDING)  # Prefer newer versions
-            FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
-                IF(EXISTS "${CUDA_PATH}/bin/nvcc" AND EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
-                    LIST(APPEND CMAKE_PREFIX_PATH "${CUDA_PATH}")
-                ENDIF()
-            ENDFOREACH()
-        ENDIF()
-
-        # Find CUDA toolkit (REQUIRED if Kokkos_ENABLE_CUDA already defined, otherwise QUIET)
+    IF((DEFINED ENABLE_CUDA AND ENABLE_CUDA) OR (DEFINED Kokkos_ENABLE_CUDA AND Kokkos_ENABLE_CUDA))
+        # Find CUDA (REQUIRED if Kokkos_ENABLE_CUDA already defined, otherwise QUIET)
         IF(DEFINED Kokkos_ENABLE_CUDA)
-            FIND_PACKAGE(CUDAToolkit REQUIRED)
+            FIND_PACKAGE(CUDA REQUIRED)
         ELSE()
-            FIND_PACKAGE(CUDAToolkit QUIET)
+            FIND_PACKAGE(CUDA QUIET)
         ENDIF()
 
-        IF(CUDAToolkit_FOUND)
-            SET(CUDA_FOUND ON)
+        IF(CUDA_FOUND)
+            # set up CUDA include directories
+            FOREACH(INCLUDE_DIR ${CUDA_INCLUDE_DIRS})
+                LIST(APPEND CMAKE_CXX_FLAGS "-I${INCLUDE_DIR}")
+                LIST(APPEND CMAKE_CUDA_FLAGS "-I${INCLUDE_DIR}")
+            ENDFOREACH()
+            SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "Flags used by the C++ compiler" FORCE)
+            SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}" CACHE STRING "Flags used by the CUDA compiler" FORCE)
 
-            # Set CUDA paths for the build system
-            GET_FILENAME_COMPONENT(CUDA_TOOLKIT_ROOT "${CUDAToolkit_BIN_DIR}" DIRECTORY)
+            ENABLE_LANGUAGE(CUDA)
+            INCLUDE_DIRECTORIES(SYSTEM ${CUDA_INCLUDE_DIRS})
 
-            # Verify we have cuda_runtime.h in the include directory
-            IF(NOT EXISTS "${CUDAToolkit_INCLUDE_DIRS}/cuda_runtime.h")
-                FOREACH(CUDA_PATH ${CUDA_SEARCH_PATHS})
-                    IF(EXISTS "${CUDA_PATH}/include/cuda_runtime.h")
-                        SET(CUDA_TOOLKIT_ROOT "${CUDA_PATH}")
-                        SET(CUDAToolkit_BIN_DIR "${CUDA_PATH}/bin")
-                        SET(CUDAToolkit_INCLUDE_DIRS "${CUDA_PATH}/include")
-                        SET(CUDAToolkit_NVCC_EXECUTABLE "${CUDA_PATH}/bin/nvcc")
-                        BREAK()
-                    ENDIF()
-                ENDFOREACH()
-            ENDIF()
-
-            # Set up env for this build
-            SET(ENV{CUDA_HOME} "${CUDA_TOOLKIT_ROOT}")
-            SET(ENV{CUDACXX} "${CUDAToolkit_NVCC_EXECUTABLE}")
-            IF(NOT CMAKE_CUDA_COMPILER)
-                SET(CMAKE_CUDA_COMPILER "${CUDAToolkit_NVCC_EXECUTABLE}" CACHE FILEPATH "CUDA compiler" FORCE)
-            ENDIF()
-
-            # Enable CUDA language now that we have the correct compiler
-            INCLUDE(CheckLanguage)
-            CHECK_LANGUAGE(CUDA)
-            IF(CMAKE_CUDA_COMPILER)
-                ENABLE_LANGUAGE(CUDA)
-            ENDIF()
-
-            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
-            INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
+            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT_DIR}" CACHE PATH "CUDA installation directory" FORCE)
         ENDIF()
     ENDIF()
 
