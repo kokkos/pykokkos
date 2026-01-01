@@ -90,6 +90,12 @@ IF(_INTERNAL_KOKKOS)
     # If Threads is explicitly requested, find it
     ELSEIF((DEFINED ENABLE_THREADS AND ENABLE_THREADS) OR (DEFINED Kokkos_ENABLE_THREADS AND Kokkos_ENABLE_THREADS))
         FIND_PACKAGE(Threads QUIET)
+    ELSE()
+        # if none requested - check what's available and prefer OpenMP
+        FIND_PACKAGE(OpenMP QUIET)
+        IF(NOT OpenMP_FOUND)
+            FIND_PACKAGE(Threads QUIET)
+        ENDIF()
     ENDIF()
 
     # Only search for CUDA if explicitly enabled
@@ -114,7 +120,12 @@ IF(_INTERNAL_KOKKOS)
     ENDIF()
 
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
-    ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
+    # If OpenMP was explicitly requested, use that; otherwise use auto-detection result
+    IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
+        ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ON)
+    ELSE()
+        ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
+    ENDIF()
     # Only enable Threads if OpenMP is not available
     IF(OpenMP_FOUND)
         ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" OFF)
