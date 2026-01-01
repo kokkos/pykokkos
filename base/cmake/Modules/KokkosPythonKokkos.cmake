@@ -84,16 +84,12 @@ IF(_INTERNAL_KOKKOS)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
 
-    # Only search for OpenMP if not explicitly disabled and Threads not explicitly enabled
-    IF(NOT DEFINED Kokkos_ENABLE_THREADS OR NOT Kokkos_ENABLE_THREADS)
+    # Enable OpenMP if explicitly requested
+    IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
         FIND_PACKAGE(OpenMP QUIET)
-    ENDIF()
-
-    # Only check for Threads if OpenMP was not found and not explicitly disabled
-    IF(NOT OpenMP_FOUND AND NOT DEFINED Kokkos_ENABLE_OPENMP)
+    # If Threads is explicitly requested, find it
+    ELSEIF((DEFINED ENABLE_THREADS AND ENABLE_THREADS) OR (DEFINED Kokkos_ENABLE_THREADS AND Kokkos_ENABLE_THREADS))
         FIND_PACKAGE(Threads QUIET)
-    ELSE()
-        SET(Threads_FOUND OFF)
     ENDIF()
 
     # Only enable CUDA if EXPLICITLY requested
@@ -165,12 +161,7 @@ IF(_INTERNAL_KOKKOS)
 
             SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
             INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
-        ELSE()
-            SET(CUDA_FOUND OFF)
         ENDIF()
-    ELSE()
-        # if CUDA not explicitly enabled
-        SET(CUDA_FOUND OFF)
     ENDIF()
 
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
@@ -183,18 +174,6 @@ IF(_INTERNAL_KOKKOS)
     ENDIF()
     # CUDA must be explicitly enabled - default to OFF
     ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" OFF)
-
-    # if OpenMP is enabled, ensure Threads is disabled (Kokkos doesn't allow both)
-    IF(ENABLE_OPENMP)
-        SET(ENABLE_THREADS OFF)
-        SET(Kokkos_ENABLE_THREADS OFF)
-    ENDIF()
-
-    # if Threads was explicitly enabled, disable OpenMP
-    IF(Kokkos_ENABLE_THREADS)
-        SET(ENABLE_OPENMP OFF)
-        SET(Kokkos_ENABLE_OPENMP OFF)
-    ENDIF()
 
     # always disable pthread backend since pthreads are not supported on Windows
     IF(WIN32)
