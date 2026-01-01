@@ -94,27 +94,23 @@ IF(_INTERNAL_KOKKOS)
 
     # Only search for CUDA if explicitly enabled
     IF((DEFINED ENABLE_CUDA AND ENABLE_CUDA) OR (DEFINED Kokkos_ENABLE_CUDA AND Kokkos_ENABLE_CUDA))
-        # Find CUDA (REQUIRED if Kokkos_ENABLE_CUDA already defined, otherwise QUIET)
-        IF(DEFINED Kokkos_ENABLE_CUDA)
-            FIND_PACKAGE(CUDA REQUIRED)
-        ELSE()
-            FIND_PACKAGE(CUDA QUIET)
-        ENDIF()
-
-        IF(CUDA_FOUND)
-            # set up CUDA include directories
-            FOREACH(INCLUDE_DIR ${CUDA_INCLUDE_DIRS})
+        FIND_PACKAGE(CUDAToolkit QUIET)
+        IF(CUDAToolkit_FOUND)
+            FOREACH(INCLUDE_DIR ${CUDAToolkit_INCLUDE_DIRS})
                 LIST(APPEND CMAKE_CXX_FLAGS "-I${INCLUDE_DIR}")
                 LIST(APPEND CMAKE_CUDA_FLAGS "-I${INCLUDE_DIR}")
             ENDFOREACH()
             SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "Flags used by the C++ compiler" FORCE)
             SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}" CACHE STRING "Flags used by the CUDA compiler" FORCE)
-
-            ENABLE_LANGUAGE(CUDA)
-            INCLUDE_DIRECTORIES(SYSTEM ${CUDA_INCLUDE_DIRS})
-
-            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT_DIR}" CACHE PATH "CUDA installation directory" FORCE)
         ENDIF()
+
+        ENABLE_LANGUAGE(CUDA)
+        IF(CUDAToolkit_FOUND)
+            INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
+            GET_FILENAME_COMPONENT(CUDA_TOOLKIT_ROOT "${CUDAToolkit_BIN_DIR}" DIRECTORY)
+            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
+        ENDIF()
+        SET(CUDA_FOUND ON)
     ENDIF()
 
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
