@@ -83,6 +83,7 @@ IF(_INTERNAL_KOKKOS)
     SET(OpenMP_FOUND OFF)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
+    SET(HIP_FOUND OFF)
 
     # Enable OpenMP if explicitly requested
     IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
@@ -119,6 +120,17 @@ IF(_INTERNAL_KOKKOS)
         SET(CUDA_FOUND ON)
     ENDIF()
 
+    # search for HIP if explicitly enabled
+    IF((DEFINED ENABLE_HIP AND ENABLE_HIP) OR (DEFINED Kokkos_ENABLE_HIP AND Kokkos_ENABLE_HIP))
+        INCLUDE(CheckLanguage)
+        CHECK_LANGUAGE(HIP)
+        
+        IF(CMAKE_HIP_COMPILER)
+            ENABLE_LANGUAGE(HIP)
+            SET(HIP_FOUND ON)
+        ENDIF()
+    ENDIF()
+
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
     # If OpenMP was explicitly requested, use that; otherwise use auto-detection result
     IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
@@ -134,6 +146,8 @@ IF(_INTERNAL_KOKKOS)
     ENDIF()
     # CUDA must be explicitly enabled - default to OFF
     ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" OFF)
+    # HIP must be explicitly enabled - default to OFF
+    ADD_OPTION(ENABLE_HIP "Enable HIP when building Kokkos submodule" OFF)
 
     # always disable pthread backend since pthreads are not supported on Windows
     IF(WIN32)
@@ -161,26 +175,32 @@ IF(_INTERNAL_KOKKOS)
         SET(ENABLE_CUDA ${Kokkos_ENABLE_CUDA})
     ENDIF()
 
+    # make sure this pykokkos-base option is synced to Kokkos option
+    IF(DEFINED Kokkos_ENABLE_HIP)
+        SET(ENABLE_HIP ${Kokkos_ENABLE_HIP})
+    ENDIF()
+
     # define the kokkos option as default and/or get it to display
     IF(ENABLE_SERIAL)
         ADD_OPTION(Kokkos_ENABLE_SERIAL "Build Kokkos submodule with serial support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_OPENMP)
         ADD_OPTION(Kokkos_ENABLE_OPENMP "Build Kokkos submodule with OpenMP support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_THREADS)
         ADD_OPTION(Kokkos_ENABLE_THREADS "Build Kokkos submodule with Pthread support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_CUDA)
         ADD_OPTION(Kokkos_ENABLE_CUDA "Build Kokkos submodule with CUDA support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
+    ENDIF()
+
+    IF(ENABLE_HIP)
+        ADD_OPTION(Kokkos_ENABLE_HIP "Build Kokkos submodule with HIP support" ON)
     ENDIF()
 
     # Check if we should use submodule or FetchContent
