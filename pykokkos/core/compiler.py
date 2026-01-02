@@ -42,6 +42,7 @@ class Compiler:
 
         # caches the result of CppSetup.is_compiled(path)
         self.is_compiled_cache: Dict[str, bool] = {}
+        self.is_current_cache: Dict[str, bool] = {}
         self.parser_cache: Dict[str, Parser] = {}
 
         self.functor_file: str = "functor.hpp"
@@ -185,7 +186,16 @@ class Compiler:
                     entity.AST = parser.fix_decorator(entity, updated_decorator)
                 self.members[hash] = self.extract_members(entity, classtypes)
 
-            return self.members[hash]
+            if self.is_current(module_setup.output_dir, metadata):
+                return self.members[hash]
+            else:
+                # remove out-of-date directories
+                for child in module_setup.output_dir.iterdir():
+                    child.unlink()
+                module_setup.output_dir.rmdir()
+
+                # reset is_current_cache
+                del self.is_current_cache[module_setup.output_dir]
 
         if len(metadata) > 1:
             entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True, **kwargs)
@@ -442,6 +452,33 @@ class Compiler:
         self.is_compiled_cache[output_dir] = is_compiled
 
         return is_compiled
+
+    def is_current(self, output_dir: str, input_metadata: List[str]) -> bool:
+        """
+        Check if the entity has changed since the last
+        compilation. The result will be cached,
+        as accessing the filesystem is costly.
+
+        :param output_dir: the location of the compiled entity
+        :param input_metadata: metadata containing the path to the source files.
+        :returns: True is output_dir exists and was
+        most recently modified after the source files.
+        """
+        is_current: bool = False
+
+        if output_dir in self.is_current_cache:
+            return self.is_current_cache[output_dir]
+
+        out_time = output_dir.stat().st_mtime
+        for metadata in input_metadata:
+            path = Path(metadata.path)
+            in_time = path.stat().st_mtime
+            is_current = out_time > in_time
+            if not is_current:
+                break
+        self.is_current_cache[output_dir] = is_current
+
+        return is_current
 
     def get_parser(self, path: str) -> Parser:
         """
