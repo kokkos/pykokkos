@@ -1,4 +1,5 @@
 import pykokkos as pk
+import numpy as np
 
 import argparse
 from functools import reduce
@@ -18,9 +19,9 @@ class KokkosStream:
     ):
         self.array_size: int = ARRAY_SIZE
 
-        self.a: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
-        self.b: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
-        self.c: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
+        self.a = np.zeros([ARRAY_SIZE], dtype=np.float64)
+        self.b = np.zeros([ARRAY_SIZE], dtype=np.float64)
+        self.c = np.zeros([ARRAY_SIZE], dtype=np.float64)
 
         self.initA: pk.double = initA
         self.initB: pk.double = initB
@@ -30,7 +31,7 @@ class KokkosStream:
         self.sum: pk.double = 0
 
         self.runtime: float = 0
-        self.runtimes: pk.View2D[pk.double] = pk.View([5, num_times], pk.double)
+        self.runtimes = np.zeros([5, num_times], dtype=np.float64)
 
     @pk.main
     def run(self):
