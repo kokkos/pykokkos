@@ -7,6 +7,7 @@ import numpy as np
 
 try:
     import cupy as cp
+
     cupy_available = True
 except ImportError:
     cupy_available = False
@@ -21,7 +22,14 @@ def get_array_module(space: pk.ExecutionSpace):
 
 @pk.functor
 class Benchmark:
-    def __init__(self, indices: int, data: int, repeats: int, use_atomics: bool, space: pk.ExecutionSpace):
+    def __init__(
+        self,
+        indices: int,
+        data: int,
+        repeats: int,
+        use_atomics: bool,
+        space: pk.ExecutionSpace,
+    ):
         xp = get_array_module(space)
         self.indices = xp.zeros(indices, dtype=np.int64)
         self.data = xp.zeros(data, dtype=np.int64)

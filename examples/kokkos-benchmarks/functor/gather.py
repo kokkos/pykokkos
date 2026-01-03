@@ -7,6 +7,7 @@ import numpy as np
 
 try:
     import cupy as cp
+
     cupy_available = True
 except ImportError:
     cupy_available = False
@@ -22,7 +23,9 @@ def get_array_module(space: pk.ExecutionSpace):
 @pk.functor
 # use double type and unroll=8
 class Benchmark_double_8:
-    def __init__(self, N: int, K: int, D: int, R: int, F: int, space: pk.ExecutionSpace):
+    def __init__(
+        self, N: int, K: int, D: int, R: int, F: int, space: pk.ExecutionSpace
+    ):
         self.K: int = K
         self.F: int = F
 
