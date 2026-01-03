@@ -1,14 +1,15 @@
+import numpy as np
 import pykokkos as pk
 
 
 @pk.workunit
-def init_data(i: int, view: pk.View1D[int]):
+def init_data(i: int, view):
     view[i] = i + 1
 
 
 # Test inclusive_scan with scratch memory
 @pk.workunit
-def team_scan(team_member: pk.TeamMember, view: pk.View1D[int]):
+def team_scan(team_member: pk.TeamMember, view):
     team_size: int = team_member.team_size()
     offset: int = team_member.league_rank() * team_size
     localIdx: int = team_member.team_rank()
@@ -33,7 +34,7 @@ def main():
     team_size = 32
     num_teams = (N + team_size - 1) // team_size
 
-    view: pk.View1D[int] = pk.View([N], int)
+    view = np.zeros([N], dtype=np.int32)
     p_init = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
     pk.parallel_for(p_init, init_data, view=view)
 
