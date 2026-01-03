@@ -1,4 +1,5 @@
 from typing import Tuple
+import numpy as np
 
 import pykokkos as pk
 
@@ -32,9 +33,9 @@ def run() -> None:
     nrepeat: int = 1
     print(f"Total size S = {N * M} N = {N} M = {M}")
 
-    y = pk.View([N], pk.double)
-    x = pk.View([M], pk.double)
-    A = pk.View([N * M], pk.double)
+    y = np.zeros([N], dtype=np.float64)
+    x = np.zeros([M], dtype=np.float64)
+    A = np.zeros([N * M], dtype=np.float64)
 
     p = pk.RangePolicy(0, N)
     pk.parallel_for(p, y_init, y_view=y)
