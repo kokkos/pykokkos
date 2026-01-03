@@ -4,13 +4,13 @@ import pykokkos as pk
 
 
 @pk.workunit(np_arr=pk.ViewTypeInfo(space=pk.HostSpace))
-def addition_np(i: int, np_arr: pk.View2D[int]):
+def addition_np(i: int, np_arr):
     np_arr[i][0] += 1 * i
     np_arr[i][1] += 2 * i
 
 
 @pk.workunit(cp_arr=pk.ViewTypeInfo(space=pk.CudaSpace, layout=pk.LayoutRight))
-def addition_cp(i: int, cp_arr: pk.View2D[int]):
+def addition_cp(i: int, cp_arr):
     cp_arr[i][0] += 1 * i
     cp_arr[i][1] += 2 * i
 
