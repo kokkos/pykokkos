@@ -437,6 +437,7 @@ class Runtime:
             if is_functor:
                 functor: object = entity.__self__
                 entity_members = functor.__dict__
+                self._convert_functor_arrays(entity_members)
             else:
                 is_fused: bool = isinstance(entity, list)
                 if is_fused:
@@ -633,6 +634,31 @@ class Runtime:
                 fields[key] = value.value
 
         return fields
+
+    def _convert_functor_arrays(self, members: Dict[str, Any]) -> None:
+        """
+        Convert numpy/cupy arrays in functor members to Views (similar to convert_arrays for kwargs)
+
+        :param members: the functor's __dict__ that will be modified in-place
+        """
+        import numpy as np
+        from pykokkos.interface.views import ViewType, array
+
+        cp_available: bool
+        try:
+            import cupy as cp
+
+            cp_available = True
+        except ImportError:
+            cp_available = False
+
+        for k, v in members.items():
+            if isinstance(v, ViewType) or isinstance(v, np.generic):
+                continue
+            elif isinstance(v, np.ndarray):
+                members[k] = array(v)
+            elif cp_available and isinstance(v, cp.ndarray):
+                members[k] = array(v)
 
     def get_views(self, members: Dict[str, type]) -> Dict[str, Any]:
         """

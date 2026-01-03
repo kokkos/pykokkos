@@ -27,6 +27,7 @@ class PyKokkosMembers:
             cppast.DeclRefExpr, List[cppast.DeclRefExpr]
         ] = {}
         self.real_dtype_views: Set[cppast.DeclRefExpr] = {}
+        self.numpy_cupy_views: Set[cppast.DeclRefExpr] = {}
 
         self.pk_workunits: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
         self.pk_functions: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
