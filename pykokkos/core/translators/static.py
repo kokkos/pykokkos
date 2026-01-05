@@ -238,6 +238,7 @@ class StaticTranslator:
             inferred_types: Dict[str, str] = {}
             function_name = functiondef.name
             param_names = [arg.arg for arg in functiondef.args.args]
+
             class CallSiteFinder(ast.NodeVisitor):
                 def __init__(self, target_name: str, pk_import: str):
                     self.target_name = target_name

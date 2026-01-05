@@ -194,7 +194,7 @@ class Parser:
 
         assert entity_tree is not None
         return entity_tree
-    
+
     def fix_function_types(
         self, function: ast.FunctionDef, inferred_types: Dict[str, str]
     ) -> ast.FunctionDef:
