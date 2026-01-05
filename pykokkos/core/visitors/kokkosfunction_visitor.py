@@ -15,8 +15,7 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 class KokkosFunctionVisitor(PyKokkosVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> cppast.MethodDecl:
-        if not self.is_valid_kokkos_function(node):
-            self.error(node, "Invalid Kokkos function")
+        self.is_valid_kokkos_function(node)
 
         return_type: cppast.ClassType
         if self.is_void_function(node):
@@ -114,10 +113,16 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
     def is_valid_kokkos_function(self, node) -> bool:
         # Is the return type annotation missing
         if node.returns is None:
-            return False
+            self.error(
+                node.returns,
+                f"Return type annotation missing in function `{node.name}`, Kokkos functions do not (yet) support type inference.",
+            )
 
         # Is the type annotation for any argument missing (excluding self)
         if any(arg.annotation is None and arg.arg != "self" for arg in node.args.args):
-            return False
+            self.error(
+                node.args,
+                f"Argument type annotation missing in function `{node.name}`, Kokkos functions do not (yet) support type inference.",
+            )
 
         return True
