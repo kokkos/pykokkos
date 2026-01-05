@@ -115,9 +115,4 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
         # Is the return type annotation missing
         if node.returns is None:
             return False
-
-        # Is the type annotation for any argument missing (excluding self)
-        if any(arg.annotation is None and arg.arg != "self" for arg in node.args.args):
-            return False
-
         return True

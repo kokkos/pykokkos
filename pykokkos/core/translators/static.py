@@ -7,7 +7,8 @@ from typing import Dict, List, Optional, Set, Tuple
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.core.optimizations import add_restrict_views
-from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
+from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
+from pykokkos.core.type_inference.args_type_inference import _infer_type_from_value
 from pykokkos.core.visitors import (
     ClasstypeVisitor,
     KokkosFunctionVisitor,
@@ -69,6 +70,8 @@ class StaticTranslator:
         """
 
         self.pk_import = entity.pk_import
+        # Create parser instance to reuse its methods
+        self.parser = Parser(entity.path)
 
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:
@@ -229,6 +232,77 @@ class StaticTranslator:
         :param restrict_views: the views with the restrict keyword
         :returns: a list of method declarations
         """
+
+        # Infer types for Kokkos function parameters from call sites in workunits
+        for functiondef in self.pk_members.pk_functions.values():
+            inferred_types: Dict[str, str] = {}
+            function_name = functiondef.name
+            param_names = [arg.arg for arg in functiondef.args.args]
+            class CallSiteFinder(ast.NodeVisitor):
+                def __init__(self, target_name: str, pk_import: str):
+                    self.target_name = target_name
+                    self.pk_import = pk_import
+                    self.call_sites: List[ast.Call] = []
+
+                def visit_Call(self, node: ast.Call):
+                    if (
+                        isinstance(node.func, ast.Name)
+                        and node.func.id == self.target_name
+                    ):
+                        self.call_sites.append(node)
+                    elif isinstance(node.func, ast.Attribute):
+                        if (
+                            isinstance(node.func.value, ast.Name)
+                            and node.func.value.id == self.pk_import
+                            and node.func.attr == self.target_name
+                        ):
+                            self.call_sites.append(node)
+                    self.generic_visit(node)
+
+            finder = CallSiteFinder(function_name, self.pk_import)
+            for workunit in self.pk_members.pk_workunits.values():
+                finder.visit(workunit)
+
+            # Check return type for float preference (same logic as infer_other_args pattern)
+            prefer_float = False
+            if functiondef.returns and isinstance(functiondef.returns, ast.Attribute):
+                if (
+                    isinstance(functiondef.returns.value, ast.Name)
+                    and functiondef.returns.value.id == self.pk_import
+                ):
+                    if functiondef.returns.attr in ("double", "float"):
+                        prefer_float = True
+
+            # extract values from call sites and infer types
+            for call_site in finder.call_sites:
+                for i, arg_node in enumerate(call_site.args):
+                    if i >= len(param_names) or param_names[i] in inferred_types:
+                        continue
+                    param_name = param_names[i]
+                    if isinstance(arg_node, ast.Constant):
+                        value = arg_node.value
+                        inferred_types[param_name] = _infer_type_from_value(
+                            value, prefer_float
+                        )
+                    elif isinstance(arg_node, ast.Name):
+                        for workunit in self.pk_members.pk_workunits.values():
+                            for workunit_arg in workunit.args.args:
+                                if (
+                                    workunit_arg.arg == arg_node.id
+                                    and workunit_arg.annotation
+                                ):
+                                    ann = workunit_arg.annotation
+                                    if isinstance(ann, ast.Name):
+                                        inferred_types[param_name] = ann.id
+                                    elif (
+                                        isinstance(ann, ast.Attribute)
+                                        and isinstance(ann.value, ast.Name)
+                                        and ann.value.id == self.pk_import
+                                    ):
+                                        inferred_types[param_name] = ann.attr
+                                    break
+            if inferred_types:
+                self.parser.fix_function_types(functiondef, inferred_types)
 
         # The visitor might add views declared as parameters
         views = copy.deepcopy(self.pk_members.views)
