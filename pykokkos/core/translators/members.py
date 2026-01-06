@@ -212,6 +212,8 @@ class PyKokkosMembers:
 
         views: Set[cppast.DeclRefExpr] = set()
         for n, t in self.views.items():
+            if not t.template_params:
+                continue
             dtype: cppast.PrimitiveType = t.template_params[0]
             if isinstance(dtype, cppast.PrimitiveType):
                 if (

@@ -71,7 +71,11 @@ class StaticTranslator:
 
         self.pk_import = entity.pk_import
         # Create parser instance to reuse its methods
-        self.parser = Parser(entity.path)
+        # For fused workunits, path is None, so we pass pk_import explicitly
+        if entity.path is not None:
+            self.parser = Parser(entity.path)
+        else:
+            self.parser = Parser(None, pk_import=entity.pk_import)
 
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:

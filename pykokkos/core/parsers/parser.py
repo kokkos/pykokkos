@@ -40,30 +40,44 @@ class Parser:
     Parse a PyKokkos workload and its dependencies
     """
 
-    def __init__(self, path: str):
+    def __init__(self, path: Optional[str], pk_import: Optional[str] = None):
         """
         Parse the file and find all entities
 
-        :param path: the path to the file
+        :param path: the path to the file (None for fused workunits)
+        :param pk_import: the pykokkos import identifier (required when path is None)
         """
 
         self.lines: List[str]
         self.tree: ast.Module
-        with open(path, "r") as f:
-            self.lines = f.readlines()
-            self.tree = ast.parse("".join(self.lines))
+        if path is not None:
+            with open(path, "r") as f:
+                self.lines = f.readlines()
+                self.tree = ast.parse("".join(self.lines))
+            self.path: Optional[str] = path
+            self.pk_import: str = self.get_import()
+            self.workloads: Dict[str, PyKokkosEntity] = {}
+            self.classtypes: Dict[str, PyKokkosEntity] = {}
+            self.functors: Dict[str, PyKokkosEntity] = {}
+            self.workunits: Dict[str, PyKokkosEntity] = {}
 
-        self.path: str = path
-        self.pk_import: str = self.get_import()
-        self.workloads: Dict[str, PyKokkosEntity] = {}
-        self.classtypes: Dict[str, PyKokkosEntity] = {}
-        self.functors: Dict[str, PyKokkosEntity] = {}
-        self.workunits: Dict[str, PyKokkosEntity] = {}
-
-        self.workloads = self.get_entities(PyKokkosStyles.workload)
-        self.classtypes = self.get_entities(PyKokkosStyles.classtype)
-        self.functors = self.get_entities(PyKokkosStyles.functor)
-        self.workunits = self.get_entities(PyKokkosStyles.workunit)
+            self.workloads = self.get_entities(PyKokkosStyles.workload)
+            self.classtypes = self.get_entities(PyKokkosStyles.classtype)
+            self.functors = self.get_entities(PyKokkosStyles.functor)
+            self.workunits = self.get_entities(PyKokkosStyles.workunit)
+        else:
+            # For fused workunits, we don't have a file to parse
+            # but we still need a parser instance for helper methods
+            if pk_import is None:
+                raise ValueError("pk_import must be provided when path is None")
+            self.lines = []
+            self.tree = ast.Module(body=[])
+            self.path = None
+            self.pk_import = pk_import
+            self.workloads: Dict[str, PyKokkosEntity] = {}
+            self.classtypes: Dict[str, PyKokkosEntity] = {}
+            self.functors: Dict[str, PyKokkosEntity] = {}
+            self.workunits: Dict[str, PyKokkosEntity] = {}
 
     def get_import(self) -> str:
         """
