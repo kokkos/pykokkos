@@ -118,13 +118,13 @@ class ModuleSetup:
 
         if self.metadata and self.metadata[0].path:
             entity_path = Path(self.metadata[0].path)
-            if entity_path.suffix == '.py':
-                self.main = entity_path.with_suffix('')
+            if entity_path.suffix == ".py":
+                self.main = entity_path.with_suffix("")
             else:
                 self.main = entity_path
         else:
             self.main: Path = self.get_main_path()
-        
+
         self.output_dir: Optional[Path] = self.get_output_dir(
             self.main, self.metadata, space, types_signature, self.restrict_signature
         )
@@ -135,7 +135,11 @@ class ModuleSetup:
             ]
 
         if self.output_dir is not None:
-            output_dir_abs = Path(self.output_dir).resolve() if not Path(self.output_dir).is_absolute() else Path(self.output_dir)
+            output_dir_abs = (
+                Path(self.output_dir).resolve()
+                if not Path(self.output_dir).is_absolute()
+                else Path(self.output_dir)
+            )
             self.path: str = str(output_dir_abs / self.module_file)
             if km.is_multi_gpu_enabled():
                 self.gpu_module_paths: str = [
@@ -217,12 +221,16 @@ class ModuleSetup:
         """
 
         # convert to absolute path and make it relative to CWD
-        main_abs: Path = main.resolve() if main.is_absolute() else (Path.cwd() / main).resolve()
+        main_abs: Path = (
+            main.resolve() if main.is_absolute() else (Path.cwd() / main).resolve()
+        )
         try:
             main_rel: Path = main_abs.relative_to(Path.cwd())
         except ValueError:
             # main_abs is not under cwd - fall back to old behavior
-            main_rel = Path(str(main_abs)[1:]) if str(main_abs).startswith("/") else main_abs
+            main_rel = (
+                Path(str(main_abs)[1:]) if str(main_abs).startswith("/") else main_abs
+            )
 
         return Path(BASE_DIR) / main_rel
 

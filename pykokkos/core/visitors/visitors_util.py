@@ -298,7 +298,7 @@ def parse_view_template_params(
 
     py_type: str = view_type.typename
     is_scratch_view: bool = py_type.startswith("ScratchView")
-    
+
     # Check if this is actually a view type (starts with "View" or "ScratchView")
     # If not, this might be a dtype that was incorrectly passed as a view type
     if not (py_type.startswith("View") or py_type.startswith("ScratchView")):
