@@ -136,7 +136,7 @@ def error(src, debug: bool, node, message) -> None:
     else:
         print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
-    if debug:
+    if debug and node is not None:
         print("DEBUG AST:")
         pretty_print(node)
 
