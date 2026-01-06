@@ -97,15 +97,15 @@ class KokkosFunctionsTestReduceFunctor:
         acc += self.use_views(tid)
 
     @pk.function
-    def nested_views_1(self, tid: int) -> int:
+    def nested_views_1(self, tid) -> int:
         return self.view1D[tid]
 
     @pk.function
-    def nested_views_2(self, tid: int) -> int:
+    def nested_views_2(self, tid) -> int:
         return self.nested_views_1(tid) + self.view2D[tid][0]
 
     @pk.function
-    def nested_views_3(self, tid: int) -> int:
+    def nested_views_3(self, tid) -> int:
         return self.nested_views_2(tid) + self.view3D[tid][0][0]
 
     @pk.workunit
