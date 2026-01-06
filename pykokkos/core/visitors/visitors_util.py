@@ -36,7 +36,9 @@ view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
     "uint32": cppast.BuiltinType.UINT32,
     "uint64": cppast.BuiltinType.UINT64,
     "float": cppast.BuiltinType.FLOAT,
+    "float32": cppast.BuiltinType.FLOAT,  # Alias for float
     "double": cppast.BuiltinType.DOUBLE,
+    "float64": cppast.BuiltinType.DOUBLE,  # Alias for double
     "int": cppast.BuiltinType.INT32,
     "real": Keywords.RealPrecision.value,
 }
@@ -296,9 +298,29 @@ def parse_view_template_params(
 
     py_type: str = view_type.typename
     is_scratch_view: bool = py_type.startswith("ScratchView")
+    
+    # Check if this is actually a view type (starts with "View" or "ScratchView")
+    # If not, this might be a dtype that was incorrectly passed as a view type
+    if not (py_type.startswith("View") or py_type.startswith("ScratchView")):
+        raise ValueError(
+            f"Expected a view type (e.g., 'View1D', 'View2D', 'ScratchView1D'), "
+            f"but got '{py_type}'. This might be a dtype that was incorrectly treated as a view type."
+        )
 
     if rank is None:
-        rank = int(re.search(r"\d+", py_type).group())
+        # Match the rank number that comes after "View" or "ScratchView" and before "D"
+        # This prevents matching numbers from dtype names like "float32" or "float64"
+        match = re.search(r"(?:View|ScratchView)(\d+)D", py_type)
+        if match:
+            rank = int(match.group(1))
+        else:
+            # If pattern doesn't match, this is likely not a valid view type name
+            # or the typename format is unexpected - raise an error instead of
+            # using a fallback that could match wrong numbers from dtype names
+            raise ValueError(
+                f"Could not extract view rank from typename '{py_type}'. "
+                f"Expected format: 'View<rank>D' or 'ScratchView<rank>D' (e.g., 'View1D', 'View2D')"
+            )
 
     if not 0 < rank < 8:
         raise ValueError(f"View rank {rank} is not allowed")

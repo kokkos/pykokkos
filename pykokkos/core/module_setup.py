@@ -116,7 +116,15 @@ class ModuleSetup:
         # The path to the main file if using the console
         self.console_main: str = "pk_console"
 
-        self.main: Path = self.get_main_path()
+        if self.metadata and self.metadata[0].path:
+            entity_path = Path(self.metadata[0].path)
+            if entity_path.suffix == '.py':
+                self.main = entity_path.with_suffix('')
+            else:
+                self.main = entity_path
+        else:
+            self.main: Path = self.get_main_path()
+        
         self.output_dir: Optional[Path] = self.get_output_dir(
             self.main, self.metadata, space, types_signature, self.restrict_signature
         )
@@ -127,7 +135,8 @@ class ModuleSetup:
             ]
 
         if self.output_dir is not None:
-            self.path: str = os.path.join(self.output_dir, self.module_file)
+            output_dir_abs = Path(self.output_dir).resolve() if not Path(self.output_dir).is_absolute() else Path(self.output_dir)
+            self.path: str = str(output_dir_abs / self.module_file)
             if km.is_multi_gpu_enabled():
                 self.gpu_module_paths: str = [
                     os.path.join(self.output_dir, module_file)
@@ -181,6 +190,7 @@ class ModuleSetup:
         :returns: the path to the base output directory
         """
 
+        base_dir = self.get_main_dir(main)
         entity_dir: str = ""
 
         for m in metadata[:5]:
@@ -195,7 +205,7 @@ class ModuleSetup:
         if remaining != "":
             entity_dir += hashlib.md5(("".join(remaining)).encode()).hexdigest()
 
-        return self.get_main_dir(main) / Path(entity_dir)
+        return base_dir / Path(entity_dir)
 
     @staticmethod
     def get_main_dir(main: Path) -> Path:
@@ -206,13 +216,15 @@ class ModuleSetup:
         :returns: the path to the main directory
         """
 
-        # If the parent directory is root, remove it so we can
-        # concatenate it to pk_cpp
-        main_path: Path = main
-        if str(main).startswith("/"):
-            main_path = Path(str(main)[1:])
+        # convert to absolute path and make it relative to CWD
+        main_abs: Path = main.resolve() if main.is_absolute() else (Path.cwd() / main).resolve()
+        try:
+            main_rel: Path = main_abs.relative_to(Path.cwd())
+        except ValueError:
+            # main_abs is not under cwd - fall back to old behavior
+            main_rel = Path(str(main_abs)[1:]) if str(main_abs).startswith("/") else main_abs
 
-        return Path(BASE_DIR) / main_path
+        return Path(BASE_DIR) / main_rel
 
     def get_main_path(self) -> Path:
         """
