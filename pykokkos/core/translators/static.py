@@ -290,6 +290,7 @@ class StaticTranslator:
                             value, prefer_float
                         )
                     elif isinstance(arg_node, ast.Name):
+                        found_type = False
                         for workunit in self.pk_members.pk_workunits.values():
                             for workunit_arg in workunit.args.args:
                                 if (
@@ -299,13 +300,50 @@ class StaticTranslator:
                                     ann = workunit_arg.annotation
                                     if isinstance(ann, ast.Name):
                                         inferred_types[param_name] = ann.id
+                                        found_type = True
                                     elif (
                                         isinstance(ann, ast.Attribute)
                                         and isinstance(ann.value, ast.Name)
                                         and ann.value.id == self.pk_import
                                     ):
                                         inferred_types[param_name] = ann.attr
+                                        found_type = True
                                     break
+                            if found_type:
+                                break
+
+                        if not found_type:
+                            for other_function in self.pk_members.pk_functions.values():
+                                for func_arg in other_function.args.args:
+                                    if (
+                                        func_arg.arg == arg_node.id
+                                        and func_arg.annotation
+                                    ):
+                                        ann = func_arg.annotation
+                                        if isinstance(ann, ast.Name):
+                                            inferred_types[param_name] = ann.id
+                                            found_type = True
+                                        elif (
+                                            isinstance(ann, ast.Attribute)
+                                            and isinstance(ann.value, ast.Name)
+                                            and ann.value.id == self.pk_import
+                                        ):
+                                            inferred_types[param_name] = ann.attr
+                                            found_type = True
+                                        break
+                                if found_type:
+                                    break
+
+                        # if parameter name is a common thread ID name, default to int
+                        if not found_type and param_name in (
+                            "tid",
+                            "i",
+                            "j",
+                            "k",
+                            "idx",
+                            "index",
+                        ):
+                            inferred_types[param_name] = "int"
             if inferred_types:
                 self.parser.fix_function_types(functiondef, inferred_types)
 
