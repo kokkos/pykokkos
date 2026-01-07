@@ -2,7 +2,7 @@ import ast
 import copy
 import os
 import sys
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
@@ -226,6 +226,134 @@ class StaticTranslator:
 
         return declarations + definitions
 
+    def _extract_type_from_annotation(
+        self, annotation: Union[ast.Name, ast.Attribute]
+    ) -> Optional[str]:
+        """Extract type string from an annotation AST node."""
+        if isinstance(annotation, ast.Name):
+            return annotation.id
+        if (
+            isinstance(annotation, ast.Attribute)
+            and isinstance(annotation.value, ast.Name)
+            and annotation.value.id == self.pk_import
+        ):
+            return annotation.attr
+        return None
+
+    def _find_type_in_workunits(self, arg_name: str) -> Optional[str]:
+        """Find type of an argument by searching workunit parameters."""
+        for workunit in self.pk_members.pk_workunits.values():
+            for workunit_arg in workunit.args.args:
+                if workunit_arg.arg == arg_name and workunit_arg.annotation:
+                    return self._extract_type_from_annotation(workunit_arg.annotation)
+        return None
+
+    def _find_type_in_functions(self, arg_name: str) -> Optional[str]:
+        """Find type of an argument by searching other function parameters."""
+        for function in self.pk_members.pk_functions.values():
+            for func_arg in function.args.args:
+                if func_arg.arg == arg_name and func_arg.annotation:
+                    return self._extract_type_from_annotation(func_arg.annotation)
+        return None
+
+    def _infer_type_from_argument(self, arg_node: ast.expr) -> Optional[str]:
+        """Infer type from a single argument node."""
+        if isinstance(arg_node, ast.Constant):
+            return _infer_type_from_value(arg_node.value)
+
+        if isinstance(arg_node, ast.Name):
+            type_str = self._find_type_in_workunits(arg_node.id)
+            if type_str:
+                return type_str
+            return self._find_type_in_functions(arg_node.id)
+
+        return None
+
+    def _infer_function_parameter_types(
+        self, functiondef: ast.FunctionDef, call_sites: List[ast.Call]
+    ) -> Dict[str, str]:
+        """Infer types for function parameters from call sites."""
+        inferred_types: Dict[str, str] = {}
+        all_params = functiondef.args.args
+
+        for call_site in call_sites:
+            for arg_idx, arg_node in enumerate(call_site.args):
+                # Map call argument index to parameter index
+                param_idx = arg_idx
+                if all_params and all_params[0].arg == "self":
+                    param_idx = arg_idx + 1
+
+                if param_idx >= len(all_params):
+                    continue
+                param = all_params[param_idx]
+
+                # already infered
+                if param.annotation is not None:
+                    continue
+
+                inferred_type = self._infer_type_from_argument(arg_node)
+                if inferred_type:
+                    inferred_types[param.arg] = inferred_type
+
+        return inferred_types
+
+    def _find_all_call_sites(self, function_name: str) -> List[ast.Call]:
+        """Find all call sites for a given function."""
+
+        class CallSiteFinder(ast.NodeVisitor):
+            def __init__(self, target_name: str, pk_import: str):
+                self.target_name = target_name
+                self.pk_import = pk_import
+                self.call_sites: List[ast.Call] = []
+
+            def visit_Call(self, node: ast.Call):
+                # Direct function call: function_name()
+                if isinstance(node.func, ast.Name) and node.func.id == self.target_name:
+                    self.call_sites.append(node)
+                # Method call: self.function_name() or pk.function_name()
+                elif (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == self.target_name
+                ):
+                    if isinstance(node.func.value, ast.Name):
+                        # Accept both self.function_name and pk.function_name
+                        if node.func.value.id in ("self", self.pk_import):
+                            self.call_sites.append(node)
+
+                self.generic_visit(node)
+
+        finder = CallSiteFinder(function_name, self.pk_import)
+
+        # Search in workunits
+        for workunit in self.pk_members.pk_workunits.values():
+            finder.visit(workunit)
+
+        # Search in other functions for nested calls
+        for other_func in self.pk_members.pk_functions.values():
+            finder.visit(other_func)
+
+        return finder.call_sites
+
+    def _infer_function_types_iteratively(self) -> None:
+        """Iteratively infer types for all functions until convergence."""
+        max_iterations = 20
+
+        for _ in range(max_iterations):
+            types_changed = False
+
+            for functiondef in self.pk_members.pk_functions.values():
+                call_sites = self._find_all_call_sites(functiondef.name)
+                inferred_types = self._infer_function_parameter_types(
+                    functiondef, call_sites
+                )
+
+                if inferred_types:
+                    self.parser.fix_function_types(functiondef, inferred_types)
+                    types_changed = True
+
+            if not types_changed:
+                break
+
     def translate_functions(
         self, source: Tuple[List[str], int], restrict_views: Set[str]
     ) -> List[cppast.MethodDecl]:
@@ -237,115 +365,7 @@ class StaticTranslator:
         :returns: a list of method declarations
         """
 
-        # Infer types for Kokkos function parameters from call sites in workunits
-        for functiondef in self.pk_members.pk_functions.values():
-            inferred_types: Dict[str, str] = {}
-            function_name = functiondef.name
-            param_names = [arg.arg for arg in functiondef.args.args]
-
-            class CallSiteFinder(ast.NodeVisitor):
-                def __init__(self, target_name: str, pk_import: str):
-                    self.target_name = target_name
-                    self.pk_import = pk_import
-                    self.call_sites: List[ast.Call] = []
-
-                def visit_Call(self, node: ast.Call):
-                    if (
-                        isinstance(node.func, ast.Name)
-                        and node.func.id == self.target_name
-                    ):
-                        self.call_sites.append(node)
-                    elif isinstance(node.func, ast.Attribute):
-                        if (
-                            isinstance(node.func.value, ast.Name)
-                            and node.func.value.id == self.pk_import
-                            and node.func.attr == self.target_name
-                        ):
-                            self.call_sites.append(node)
-                    self.generic_visit(node)
-
-            finder = CallSiteFinder(function_name, self.pk_import)
-            for workunit in self.pk_members.pk_workunits.values():
-                finder.visit(workunit)
-
-            # Check return type for float preference (same logic as infer_other_args pattern)
-            prefer_float = False
-            if functiondef.returns and isinstance(functiondef.returns, ast.Attribute):
-                if (
-                    isinstance(functiondef.returns.value, ast.Name)
-                    and functiondef.returns.value.id == self.pk_import
-                ):
-                    if functiondef.returns.attr in ("double", "float"):
-                        prefer_float = True
-
-            # extract values from call sites and infer types
-            for call_site in finder.call_sites:
-                for i, arg_node in enumerate(call_site.args):
-                    if i >= len(param_names) or param_names[i] in inferred_types:
-                        continue
-                    param_name = param_names[i]
-                    if isinstance(arg_node, ast.Constant):
-                        value = arg_node.value
-                        inferred_types[param_name] = _infer_type_from_value(
-                            value, prefer_float
-                        )
-                    elif isinstance(arg_node, ast.Name):
-                        found_type = False
-                        for workunit in self.pk_members.pk_workunits.values():
-                            for workunit_arg in workunit.args.args:
-                                if (
-                                    workunit_arg.arg == arg_node.id
-                                    and workunit_arg.annotation
-                                ):
-                                    ann = workunit_arg.annotation
-                                    if isinstance(ann, ast.Name):
-                                        inferred_types[param_name] = ann.id
-                                        found_type = True
-                                    elif (
-                                        isinstance(ann, ast.Attribute)
-                                        and isinstance(ann.value, ast.Name)
-                                        and ann.value.id == self.pk_import
-                                    ):
-                                        inferred_types[param_name] = ann.attr
-                                        found_type = True
-                                    break
-                            if found_type:
-                                break
-
-                        if not found_type:
-                            for other_function in self.pk_members.pk_functions.values():
-                                for func_arg in other_function.args.args:
-                                    if (
-                                        func_arg.arg == arg_node.id
-                                        and func_arg.annotation
-                                    ):
-                                        ann = func_arg.annotation
-                                        if isinstance(ann, ast.Name):
-                                            inferred_types[param_name] = ann.id
-                                            found_type = True
-                                        elif (
-                                            isinstance(ann, ast.Attribute)
-                                            and isinstance(ann.value, ast.Name)
-                                            and ann.value.id == self.pk_import
-                                        ):
-                                            inferred_types[param_name] = ann.attr
-                                            found_type = True
-                                        break
-                                if found_type:
-                                    break
-
-                        # if parameter name is a common thread ID name, default to int
-                        if not found_type and param_name in (
-                            "tid",
-                            "i",
-                            "j",
-                            "k",
-                            "idx",
-                            "index",
-                        ):
-                            inferred_types[param_name] = "int"
-            if inferred_types:
-                self.parser.fix_function_types(functiondef, inferred_types)
+        self._infer_function_types_iteratively()
 
         # The visitor might add views declared as parameters
         views = copy.deepcopy(self.pk_members.views)
