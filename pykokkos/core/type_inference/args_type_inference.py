@@ -56,6 +56,9 @@ SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__
     "float32",
 ]
 
+# Supported array libraries for type inference
+SUPPORTED_ARRAY_LIBRARIES = ("numpy", "cupy", "torch", "jax", "jaxlib")
+
 ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
 
@@ -76,18 +79,28 @@ def _infer_type_from_value(value) -> str:
     elif param_type == "bool":
         return DataType.bool.name
     else:
+        # Handle array library scalar types (numpy, cupy, torch, etc.)
         pckg_name = type(value).__module__
-        if pckg_name == "numpy":
-            if param_type not in SUPPORTED_NP_DTYPES:
-                err_str = f"Numpy type {param_type} is unsupported"
-                raise TypeError(err_str)
-            if param_type == DataType.float64.name:
-                param_type = DataType.double.name
-            elif param_type == DataType.float32.name:
-                param_type = DataType.float.name
-            param_type = pckg_name + ":" + param_type
 
-    return param_type
+        if any(pckg_name.startswith(pkg) for pkg in SUPPORTED_ARRAY_LIBRARIES):
+            if param_type not in SUPPORTED_NP_DTYPES:
+                raise TypeError(
+                    f"Array type {param_type} from {pckg_name} is unsupported"
+                )
+
+            if param_type == DataType.float64.name or param_type == "float64":
+                param_type = DataType.double.name
+            elif param_type == DataType.float32.name or param_type == "float32":
+                param_type = DataType.float.name
+
+            return f"numpy:{param_type}"
+        else:
+            supported_libs = ", ".join(SUPPORTED_ARRAY_LIBRARIES)
+            raise TypeError(
+                f"Unsupported type for type inference: {type(value)} from module {pckg_name}. "
+                f"Only Python primitives (int, float, bool) and array library types "
+                f"({supported_libs}) are supported."
+            )
 
 
 def check_missing_annotations(param_list: List[ast.arg]) -> bool:
