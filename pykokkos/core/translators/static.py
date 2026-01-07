@@ -350,9 +350,10 @@ class StaticTranslator:
                 if inferred_types:
                     self.parser.fix_function_types(functiondef, inferred_types)
                     types_changed = True
-
             if not types_changed:
                 break
+        else:
+            print(f"Warning: Type inference did not converge after {max_iterations} iterations")
 
     def translate_functions(
         self, source: Tuple[List[str], int], restrict_views: Set[str]
