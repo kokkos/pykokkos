@@ -56,38 +56,25 @@ SUPPORTED_NP_DTYPES = [attr for attr in dir(DataType) if not attr.startswith("__
     "float32",
 ]
 
-# Map from Python type names to type strings, using DataType enum for validation
-PYTHON_TO_TYPE_STR = {
-    "int": "int",
-    "float": DataType.double.name,
-    "bool": DataType.bool.name,
-}
-
 ORIGINAL_PARAMS: Dict[str, ast.arguments] = {}
 
 
-def _infer_type_from_value(value, prefer_float: bool = False) -> str:
+def _infer_type_from_value(value) -> str:
     """
     Infer the type string from a Python value, reusing the same logic as infer_other_args.
     Uses DataType enum and SUPPORTED_NP_DTYPES for consistency.
 
     :param value: The Python value to infer type from
-    :param prefer_float: If True and value is int, prefer double over int
     :returns: Type string in the format used by type inference (e.g., "int", "double", "numpy:int64")
     """
     param_type = type(value).__name__
 
     if param_type == "int":
-        if value.bit_length() > 31:
-            param_type = f"numpy:{DataType.int64.name}"
-        elif prefer_float:
-            param_type = DataType.double.name
-        else:
-            param_type = PYTHON_TO_TYPE_STR["int"]
+        return "int"
     elif param_type == "float":
-        param_type = PYTHON_TO_TYPE_STR["float"]
+        return DataType.double.name
     elif param_type == "bool":
-        param_type = PYTHON_TO_TYPE_STR["bool"]
+        return DataType.bool.name
     else:
         pckg_name = type(value).__module__
         if pckg_name == "numpy":

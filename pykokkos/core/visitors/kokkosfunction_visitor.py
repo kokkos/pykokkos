@@ -98,13 +98,6 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
                     self.views[declref] = self.views[cppast.DeclRefExpr(original_view)]
                     continue
 
-            # If annotation is missing, try to infer from parameter name
-            # Common thread ID parameter names default to int
-            if arg.annotation is None:
-                if arg.arg in ("tid", "i", "j", "k", "idx", "index"):
-                    # Default thread ID parameters to int
-                    arg.annotation = ast.Name(id="int", ctx=ast.Load())
-
             decltype: Optional[cppast.Type] = visitors_util.get_type(
                 arg.annotation, self.pk_import
             )
