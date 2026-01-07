@@ -323,14 +323,14 @@ def infer_other_args(
         if param.annotation is not None:
             continue
 
-        param_type = _infer_type_from_value(value)
-
         if isinstance(value, ViewType):
             view_dtype = get_pk_datatype(value.dtype)
             if not view_dtype:
                 raise TypeError("Cannot infer datatype for view:", param.arg)
 
             param_type = "View" + str(len(value.shape)) + "D:" + view_dtype
+        else:
+            param_type = _infer_type_from_value(value)
 
         updated_types.inferred_types[param.arg] = param_type
 
