@@ -165,19 +165,9 @@ class RealViewTestFunctor:
         self.view[tid] = tid
 
 
-@pk.workload
-class RealViewTestWorkload:
-    def __init__(self, threads: int, view: pk.View1D[pk.real]):
-        self.threads: int = threads
-        self.view: pk.View1D[pk.real] = view
-
-    @pk.main
-    def run(self) -> None:
-        pk.parallel_for(self.threads, self.pfor)
-
-    @pk.workunit
-    def pfor(self, tid: int) -> None:
-        self.view[tid] = tid
+@pk.workunit
+def real_view_test_workunit(tid: int, view: pk.View1D[pk.real]) -> None:
+    view[tid] = tid
 
 
 @pk.workunit(np_arr=pk.ViewTypeInfo(space=pk.HostSpace))
@@ -333,16 +323,15 @@ class TestViews(unittest.TestCase):
         self.assertTrue(pk.View._get_dtype_name(str(type(view.array))) == "int32")
 
         f = RealViewTestFunctor(view)
-        w = RealViewTestWorkload(self.threads, view)
         pk.parallel_for(self.threads, f.pfor)
-        pk.execute(pk.ExecutionSpace.Default, w)
+        pk.parallel_for(self.threads, real_view_test_workunit, view=view)
 
         view.set_precision(pk.float)
 
         self.assertTrue(view.dtype is pk.DataType.float)
         self.assertTrue(pk.View._get_dtype_name(str(type(view.array))) == "float32")
         pk.parallel_for(self.threads, f.pfor)
-        pk.execute(pk.ExecutionSpace.Default, w)
+        pk.parallel_for(self.threads, real_view_test_workunit, view=view)
 
 
 @pytest.mark.parametrize(
