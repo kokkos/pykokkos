@@ -46,34 +46,16 @@ class TestParallelReduce(unittest.TestCase):
         self.assertEqual(expected_result, result)
 
 
-@pk.workload
-class SquareSumFloat:
-    def __init__(self, n):
-        self.N: int = n
-        self.total: pk.double = 0
-
-    @pk.main
-    def run(self):
-        self.total = pk.parallel_reduce(self.N, self.squaresum)
-
-    @pk.workunit
-    def squaresum(self, i: float, acc: pk.Acc[pk.double]):
-        acc += i * i
+@pk.workunit
+def squaresum_float(i: int, acc: pk.Acc[pk.double], data: pk.View1D[pk.double]):
+    val: float = data[i]
+    acc += val * val
 
 
-@pk.workload
-class SquareSumInt:
-    def __init__(self, n):
-        self.N: int = n
-        self.total: pk.int64 = 0
-
-    @pk.main
-    def run(self):
-        self.total = pk.parallel_reduce(self.N, self.squaresum)
-
-    @pk.workunit
-    def squaresum(self, i: pk.int64, acc: pk.Acc[pk.int64]):
-        acc += i * i
+@pk.workunit
+def squaresum_int(i: int, acc: pk.Acc[pk.int64], data: pk.View1D[pk.int64]):
+    val: pk.int64 = data[i]
+    acc += val * val
 
 
 @pytest.mark.parametrize("series_max", [10, 5000, 90000])
@@ -81,13 +63,16 @@ class SquareSumInt:
 def test_squaresum_types(series_max, dtype):
     # check for the ability to match NumPy in
     # sum of squares reductions with various types
-    expected = np.sum(np.arange(series_max, dtype=dtype) ** 2)
+    np_data = np.arange(series_max, dtype=dtype)
+    expected = np.sum(np_data**2)
+
+    view = pk.array(np_data)
+    policy = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, series_max)
+
     if dtype == np.float64:
-        ss_instance = SquareSumFloat(series_max)
+        actual = pk.parallel_reduce(policy, squaresum_float, data=view)
     elif dtype == np.int64:
-        ss_instance = SquareSumInt(series_max)
-    pk.execute(pk.ExecutionSpace.OpenMP, ss_instance)
-    actual = ss_instance.total
+        actual = pk.parallel_reduce(policy, squaresum_int, data=view)
     assert_allclose(actual, expected)
 
 
