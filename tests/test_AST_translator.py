@@ -184,10 +184,6 @@ class TestASTTranslator(unittest.TestCase):
 
         assert_allclose(expected_result, result)
 
-    # def test_constants(self):
-    #     self.assertEqual(5, self.workload.int_constant)
-    #     self.assertEqual(True, self.workload.bool_constant)
-
     def test_subscript(self):
         expected_result = self.i_1
         pk.parallel_for(self.range_policy, self.functor.subscript)

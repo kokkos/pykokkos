@@ -156,26 +156,6 @@ class TestDependenciesTranslator(unittest.TestCase):
 
         self.assertEqual(expected_result, result)
 
-    # def test_dep_two_get1(self):
-    #     dep_one = DepOne(self.i_1, self.f_1, self.b_1)
-    #     dep_two = DepTwo(dep_one)
-    #     dep_one = dep_two.get_dep_one()
-    #     dep_one.i = self.i_2
-    #     expected_result: float = self.threads * dep_two.sum()
-    #     result: float = self.workload.dep_two_get1_sum
-
-    #     self.assertEqual(expected_result, result)
-
-    # def test_dep_two_get2(self):
-    #     dep_one = DepOne(self.i_1, self.f_1, self.b_1)
-    #     dep_two = DepTwo(dep_one)
-    #     dep_one = dep_two.dep_one
-    #     dep_one.i = self.i_2
-    #     expected_result: float = self.threads * dep_two.sum()
-    #     result: float = self.workload.dep_two_get2_sum
-
-    #     self.assertEqual(expected_result, result)
-
 
 if __name__ == "__main__":
     unittest.main()
