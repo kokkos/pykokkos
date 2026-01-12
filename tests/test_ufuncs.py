@@ -101,7 +101,9 @@ def reciprocal_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
     [
         (sqrt_workunit, np.sqrt),
         (exp_workunit, np.exp),
-        pytest.param(exp2_workunit, np.exp2, marks=pytest.mark.xfail(reason="see gh-27")),
+        pytest.param(
+            exp2_workunit, np.exp2, marks=pytest.mark.xfail(reason="see gh-27")
+        ),
         pytest.param(
             positive_workunit, np.positive, marks=pytest.mark.xfail(reason="see gh-27")
         ),
@@ -110,11 +112,17 @@ def reciprocal_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
         ),
         (absolute_workunit, np.absolute),
         (fabsolute_workunit, np.fabs),
-        pytest.param(rint_workunit, np.rint, marks=pytest.mark.xfail(reason="see gh-27")),
         pytest.param(
-            conjugate_workunit, np.conjugate, marks=pytest.mark.xfail(reason="see gh-27")
+            rint_workunit, np.rint, marks=pytest.mark.xfail(reason="see gh-27")
         ),
-        pytest.param(sign_workunit, np.sign, marks=pytest.mark.xfail(reason="see gh-27")),
+        pytest.param(
+            conjugate_workunit,
+            np.conjugate,
+            marks=pytest.mark.xfail(reason="see gh-27"),
+        ),
+        pytest.param(
+            sign_workunit, np.sign, marks=pytest.mark.xfail(reason="see gh-27")
+        ),
         (log_workunit, np.log),
         (log2_workunit, np.log2),
         (log10_workunit, np.log10),
@@ -123,9 +131,13 @@ def reciprocal_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
         pytest.param(
             square_workunit, np.square, marks=pytest.mark.xfail(reason="see gh-27")
         ),
-        pytest.param(cbrt_workunit, np.cbrt, marks=pytest.mark.xfail(reason="see gh-27")),
         pytest.param(
-            reciprocal_workunit, np.reciprocal, marks=pytest.mark.xfail(reason="see gh-27")
+            cbrt_workunit, np.cbrt, marks=pytest.mark.xfail(reason="see gh-27")
+        ),
+        pytest.param(
+            reciprocal_workunit,
+            np.reciprocal,
+            marks=pytest.mark.xfail(reason="see gh-27"),
         ),
     ],
 )
