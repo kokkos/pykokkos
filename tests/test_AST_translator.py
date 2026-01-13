@@ -38,9 +38,10 @@ class ASTTestReduceFunctor:
         acc += math.pi + math.e + math.tau
 
     @pk.workunit
-    def constants(self, tid: int) -> None:
+    def constants(self, tid: int, acc: pk.Acc[pk.double]) -> None:
         int_constant: int = 5
         bool_constant: bool = True
+        acc += int_constant + int(bool_constant)
 
     @pk.workunit
     def subscript(self, tid: int) -> None:
@@ -183,6 +184,14 @@ class TestASTTranslator(unittest.TestCase):
         )
 
         assert_allclose(expected_result, result)
+
+    def test_constants(self):
+        int_constant: int = 5
+        bool_constant: bool = True
+        expected_result: int = self.threads * (int_constant + int(bool_constant))
+        result: int = pk.parallel_reduce(self.range_policy, self.functor.constants)
+
+        self.assertEqual(expected_result, result)
 
     def test_subscript(self):
         expected_result = self.i_1
