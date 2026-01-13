@@ -1,3 +1,5 @@
+#  # for now this test is deprecated and should be translated after closing this issue:
+#  # https://github.com/kokkos/pykokkos/issues/346
 # import unittest
 
 # import pykokkos as pk
