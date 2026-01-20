@@ -68,7 +68,8 @@ create a conda environment:
 
    git clone https://github.com/kokkos/pykokkos.git
    cd pykokkos/
-   conda create --name pyk --file base/requirements.txt python=3.13
+   conda create -n pyk python=3.11 -y
+   conda env update -n pyk -f base/environment.yml
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
