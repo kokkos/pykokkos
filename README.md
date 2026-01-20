@@ -29,7 +29,7 @@ git clone https://github.com/kokkos/pykokkos.git
 cd pykokkos/
 
 # Create and activate conda environment
-conda create -n pyk python=3.11 -y
+conda create -n pyk python=3.13 -y
 conda env update -n pyk -f base/environment.yml
 conda activate pyk
 
