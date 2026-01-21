@@ -75,6 +75,7 @@ class PyKokkosMembers:
             for i, arg in enumerate(args):
                 if (
                     isinstance(arg.annotation, ast.Subscript)
+                    and isinstance(arg.annotation.value, ast.Attribute)
                     and arg.annotation.value.attr == "Acc"
                 ):
                     param_begin = i + 1

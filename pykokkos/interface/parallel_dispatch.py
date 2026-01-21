@@ -115,11 +115,12 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
-def convert_arrays(kwargs: Dict[str, Any]) -> None:
+def convert_arrays(kwargs: Dict[str, Any], workunit: Optional[Callable] = None) -> None:
     """
     Convert all numpy, cupy and pytorch ndarray objects into pk Views
 
     :param kwargs: the list of keyword arguments passed to the workunit
+    :param workunit: the workunit function (used to infer types for Python lists)
     """
 
     cp_available: bool
@@ -139,9 +140,40 @@ def convert_arrays(kwargs: Dict[str, Any]) -> None:
     except ImportError:
         torch_available = False
 
+    # Get type hints from workunit if available
+    type_hints = {}
+    if workunit is not None and callable(workunit):
+        import inspect as insp
+
+        try:
+            sig = insp.signature(workunit)
+            type_hints = {
+                name: param.annotation
+                for name, param in sig.parameters.items()
+                if param.annotation != insp.Parameter.empty
+            }
+        except (ValueError, TypeError):
+            pass
+
     for k, v in kwargs.items():
         if isinstance(v, ViewType) or isinstance(v, np.generic):
             continue
+        elif isinstance(v, list):
+            dtype = np.int64
+            if k in type_hints:
+                import typing
+
+                annotation = type_hints[k]
+                if hasattr(annotation, "__origin__") and annotation.__origin__ is list:
+                    if hasattr(annotation, "__args__") and len(annotation.__args__) > 0:
+                        element_type = annotation.__args__[0]
+                        if element_type is int:
+                            dtype = np.int64
+                        elif element_type is float:
+                            dtype = np.float64
+                        elif element_type is bool:
+                            dtype = np.bool_
+            kwargs[k] = array(np.array(v, dtype=dtype))
         elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)
         elif cp_available and isinstance(v, cp.ndarray):
@@ -178,8 +210,8 @@ def parallel_for(*args, **kwargs) -> None:
     """
 
     kwargs = dict(kwargs)
-    convert_arrays(kwargs)
     handled_args: HandledArgs = handle_args(True, args)
+    convert_arrays(kwargs, handled_args.workunit)
 
     runtime_singleton.runtime.run_workunit(
         handled_args.name, handled_args.policy, handled_args.workunit, "for", **kwargs
@@ -195,7 +227,9 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
     """
 
     kwargs = dict(kwargs)
-    convert_arrays(kwargs)
+    handled_args: HandledArgs = handle_args(True, args)
+    convert_arrays(kwargs, handled_args.workunit)
+
     args_to_hash: List = []
     args_not_to_hash: Dict = {}
     for k, v in kwargs.items():
@@ -218,8 +252,6 @@ def reduce_body(operation: str, *args, **kwargs) -> Union[float, int]:
         func, args = workunit_cache[cache_key]
         args.update(args_not_to_hash)
         return func(**args)
-
-    handled_args: HandledArgs = handle_args(True, args)
 
     return runtime_singleton.runtime.run_workunit(
         handled_args.name,
