@@ -64,10 +64,17 @@ def workunit(func=None, **kwargs):
 
 
 def workload(func=None, **kwargs):
-    if func is None:
-        return partial(functor)
+    """
+    DEPRECATED: The @workload decorator is no longer supported.
 
-    return func
+    Please use @workunit decorator instead and refactor your code accordingly.
+    The workunit style provides better performance and more flexible code structure.
+    """
+    raise RuntimeError(
+        "The @workload decorator is deprecated and no longer supported. "
+        "Please refactor your code to use @workunit decorator instead. "
+        "See documentation for migration guide."
+    )
 
 
 def classtype(func):
