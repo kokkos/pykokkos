@@ -68,7 +68,8 @@ create a conda environment:
 
    git clone https://github.com/kokkos/pykokkos.git
    cd pykokkos/
-   conda create --name pyk --file base/requirements.txt python=3.13
+   conda create -n pyk python=3.13 -y
+   conda env update -n pyk -f base/environment.yml
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
@@ -121,7 +122,7 @@ error inside ``pykokkos`` similar to the following:
    Failed to import CuPy.
 
    Original error:
-   ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.11/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
+   ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.13/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
 
 This is due to a mismatch in ``libstdc++.so`` versions between the
 system library which ``base`` depends on and the library in
