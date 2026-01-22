@@ -273,7 +273,9 @@ class ConstructorVisitor(ast.NodeVisitor):
 
     def visit_Assign(self, node: ast.Assign) -> Tuple[cppast.DeclRefExpr, cppast.Type]:
         """
-        Visit an assignment statement to detect numpy/cupy arrays
+        Extract PyKokkos View members from numpy/cupy array to allow users to
+        initialize views from numpy/cupy arrays (e.g., self.v = np.array(...)),
+        which are automatically converted to PyKokkos View types.
 
         :param node: the assignment AST node
         :returns: a tuple of (name, view_type) if it's a numpy/cupy array, else empty tuple
