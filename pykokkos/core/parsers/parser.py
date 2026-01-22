@@ -454,29 +454,12 @@ class Parser:
     def is_workload(node: ast.stmt, pk_import: str) -> bool:
         """
         Checks if an ast node is a a PyKokkos workload
+        Note: The workload decorator has been removed. This always returns False.
 
         :param node: the node being checked
         :param pk_import: the identifier used to access the PyKokkos package
-        :returns: true or false
+        :returns: false (workload decorator is no longer supported)
         """
-
-        if not isinstance(node, ast.ClassDef):
-            return False
-
-        for decorator in node.decorator_list:
-            attribute = None
-
-            if isinstance(decorator, ast.Call):
-                attribute = decorator.func
-            elif isinstance(decorator, ast.Attribute):
-                attribute = decorator
-
-            if isinstance(attribute, ast.Attribute):
-                if attribute.value.id == pk_import and Decorator.is_workload(
-                    attribute.attr
-                ):
-                    return True
-
         return False
 
     @staticmethod
