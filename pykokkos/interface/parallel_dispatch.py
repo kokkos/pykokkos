@@ -5,6 +5,7 @@ import numpy as np
 
 from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
+from pykokkos.core.cppast import BuiltinType
 
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace
@@ -15,6 +16,23 @@ from .interface_util import generic_error, get_filename, get_lineno
 import inspect
 
 workunit_cache: Dict[int, Callable] = {}
+
+# Map PyKokkos BuiltinType to numpy dtypes
+# This ensures consistency with PyKokkos's type system
+BUILTIN_TO_NUMPY: Dict[str, np.dtype] = {
+    BuiltinType.INT.value: np.int32,
+    BuiltinType.INT8.value: np.int8,
+    BuiltinType.INT16.value: np.int16,
+    BuiltinType.INT32.value: np.int32,
+    BuiltinType.INT64.value: np.int64,
+    BuiltinType.UINT8.value: np.uint8,
+    BuiltinType.UINT16.value: np.uint16,
+    BuiltinType.UINT32.value: np.uint32,
+    BuiltinType.UINT64.value: np.uint64,
+    BuiltinType.FLOAT.value: np.float32,
+    BuiltinType.DOUBLE.value: np.float64,
+    BuiltinType.BOOL.value: np.bool_,
+}
 
 
 @dataclass
@@ -159,7 +177,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Optional[Callable] = None) 
         if isinstance(v, ViewType) or isinstance(v, np.generic):
             continue
         elif isinstance(v, list):
-            dtype = np.int64
+            # Default to whatever PyKokkos uses for 'int'
+            dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
+
             if k in type_hints:
                 import typing
 
@@ -168,11 +188,11 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Optional[Callable] = None) 
                     if hasattr(annotation, "__args__") and len(annotation.__args__) > 0:
                         element_type = annotation.__args__[0]
                         if element_type is int:
-                            dtype = np.int64
+                            dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
                         elif element_type is float:
-                            dtype = np.float64
+                            dtype = BUILTIN_TO_NUMPY[BuiltinType.DOUBLE.value]
                         elif element_type is bool:
-                            dtype = np.bool_
+                            dtype = BUILTIN_TO_NUMPY[BuiltinType.BOOL.value]
             kwargs[k] = array(np.array(v, dtype=dtype))
         elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)

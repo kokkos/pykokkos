@@ -74,6 +74,13 @@ class ParameterVisitor(ast.NodeVisitor):
         if decltype is None:
             self.error(node, "Type is not supported")
 
+        if isinstance(annotation, ast.Subscript):
+            annotation_value = annotation.value
+            if isinstance(annotation_value, ast.Name) and annotation_value.id == "List":
+                view_type = cppast.ClassType("View1D")
+                view_type.add_template_param(decltype)
+                decltype = view_type
+
         # just checking decltype might be enough
         is_field: bool = isinstance(annotation, ast.Name) or isinstance(
             decltype, cppast.PrimitiveType

@@ -216,7 +216,7 @@ def get_type(
         type_name: str = annotation.id
 
         if type_name == "int":
-            return cppast.PrimitiveType(cppast.BuiltinType.INT64)
+            return cppast.PrimitiveType(cppast.BuiltinType.INT)
 
         if type_name == "float":
             return cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
@@ -244,18 +244,12 @@ def get_type(
             if sys.version_info.minor <= 8:
                 # In Python >= 3.9, ast.Index is deprecated
                 # (see # https://docs.python.org/3/whatsnew/3.9.html)
-                dtype_node = subscript.value
+                value = subscript.value
             else:
-                dtype_node = subscript
-            member_type: cppast.Type = get_type(dtype_node, pk_import)
+                value = subscript
+            member_type: cppast.Type = get_type(value, pk_import)
 
-            if member_type is None:
-                return None
-
-            view_type = cppast.ClassType("View1D")
-            view_type.add_template_param(member_type)
-
-            return view_type
+            return member_type
 
         if id == pk_import:
             type_name: str = get_node_name(value)
