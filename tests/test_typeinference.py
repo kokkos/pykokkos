@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import pykokkos as pk
 import pytest
+from typing import List
 
 try:
     import cupy as cp
@@ -123,6 +124,22 @@ def add_two_init(i, view, v1, v2):
 @pk.workunit
 def no_view(i: int, acc: pk.Acc[pk.double], n):
     acc = acc + n
+
+
+# List[T] annotations at workunits
+@pk.workunit
+def list_int_add(i, view, lst: List[int]):
+    view[i] = view[i] + lst[i]
+
+
+@pk.workunit
+def list_float_add(i, view, lst: List[float]):
+    view[i] = view[i] + lst[i]
+
+
+@pk.workunit
+def list_int_reduce(i, acc: pk.Acc[pk.int32], lst: List[int]):
+    acc += lst[i]
 
 
 class TestTypeInference(unittest.TestCase):
@@ -567,6 +584,55 @@ class TestTypeInference(unittest.TestCase):
     def test_no_view(self):
         pk.parallel_reduce(self.range_policy, no_view, n=1)
         pk.parallel_reduce(self.range_policy, no_view, n=2.1)
+
+    def test_list_int_python_list(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(1)
+        python_list = [i for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            self.assertEqual(view[i], 1 + i)
+
+    def test_list_int_numpy_array(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(2)
+        numpy_array = np.arange(self.threads, dtype=np.int32)
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=numpy_array)
+
+        for i in range(self.threads):
+            self.assertEqual(view[i], 2 + i)
+
+    def test_list_float_python_list(self):
+        view = pk.View([self.threads], pk.double)
+        view.fill(1.5)
+        python_list = [float(i) * 0.5 for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_float_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            expected = 1.5 + (i * 0.5)
+            self.assertAlmostEqual(view[i], expected, places=5)
+
+    def test_list_int_reduce(self):
+        python_list = [1] * self.threads
+        result = pk.parallel_reduce(self.range_policy, list_int_reduce, lst=python_list)
+
+        expected_result = self.threads
+        self.assertEqual(result, expected_result)
+
+    def test_list_int_mixed_values(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(10)
+        python_list = [(-1) ** i * i for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            expected = 10 + ((-1) ** i * i)
+            self.assertEqual(view[i], expected)
 
 
 if __name__ == "__main__":
