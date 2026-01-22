@@ -74,9 +74,11 @@ class ParameterVisitor(ast.NodeVisitor):
         if decltype is None:
             self.error(node, "Type is not supported")
 
+        # Convert 1D lists into PyKokkos views (this is `List[]`-defined list if
+        # python defined that as `subscript`. ast.List is list which is defined
+        # as `[]`)
         if isinstance(annotation, ast.Subscript):
-            annotation_value = annotation.value
-            if isinstance(annotation_value, ast.Name) and annotation_value.id == "List":
+            if isinstance(annotation.value, ast.Name) and annotation.value.id == "List":
                 view_type = cppast.ClassType("View1D")
                 view_type.add_template_param(decltype)
                 decltype = view_type
