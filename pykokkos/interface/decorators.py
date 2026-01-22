@@ -3,7 +3,6 @@ from functools import partial
 
 
 class Decorator(Enum):
-    Workload = "workload"
     Functor = "functor"
     WorkUnit = "workunit"
     KokkosClasstype = "classtype"
@@ -44,10 +43,6 @@ class Decorator(Enum):
     def is_functor(decorator: str) -> bool:
         return decorator == Decorator.Functor.value
 
-    @staticmethod
-    def is_workload(decorator: str) -> bool:
-        return decorator == Decorator.Workload.value
-
 
 def functor(func=None, **kwargs):
     if func is None:
@@ -61,20 +56,6 @@ def workunit(func=None, **kwargs):
         return partial(functor)
 
     return func
-
-
-def workload(func=None, **kwargs):
-    """
-    WARNING: The @workload decorator is no longer supported.
-
-    Please use @workunit decorator instead and refactor your code accordingly.
-    The workunit style provides better performance and more flexible code structure.
-    """
-    raise RuntimeError(
-        "The @workload decorator is removed and no longer supported. "
-        "Please refactor your code to use @workunit decorator instead. "
-        "See documentation for migration guide."
-    )
 
 
 def classtype(func):
