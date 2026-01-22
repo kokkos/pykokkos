@@ -35,6 +35,45 @@ BUILTIN_TO_NUMPY: Dict[str, np.dtype] = {
 }
 
 
+def parse_list_annotation(annotation) -> Tuple[int, np.dtype]:
+    """
+    Recursively parse List[T] or List[List[T]] annotations to determine
+    nesting depth and element type.
+
+    :param annotation: Type annotation (e.g., List[int], List[List[float]])
+    :returns: Tuple of (depth, numpy_dtype)
+    """
+    import typing
+
+    depth = 0
+    current = annotation
+    element_type = None
+
+    # Traverse nested List annotations
+    while hasattr(current, "__origin__") and current.__origin__ is list:
+        depth += 1
+        if hasattr(current, "__args__") and len(current.__args__) > 0:
+            current = current.__args__[0]
+        else:
+            break
+
+    # Now current should be the element type (int, float, bool, etc.)
+    element_type = current
+
+    # Map element type to numpy dtype
+    if element_type is int:
+        dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
+    elif element_type is float:
+        dtype = BUILTIN_TO_NUMPY[BuiltinType.DOUBLE.value]
+    elif element_type is bool:
+        dtype = BUILTIN_TO_NUMPY[BuiltinType.BOOL.value]
+    else:
+        # Default to int32
+        dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
+
+    return depth, dtype
+
+
 @dataclass
 class HandledArgs:
     """
@@ -181,18 +220,12 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Optional[Callable] = None) 
             dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
 
             if k in type_hints:
-                import typing
-
                 annotation = type_hints[k]
                 if hasattr(annotation, "__origin__") and annotation.__origin__ is list:
-                    if hasattr(annotation, "__args__") and len(annotation.__args__) > 0:
-                        element_type = annotation.__args__[0]
-                        if element_type is int:
-                            dtype = BUILTIN_TO_NUMPY[BuiltinType.INT.value]
-                        elif element_type is float:
-                            dtype = BUILTIN_TO_NUMPY[BuiltinType.DOUBLE.value]
-                        elif element_type is bool:
-                            dtype = BUILTIN_TO_NUMPY[BuiltinType.BOOL.value]
+                    # Parse nested List annotations (List[int], List[List[int]], etc.)
+                    depth, dtype = parse_list_annotation(annotation)
+
+            # Convert Python list to numpy array, then to View
             kwargs[k] = array(np.array(v, dtype=dtype))
         elif isinstance(v, np.ndarray):
             kwargs[k] = array(v)

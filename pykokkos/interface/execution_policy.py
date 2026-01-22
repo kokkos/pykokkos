@@ -93,6 +93,17 @@ class MDRangePolicy(ExecutionPolicy):
         rank: Rank = None,
     ):
 
+        # # Convert ExecutionSpace to ExecutionSpaceInstance (same as RangePolicy)
+        # if isinstance(space, ExecutionSpace):
+        #     if space is ExecutionSpace.Default:
+        #         space = km.get_default_space()
+
+        #     if space is not ExecutionSpace.Debug:
+        #         space = km.get_execution_space_instance(space)
+
+        # elif not isinstance(space, ExecutionSpaceInstance):
+        #     raise TypeError(f"Invalid space argument {space}")
+
         self.space: Final = space
         self.begin: Final = begin
         self.end: Final = end

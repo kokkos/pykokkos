@@ -142,6 +142,25 @@ def list_int_reduce(i, acc: pk.Acc[pk.int32], lst: List[int]):
     acc += lst[i]
 
 
+@pk.workunit
+def list_2d_sum(tid, result, lst: List[List[int]], rows: int, cols: int):
+    # Using single thread (tid==0) to avoid race conditions on result[0]
+    if tid == 0:
+        for i in range(rows):
+            for j in range(cols):
+                result[0] += lst[i][j]
+
+
+@pk.workunit
+def list_3d_sum(tid, result, lst: List[List[List[int]]], d0: int, d1: int, d2: int):
+    # Using single thread (tid==0) to avoid race conditions on result[0]
+    if tid == 0:
+        for i in range(d0):
+            for j in range(d1):
+                for k in range(d2):
+                    result[0] += lst[i][j][k]
+
+
 class TestTypeInference(unittest.TestCase):
     def setUp(self):
         self.threads: int = 50
@@ -633,6 +652,48 @@ class TestTypeInference(unittest.TestCase):
         for i in range(self.threads):
             expected = 10 + ((-1) ** i * i)
             self.assertEqual(view[i], expected)
+
+    def test_list_2d_python_list(self):
+        rows, cols = 3, 4
+        python_2d = [[i * cols + j for j in range(cols)] for i in range(rows)]
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_2d_sum, result=result, lst=python_2d, rows=rows, cols=cols
+        )
+
+        expected = sum(sum(row) for row in python_2d)
+        self.assertEqual(result[0], expected)
+
+    def test_list_2d_numpy_array(self):
+        rows, cols = 3, 4
+        numpy_2d = np.arange(rows * cols, dtype=np.int32).reshape(rows, cols)
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_2d_sum, result=result, lst=numpy_2d, rows=rows, cols=cols
+        )
+
+        expected = int(numpy_2d.sum())
+        self.assertEqual(result[0], expected)
+
+    def test_list_3d_python_list(self):
+        d0, d1, d2 = 2, 3, 4
+        python_3d = [
+            [[i * 100 + j * 10 + k for k in range(d2)] for j in range(d1)]
+            for i in range(d0)
+        ]
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_3d_sum, result=result, lst=python_3d, d0=d0, d1=d1, d2=d2
+        )
+
+        expected = sum(sum(sum(row) for row in plane) for plane in python_3d)
+        self.assertEqual(result[0], expected)
 
 
 if __name__ == "__main__":
