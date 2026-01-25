@@ -913,7 +913,7 @@ def add(viewA, viewB, profiler_name: Optional[str] = None):
 
     """
 
-    # viewA must always be a view of type float 64 oe 32
+    # viewA must always be a view of type float 64 or 32
     if not isinstance(viewA, pk.ViewType) and viewA.dtype.__name__ not in [
         "float32",
         "float64",
@@ -1067,7 +1067,7 @@ def multiply(viewA, viewB, profiler_name: Optional[str] = None):
 
     """
 
-    # viewA must always be a view of type float 64 oe 32
+    # viewA must always be a view of type float 64 or 32
     if not isinstance(viewA, pk.ViewType) and viewA.dtype.__name__ not in [
         "float32",
         "float64",
@@ -1857,7 +1857,7 @@ def divide(viewA, viewB, profiler_name: Optional[str] = None):
            Output view.
 
     """
-    # viewA must always be a view of type float 64 oe 32
+    # viewA must always be a view of type float 64 or 32
     if not isinstance(viewA, pk.ViewType) and viewA.dtype.__name__ not in [
         "float32",
         "float64",
