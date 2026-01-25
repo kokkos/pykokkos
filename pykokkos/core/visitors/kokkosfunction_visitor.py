@@ -5,7 +5,8 @@ from typing import List, Optional
 
 from pykokkos.core import cppast
 from pykokkos.core.optimizations.restrict_views import (
-    adjust_kokkos_function_call, adjust_kokkos_function_definition
+    adjust_kokkos_function_call,
+    adjust_kokkos_function_definition,
 )
 
 from . import visitors_util
@@ -14,8 +15,7 @@ from .pykokkos_visitor import PyKokkosVisitor
 
 class KokkosFunctionVisitor(PyKokkosVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> cppast.MethodDecl:
-        if not self.is_valid_kokkos_function(node):
-            self.error(node, "Invalid Kokkos function")
+        self.is_valid_kokkos_function(node)
 
         return_type: cppast.ClassType
         if self.is_void_function(node):
@@ -34,7 +34,9 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
 
         method: cppast.MethodDecl
         if "PK_RESTRICT" in os.environ:
-            method = adjust_kokkos_function_definition(attributes, return_type, name, params, body, self.restrict_views)
+            method = adjust_kokkos_function_definition(
+                attributes, return_type, name, params, body, self.restrict_views
+            )
         else:
             method = cppast.MethodDecl(attributes, return_type, name, params, body)
 
@@ -96,22 +98,22 @@ class KokkosFunctionVisitor(PyKokkosVisitor):
                     self.views[declref] = self.views[cppast.DeclRefExpr(original_view)]
                     continue
 
-            decltype: Optional[cppast.Type] = visitors_util.get_type(arg.annotation, self.pk_import)
-            if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith("View"):
+            decltype: Optional[cppast.Type] = visitors_util.get_type(
+                arg.annotation, self.pk_import
+            )
+            if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith(
+                "View"
+            ):
                 self.views[declref] = decltype
 
         return super().visit_arguments(node)
-
 
     # Checks that a function marked as kokkos_function
     # is annotated with a return type if it returns
     def is_valid_kokkos_function(self, node) -> bool:
         # Is the return type annotation missing
         if node.returns is None:
-            return False
-
-        # Is the type annotation for any argument missing (excluding self)
-        if any(arg.annotation is None and arg.arg != "self" for arg in node.args.args):
-            return False
-
-        return True
+            self.error(
+                node.returns,
+                f"Return type annotation missing in function `{node.name}`.",
+            )

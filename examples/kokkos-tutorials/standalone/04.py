@@ -1,4 +1,5 @@
 from typing import Tuple
+import numpy as np
 
 import pykokkos as pk
 
@@ -9,10 +10,12 @@ from parse_args import parse_args
 def y_init(i, y_view):
     y_view[i] = 1
 
+
 @pk.workunit
 def matrix_init(j, cols, A_view):
     for i in range(cols):
         A_view[j][i] = 1
+
 
 @pk.workunit
 def yAx(j, acc, cols, y_view, x_view, A_view):
@@ -21,6 +24,7 @@ def yAx(j, acc, cols, y_view, x_view, A_view):
         temp2 += A_view[j][i] * x_view[i]
 
     acc += y_view[j] * temp2
+
 
 def run() -> None:
     values: Tuple[int, int, int, int, int, bool] = parse_args()
@@ -32,9 +36,9 @@ def run() -> None:
 
     pk.set_default_space(pk.ExecutionSpace.Cuda)
 
-    y: pk.View1D = pk.View([N], pk.double)
-    x: pk.View1D = pk.View([M], pk.double)
-    A: pk.View2D = pk.View([N, M], pk.double)
+    y = np.zeros([N], dtype=np.float64)
+    x = np.zeros([M], dtype=np.float64)
+    A = np.zeros([N, M], dtype=np.float64)
 
     p = pk.RangePolicy(0, N)
     pk.parallel_for(p, y_init, y_view=y)
@@ -67,10 +71,12 @@ def run() -> None:
     solution: float = N * M
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
+
 
 if __name__ == "__main__":
     run()

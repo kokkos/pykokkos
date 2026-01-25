@@ -1,25 +1,57 @@
 from typing import List, Union
 
 from .decl import (
-    BuiltinType, ClassType, ConstructorDecl, FieldDecl, FunctionDecl, MethodDecl,
-    ParmVarDecl, PrimitiveType, RecordDecl, TypeDecl, VarDecl
+    BuiltinType,
+    ClassType,
+    ConstructorDecl,
+    FieldDecl,
+    FunctionDecl,
+    MethodDecl,
+    ParmVarDecl,
+    PrimitiveType,
+    RecordDecl,
+    TypeDecl,
+    VarDecl,
 )
 from .expr import (
-    ArraySubscriptExpr, AssignOperator, BinaryOperator, BinaryOperatorKind,
-    BoolLiteral, BoolOperator, CompoundAssignOperator, CallExpr, CastExpr,
-    ConstructExpr, DeclRefExpr, FloatingLiteral, InitListExpr, IntegerLiteral,
-    LambdaExpr, MemberCallExpr, MemberExpr, ParenExpr, StringLiteral, UnaryOperator
+    ArraySubscriptExpr,
+    AssignOperator,
+    BinaryOperator,
+    BinaryOperatorKind,
+    BoolLiteral,
+    BoolOperator,
+    CompoundAssignOperator,
+    CallExpr,
+    CastExpr,
+    ConstructExpr,
+    DeclRefExpr,
+    FloatingLiteral,
+    InitListExpr,
+    IntegerLiteral,
+    LambdaExpr,
+    MemberCallExpr,
+    MemberExpr,
+    ParenExpr,
+    StringLiteral,
+    UnaryOperator,
 )
 from .node import Node
 from .stmt import (
-    BreakStmt, CallStmt, CompoundStmt, ContinueStmt, DeclStmt, EmptyStmt, ForStmt,
-    IfStmt, ReturnStmt, WhileStmt
+    BreakStmt,
+    CallStmt,
+    CompoundStmt,
+    ContinueStmt,
+    DeclStmt,
+    EmptyStmt,
+    ForStmt,
+    IfStmt,
+    ReturnStmt,
+    WhileStmt,
 )
 
 
 class Serializer:
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
     def serialize(self, node: Node) -> str:
         """Serialize a node"""
@@ -28,8 +60,7 @@ class Serializer:
         try:
             serializer = getattr(self, method)
         except AttributeError:
-            raise NotImplementedError(
-                f"Method {method} has not been implemented")
+            raise NotImplementedError(f"Method {method} has not been implemented")
 
         return serializer(node)
 
@@ -44,7 +75,8 @@ class Serializer:
 
         if node.template_params:
             template_params: List[str] = [
-                self.serialize(t) for t in node.template_params]
+                self.serialize(t) for t in node.template_params
+            ]
             typedecl += "<" + ",".join(template_params) + ">"
 
         if node.is_reference:
@@ -118,8 +150,7 @@ class Serializer:
 
     def serialize_ConstructExpr(self, node: ConstructExpr) -> str:
         constructor: str = self.serialize(node.constructor)
-        template_args: List[str] = [
-            self.serialize(t) for t in node.template_params]
+        template_args: List[str] = [self.serialize(t) for t in node.template_params]
         args: List[str] = [self.serialize(a) for a in node.args]
 
         expr: str = constructor
@@ -185,7 +216,7 @@ class Serializer:
     def serialize_StringLiteral(self, node: StringLiteral) -> str:
         value: str = str(node.value.encode("raw_unicode_escape"))[2:-1]
 
-        return f"\"{value}\""
+        return f'"{value}"'
 
     def serialize_UnaryOperator(self, node: UnaryOperator) -> str:
         operand: str = self.serialize(node.operand)
@@ -255,7 +286,9 @@ class Serializer:
         decl: str = ""
         if node.template_params:
             decl += "template "
-            template_params: List[str] = [f"class {self.serialize(t)}" for t in node.template_params]
+            template_params: List[str] = [
+                f"class {self.serialize(t)}" for t in node.template_params
+            ]
             decl += "<" + ",".join(template_params) + ">"
 
         decl += f"struct {name}"
@@ -316,8 +349,9 @@ class Serializer:
     def serialize_IfStmt(self, node: IfStmt) -> str:
         condition: str = self.serialize(node.condition)
         then_body: str = self.serialize(node.then_body)
-        else_body: str = "" if node.else_body is None else self.serialize(
-            node.else_body)
+        else_body: str = (
+            "" if node.else_body is None else self.serialize(node.else_body)
+        )
 
         stmt: str = f"if ({condition})"
         stmt += f"{{ {then_body} }}"

@@ -9,6 +9,7 @@ from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, MemorySpace, Trait
 
+
 def pretty_print(node):
     print(ast.dump(node, indent=4))
 
@@ -19,7 +20,9 @@ allowed_types: Dict[str, str] = {
     "double": "double",
     "bool": "bool",
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
-    "cpp_auto": "auto"
+    "cpp_auto": "auto",
+    "complex64": "Kokkos::complex<float>",
+    "complex128": "Kokkos::complex<double>",
 }
 
 # Maps from the DataType enum to cppast
@@ -33,11 +36,11 @@ view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
     "uint32": cppast.BuiltinType.UINT32,
     "uint64": cppast.BuiltinType.UINT64,
     "float": cppast.BuiltinType.FLOAT,
+    "float32": cppast.BuiltinType.FLOAT,  # Alias for float
     "double": cppast.BuiltinType.DOUBLE,
-
+    "float64": cppast.BuiltinType.DOUBLE,  # Alias for double
     "int": cppast.BuiltinType.INT32,
-
-    "real": Keywords.RealPrecision.value
+    "real": Keywords.RealPrecision.value,
 }
 
 op2str: Dict[type, str] = {
@@ -86,6 +89,8 @@ math_functions: Set = {
     "cos",
     "cosh",
     "degrees",
+    "erf",
+    "erfc",
     "exp",
     "expm1",
     "fabs",
@@ -97,7 +102,8 @@ math_functions: Set = {
     "isfinite",
     "isinf",
     "isnan",
-    "isqrt",
+    "rsqrt",
+    "lgamma",
     "log",
     "log10",
     "log1p",
@@ -112,6 +118,7 @@ math_functions: Set = {
     "sqrt",
     "tan",
     "tanh",
+    "tgamma",
     "trunc",
     "nan",
 }
@@ -131,7 +138,7 @@ def error(src, debug: bool, node, message) -> None:
     else:
         print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
-    if debug:
+    if debug and node is not None:
         print("DEBUG AST:")
         pretty_print(node)
 
@@ -183,7 +190,9 @@ def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
     return name
 
 
-def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str) -> Optional[cppast.Type]:
+def get_type(
+    annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str
+) -> Optional[cppast.Type]:
     if isinstance(annotation, ast.Attribute):
         if annotation.value.id == pk_import:
             type_name: str = get_node_name(annotation)
@@ -248,7 +257,9 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             if sys.version_info.minor <= 8:
                 # In Python >= 3.9, ast.Index is deprecated
                 # (see # https://docs.python.org/3/whatsnew/3.9.html)
-                dtype_node = subscript.value if isinstance(subscript, ast.Index) else subscript
+                dtype_node = (
+                    subscript.value if isinstance(subscript, ast.Index) else subscript
+                )
             else:
                 dtype_node: ast.Attribute = subscript
 
@@ -265,6 +276,7 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             return view_type
 
     return None
+
 
 def parse_view_template_params(
     view_type: cppast.ClassType,
@@ -287,8 +299,28 @@ def parse_view_template_params(
     py_type: str = view_type.typename
     is_scratch_view: bool = py_type.startswith("ScratchView")
 
+    # Check if this is actually a view type (starts with "View" or "ScratchView")
+    # If not, this might be a dtype that was incorrectly passed as a view type
+    if not (py_type.startswith("View") or py_type.startswith("ScratchView")):
+        raise ValueError(
+            f"Expected a view type (e.g., 'View1D', 'View2D', 'ScratchView1D'), "
+            f"but got '{py_type}'. This might be a dtype that was incorrectly treated as a view type."
+        )
+
     if rank is None:
-        rank = int(re.search(r'\d+', py_type).group())
+        # Match the rank number that comes after "View" or "ScratchView" and before "D"
+        # This prevents matching numbers from dtype names like "float32" or "float64"
+        match = re.search(r"(?:View|ScratchView)(\d+)D", py_type)
+        if match:
+            rank = int(match.group(1))
+        else:
+            # If pattern doesn't match, this is likely not a valid view type name
+            # or the typename format is unexpected - raise an error instead of
+            # using a fallback that could match wrong numbers from dtype names
+            raise ValueError(
+                f"Could not extract view rank from typename '{py_type}'. "
+                f"Expected format: 'View<rank>D' or 'ScratchView<rank>D' (e.g., 'View1D', 'View2D')"
+            )
 
     if not 0 < rank < 8:
         raise ValueError(f"View rank {rank} is not allowed")
@@ -305,9 +337,21 @@ def parse_view_template_params(
     for t in template_params:
         parameter: str = s.serialize(t)
 
-        if parameter in ("int", "double", "float",
-                            "int8_t", "int16_t", "int32_t", "int64_t",
-                            "uint8_t", "uint16_t", "uint32_t", "uint64_t"):
+        if parameter in (
+            "int",
+            "double",
+            "float",
+            "int8_t",
+            "int16_t",
+            "int32_t",
+            "int64_t",
+            "uint8_t",
+            "uint16_t",
+            "uint32_t",
+            "uint64_t",
+            "Kokkos::complex<float>",
+            "Kokkos::complex<double>",
+        ):
             datatype: str = parameter + "*" * rank
             params["dtype"] = datatype
 

@@ -2,38 +2,38 @@
 Installation
 ============
 
-We recommend using Docker for running applications and developing (see
-:ref:`Using Docker<using_docker>`, but detailed installation
-instructions are available (see :ref:`Native
-Installation<native_installation>`).
+We provide a Docker container for running applications and developing
+on Linux x86 systems with the Serial and OpenMP host execution space
+(see :ref:`Using Docker<using_docker>`).
+We provide detailed install instructions for all other
+operating systems and executions spaces
+(see :ref:`Native Installation<native_installation>`).
 
 .. _using_docker:
 
 Using Docker
 ------------
 
-You can use the PyKokkos Docker image to develop PyKokkos itself, as
-well as develop and run applications.  We recommend using the ``pk``
-script for interacting with the image and containers.
+You can use the PyKokkos Docker image to develop PyKokkos itself, as well as
+develop and run applications. We recommend to use
+``dev-container/build-container.sh`` script in order to build and use Docker
+container only for personal usage on **Nvidia GPUs**.
 
-To run an application in a container, you can execute the following
-command:
+.. To run an application in a container, you can execute the following
+.. command:
 
-.. code-block:: bash
+.. .. code-block:: bash
 
-   ./pk pk_example examples/kokkos-tutorials/workload/01.py
+   bash ./dev-container/build-container.sh
 
-The command above will pull the image from the Docker Hub, run a
-container, include this repository as a volume, and run the example
-application from the given path.
+The command will build developer container in wizard format, which means you
+need to answer or skip some question regarding container name, opened ports, ssh
+keys and so on. You can skip all of the questions with ``Enter`` and script will
+use default values. After container is build, you can enter container, using
+entered/default values.
 
-If you would like to run another example application, you can simply
-change the path (the last argument in the command above).
-
-Note that code you are running should be in the PyKokkos repository.
-If you would like to run from another directory you will need to
-include the directory as a volume; take a look at the ``pk`` script in
-that case.
+In container, enter ``pykokkos`` directory and build pykokkos as it described in
+:ref:`Native Installation<native_installation>`.
 
 Design Decision
 ^^^^^^^^^^^^^^^
@@ -61,43 +61,58 @@ already included in the image), you would need to install it
 Native Installation
 -------------------
 
-Clone `pykokkos-base <https://github.com/kokkos/pykokkos-base>`_ and
+Clone `pykokkos <https://github.com/kokkos/pykokkos>`_ and
 create a conda environment:
 
 .. code-block:: bash
 
-   git clone https://github.com/kokkos/pykokkos-base.git
-   cd pykokkos-base/
-   conda create --name pyk --file requirements.txt python=3.11
+   git clone https://github.com/kokkos/pykokkos.git
+   cd pykokkos/
+   conda create -n pyk python=3.13 -y
+   conda env update -n pyk -f base/environment.yml
    conda activate pyk
 
 Once the necessary packages have been downloaded and installed,
-install ``pykokkos-base`` with CUDA and OpenMP enabled:
+install ``base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
 
 .. code-block:: bash
 
-   python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
+   python install_base.py install -- \
+      -DENABLE_VIEW_RANKS=3 \             # maximum number of view ranks enabled
+      -DENABLE_MEMORY_TRAITS=OFF \        # disable memory space concept
+      -DENABLE_THREADS=OFF \              # disable pthreads execution space
+      -DENABLE_LAYOUTS=ON \               # enable layout left/right ordering
+      -DENABLE_CUDA=ON \                  # enable cuda execution space
+      -DENABLE_OPENMP=ON                  # enable openmp execution space
 
-Other ``pykokkos-base`` configuration and installation options can be
+
+See `Kokkos CMake Options <https://kokkos.org/kokkos-kernels/docs/cmake-keywords.html>`_ for a complete list of CMake flags.
+Other ``pykokkos`` configuration and installation options can be
 found in that project's `README
-<https://github.com/kokkos/pykokkos-base/blob/main/README.md>`_.  Note
+<https://github.com/kokkos/pykokkos/blob/main/base/README.md>`_.  Note
 that this step will compile a large number of bindings which can take
-a while to complete. Please open an issue if you run into any problems
-with ``pykokkos-base``.
+a while to complete.
 
-Once ``pykokkos-base`` has been installed, clone ``pykokkos`` and
-install its requirements:
+Once ``base`` has been installed, you can install ``pykokkos`` itself:
 
 .. code-block:: bash
 
-   cd ..
-   git clone https://github.com/kokkos/pykokkos.git
-   cd pykokkos/
    conda install -c conda-forge pybind11 cupy patchelf
    pip install --user -e .
 
+.. note::
+        Please open an issue
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_
+        **#pykokkos** channel
+        if you run into any problems
+        with ``base``.
+
+.. raw:: html
+
+   <hr style="border: 0; height: 2px; background-color: #AAA; margin: 24px 0;">
+
 Note that ``cupy`` is only required if CUDA is enabled in
-pykokkos-base.  In some cases, this might result in a ``cupy`` import
+base.  In some cases, this might result in a ``cupy`` import
 error inside ``pykokkos`` similar to the following:
 
 .. code-block::
@@ -107,10 +122,10 @@ error inside ``pykokkos`` similar to the following:
    Failed to import CuPy.
 
    Original error:
-   ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.11/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
+   ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /PATH/TO/ENV/lib/python3.13/site-packages/cupy/_core/core.cpython-311-x86_64-linux-gnu.so)
 
 This is due to a mismatch in ``libstdc++.so`` versions between the
-system library which ``pykokkos-base`` depends on and the library in
+system library which ``base`` depends on and the library in
 the conda environment which ``cupy`` depends on. This can be solved by
 setting the ``LD_PRELOAD`` environment variable to force loading of
 the correct library like so:
@@ -128,8 +143,11 @@ To verify that ``pykokkos`` has been installed correctly, install
    python runtests.py
 
 .. note::
-
-  Please open an issue for help with installation.
+        Please open an issue
+        or reach out in the `Kokkos slack <https://kokkos.org/community/chat/>`_
+        **#pykokkos** channel
+        if you run into any problems
+        with ``pykokkos``.
 
 .. toctree::
    :maxdepth: 2

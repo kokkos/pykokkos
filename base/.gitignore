@@ -1,0 +1,63 @@
+
+# IDE files
+/CMakeLists.txt.user*
+/.vscode
+/*.nja
+settings.json
+# vim swap files
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Edit files
+*~
+._*
+
+# build directories
+/build-*
+/build
+/install-*
+/install
+/examples/**/build*
+/_skbuild
+
+# setup.py files
+/dist*
+__pycache__
+*.pyc
+/kokkos-*
+/dist
+/.eggs
+/*.egg-info
+/MANIFEST
+/kokkos/libpykokkos.*
+/kokkos/__init__.py
+
+# miscellaneous
+timing_report*
+/test_output*
+*timemory_output*
+*.autosave
+/coverage.info
+
+# macOS Finder files
+.DS_Store
+
+# documentation
+/html
+/site
+/docs/html
+
+# images
+/*.png
+/*.tif
+/*.tiff
+/*.jpeg
+/*.jpg
+/*.gif
+/run*.sh
+
+# stashed source tree
+/.stash

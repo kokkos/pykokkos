@@ -4,9 +4,15 @@ import itertools
 from typing import Callable, Dict, Optional, Tuple, Union
 
 from pykokkos.interface import (
-    Acc, Decorator, ExecutionPolicy, ExecutionSpace,
-    MDRangePolicy, TeamMember, TeamPolicy,
-    TeamThreadRange, ThreadVectorRange
+    Acc,
+    Decorator,
+    ExecutionPolicy,
+    ExecutionSpace,
+    MDRangePolicy,
+    TeamMember,
+    TeamPolicy,
+    TeamThreadRange,
+    ThreadVectorRange,
 )
 import pykokkos.kokkos_manager as km
 
@@ -21,7 +27,7 @@ def run_workload_debug(workload: object) -> None:
     workload_source: str = inspect.getsource(type(workload))
     tree: ast.Module = ast.parse(workload_source)
     classdef: ast.ClassDef = tree.body[0]
-    
+
     def get_annotated_functions(decorator: Decorator) -> Dict[str, ast.FunctionDef]:
         visitor = ast.NodeVisitor()
         functions: Dict[str, ast.FunctionDef] = {}
@@ -49,6 +55,7 @@ def run_workload_debug(workload: object) -> None:
     for name in get_annotated_functions(Decorator.KokkosCallback):
         kokkos_callback = getattr(workload, name)
         kokkos_callback()
+
 
 def call_workunit(
     operation: str,
@@ -91,7 +98,7 @@ def run_workunit_debug(
     policy: ExecutionPolicy,
     workunit: Callable[..., None],
     operation: str,
-    initial_value = 0,
+    initial_value=0,
     **kwargs
 ) -> Optional[Union[float, int]]:
     """
@@ -120,7 +127,9 @@ def run_workunit_debug(
     else:
         if isinstance(policy, MDRangePolicy):
             if policy.rank > 1:
-                for idx in itertools.product(*[range(*interval) for interval in zip(policy.begin, policy.end)]):
+                for idx in itertools.product(
+                    *[range(*interval) for interval in zip(policy.begin, policy.end)]
+                ):
                     call_workunit(operation, workunit, idx, acc, **kwargs)
         else:
             for i in range(policy.begin, policy.end):

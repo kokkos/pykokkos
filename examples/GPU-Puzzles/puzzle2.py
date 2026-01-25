@@ -3,6 +3,7 @@
 import pykokkos as pk
 import numpy as np
 
+
 @pk.workunit
 def a_plus_b(i, out, a, b):
     out[i] = a[i] + b[i]

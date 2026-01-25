@@ -8,8 +8,7 @@ import pytest
 # test suite actually translates and
 # compiles the code under test
 cwd = os.getcwd()
-shutil.rmtree(os.path.join(cwd, "pk_cpp"),
-              ignore_errors=True)
+shutil.rmtree(os.path.join(cwd, "pk_cpp"), ignore_errors=True)
 
 from tests import _logging_probe
 
@@ -19,8 +18,8 @@ from tests import _logging_probe
 pytest_args = []
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', '--specifictests', type=str)
-parser.add_argument('-d', '--durations', type=int)
+parser.add_argument("-t", "--specifictests", type=str)
+parser.add_argument("-d", "--durations", type=int)
 args = parser.parse_args()
 
 if args.specifictests:

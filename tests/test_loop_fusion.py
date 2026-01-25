@@ -3,7 +3,6 @@ import subprocess
 import unittest
 
 
-
 def set_env(set_env_var, cwd):
     subprocess.run(["rm", "-rf", "pk_cpp"], cwd=cwd)
 
@@ -17,25 +16,35 @@ def set_env(set_env_var, cwd):
 
 
 class TestLoopFusion(unittest.TestCase):
-    
+
     def setUp(self):
-       self.cwd = os.path.dirname(os.path.realpath(__file__))
+        self.cwd = os.path.dirname(os.path.realpath(__file__))
 
     def run_test(self, test_num, range_iterations):
-        '''
-        This is the only way I could figure to capture kernel output - by running kernel as another process. 
+        """
+        This is the only way I could figure to capture kernel output - by running kernel as another process.
         Redirect wasn't working for pyk kernels
 
         :param test_num: test number in loop_fusion_kernels.py
         :param range_terations: number of iterations the kernel performs in parallel
-        '''
+        """
         set_env(False, self.cwd)
-        result_vanilla = subprocess.run(["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)], cwd=self.cwd, capture_output=True, text=True)
+        result_vanilla = subprocess.run(
+            ["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)],
+            cwd=self.cwd,
+            capture_output=True,
+            text=True,
+        )
         vanilla_out = result_vanilla.stdout
 
         # Again but with env variable
         set_env(True, self.cwd)
-        result_fused = subprocess.run(["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)], cwd=self.cwd, capture_output=True, text=True)
+        result_fused = subprocess.run(
+            ["python", "loop_fusion_kernels.py", str(test_num), str(range_iterations)],
+            cwd=self.cwd,
+            capture_output=True,
+            text=True,
+        )
         fused_out = result_fused.stdout
 
         self.assertEqual(vanilla_out, fused_out)

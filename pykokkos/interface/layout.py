@@ -12,6 +12,7 @@ class Layout(Enum):
     # LayoutStride = "LayoutStride"
     # LayoutTiled = "LayoutTiled"
 
+
 def get_default_layout(space: MemorySpace) -> Layout:
     """
     Map from memory spaces to optimal memory layout.

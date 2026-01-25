@@ -3,10 +3,12 @@ import sys
 from typing import Tuple
 
 
-def check_sizes(N: int, M: int, S: int, E: int, nrepeat: int) -> Tuple[int, int, int, int, int]:
+def check_sizes(
+    N: int, M: int, S: int, E: int, nrepeat: int
+) -> Tuple[int, int, int, int, int]:
     # If S is undefined and N or M is undefined, set S to 2^18 or the bigger of N and M.
     if S == -1 and (N == -1 or M == -1):
-        S = 2 ** 18
+        S = 2**18
         if S < N:
             S = N
         if S < M:
@@ -33,7 +35,7 @@ def check_sizes(N: int, M: int, S: int, E: int, nrepeat: int) -> Tuple[int, int,
 
     # If E is undefined, set it to 2 ^ 10 = 1024.
     if E == -1:
-        E = 2 ** 10
+        E = 2**10
 
     print(f"  Total size S = {S} N = {N} M = {M} E = {E}")
 
@@ -64,21 +66,24 @@ def parse_args() -> Tuple[int, int, int, int, int, str, bool]:
     parser.add_argument("-E", "--elements", type=int)
     parser.add_argument("-nrepeat", "--nrepeat", type=int)
     parser.add_argument("-space", "--execution_space", type=str)
-    parser.add_argument("--fill", action="store_true",
-                        help="Specify whether to use ViewType.fill() or"
-                        " to initialize with sequential for loop")
+    parser.add_argument(
+        "--fill",
+        action="store_true",
+        help="Specify whether to use ViewType.fill() or"
+        " to initialize with sequential for loop",
+    )
     args = parser.parse_args()
 
     if args.rows:
-        N = 2 ** args.rows
+        N = 2**args.rows
     if args.columns:
-        M = 2 ** args.columns
+        M = 2**args.columns
     if args.size:
-        S = 2 ** args.size
+        S = 2**args.size
     if args.elements:
-        E = 2 ** args.elements
+        E = 2**args.elements
     if args.nrepeat:
-        nrepeat = 2 ** args.nrepeat
+        nrepeat = 2**args.nrepeat
     if args.execution_space:
         space = args.execution_space
 

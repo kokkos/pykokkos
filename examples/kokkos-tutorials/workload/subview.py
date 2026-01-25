@@ -48,15 +48,16 @@ class Workload:
         solution: float = self.N * self.M
 
         if self.result != solution:
-            pk.printf("Error: result (%lf) != solution (%lf)\n",
-                      self.result, solution)
+            pk.printf("Error: result (%lf) != solution (%lf)\n", self.result, solution)
 
-        print(f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)")
+        print(
+            f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)"
+        )
 
     @pk.workunit
     def yAx(self, j: int, acc: pk.Acc[float]):
         temp2: float = 0
-        A_row_j = self.A[j,:]
+        A_row_j = self.A[j, :]
         for i in range(self.M):
             temp2 += A_row_j[i] * self.x[i]
 
@@ -80,6 +81,7 @@ def run() -> None:
 
     print(f"Total size S = {N * M} N = {N} M = {M}")
     pk.execute(pk.get_default_space(), Workload(N, M, nrepeat, fill))
+
 
 if __name__ == "__main__":
     run()

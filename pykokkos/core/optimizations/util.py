@@ -18,12 +18,12 @@ class LoopInfo:
         step: ast.expr,
         for_node: ast.For,
         scope: int,
-        parent_scope: int, #, will be changed as loops are fused
-        parent_node: ast.stmt, # will be changed as loops are fused
-        idx_in_parent: int, #, will be changed as loops are fused
-        original_parent_node: ast.stmt, # needed to check if adjacent nodes can be moved
-        original_idx_in_parent: int, # needed to check if adjacent nodes can be moved
-        lineno: int #, using this as a unique id to the loop for now
+        parent_scope: int,  # , will be changed as loops are fused
+        parent_node: ast.stmt,  # will be changed as loops are fused
+        idx_in_parent: int,  # , will be changed as loops are fused
+        original_parent_node: ast.stmt,  # needed to check if adjacent nodes can be moved
+        original_idx_in_parent: int,  # needed to check if adjacent nodes can be moved
+        lineno: int,  # , using this as a unique id to the loop for now
     ):
         self.iterator = iterator
         self.start = start
@@ -60,12 +60,14 @@ class LoopInfo:
         return (self.start_key, self.stop_key, self.step_key)
 
     def __repr__(self) -> str:
-        return (f"LoopInfo(iterator={ast.unparse(self.iterator)}, "
-                f"start={self.start_key}, "
-                f"stop={self.stop_key}, "
-                f"step={self.step_key}, "
-                f"parent_scope={self.parent_scope}, "
-                f"scope={self.scope})")
+        return (
+            f"LoopInfo(iterator={ast.unparse(self.iterator)}, "
+            f"start={self.start_key}, "
+            f"stop={self.stop_key}, "
+            f"step={self.step_key}, "
+            f"parent_scope={self.parent_scope}, "
+            f"scope={self.scope})"
+        )
 
 
 class MemoryOpInfo:
@@ -73,7 +75,14 @@ class MemoryOpInfo:
     Contains info on memory operations necessary to carry out optimizations
     """
 
-    def __init__(self, array_name: str, memory_op: ast.Subscript, indices: List[ast.expr], context: ast.expr_context, parent_stmt: ast.stmt):
+    def __init__(
+        self,
+        array_name: str,
+        memory_op: ast.Subscript,
+        indices: List[ast.expr],
+        context: ast.expr_context,
+        parent_stmt: ast.stmt,
+    ):
         self.array_name = array_name
         self.memory_op = memory_op
         self.indices = indices
@@ -83,9 +92,11 @@ class MemoryOpInfo:
         self.index_key: Tuple[str, ...] = tuple([ast.unparse(i) for i in self.indices])
 
     def __repr__(self) -> str:
-        return (f"MemoryOpInfo(array={self.array_name}, "
-                f"index={self.index_key}, "
-                f"context={self.context})")
+        return (
+            f"MemoryOpInfo(array={self.array_name}, "
+            f"index={self.index_key}, "
+            f"context={self.context})"
+        )
 
 
 class ExpressionFinder(ast.NodeVisitor):
@@ -132,7 +143,11 @@ class ExpressionFinder(ast.NodeVisitor):
         :returns: True if range() is called
         """
 
-        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "range"
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "range"
+        )
 
     def get_loop_range(self, node: ast.Call) -> Tuple[ast.expr, ast.expr, ast.expr]:
         """
@@ -196,8 +211,19 @@ class ExpressionFinder(ast.NodeVisitor):
             parent_scope: int = self.get_scope()
             idx_in_parent_body: int = node.idx_in_parent
             loop_info = LoopInfo(
-                node.target, start, stop, step, node, self.scope_id, parent_scope,
-                node.parent, idx_in_parent_body, node.parent, idx_in_parent_body, node.lineno)
+                node.target,
+                start,
+                stop,
+                step,
+                node,
+                self.scope_id,
+                parent_scope,
+                node.parent,
+                idx_in_parent_body,
+                node.parent,
+                idx_in_parent_body,
+                node.lineno,
+            )
 
             if parent_scope not in self.loops_in_scope:
                 self.loops_in_scope[parent_scope] = []
@@ -207,7 +233,7 @@ class ExpressionFinder(ast.NodeVisitor):
         self.push_scope(self.scope_id)
         for statement in node.body:
             self.visit(statement)
-        
+
         self.pop_scope()
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
@@ -237,7 +263,9 @@ class ExpressionFinder(ast.NodeVisitor):
             self.memory_ops_in_scope[parent_scope] = []
 
         array_name: str = array_node.id
-        self.memory_ops_in_scope[parent_scope].append(MemoryOpInfo(array_name, node, indices, node.ctx, parent_stmt))
+        self.memory_ops_in_scope[parent_scope].append(
+            MemoryOpInfo(array_name, node, indices, node.ctx, parent_stmt)
+        )
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if not isinstance(node.target, ast.Name):

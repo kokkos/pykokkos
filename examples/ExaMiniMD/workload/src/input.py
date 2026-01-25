@@ -16,7 +16,7 @@ if "PK_EXA_NUMBA" in os.environ:
 
 import logging
 
-numba_logger = logging.getLogger('numba')
+numba_logger = logging.getLogger("numba")
 numba_logger.setLevel(logging.WARNING)
 
 import numpy as np
@@ -26,8 +26,16 @@ from comm import Comm
 from system import System
 from property_temperature import Temperature
 from types_h import (
-    Units, LatticeType, IntegratorType, CommType, ForceType,
-    NeighborType, ForceIterationType, BinningType, InputFileType, t_mass
+    Units,
+    LatticeType,
+    IntegratorType,
+    CommType,
+    ForceType,
+    NeighborType,
+    ForceIterationType,
+    BinningType,
+    InputFileType,
+    t_mass,
 )
 
 
@@ -81,13 +89,16 @@ class ItemizedFile:
         if self.nlines < self.max_nlines:
             j: int = 0
             while pos < len(line) and j < self.words_per_line:
-                while ((line[pos] == " " or line[pos] == "\t")
-                        and pos < len(line)):
+                while (line[pos] == " " or line[pos] == "\t") and pos < len(line):
                     pos += 1
 
                 k: int = 0
-                while (pos < len(line) and line[pos] != " "
-                        and line[pos] != "\t" and k < self.max_word_size):
+                while (
+                    pos < len(line)
+                    and line[pos] != " "
+                    and line[pos] != "\t"
+                    and k < self.max_word_size
+                ):
                     self.words[self.nlines][j] += line[pos]
                     k += 1
                     pos += 1
@@ -143,10 +154,10 @@ class LAMMPS_RandomVelocityGeom:
         # Convert ibase to a char array. We need & 0xffffffff to get
         # the 2's complement representation. We check the sign bit
         # since we want signed chars
-        ibase &= 0xffffffff
+        ibase &= 0xFFFFFFFF
         ibase_bin = list(ibase.to_bytes(4, "little"))
         for i in range(4):
-            if (ibase_bin[i] & (1 << 7)):
+            if ibase_bin[i] & (1 << 7):
                 ibase_bin[i] -= 1 << 8
 
         hash_uint: int = 0
@@ -164,7 +175,7 @@ class LAMMPS_RandomVelocityGeom:
         for i in range(len(coord)):
             x = list(struct.pack("d", coord[i]))
             for j in range(len(x)):
-                if (x[j] & (1 << 7)):
+                if x[j] & (1 << 7):
                     x[j] -= 1 << 8
             coord_bin[i] = x
 
@@ -184,14 +195,16 @@ class LAMMPS_RandomVelocityGeom:
         hash_uint += hash_uint << 15
         hash_uint &= 0xFFFFFFFF
 
-        self.seed = int(hash_uint & 0x7ffffff)
+        self.seed = int(hash_uint & 0x7FFFFFF)
         if self.seed == 0:
             self.seed = 1
 
         for i in range(5):
             self.uniform()
 
+
 if NUMBA_ENABLED:
+
     @jit(nopython=True, cache=True)
     def uniform(seed) -> Tuple[int, int]:
         IA: int = 16807
@@ -236,7 +249,7 @@ if NUMBA_ENABLED:
         hash_uint += hash_uint << 15
         hash_uint &= 0xFFFFFFFF
 
-        seed = int(hash_uint & 0x7ffffff)
+        seed = int(hash_uint & 0x7FFFFFF)
         if seed == 0:
             seed = 1
 
@@ -254,7 +267,14 @@ if NUMBA_ENABLED:
         return seed
 
     @jit(nopython=True, cache=True)
-    def init_v(hash_uint: int, coord_bin: np.ndarray, v: np.ndarray, mass: np.ndarray, type: np.ndarray, N_local: int) -> Tuple[int, int, int, int]:
+    def init_v(
+        hash_uint: int,
+        coord_bin: np.ndarray,
+        v: np.ndarray,
+        mass: np.ndarray,
+        type: np.ndarray,
+        N_local: int,
+    ) -> Tuple[int, int, int, int]:
         total_mass: float = 0.0
         total_momentum_x: float = 0.0
         total_momentum_y: float = 0.0
@@ -284,18 +304,30 @@ if NUMBA_ENABLED:
         return total_mass, total_momentum_x, total_momentum_y, total_momentum_z
 
     @jit(nopython=True, cache=True, parallel=True)
-    def calculate_n(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z):
+    def calculate_n(
+        ix_start,
+        ix_end,
+        iy_start,
+        iy_end,
+        iz_start,
+        iz_end,
+        lattice_constant,
+        basis,
+        sub_domain_lo_x,
+        sub_domain_lo_y,
+        sub_domain_lo_z,
+        sub_domain_hi_x,
+        sub_domain_hi_y,
+        sub_domain_hi_z,
+    ):
         n: int = 0
         for iz in prange(iz_start, iz_end + 1):
             for iy in range(iy_start, iy_end + 1):
                 for ix in range(ix_start, ix_end + 1):
                     for k in range(4):
-                        xtmp: float = (lattice_constant *
-                                    (1.0 * ix + basis[k][0]))
-                        ytmp: float = (lattice_constant *
-                                    (1.0 * iy + basis[k][1]))
-                        ztmp: float = (lattice_constant *
-                                    (1.0 * iz + basis[k][2]))
+                        xtmp: float = lattice_constant * (1.0 * ix + basis[k][0])
+                        ytmp: float = lattice_constant * (1.0 * iy + basis[k][1])
+                        ztmp: float = lattice_constant * (1.0 * iz + basis[k][2])
 
                         if (
                             xtmp >= sub_domain_lo_x
@@ -309,18 +341,34 @@ if NUMBA_ENABLED:
         return n
 
     @jit(nopython=True, cache=True)
-    def init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end, lattice_constant, basis, sub_domain_lo_x, sub_domain_lo_y, sub_domain_lo_z, sub_domain_hi_x, sub_domain_hi_y, sub_domain_hi_z, x, type, id, ntypes):
+    def init_x(
+        ix_start,
+        ix_end,
+        iy_start,
+        iy_end,
+        iz_start,
+        iz_end,
+        lattice_constant,
+        basis,
+        sub_domain_lo_x,
+        sub_domain_lo_y,
+        sub_domain_lo_z,
+        sub_domain_hi_x,
+        sub_domain_hi_y,
+        sub_domain_hi_z,
+        x,
+        type,
+        id,
+        ntypes,
+    ):
         n: int = 0
         for iz in range(iz_start, iz_end + 1):
             for iy in range(iy_start, iy_end + 1):
                 for ix in range(ix_start, ix_end + 1):
                     for k in range(4):
-                        xtmp: float = (lattice_constant *
-                                    (1.0 * ix + basis[k][0]))
-                        ytmp: float = (lattice_constant *
-                                    (1.0 * iy + basis[k][1]))
-                        ztmp: float = (lattice_constant *
-                                    (1.0 * iz + basis[k][2]))
+                        xtmp: float = lattice_constant * (1.0 * ix + basis[k][0])
+                        ytmp: float = lattice_constant * (1.0 * iy + basis[k][1])
+                        ztmp: float = lattice_constant * (1.0 * iz + basis[k][2])
 
                         if (
                             xtmp >= sub_domain_lo_x
@@ -341,7 +389,18 @@ if NUMBA_ENABLED:
 
 @pk.functor(x=pk.ViewTypeInfo(layout=pk.LayoutRight))
 class init_system:
-    def __init__(self, s: System, ix_start: int, ix_end: int, iy_start: int, iy_end: int, iz_start: int, iz_end: int, lattice_constant: float, basis: pk.View2D[pk.double]):
+    def __init__(
+        self,
+        s: System,
+        ix_start: int,
+        ix_end: int,
+        iy_start: int,
+        iy_end: int,
+        iz_start: int,
+        iz_end: int,
+        lattice_constant: float,
+        basis: pk.View2D[pk.double],
+    ):
         self.ix_start: int = ix_start
         self.ix_end: int = ix_end
         self.iy_start: int = iy_start
@@ -369,12 +428,9 @@ class init_system:
         for iy in range(self.iy_start, self.iy_end + 1):
             for ix in range(self.ix_start, self.ix_end + 1):
                 for k in range(4):
-                    xtmp: float = (self.lattice_constant *
-                                (1.0 * ix + self.basis[k][0]))
-                    ytmp: float = (self.lattice_constant *
-                                (1.0 * iy + self.basis[k][1]))
-                    ztmp: float = (self.lattice_constant *
-                                (1.0 * iz + self.basis[k][2]))
+                    xtmp: float = self.lattice_constant * (1.0 * ix + self.basis[k][0])
+                    ytmp: float = self.lattice_constant * (1.0 * iy + self.basis[k][1])
+                    ztmp: float = self.lattice_constant * (1.0 * iz + self.basis[k][2])
 
                     if (
                         xtmp >= self.sub_domain_lo_x
@@ -392,12 +448,9 @@ class init_system:
         for iy in range(self.iy_start, self.iy_end + 1):
             for ix in range(self.ix_start, self.ix_end + 1):
                 for k in range(4):
-                    xtmp: float = (self.lattice_constant *
-                                (1.0 * ix + self.basis[k][0]))
-                    ytmp: float = (self.lattice_constant *
-                                (1.0 * iy + self.basis[k][1]))
-                    ztmp: float = (self.lattice_constant *
-                                (1.0 * iz + self.basis[k][2]))
+                    xtmp: float = self.lattice_constant * (1.0 * ix + self.basis[k][0])
+                    ytmp: float = self.lattice_constant * (1.0 * iy + self.basis[k][1])
+                    ztmp: float = self.lattice_constant * (1.0 * iz + self.basis[k][2])
 
                     if (
                         xtmp >= self.sub_domain_lo_x
@@ -413,6 +466,7 @@ class init_system:
                         self.type[n] = 0
                         self.id[n] = n + 1
                         n += 1
+
 
 class Input:
     def __init__(self, p: System):
@@ -467,39 +521,60 @@ class Input:
     def read_command_line_args(self) -> None:
         parser = argparse.ArgumentParser(
             description="ExaMiniMD 1.0 (Kokkos Reference Version)"
-                        " (PyKokkos Implementation)")
+            " (PyKokkos Implementation)"
+        )
 
-        parser.add_argument("-il", "--inputlammps", type=str,
-                            metavar="[FILE]",
-                            help="Provide LAMMPS input file")
-        parser.add_argument("--forceiteration", type=str,
-                            metavar="[TYPE]",
-                            help="Specify which iteration style to use for"
-                                 " force calculations"
-                                 " (CELL_FULL, NEIGH_FULL, NEIGH_HALF)")
-        parser.add_argument("--commtype", type=str,
-                            metavar="[TYPE]",
-                            help="Specify Communication Routines"
-                                 " implementation (MPI, SERIAL)")
-        parser.add_argument("--dumpbinary", nargs=2,
-                            metavar=("[N]", "[PATH]"),
-                            help="Request that binary output files"
-                                 " PATH/output* be generated every N steps"
-                                 " (N = positive integer)"
-                                 " (PATH = location of directory)")
-        parser.add_argument("--correctness", nargs=3,
-                            metavar=("[N]", "[PATH]", "[FILE]"),
-                            help="Request that correctness check against"
-                                 " files PATH/output* be performed every N"
-                                 " steps, correctness data written to FILE"
-                                 " (N = positive integer)"
-                                 " (PATH = location of directory)")
-        parser.add_argument("--neightype", type=str,
-                            help="Specify Neighbor Routines implementation"
-                                 " (2D, CSR, CSR_MAPCONSTR)")
-        parser.add_argument("--fill", action="store_true",
-                            help="Specify whether to use ViewType.fill() or"
-                                 " to initialize with sequential for loop")
+        parser.add_argument(
+            "-il",
+            "--inputlammps",
+            type=str,
+            metavar="[FILE]",
+            help="Provide LAMMPS input file",
+        )
+        parser.add_argument(
+            "--forceiteration",
+            type=str,
+            metavar="[TYPE]",
+            help="Specify which iteration style to use for"
+            " force calculations"
+            " (CELL_FULL, NEIGH_FULL, NEIGH_HALF)",
+        )
+        parser.add_argument(
+            "--commtype",
+            type=str,
+            metavar="[TYPE]",
+            help="Specify Communication Routines" " implementation (MPI, SERIAL)",
+        )
+        parser.add_argument(
+            "--dumpbinary",
+            nargs=2,
+            metavar=("[N]", "[PATH]"),
+            help="Request that binary output files"
+            " PATH/output* be generated every N steps"
+            " (N = positive integer)"
+            " (PATH = location of directory)",
+        )
+        parser.add_argument(
+            "--correctness",
+            nargs=3,
+            metavar=("[N]", "[PATH]", "[FILE]"),
+            help="Request that correctness check against"
+            " files PATH/output* be performed every N"
+            " steps, correctness data written to FILE"
+            " (N = positive integer)"
+            " (PATH = location of directory)",
+        )
+        parser.add_argument(
+            "--neightype",
+            type=str,
+            help="Specify Neighbor Routines implementation" " (2D, CSR, CSR_MAPCONSTR)",
+        )
+        parser.add_argument(
+            "--fill",
+            action="store_true",
+            help="Specify whether to use ViewType.fill() or"
+            " to initialize with sequential for loop",
+        )
 
         args = parser.parse_args()
 
@@ -509,11 +584,17 @@ class Input:
 
         if args.forceiteration:
             if args.forceiteration == "CELL_FULL":
-                self.force_iteration_type = ForceIterationType.FORCE_ITER_CELL_FULL.value
+                self.force_iteration_type = (
+                    ForceIterationType.FORCE_ITER_CELL_FULL.value
+                )
             elif args.forceiteration == "NEIGH_FULL":
-                self.force_iteration_type = ForceIterationType.FORCE_ITER_NEIGH_FULL.value
+                self.force_iteration_type = (
+                    ForceIterationType.FORCE_ITER_NEIGH_FULL.value
+                )
             elif args.forceiteration == "NEIGH_HALF":
-                self.force_iteration_type = ForceIterationType.FORCE_ITER_NEIGH_HALF.value
+                self.force_iteration_type = (
+                    ForceIterationType.FORCE_ITER_NEIGH_HALF.value
+                )
 
         if args.commtype:
             if args.commtype == "SERIAL":
@@ -590,8 +671,10 @@ class Input:
 
         if command == "variable":
             if self.system.do_print:
-                print("LAMMPS-Command:"
-                      " 'variable' keyword is not supported in ExaMiniMD")
+                print(
+                    "LAMMPS-Command:"
+                    " 'variable' keyword is not supported in ExaMiniMD"
+                )
 
         if command == "units":
             unit: str = self.input_data.words[line][1]
@@ -622,8 +705,10 @@ class Input:
 
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'units' command only supports"
-                          " 'real' and 'lj' in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'units' command only supports"
+                        " 'real' and 'lj' in ExaMiniMD"
+                    )
 
         if command == "atom_style":
             style: str = self.input_data.words[line][1]
@@ -631,8 +716,10 @@ class Input:
                 known = True
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'atom_style' command only"
-                          " supports 'atomic' in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'atom_style' command only"
+                        " supports 'atomic' in ExaMiniMD"
+                    )
 
         if command == "lattice":
             lattice: str = self.input_data.words[line][1]
@@ -645,12 +732,15 @@ class Input:
                 known = True
                 self.lattice_style = LatticeType.LATTICE_FCC.value
                 self.lattice_constant = (
-                    4.0 / float(self.input_data.words[line][2])) ** (1.0 / 3.0)
+                    4.0 / float(self.input_data.words[line][2])
+                ) ** (1.0 / 3.0)
 
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'lattice' command only supports"
-                          " 'sc' and 'fcc' in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'lattice' command only supports"
+                        " 'sc' and 'fcc' in ExaMiniMD"
+                    )
 
             if self.input_data.words[line][3] == "origin":
                 self.lattice_offset_x = float(self.input_data.words[line][4])
@@ -671,8 +761,10 @@ class Input:
 
                 if box[0] != 0 or box[2] != 0 or box[4] != 0:
                     if self.system.do_print:
-                        print("Error: LAMMPS-Command: region only allows for"
-                              " boxes with 0,0,0 offset")
+                        print(
+                            "Error: LAMMPS-Command: region only allows for"
+                            " boxes with 0,0,0 offset"
+                        )
 
                 self.lattice_nx = box[1]
                 self.lattice_ny = box[3]
@@ -680,8 +772,10 @@ class Input:
 
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'region' command only supports"
-                          " 'block' option in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'region' command only supports"
+                        " 'block' option in ExaMiniMD"
+                    )
 
         if command == "create_box":
             known = True
@@ -718,9 +812,11 @@ class Input:
                 self.force_line = line
 
                 if self.system.do_print and not known:
-                    print("LAMMPS-Command: 'pair_style' command only supports"
-                          " 'lj/cut', 'lj/cut/idial', and 'snap' style"
-                          " in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'pair_style' command only supports"
+                        " 'lj/cut', 'lj/cut/idial', and 'snap' style"
+                        " in ExaMiniMD"
+                    )
 
         if command == "pair_coeff":
             known = True
@@ -733,13 +829,17 @@ class Input:
             known = True
             if self.input_data.words[line][1] != "all":
                 if self.system.do_print:
-                    print("Error: LAMMPS-Command: 'velocity' command can only"
-                          " be applied to 'all'")
+                    print(
+                        "Error: LAMMPS-Command: 'velocity' command can only"
+                        " be applied to 'all'"
+                    )
 
             if self.input_data.words[line][2] != "create":
                 if self.system.do_print:
-                    print("Error: LAMMPS-Command: 'velocity' command can only"
-                          " be used with option 'create'")
+                    print(
+                        "Error: LAMMPS-Command: 'velocity' command can only"
+                        " be used with option 'create'"
+                    )
 
             self.temperature_target = float(self.input_data.words[line][3])
             self.temperature_seed = int(self.input_data.words[line][4])
@@ -752,8 +852,7 @@ class Input:
             known = True
             for i in range(1, self.input_data.words_per_line - 1):
                 if self.input_data.words[line][i] == "every":
-                    self.comm_exchange_rate = int(
-                        self.input_data.words[line][i + 1])
+                    self.comm_exchange_rate = int(self.input_data.words[line][i + 1])
 
         if command == "fix":
             if self.input_data.words[line][3] == "nve":
@@ -762,8 +861,10 @@ class Input:
 
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'fix' command only supports"
-                          " 'nve' style in ExaMiniMD")
+                    print(
+                        "LAMMPS-Command: 'fix' command only supports"
+                        " 'nve' style in ExaMiniMD"
+                    )
 
         if command == "run":
             known = True
@@ -789,8 +890,9 @@ class Input:
 
             else:
                 if self.system.do_print:
-                    print("LAMMPS-Command: 'newton' must be followed by"
-                          " 'on' or 'off'")
+                    print(
+                        "LAMMPS-Command: 'newton' must be followed by" " 'on' or 'off'"
+                    )
 
         if command == "":
             known = True
@@ -811,32 +913,37 @@ class Input:
             s = copy.deepcopy(self.system)
 
             ix_start: int = math.floor(
-                s.sub_domain_lo_x / s.domain_x * self.lattice_nx - 0.5)
+                s.sub_domain_lo_x / s.domain_x * self.lattice_nx - 0.5
+            )
             iy_start: int = math.floor(
-                s.sub_domain_lo_y / s.domain_y * self.lattice_ny - 0.5)
+                s.sub_domain_lo_y / s.domain_y * self.lattice_ny - 0.5
+            )
             iz_start: int = math.floor(
-                s.sub_domain_lo_z / s.domain_z * self.lattice_nz - 0.5)
+                s.sub_domain_lo_z / s.domain_z * self.lattice_nz - 0.5
+            )
 
             ix_end: int = math.floor(
-                s.sub_domain_hi_x / s.domain_x * self.lattice_nx + 0.5)
+                s.sub_domain_hi_x / s.domain_x * self.lattice_nx + 0.5
+            )
             iy_end: int = math.floor(
-                s.sub_domain_hi_y / s.domain_y * self.lattice_ny + 0.5)
+                s.sub_domain_hi_y / s.domain_y * self.lattice_ny + 0.5
+            )
             iz_end: int = math.floor(
-                s.sub_domain_hi_z / s.domain_z * self.lattice_nz + 0.5)
+                s.sub_domain_hi_z / s.domain_z * self.lattice_nz + 0.5
+            )
 
             n: int = 0
 
             for iz in range(iz_start, iz_end + 1):
-                ztmp: float = (self.lattice_constant *
-                               (iz + self.lattice_offset_z))
+                ztmp: float = self.lattice_constant * (iz + self.lattice_offset_z)
 
                 for iy in range(iy_start, iy_end + 1):
-                    ytmp: float = (self.lattice_constant *
-                                   (iy + self.lattice_offset_y))
+                    ytmp: float = self.lattice_constant * (iy + self.lattice_offset_y)
 
                     for ix in range(ix_start, ix_end + 1):
-                        xtmp: float = (self.lattice_constant *
-                                       (ix + self.lattice_offset_x))
+                        xtmp: float = self.lattice_constant * (
+                            ix + self.lattice_offset_x
+                        )
 
                         if (
                             xtmp >= s.sub_domain_lo_x
@@ -855,16 +962,15 @@ class Input:
             s = copy.deepcopy(self.system)
 
             for iz in range(iz_start, iz_end + 1):
-                ztmp: float = (self.lattice_constant *
-                               (iz + self.lattice_offset_z))
+                ztmp: float = self.lattice_constant * (iz + self.lattice_offset_z)
 
                 for iy in range(iy_start, iy_end + 1):
-                    ytmp: float = (self.lattice_constant *
-                                   (iy + self.lattice_offset_y))
+                    ytmp: float = self.lattice_constant * (iy + self.lattice_offset_y)
 
                     for ix in range(ix_start, ix_end + 1):
-                        xtmp: float = (self.lattice_constant *
-                                       (ix + self.lattice_offset_x))
+                        xtmp: float = self.lattice_constant * (
+                            ix + self.lattice_offset_x
+                        )
 
                         if (
                             xtmp >= s.sub_domain_lo_x
@@ -881,16 +987,15 @@ class Input:
             n = 0
 
             for iz in range(iz_start, iz_end + 1):
-                ztmp: float = (self.lattice_constant *
-                               (iz + self.lattice_offset_z))
+                ztmp: float = self.lattice_constant * (iz + self.lattice_offset_z)
 
                 for iy in range(iy_start, iy_end + 1):
-                    ytmp: float = (self.lattice_constant *
-                                   (iy + self.lattice_offset_y))
+                    ytmp: float = self.lattice_constant * (iy + self.lattice_offset_y)
 
                     for ix in range(ix_start, ix_end + 1):
-                        xtmp: float = (self.lattice_constant *
-                                       (ix + self.lattice_offset_x))
+                        xtmp: float = self.lattice_constant * (
+                            ix + self.lattice_offset_x
+                        )
 
                         s.x[n][0] = xtmp
                         s.x[n][1] = ytmp
@@ -917,10 +1022,12 @@ class Input:
             comm.create_domain_decomposition()
             s = copy.deepcopy(self.system)
 
-            basis: List[List[float]] = [[0.0, 0.0, 0.0],
-                                        [0.5, 0.5, 0.0],
-                                        [0.5, 0.0, 0.5],
-                                        [0.0, 0.5, 0.5]]
+            basis: List[List[float]] = [
+                [0.0, 0.0, 0.0],
+                [0.5, 0.5, 0.0],
+                [0.5, 0.0, 0.5],
+                [0.0, 0.5, 0.5],
+            ]
             basis_view = pk.View([4, 3], pk.double)
             for i in range(4):
                 basis_view[i][0] = basis[i][0]
@@ -934,23 +1041,39 @@ class Input:
 
             print(f"{s.sub_domain_lo_x} {s.domain_x} {self.lattice_nx} - 0.5")
             ix_start: int = math.floor(
-                s.sub_domain_lo_x / s.domain_x * self.lattice_nx - 0.5)
+                s.sub_domain_lo_x / s.domain_x * self.lattice_nx - 0.5
+            )
             iy_start: int = math.floor(
-                s.sub_domain_lo_y / s.domain_y * self.lattice_ny - 0.5)
+                s.sub_domain_lo_y / s.domain_y * self.lattice_ny - 0.5
+            )
             iz_start: int = math.floor(
-                s.sub_domain_lo_z / s.domain_z * self.lattice_nz - 0.5)
+                s.sub_domain_lo_z / s.domain_z * self.lattice_nz - 0.5
+            )
 
             ix_end: int = math.floor(
-                s.sub_domain_hi_x / s.domain_x * self.lattice_nx + 0.5)
+                s.sub_domain_hi_x / s.domain_x * self.lattice_nx + 0.5
+            )
             iy_end: int = math.floor(
-                s.sub_domain_hi_y / s.domain_y * self.lattice_ny + 0.5)
+                s.sub_domain_hi_y / s.domain_y * self.lattice_ny + 0.5
+            )
             iz_end: int = math.floor(
-                s.sub_domain_hi_z / s.domain_z * self.lattice_nz + 0.5)
+                s.sub_domain_hi_z / s.domain_z * self.lattice_nz + 0.5
+            )
 
-
-            init_s = init_system(s, ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
-                                 self.lattice_constant, basis_view)
-            n: int = pk.parallel_reduce("init_s", pk.RangePolicy(iz_start + 1, iz_end + 1), init_s.get_n)
+            init_s = init_system(
+                s,
+                ix_start,
+                ix_end,
+                iy_start,
+                iy_end,
+                iz_start,
+                iz_end,
+                self.lattice_constant,
+                basis_view,
+            )
+            n: int = pk.parallel_reduce(
+                "init_s", pk.RangePolicy(iz_start + 1, iz_end + 1), init_s.get_n
+            )
 
             # n: int = calculate_n(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
             #                      self.lattice_constant, np.array(basis),
@@ -967,13 +1090,32 @@ class Input:
 
             global NUMBA_ENABLED
             if NUMBA_ENABLED:
-                n: int = init_x(ix_start, ix_end, iy_start, iy_end, iz_start, iz_end,
-                                self.lattice_constant, basis_view.data,
-                                s.sub_domain_lo_x, s.sub_domain_lo_y, s.sub_domain_lo_z,
-                                s.sub_domain_hi_x, s.sub_domain_hi_y, s.sub_domain_hi_z,
-                                s.x.data, s.type.data, s.id.data, s.ntypes)
+                n: int = init_x(
+                    ix_start,
+                    ix_end,
+                    iy_start,
+                    iy_end,
+                    iz_start,
+                    iz_end,
+                    self.lattice_constant,
+                    basis_view.data,
+                    s.sub_domain_lo_x,
+                    s.sub_domain_lo_y,
+                    s.sub_domain_lo_z,
+                    s.sub_domain_hi_x,
+                    s.sub_domain_hi_y,
+                    s.sub_domain_hi_z,
+                    s.x.data,
+                    s.type.data,
+                    s.id.data,
+                    s.ntypes,
+                )
             else:
-                n: int = pk.parallel_reduce("init_x", pk.RangePolicy(pk.Serial, iz_start + 1, iz_end + 2), init_s.init_x)
+                n: int = pk.parallel_reduce(
+                    "init_x",
+                    pk.RangePolicy(pk.Serial, iz_start + 1, iz_end + 2),
+                    init_s.init_x,
+                )
 
             N_local_offset: int = n
             comm.scan_int(N_local_offset, 1)
@@ -992,16 +1134,16 @@ class Input:
         total_momentum_z: float = 0.0
 
         ibase: int = self.temperature_seed
-        ibase &= 0xffffffff
+        ibase &= 0xFFFFFFFF
         ibase_bin = list(ibase.to_bytes(4, "little"))
         for i in range(4):
-            if (ibase_bin[i] & (1 << 7)):
+            if ibase_bin[i] & (1 << 7):
                 ibase_bin[i] -= 1 << 8
 
-        ibase &= 0xffffffff
+        ibase &= 0xFFFFFFFF
         ibase_bin = list(ibase.to_bytes(4, "little"))
         for i in range(4):
-            if (ibase_bin[i] & (1 << 7)):
+            if ibase_bin[i] & (1 << 7):
                 ibase_bin[i] -= 1 << 8
 
         hash_uint: int = 0
@@ -1014,8 +1156,18 @@ class Input:
             hash_uint &= 0xFFFFFFFF
 
         if NUMBA_ENABLED:
-            x_bytes = np.reshape(np.frombuffer(s.x.data.tobytes(), dtype=np.byte), (s.x.shape[0], s.x.shape[1], 8)).astype(int)
-            total_mass, total_momentum_x, total_momentum_y, total_momentum_z = init_v(hash_uint, x_bytes, s.v.data, s.mass.data, s.type.data, self.system.N_local)
+            x_bytes = np.reshape(
+                np.frombuffer(s.x.data.tobytes(), dtype=np.byte),
+                (s.x.shape[0], s.x.shape[1], 8),
+            ).astype(int)
+            total_mass, total_momentum_x, total_momentum_y, total_momentum_z = init_v(
+                hash_uint,
+                x_bytes,
+                s.v.data,
+                s.mass.data,
+                s.type.data,
+                self.system.N_local,
+            )
         else:
             rand = LAMMPS_RandomVelocityGeom()
             for i in range(self.system.N_local):
