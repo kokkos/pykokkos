@@ -184,7 +184,7 @@ class StaticTranslator:
             for error in error_messages:
                 print(error)
 
-            sys.exit()
+            raise Exception("PyKokkos translation failed")
 
     def translate_classtypes(
         self, classtypes: List[PyKokkosEntity], restrict_views: Set[str]
