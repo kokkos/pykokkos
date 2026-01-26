@@ -43,4 +43,4 @@ def simple_atomics():
     )
 
 if __name__ == "__main__":
-     simple_atomics()
+    simple_atomics()

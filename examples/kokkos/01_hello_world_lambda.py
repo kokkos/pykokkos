@@ -1,13 +1,15 @@
 import pykokkos as pk
 
-@pk.workunit
-def hello(i: int):
-    pk.printf("Hello from i = %i\n", i)
 
-def main():
-    N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
-    pk.parallel_for(N, hello)
+@pk.workload
+class HelloWorld:
+    def __init__(self, n):
+        self.N: int = n
+
+    @pk.main
+    def run(self):
+        pk.parallel_for(self.N, lambda i: pk.printf("Hello from i = %i\n", i))
+
 
 if __name__ == "__main__":
-    main()
+    pk.execute(pk.ExecutionSpace.OpenMP, HelloWorld(10))
