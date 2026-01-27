@@ -1,9 +1,16 @@
 import ast
 from ast import FunctionDef, AST
+import os
+import re
 import sys
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Set, Union
 
 from pykokkos.core import cppast
+from pykokkos.core.optimizations import (
+    adjust_kokkos_function_call,
+    get_restrict_ptr_name,
+    index_restrict_view,
+)
 from pykokkos.interface import View
 
 from . import visitors_util
@@ -11,14 +18,17 @@ from . import visitors_util
 
 class PyKokkosVisitor(ast.NodeVisitor):
     def __init__(
-            self, env, src,
-            views: Dict[cppast.DeclRefExpr, cppast.Type],
-            work_units: Dict[str, FunctionDef],
-            fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
-            kokkos_functions: Dict[str, FunctionDef],
-            dependency_methods: Dict[str, List[str]],
-            pk_import: str,
-            debug=False
+        self,
+        env,
+        src,
+        views: Dict[cppast.DeclRefExpr, cppast.Type],
+        work_units: Dict[str, FunctionDef],
+        fields: Dict[cppast.DeclRefExpr, cppast.PrimitiveType],
+        kokkos_functions: Dict[str, FunctionDef],
+        dependency_methods: Dict[str, List[str]],
+        pk_import: str,
+        restrict_views: Set[str],
+        debug=False,
     ):
         self.env = env
         self.src = src
@@ -28,6 +38,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.kokkos_functions = kokkos_functions
         self.dependency_methods = dependency_methods
         self.pk_import = pk_import
+        self.restrict_views = restrict_views
         self.debug = debug
 
         # Map from subview to parent view
@@ -39,7 +50,9 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.nested_work_units: Dict[str, cppast.LambdaExpr] = {}
 
     def visit_arguments(self, node: ast.arguments) -> List[cppast.ParmVarDecl]:
-        args: List[cppast.ParmVarDecl] = [self.visit(a) for a in node.args[1:]]
+        args: List[cppast.ParmVarDecl] = [
+            self.visit(a) for a in node.args if a.arg != "self"
+        ]
 
         return args
 
@@ -58,11 +71,19 @@ class PyKokkosVisitor(ast.NodeVisitor):
             decltype.is_reference = True
 
         declname = cppast.DeclRefExpr(node.arg)
+        if isinstance(decltype, cppast.ClassType) and decltype.typename.startswith(
+            "View"
+        ):
+            decltype = self.views[declname]
+            decltype = visitors_util.cpp_view_type(decltype)
+
         arg = cppast.ParmVarDecl(decltype, declname)
 
         return arg
 
-    def visit_Assign(self, node: ast.Assign) -> Union[cppast.AssignOperator, cppast.DeclStmt]:
+    def visit_Assign(
+        self, node: ast.Assign
+    ) -> Union[cppast.AssignOperator, cppast.DeclStmt]:
         for target in node.targets:
             if (
                 # TODO: check if target.value.id is in scope
@@ -70,21 +91,26 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 and type(target) not in {ast.Name, ast.Subscript}
             ):
                 self.error(
-                    target, "Only local variables and views supported for assignment",
+                    target,
+                    "Only local variables and views supported for assignment",
                 )
 
         # handle subview
         if isinstance(node.value, ast.Subscript):
-            if (sys.version_info.minor <= 8 and not isinstance(node.value.slice, ast.Index)) or (
-                sys.version_info.minor > 8 and isinstance(node.value.slice, ast.Tuple)):
+            if (
+                sys.version_info.minor <= 8
+                and not isinstance(node.value.slice, ast.Index)
+            ) or (
+                sys.version_info.minor > 8 and isinstance(node.value.slice, ast.Tuple)
+            ):
 
                 view = node.value.value
                 if isinstance(view, ast.Attribute) and view.value.id == "self":
-                # reference view through self
+                    # reference view through self
                     attr = node.value.value
                     view_name = view.attr
                 elif isinstance(view, ast.Name):
-                # reference views through params (standalone)
+                    # reference views through params (standalone)
                     view_name = view.id
                 else:
                     self.error(view, "View not recognized")
@@ -94,8 +120,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 else:
                     self.error(node, "Can only take subview of views")
 
-        targets: List[cppast.DeclRefExpr] = [
-            self.visit(t) for t in node.targets]
+        targets: List[cppast.DeclRefExpr] = [self.visit(t) for t in node.targets]
         value: cppast.Expr = self.visit(node.value)
         op: cppast.BinaryOperatorKind = cppast.BinaryOperatorKind.Assign
         assign = cppast.AssignOperator(targets, value, op)
@@ -119,15 +144,17 @@ class PyKokkosVisitor(ast.NodeVisitor):
             if isinstance(dim, check_type):
                 subview_args.append(self.visit(dim))
             else:
-                if dim.lower is None and dim.upper is None: 
+                if dim.lower is None and dim.upper is None:
                     subview_args.append(cppast.DeclRefExpr("Kokkos::ALL"))
                 elif dim.lower is not None and dim.upper is not None:
-                    make_pair = cppast.CallExpr("std::make_pair",
-                            [self.visit(dim.lower), self.visit(dim.upper)])
+                    make_pair = cppast.CallExpr(
+                        "std::make_pair", [self.visit(dim.lower), self.visit(dim.upper)]
+                    )
                     subview_args.append(make_pair)
                 else:
                     self.error(
-                            slice_node, "Partial slice not supported, use [n:m] or [:]")
+                        slice_node, "Partial slice not supported, use [n:m] or [:]"
+                    )
 
         if len(node.targets) > 1:
             self.error(node, "Multiple declarations of subview not supported")
@@ -136,8 +163,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         target = node.targets[0]
         target_ref = cppast.DeclRefExpr(target.id)
         if target_ref in self.views:
-            self.error(
-                node, "Redeclaration of existing subview")
+            self.error(node, "Redeclaration of existing subview")
         else:
             self.views[target_ref] = None
             self.subviews[target_ref.declname] = view_name
@@ -145,7 +171,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         call = cppast.CallExpr("Kokkos::subview", subview_args)
         decl = cppast.DeclStmt(cppast.VarDecl(auto, self.visit(target), call))
 
-        return decl 
+        return decl
 
     def visit_AugAssign(self, node: ast.AugAssign) -> cppast.CompoundAssignOperator:
         variable: cppast.DeclRefExpr = self.visit(node.target)
@@ -173,7 +199,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         if node.value.id == "self":
             name: str = node.attr
-            
+
             if cppast.DeclRefExpr(name) in self.views:
                 return name
 
@@ -187,10 +213,12 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         return cppast.DeclRefExpr(f"{node.value.id}.{node.attr}")
 
-    def visit_Constant(self, node: ast.Constant) -> Union[cppast.BoolLiteral,
-                                                          cppast.FloatingLiteral,
-                                                          cppast.IntegerLiteral,
-                                                          cppast.StringLiteral]:
+    def visit_Constant(self, node: ast.Constant) -> Union[
+        cppast.BoolLiteral,
+        cppast.FloatingLiteral,
+        cppast.IntegerLiteral,
+        cppast.StringLiteral,
+    ]:
 
         if isinstance(node.value, bool):
             return cppast.BoolLiteral(node.value)
@@ -206,7 +234,9 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         self.error(node, "Unsupported Constant")
 
-    def visit_Subscript(self, node: ast.Subscript) -> Union[cppast.ArraySubscriptExpr, cppast.CallExpr]:
+    def visit_Subscript(
+        self, node: ast.Subscript
+    ) -> Union[cppast.ArraySubscriptExpr, cppast.CallExpr]:
         current_node: ast.Subscript = node
         slices: List = []
         dim: int = 0
@@ -220,8 +250,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
                 # Instead of ast.Index, value will be used directly
 
                 if not isinstance(index, ast.Index):
-                    self.error(
-                        current_node, "Slices not supported, use simple indices")
+                    self.error(current_node, "Slices not supported, use simple indices")
 
             slices.insert(0, index)
             current_node = current_node.value
@@ -233,14 +262,16 @@ class PyKokkosVisitor(ast.NodeVisitor):
         if ref not in self.views and name not in self.lists:
             self.error(current_node, "Unknown view or list")
 
-        dim_map: List = [cppast.ClassType("View1D"),
-                         cppast.ClassType("View2D"),
-                         cppast.ClassType("View3D"),
-                         cppast.ClassType("View4D"),
-                         cppast.ClassType("View5D"),
-                         cppast.ClassType("View6D"),
-                         cppast.ClassType("View7D"),
-                         cppast.ClassType("View8D")]
+        dim_map: List = [
+            cppast.ClassType("View1D"),
+            cppast.ClassType("View2D"),
+            cppast.ClassType("View3D"),
+            cppast.ClassType("View4D"),
+            cppast.ClassType("View5D"),
+            cppast.ClassType("View6D"),
+            cppast.ClassType("View7D"),
+            cppast.ClassType("View8D"),
+        ]
 
         if name in self.lists:
             indices: List[cppast.Expr] = [self.visit(s) for s in slices]
@@ -248,21 +279,35 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
             return subscript
 
-        if (
-            ref in self.views
-            and (
-                self.views[ref] is None  # For views added in @pk.main
-                or self.views[ref].typename == dim_map[dim - 1].typename
-            )
+        if ref in self.views and (
+            self.views[ref] is None  # For views added in @pk.main
+            or self.views[ref].typename == dim_map[dim - 1].typename
         ):
             args: List[cppast.Expr] = [self.visit(s) for s in slices]
-            subscript = cppast.CallExpr(ref, args)
+            # Account for fused views
+            r = re.search("fused_(.*)_[0-9]*", ref.declname)
+            unfused_name: str = r.group(1) if r else ref.declname
+
+            if (
+                "PK_RESTRICT" in os.environ
+                and unfused_name in self.restrict_views
+                or name in self.restrict_views
+            ):
+                if unfused_name in self.restrict_views:
+                    v = self.restrict_views[unfused_name]
+                else:
+                    v = self.restrict_views[name]
+                subscript = index_restrict_view(ref, args, v)
+            else:
+                subscript = cppast.CallExpr(ref, args)
 
             return subscript
 
         self.error(node, f"'{name}' is not a View{dim}D")
 
-    def visit_BinOp(self, node: ast.BinOp) -> Union[cppast.BinaryOperator, cppast.CallExpr, cppast.CastExpr]:
+    def visit_BinOp(
+        self, node: ast.BinOp
+    ) -> Union[cppast.BinaryOperator, cppast.CallExpr, cppast.CastExpr]:
         lhs = cppast.ParenExpr(self.visit(node.left))
         rhs = cppast.ParenExpr(self.visit(node.right))
 
@@ -273,15 +318,13 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         if isinstance(node.op, ast.Div):
             # Cast one of the operands to a double
-            lhs = cppast.CastExpr(
-                cppast.PrimitiveType(cppast.BuiltinType.DOUBLE), lhs)
+            lhs = cppast.CastExpr(cppast.PrimitiveType(cppast.BuiltinType.DOUBLE), lhs)
 
         binop = cppast.BinaryOperator(lhs, rhs, op)
 
         if isinstance(node.op, ast.FloorDiv):
             # Cast the result to an int
-            cast = cppast.CastExpr(
-                cppast.PrimitiveType(cppast.BuiltinType.INT), binop)
+            cast = cppast.CastExpr(cppast.PrimitiveType(cppast.BuiltinType.INT), binop)
             return cast
 
         return binop
@@ -328,13 +371,9 @@ class PyKokkosVisitor(ast.NodeVisitor):
         if node.orelse:
             self.error(node.orelse, "Else clause not supported for translation")
 
-        if (
-            not isinstance(node.iter, ast.Call)
-            or node.iter.func.id != "range"
-        ):
+        if not isinstance(node.iter, ast.Call) or node.iter.func.id != "range":
             # TODO: support other iterators?
-            self.error(
-                node.iter, "Only range() iterator is supported for translation")
+            self.error(node.iter, "Only range() iterator is supported for translation")
 
         index: cppast.DeclRefExpr = self.visit(node.target)
         start: cppast.Expr
@@ -356,19 +395,20 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
                 # Negative step sizes are only handled correctly if they're
                 # written with a preceeding minus sign
-                if (
-                    isinstance(args[2], ast.UnaryOp)
-                    and isinstance(args[2].op, ast.USub)
+                if isinstance(args[2], ast.UnaryOp) and isinstance(
+                    args[2].op, ast.USub
                 ):
                     op = cppast.BinaryOperatorKind.GT
 
         body = cppast.CompoundStmt([self.visit(b) for b in node.body])
 
-        init = cppast.DeclStmt(cppast.VarDecl(
-            cppast.PrimitiveType(cppast.BuiltinType.INT), index, start))
+        init = cppast.DeclStmt(
+            cppast.VarDecl(cppast.PrimitiveType(cppast.BuiltinType.INT), index, start)
+        )
         condition = cppast.BinaryOperator(index, end, op)
         increment = cppast.BinaryOperator(
-            index, step, cppast.BinaryOperatorKind.AddAssign)
+            index, step, cppast.BinaryOperatorKind.AddAssign
+        )
         forstmt = cppast.ForStmt(init, condition, increment, body)
 
         return forstmt
@@ -376,7 +416,11 @@ class PyKokkosVisitor(ast.NodeVisitor):
     def visit_If(self, node: ast.If) -> cppast.IfStmt:
         condition: cppast.Expr = self.visit(node.test)
         then_body = cppast.CompoundStmt([self.visit(b) for b in node.body])
-        else_body = cppast.CompoundStmt([self.visit(b) for b in node.orelse]) if node.orelse else None
+        else_body = (
+            cppast.CompoundStmt([self.visit(b) for b in node.orelse])
+            if node.orelse
+            else None
+        )
         ifstmt = cppast.IfStmt(condition, then_body, else_body)
 
         return ifstmt
@@ -400,15 +444,34 @@ class PyKokkosVisitor(ast.NodeVisitor):
             )
         elif name in ["PerTeam", "PerThread", "fence"]:
             name = "Kokkos::" + name
+        elif name in {"complex32", "complex64"}:
+            name = "Kokkos::complex"
+            if "32" in name:
+                name += "<float>"
+            else:
+                name += "<double>"
 
         function = cppast.DeclRefExpr(name)
         args: List[cppast.Expr] = [self.visit(a) for a in node.args]
 
-        if visitors_util.is_math_function(name) or name in ["printf", "abs", "Kokkos::PerTeam", "Kokkos::PerThread", "Kokkos::fence"]:
+        if visitors_util.is_math_function(name) or name in [
+            "printf",
+            "abs",
+            "Kokkos::PerTeam",
+            "Kokkos::PerThread",
+            "Kokkos::fence",
+            "Kokkos::complex<float>",
+            "Kokkos::complex<double>",
+        ]:
             return cppast.CallExpr(function, args)
 
         if function in self.kokkos_functions:
-            return cppast.CallExpr(function, args)
+            if "PK_RESTRICT" in os.environ:
+                return adjust_kokkos_function_call(
+                    function, args, self.restrict_views, self.views
+                )
+            else:
+                return cppast.CallExpr(function, args)
 
         # Call to a dependency's constructor
         if function.declname in visitors_util.allowed_types:
@@ -433,8 +496,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
             if cppast.DeclRefExpr(parent_function.name) in self.kokkos_functions:
                 return cppast.ReturnStmt(self.visit(node.value))
             else:
-                self.error(
-                    node.value, "Cannot return value from translated function")
+                self.error(node.value, "Cannot return value from translated function")
 
         return cppast.ReturnStmt()
 
@@ -480,9 +542,12 @@ class PyKokkosVisitor(ast.NodeVisitor):
         self.generic_error(node)  # TODO: test if possible
 
     def visit_Expr(self, node: ast.Expr) -> cppast.CallStmt:
+        # This is needed for docstrings
+        if isinstance(node.value, ast.Constant):
+            return cppast.EmptyStmt()
+
         if not isinstance(node.value, ast.Call):
-            self.error(
-                node, "Only function calls are allowed as standalone statements")
+            self.error(node, "Only function calls are allowed as standalone statements")
 
         call: cppast.CallExpr = self.visit(node.value)
 
@@ -624,12 +689,8 @@ class PyKokkosVisitor(ast.NodeVisitor):
         return False
 
     def is_void_function(self, node: ast.FunctionDef) -> bool:
-        if (
-            node.returns is None
-            or (
-                isinstance(node.returns, ast.Constant)
-                and node.returns.value is None
-            )
+        if node.returns is None or (
+            isinstance(node.returns, ast.Constant) and node.returns.value is None
         ):
             return True
 
@@ -655,11 +716,15 @@ class PyKokkosVisitor(ast.NodeVisitor):
 
         is_valid: bool = False
 
-        if isinstance(view_type, ast.Subscript) and isinstance(view_type.value, ast.Attribute):
+        if isinstance(view_type, ast.Subscript) and isinstance(
+            view_type.value, ast.Attribute
+        ):
             attr: ast.Attribute = view_type.value
 
             if attr.value.id == self.pk_import and attr.attr.startswith("ScratchView"):
-                view_dtype: cppast.PrimitiveType = visitors_util.get_type(view_type.slice, self.pk_import)
+                view_dtype: cppast.PrimitiveType = visitors_util.get_type(
+                    view_type.slice, self.pk_import
+                )
                 view_type: str = attr.attr
                 is_valid = True
 

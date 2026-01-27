@@ -13,7 +13,9 @@ class ClasstypeVisitor(PyKokkosVisitor):
         # Add class as allowed type
         visitors_util.allowed_types[name] = name
 
-        member_variables: Dict[cppast.DeclRefExpr, cppast.Type] = self.get_member_variables(node)
+        member_variables: Dict[cppast.DeclRefExpr, cppast.Type] = (
+            self.get_member_variables(node)
+        )
         decls: List[cppast.DeclStmt] = []
 
         if len(member_variables) == 0:
@@ -33,7 +35,9 @@ class ClasstypeVisitor(PyKokkosVisitor):
 
         return classdef
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> Union[cppast.ConstructorDecl, cppast.MethodDecl]:
+    def visit_FunctionDef(
+        self, node: ast.FunctionDef
+    ) -> Union[cppast.ConstructorDecl, cppast.MethodDecl]:
         name: str = node.name
         return_type: Optional[cppast.ClassType]
 
@@ -57,7 +61,9 @@ class ClasstypeVisitor(PyKokkosVisitor):
         else:
             return cppast.MethodDecl(attributes, return_type, name, params, body)
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> Union[cppast.AssignOperator, cppast.Stmt]:
+    def visit_AnnAssign(
+        self, node: ast.AnnAssign
+    ) -> Union[cppast.AssignOperator, cppast.Stmt]:
         # If local variable
         if isinstance(node.target, ast.Name):
             return super().visit_AnnAssign(node)
@@ -68,8 +74,7 @@ class ClasstypeVisitor(PyKokkosVisitor):
         return cppast.AssignOperator([target], value, cppast.BinaryOperatorKind.Assign)
 
     def visit_Assign(self, node: ast.Assign) -> cppast.AssignOperator:
-        targets: List[cppast.DeclRefExpr] = [
-            self.visit(t) for t in node.targets]
+        targets: List[cppast.DeclRefExpr] = [self.visit(t) for t in node.targets]
         value: cppast.Expr = self.visit(node.value)
         op: cppast.BinaryOperatorKind = cppast.BinaryOperatorKind.Assign
         assign = cppast.AssignOperator(targets, value, op)
@@ -87,7 +92,9 @@ class ClasstypeVisitor(PyKokkosVisitor):
         return cppast.ReturnStmt(self.visit(node.value))
 
     # Returns a dictionary mapping from member variable name to type
-    def get_member_variables(self, node: ast.ClassDef) -> Dict[cppast.DeclRefExpr, cppast.Type]:
+    def get_member_variables(
+        self, node: ast.ClassDef
+    ) -> Dict[cppast.DeclRefExpr, cppast.Type]:
         member_variables: Dict[cppast.DeclRefExpr, cppast.Type] = {}
         constructor: Optional[ast.FunctionDef] = None
 
@@ -104,7 +111,9 @@ class ClasstypeVisitor(PyKokkosVisitor):
             if isinstance(b, ast.AnnAssign):
                 if b.target.value.id == "self":
                     declref = cppast.DeclRefExpr(visitors_util.get_node_name(b.target))
-                    typename: cppast.Type = visitors_util.get_type(b.annotation, self.pk_import)
+                    typename: cppast.Type = visitors_util.get_type(
+                        b.annotation, self.pk_import
+                    )
 
                     if typename is None:
                         self.error(b, "Type not supported")
@@ -116,7 +125,7 @@ class ClasstypeVisitor(PyKokkosVisitor):
 
     def has_default_constructor(self, node: ast.ClassDef) -> bool:
         for b in node.body:
-            if (isinstance(b, ast.FunctionDef)):
+            if isinstance(b, ast.FunctionDef):
                 if b.name == "__init__":
                     if len(b.args.args) == 1:
                         return True

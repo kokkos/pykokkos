@@ -5,5 +5,5 @@ from .kokkosfunction_visitor import KokkosFunctionVisitor
 from .kokkosmain_visitor import KokkosMainVisitor
 from .parameter_visitor import ParameterVisitor
 from .pykokkos_visitor import PyKokkosVisitor
-from .visitors_util import cpp_view_type
+from .visitors_util import cpp_view_type, parse_view_template_params
 from .workunit_visitor import WorkunitVisitor

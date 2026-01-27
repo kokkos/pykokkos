@@ -3,40 +3,56 @@ import random
 from typing import Tuple
 
 import pykokkos as pk
+import numpy as np
+
+try:
+    import cupy as cp
+
+    cupy_available = True
+except ImportError:
+    cupy_available = False
+
+
+def get_array_module(space: pk.ExecutionSpace):
+    """Return numpy or cupy module based on execution space"""
+    if cupy_available and space in (pk.ExecutionSpace.Cuda, pk.ExecutionSpace.HIP):
+        return cp
+    return np
 
 
 @pk.functor
 # use double type and unroll=8
 class Benchmark_double_8:
-    def __init__(self, N: int, K: int, D: int, R: int, F: int):
+    def __init__(
+        self, N: int, K: int, D: int, R: int, F: int, space: pk.ExecutionSpace
+    ):
         self.K: int = K
         self.F: int = F
 
-        self.connectivity: pk.View2D[int] = pk.View([N, K], int)
-        self.A: pk.View1D[pk.double] = pk.View([N], pk.double)
-        self.B: pk.View1D[pk.double] = pk.View([N], pk.double)
-        self.C: pk.View1D[pk.double] = pk.View([N], pk.double)
-        # self.A: pk.View1D[pk.double] = pk.View([N], pk.double, trait=pk.Trait.RandomAccess)
-        # self.B: pk.View1D[pk.double] = pk.View([N], pk.double, trait=pk.Trait.RandomAccess)
-        # self.C: pk.View1D[pk.double] = pk.View([N], pk.double, trait=pk.Trait.RandomAccess)
+        xp = get_array_module(space)
+        self.connectivity = xp.zeros((N, K), dtype=np.int32)
+        self.A = xp.full(N, 1.5, dtype=np.float64)
+        self.B = xp.full(N, 2.0, dtype=np.float64)
+        self.C = xp.zeros(N, dtype=np.float64)
 
-
-        self.A.fill(1.5)
-        self.B.fill(2.0)
-        
-        #TODO use kokkos to init in parallel
+        # TODO use kokkos to init in parallel
         random.seed(12313)
+        connectivity_np = np.zeros((N, K), dtype=np.int32)
         for i in range(N):
             for jj in range(K):
-                self.connectivity[i][jj] = (random.randrange(D)+i-D/2+N) % N
+                connectivity_np[i][jj] = (random.randrange(D) + i - D / 2 + N) % N
+        if xp is cp:
+            self.connectivity = cp.asarray(connectivity_np)
+        else:
+            self.connectivity = connectivity_np
 
     @pk.workunit
     def benchmark(self, i: int):
         c: pk.double = 0.0
         for jj in range(self.K):
             j: int = self.connectivity[i][jj]
-            a1: pk.double = A[j]
-            b: pk.double = B[j]
+            a1: pk.double = self.A[j]
+            b: pk.double = self.B[j]
             a2: pk.double = a1 * 1.3
             a3: pk.double = a2 * 1.1
             a4: pk.double = a3 * 1.1
@@ -60,17 +76,27 @@ class Benchmark_double_8:
         self.C[i] = c
 
 
-if __name__ == "__main__":
+def run() -> None:
     # example args 2 100000 32 512 1000 8 8
     # NOTE S and U are hard coded to double and 8 because otherwise we would have a lot of duplicates
     parser = argparse.ArgumentParser()
-    parser.add_argument("S", type=int, help="Scalar Type Size (1==float, 2==double, 4==complex<double>)")
+    parser.add_argument(
+        "S", type=int, help="Scalar Type Size (1==float, 2==double, 4==complex<double>)"
+    )
     parser.add_argument("N", type=int, help="Number of Entities")
     parser.add_argument("K", type=int, help="Number of things to gather per entity")
-    parser.add_argument("D", type=int, help="Max distance of gathered things of an entity")
-    parser.add_argument("R", type=int, help="how often to loop through the K dimension with each team")
+    parser.add_argument(
+        "D", type=int, help="Max distance of gathered things of an entity"
+    )
+    parser.add_argument(
+        "R", type=int, help="how often to loop through the K dimension with each team"
+    )
     parser.add_argument("U", type=int, help="how many independent flops to do per load")
-    parser.add_argument("F", type=int, help="how many times to repeat the U unrolled operations before reading next element")
+    parser.add_argument(
+        "F",
+        type=int,
+        help="how many times to repeat the U unrolled operations before reading next element",
+    )
     parser.add_argument("--execution_space", type=str)
     args = parser.parse_args()
 
@@ -87,7 +113,7 @@ if __name__ == "__main__":
     space = pk.ExecutionSpace.OpenMP
     if args.execution_space:
         space = pk.ExecutionSpace(args.execution_space)
-    
+
     pk.set_default_space(space)
 
     N = args.N
@@ -98,8 +124,8 @@ if __name__ == "__main__":
     F = args.F
     scalar_size = 8
 
-    policy = pk.RangePolicy(pk.get_default_space(), 0, N)
-    w = Benchmark_double_8(N, K, D, R, F)
+    policy = pk.RangePolicy(0, N)
+    w = Benchmark_double_8(N, K, D, R, F, space)
 
     timer = pk.Timer()
     for r in range(R):
@@ -109,9 +135,14 @@ if __name__ == "__main__":
     seconds = timer.seconds()
 
     num_bytes = 1.0 * N * K * R * (2 * scalar_size + 4) + N * R * scalar_size
-    flops = 1.0 * N  * K * R * (F * 2 * U + 2 * (U - 1))
+    flops = 1.0 * N * K * R * (F * 2 * U + 2 * (U - 1))
     gather_ops = 1.0 * N * K * R * 2
     seconds = seconds
-    print(f"SNKDRUF: {scalar_size/4} {N} {K} {D} {R} {U} {F} Time: {seconds} " +
-            f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds} GGather/s: {1e-9 * gather_ops / seconds}")
+    print(
+        f"SNKDRUF: {scalar_size/4} {N} {K} {D} {R} {U} {F} Time: {seconds} "
+        + f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds} GGather/s: {1e-9 * gather_ops / seconds}"
+    )
 
+
+if __name__ == "__main__":
+    run()

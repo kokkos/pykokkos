@@ -23,8 +23,12 @@ class Workload:
     def run(self) -> None:
         x: List[int] = [self.x_0, 2, 3]
         pk.parallel_for(self.total_threads, self.work)
-        bin_op = pk.BinOp1D(self.view, (self.total_threads // 2),
-                            self.total_threads, self.total_threads * 2 - 1)
+        bin_op = pk.BinOp1D(
+            self.view,
+            (self.total_threads // 2),
+            self.total_threads,
+            self.total_threads * 2 - 1,
+        )
         bin_sort = pk.BinSort(self.view, bin_op)
         bin_sort.create_permute_vector()
         self.permute_vector = bin_sort.get_permute_vector()
@@ -43,7 +47,7 @@ class Workload:
             print(f"{self.view[i]} ")
 
 
-def run():
+def run() -> None:
     workload = Workload(10)
     pk.execute(pk.ExecutionSpace.Default, workload)
     print(workload.view)
@@ -53,6 +57,4 @@ def run():
 
 
 if __name__ == "__main__":
-    pk.kokkos_manager.initialize()
     run()
-    pk.kokkos_manager.finalize()

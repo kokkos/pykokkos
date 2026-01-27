@@ -3,6 +3,7 @@ from typing import List
 import unittest
 
 import pykokkos as pk
+from numpy.testing import assert_allclose
 
 
 # Tests for translation of each node of type AST to C++
@@ -17,7 +18,9 @@ class ASTTestReduceFunctor:
 
         self.view1D: pk.View1D[pk.int32] = pk.View([threads], pk.int32)
         self.view2D: pk.View2D[pk.int32] = pk.View([threads, threads], pk.int32)
-        self.view3D: pk.View3D[pk.int32] = pk.View([threads, threads, threads], pk.int32)
+        self.view3D: pk.View3D[pk.int32] = pk.View(
+            [threads, threads, threads], pk.int32
+        )
 
     @pk.workunit
     def assign(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -35,9 +38,10 @@ class ASTTestReduceFunctor:
         acc += math.pi + math.e + math.tau
 
     @pk.workunit
-    def constants(self, tid: int) -> None:
+    def constants(self, tid: int, acc: pk.Acc[pk.double]) -> None:
         int_constant: int = 5
         bool_constant: bool = True
+        acc += int_constant + int(bool_constant)
 
     @pk.workunit
     def subscript(self, tid: int) -> None:
@@ -56,7 +60,7 @@ class ASTTestReduceFunctor:
 
     @pk.workunit
     def unary_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
-        acc += (+ self.i_1)
+        acc += +self.i_1
 
     @pk.workunit
     def compare(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -110,9 +114,19 @@ class ASTTestReduceFunctor:
             x += 1
 
     @pk.workunit
+    def pass_stmt(self, tid: int) -> None:
+        pass
+
+    @pk.workunit
+    def docstring(self, tid: int) -> None:
+        """
+        Test docstring
+        """
+
+    @pk.workunit
     def call(self, tid: int, acc: pk.Acc[pk.double]) -> None:
         pk.printf("Testing printf: %d\n", self.i_1)
-        acc += abs(- self.i_1)
+        acc += abs(-self.i_1)
 
     @pk.workunit
     def break_stmt(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -146,9 +160,9 @@ class TestASTTranslator(unittest.TestCase):
         self.b_1: bool = False
         self.b_2: bool = True
 
-        self.functor = ASTTestReduceFunctor(self.threads,
-                                           self.i_1, self.i_2,
-                                           self.b_1, self.b_2)
+        self.functor = ASTTestReduceFunctor(
+            self.threads, self.i_1, self.i_2, self.b_1, self.b_2
+        )
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
 
     def test_assign(self):
@@ -165,13 +179,19 @@ class TestASTTranslator(unittest.TestCase):
 
     def test_math_constants(self):
         expected_result: float = self.threads * (math.pi + math.e + math.tau)
-        result: float = pk.parallel_reduce(self.range_policy, self.functor.math_constants)
+        result: float = pk.parallel_reduce(
+            self.range_policy, self.functor.math_constants
+        )
+
+        assert_allclose(expected_result, result)
+
+    def test_constants(self):
+        int_constant: int = 5
+        bool_constant: bool = True
+        expected_result: int = self.threads * (int_constant + int(bool_constant))
+        result: int = pk.parallel_reduce(self.range_policy, self.functor.constants)
 
         self.assertEqual(expected_result, result)
-
-    # def test_constants(self):
-    #     self.assertEqual(5, self.workload.int_constant)
-    #     self.assertEqual(True, self.workload.bool_constant)
 
     def test_subscript(self):
         expected_result = self.i_1
@@ -268,8 +288,11 @@ class TestASTTranslator(unittest.TestCase):
 
         self.assertEqual(expected_result, result)
 
+    def test_pass(self):
+        pk.parallel_for(self.range_policy, self.functor.pass_stmt)
+
     def test_call(self):
-        expected_result: int = self.threads * abs(- self.i_1)
+        expected_result: int = self.threads * abs(-self.i_1)
         result: int = pk.parallel_reduce(self.range_policy, self.functor.call)
 
         self.assertEqual(expected_result, result)
@@ -303,6 +326,22 @@ class TestASTTranslator(unittest.TestCase):
         result: int = pk.parallel_reduce(self.range_policy, self.functor.list_type)
 
         self.assertEqual(expected_result, result)
+
+
+@pk.workunit
+def scratch_with_double_float(team_member: pk.TeamMember):
+    scratch_mem_d: pk.ScratchView1D[double] = pk.ScratchView1D(
+        team_member.team_scratch(0)
+    )
+    scratch_mem_f: pk.ScratchView1D[float] = pk.ScratchView1D(
+        team_member.team_scratch(0)
+    )
+
+
+def test_gh_180():
+    pk.parallel_for(
+        "double_float_scratch", pk.TeamPolicy(2, 2), scratch_with_double_float
+    )
 
 
 if __name__ == "__main__":

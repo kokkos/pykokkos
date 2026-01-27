@@ -1,5 +1,6 @@
 import pykokkos as pk
 
+
 @pk.functor
 class Workload:
     def __init__(self, N: int):
@@ -16,7 +17,7 @@ class Workload:
             self.A[i] = acc
 
 
-if __name__ == "__main__":
+def run() -> None:
     N = 10
     w = Workload(N)
     p = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
@@ -27,3 +28,7 @@ if __name__ == "__main__":
     timer_result = timer.seconds()
 
     print(f"{w.A} total={result} time({timer_result})")
+
+
+if __name__ == "__main__":
+    run()

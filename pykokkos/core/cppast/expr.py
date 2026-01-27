@@ -5,6 +5,7 @@ from typing import List, TYPE_CHECKING, Union
 
 from .node import Node
 from .stmt import ValueStmt
+
 if TYPE_CHECKING:
     from .decl import ParmVarDecl, Type, ValueDecl
     from .stmt import Stmt
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
 
 class BinaryOperatorKind(Node, Enum):
     """An Enum of binary operators in C++"""
+
     """From https://github.com/llvm-mirror/clang/blob/master/include/clang/AST/OperationKinds.def"""
 
     # Binary Operations
@@ -353,7 +355,7 @@ class CompoundAssignOperator(BinaryOperator):
 
 
 class MemberCallExpr(CallExpr):
-    """Represents a call to a member function """
+    """Represents a call to a member function"""
 
     def __init__(self, base: DeclRefExpr, function: DeclRefExpr, args: List[Expr]):
         self._base: DeclRefExpr = base

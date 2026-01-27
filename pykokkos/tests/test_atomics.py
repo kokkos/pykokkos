@@ -95,7 +95,9 @@ class TestAtomic(unittest.TestCase):
         self.f_1: float = 7.0
         self.f_2: float = 3.0
 
-        self.functor = AtomicsTestFunctor(self.threads, self.i_1, self.i_2, self.f_1, self.f_2)
+        self.functor = AtomicsTestFunctor(
+            self.threads, self.i_1, self.i_2, self.f_1, self.f_2
+        )
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
 
     def test_atomic_add(self):
@@ -194,5 +196,6 @@ class TestAtomic(unittest.TestCase):
 
         self.assertEqual(expected_result, result)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

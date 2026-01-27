@@ -4,6 +4,7 @@ from enum import Enum
 from typing import List, Optional, TYPE_CHECKING, Union
 
 from .node import Node
+
 if TYPE_CHECKING:
     from .expr import DeclRefExpr, Expr
     from .stmt import Stmt
@@ -15,10 +16,12 @@ class BuiltinType(Enum):
     BOOL = "bool"
     FLOAT = "float"
 
+    INT8 = "int8_t"
     INT16 = "int16_t"
     INT32 = "int32_t"
     INT64 = "int64_t"
 
+    UINT8 = "uint8_t"
     UINT16 = "uint16_t"
     UINT32 = "uint32_t"
     UINT64 = "uint64_t"
@@ -29,18 +32,15 @@ class Type(Node):
 
     @property
     @abstractmethod
-    def typename(self):
-        ...
+    def typename(self): ...
 
     @property  # type: ignore
     @abstractmethod
-    def is_reference(self) -> bool:
-        ...
+    def is_reference(self) -> bool: ...
 
     @is_reference.setter  # type: ignore
     @abstractmethod
-    def is_reference(self, value: bool) -> None:
-        ...
+    def is_reference(self, value: bool) -> None: ...
 
 
 class PrimitiveType(Type):
@@ -110,8 +110,7 @@ class TypeDecl(Decl):
 
     @property
     @abstractmethod
-    def typename(self) -> Type:
-        ...
+    def typename(self) -> Type: ...
 
 
 class ValueDecl(Decl):
@@ -119,13 +118,11 @@ class ValueDecl(Decl):
 
     @property
     @abstractmethod
-    def decltype(self) -> Type:
-        ...
+    def decltype(self) -> Type: ...
 
     @property
     @abstractmethod
-    def declname(self) -> str:
-        ...
+    def declname(self) -> str: ...
 
 
 class RecordDecl(TypeDecl):
@@ -158,6 +155,7 @@ class RecordDecl(TypeDecl):
 
     def add_template_param(self, param: Node) -> None:
         self._template_params.append(param)
+
 
 class VarDecl(ValueDecl):
     """Represents a variable declaration or definition"""
@@ -197,7 +195,14 @@ class ParmVarDecl(VarDecl):
 class FunctionDecl(ValueDecl):
     """Represents a function declaration or definition"""
 
-    def __init__(self, attributes: str, decltype: Type, declname: str, params: List[ParmVarDecl], body: Optional[Stmt]):
+    def __init__(
+        self,
+        attributes: str,
+        decltype: Type,
+        declname: str,
+        params: List[ParmVarDecl],
+        body: Optional[Stmt],
+    ):
         self._attributes: str = attributes
         self._decltype: Type = decltype
         self._declname: str = declname
@@ -227,7 +232,14 @@ class FunctionDecl(ValueDecl):
 class MethodDecl(FunctionDecl):
     """Represents a method declaration or definition"""
 
-    def __init__(self, attributes: str, decltype: Type, declname: str, params: List[ParmVarDecl], body: Optional[Stmt]):
+    def __init__(
+        self,
+        attributes: str,
+        decltype: Type,
+        declname: str,
+        params: List[ParmVarDecl],
+        body: Optional[Stmt],
+    ):
         super().__init__(attributes, decltype, declname, params, body)
         self.is_const = False
 
@@ -235,7 +247,13 @@ class MethodDecl(FunctionDecl):
 class ConstructorDecl(MethodDecl):
     """Represents a class constructor declaration or definition"""
 
-    def __init__(self, attributes: str, declname: str, params: List[ParmVarDecl], body: Optional[Stmt]):
+    def __init__(
+        self,
+        attributes: str,
+        declname: str,
+        params: List[ParmVarDecl],
+        body: Optional[Stmt],
+    ):
         super().__init__(attributes, None, declname, params, body)
 
     @property
