@@ -3417,6 +3417,11 @@ def cumsum(view):
         new_view = pk.View(view.shape, pk.int64)
         pk.parallel_scan(range_policy, cumsum_impl_3d_int64, view=view, new_view=new_view)
         new_view = np.reshape(new_view, view.size)
+    else:
+        raise NotImplementedError(
+            f"cumsum not yet implemented for dtype {view.dtype} and shape {view.shape}. "
+            f"Currently supported: double/float/int32/int64 for 1D/2D/3D views."
+        )
     # try to return the same type you receive
     if arr_type == "kokkos":
         if str(view.dtype) == "DataType.float":
