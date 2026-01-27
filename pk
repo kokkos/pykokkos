@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# Script to support using pykokkos docker with the pykokkos repo.
+#
+# The docker image includes:
+# * pykokkos-base
+# * kokkos
+#
+# It does *not* include pykokkos itself. This enables developing
+# pykokkos using the same docker image. This script provide the bridge
+# by including pykokkos (this repo) as a volume.
+
+# Docker project name.
+readonly PROJECT="gligoric/pykokkos"
+
+# Docker tag.
+readonly TAG="latest"
+
+# Home directory in the container.
+readonly CHOME="/home/pk"
+
+
+# ----------
+# Functions.
+
+function pk_docker_clean() {
+        # Clean docker containers and images (this function is
+        # aggressive and cleans a lot more than necessary). Run only
+        # if you know the risk.
+
+        docker ps -a | grep -v 'CONTA' | cut -f1 -d' ' | xargs -I xxx docker rm xxx
+        docker images | grep "${PROJECT}" | awk '{ print $3 }' | xargs -I xxx docker image rm -f xxx
+        docker images | grep '<none>' | awk '{ print $3 }' | xargs -I xxx docker image rm -f xxx
+}
+
+function pk_docker_build() {
+        local -r tag="${1:-${TAG}}"
+
+        [ -z "${tag}" ] && return 1
+        [ ! -f "Dockerfile" ] && return 1
+
+        docker build -t "${PROJECT}:${tag}" -f Dockerfile .
+}
+
+function pk_docker_pull() {
+        docker pull "${PROJECT}:${TAG}" > /dev/null
+}
+
+function _pk_cmd() {
+        local -r name="${1}"
+        [ $# -lt 1 ] && return 1
+        shift 1
+
+        [ -z "${name}" ] && \
+                { echo "no name provided"; return 1; }
+
+        ( cd "${CHOME}/pykokkos"
+          export PYTHONPATH=pykokkos:$PYTHONPATH
+          python "${name}" "$@" )
+}
+
+function pk_example() {
+        local -r name="${1}"
+        [ $# -lt 1 ] && return 1
+        shift 1
+
+        [ -z "${name}" ] && \
+                { echo "no name provided (e.g., examples/kokkos-tutorials/workload/01.py)"; return 1; }
+
+        pk_docker_pull || \
+                { echo "could not get the docker image"; return 1; }
+
+        docker run \
+               --volume $(pwd):"${CHOME}/pykokkos" \
+               --user pk:$(id -g) \
+               "${PROJECT}" \
+               "${CHOME}/pykokkos/pk" "_pk_cmd" "${name}" \
+               "$@"
+}
+
+function pk_tests() {
+        pk_example "runtests.py" "$@"
+}
+
+"$@"

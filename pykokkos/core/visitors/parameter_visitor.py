@@ -11,7 +11,9 @@ class ParameterVisitor(ast.NodeVisitor):
     Gets the members of a workunit
     """
 
-    def __init__(self, src: Tuple[List[str], int], param_begin: int, pk_import: str, debug: bool):
+    def __init__(
+        self, src: Tuple[List[str], int], param_begin: int, pk_import: str, debug: bool
+    ):
         """
         ParameterVisitor constructor
 
@@ -50,10 +52,30 @@ class ParameterVisitor(ast.NodeVisitor):
         if len(node.args) < self.param_begin:
             self.error(node.parent, "Missing tid and/or accumulator argument")
 
-        args = node.args[self.param_begin:]
+        args = node.args[self.param_begin :]
 
         for a in args:
             self.visit(a)
+
+    def _get_list_depth(self, annotation: ast.Subscript) -> int:
+        """
+        Recursively determine the nesting depth of List annotations.
+
+        :param annotation: The annotation to parse
+        :returns: Nesting depth (1 for List[T], 2 for List[List[T]], etc.)
+        """
+        depth = 0
+        current = annotation
+
+        while isinstance(current, ast.Subscript):
+            if isinstance(current.value, ast.Name) and current.value.id == "List":
+                depth += 1
+                # Move to the subscript (the [T] part)
+                current = current.slice
+            else:
+                break
+
+        return depth
 
     def visit_arg(self, node: ast.arg) -> None:
         """
@@ -65,14 +87,27 @@ class ParameterVisitor(ast.NodeVisitor):
         annotation: Union[ast.Name, ast.Attribute] = node.annotation
 
         declref = cppast.DeclRefExpr(node.arg)
-        decltype: Optional[cppast.Type] = visitors_util.get_type(annotation, self.pk_import)
+        decltype: Optional[cppast.Type] = visitors_util.get_type(
+            annotation, self.pk_import
+        )
 
         if decltype is None:
             self.error(node, "Type is not supported")
 
+        # Convert List[T], List[List[T]], etc. into PyKokkos ViewND
+        # (this is `List[]`-defined list. ast.List is literal list `[]`)
+        if isinstance(annotation, ast.Subscript):
+            if isinstance(annotation.value, ast.Name) and annotation.value.id == "List":
+                # Determine nesting depth recursively
+                depth = self._get_list_depth(annotation)
+                view_type = cppast.ClassType(f"View{depth}D")
+                view_type.add_template_param(decltype)
+                decltype = view_type
+
         # just checking decltype might be enough
-        is_field: bool = isinstance(annotation, ast.Name) or \
-                isinstance(decltype, cppast.PrimitiveType)
+        is_field: bool = isinstance(annotation, ast.Name) or isinstance(
+            decltype, cppast.PrimitiveType
+        )
         if is_field:
             self.fields[declref] = decltype
         else:

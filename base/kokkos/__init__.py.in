@@ -1,0 +1,211 @@
+#!@PYTHON_EXECUTABLE@
+# ************************************************************************
+#
+#                        Kokkos v. 3.0
+#       Copyright (2020) National Technology & Engineering
+#               Solutions of Sandia, LLC (NTESS).
+#
+# Under the terms of Contract DE-NA0003525 with NTESS,
+# the U.S. Government retains certain rights in this software.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the Corporation nor the names of the
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# Questions? Contact Christian R. Trott (crtrott@sandia.gov)
+#
+# ************************************************************************
+#
+
+from __future__ import absolute_import
+
+import os
+import sys
+import traceback
+
+__author__ = "Jonathan R. Madsen"
+__copyright__ = (
+    "Copyright 2020, National Technology & Engineering Solutions of Sandia, LLC (NTESS)"
+)
+__credits__ = ["Kokkos"]
+__license__ = "BSD-3"
+__version__ = "@PROJECT_VERSION@"
+__maintainer__ = "Jonathan R. Madsen"
+__email__ = "jrmadsen@lbl.gov"
+__status__ = "Development"
+
+sys.modules[__name__].__setattr__(
+    "version_info",
+    (
+        int("@PROJECT_VERSION_MAJOR@"),
+        int("@PROJECT_VERSION_MINOR@"),
+        int("@PROJECT_VERSION_PATCH@"),
+    ),
+)
+sys.modules[__name__].__setattr__("version", "@PROJECT_VERSION@")
+sys.modules[__name__].__setattr__(
+    "build_info",
+    {
+        "library_architecture": "@CMAKE_SYSTEM_PROCESSOR@",
+        "system_name": "@CMAKE_SYSTEM_NAME@",
+        "system_version": "@CMAKE_SYSTEM_VERSION@",
+        "build_type": "@CMAKE_BUILD_TYPE@",
+        "compiler": "@CMAKE_CXX_COMPILER@",
+        "compiler_id": "@CMAKE_CXX_COMPILER_ID@",
+        "compiler_version": "@CMAKE_CXX_COMPILER_VERSION@",
+    },
+)
+
+version_info = sys.modules[__name__].__getattribute__("version_info")
+"""Tuple of version fields"""
+
+build_info = sys.modules[__name__].__getattribute__("build_info")
+"""Build information"""
+
+version = sys.modules[__name__].__getattribute__("version")
+"""Version string"""
+
+
+def _load_kokkos_libs():
+    """Loads the kokkos shared libraries (generally only needed on macOS)"""
+    relative_lib_path = ("@LIB_RELPATH@", "../../..")
+    ext = None
+
+    import ctypes
+    import platform
+
+    if platform.system().lower().startswith("darwin"):
+        ext = "dylib"
+    elif platform.system().lower().startswith("linux"):
+        ext = "so"
+    elif platform.system().lower().startswith("win"):
+        ext = "dll"
+
+    def _load(name):
+        # get the path to this directory
+        this_path = os.path.abspath(os.path.dirname(__file__))
+        for itr in relative_lib_path:
+            p = os.path.realpath(os.path.join(this_path, itr, name))
+            if os.path.exists(p):
+                return ctypes.CDLL(p)
+        return ctypes.CDLL(name)
+
+    for itr in ("core", "containers"):
+        try:
+            _load(f"libkokkos{itr}.{ext}")
+        except Exception as e:
+            sys.stderr.write(f"Error loading libkokkos{itr}: {e}\n")
+
+
+try:
+    _loaded_bindings = True
+    try:
+        from . import libpykokkos
+        from .libpykokkos import *
+    except Exception:
+        _loaded_bindings = False
+        _load_kokkos_libs()
+
+    if not _loaded_bindings:
+        from . import libpykokkos  # noqa: F811
+        from .libpykokkos import *  # noqa: F811
+
+    from .utility import *
+
+    __all__ = [
+        "version_info",
+        "build_info",
+        "version",
+        "libpykokkos",
+        "backend_version",  # submodule
+        "array",  # helper functions
+        "unmanaged_array",
+        "convert_dtype",
+        "read_dtype",
+        "initialize",  # bindings
+        "finalize",
+        "int8",  # data types
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "float32",
+        "float64",
+        "short",
+        "int",
+        "long",
+        "unsigned_short",
+        "unsigned",
+        "unsigned_int",
+        "unsigned_long",
+        "float",
+        "double",
+        "Serial",  # devices
+        "Threads",
+        "OpenMP",
+        "Cuda",
+        "HPX",
+        "HIP",
+        "SYCL",
+        "OpenMPTarget",
+        "DefaultExecutionSpace",
+        "DefaultHostExecutionSpace",
+        "HostSpace",  # memory spaces
+        "HBWSpace",
+        "OpenMPTargetSpace",
+        "HIPSpace",
+        "CudaSpace",
+        "CudaUVMSpace",
+        "DefaultMemorySpace",
+        "DefaultHostMemorySpace",
+        "get_dtype",  # get enumeration from string or vice-versa
+        "get_layout",
+        "get_execution_space",
+        "get_memory_space",
+        "get_memory_trait",
+        "get_host_accessible",  # query build support
+        "get_device_available",
+        "get_layout_available",
+        "get_memory_space_available",
+        "get_memory_trait_available",
+        "get_execution_space_available",
+    ]
+
+    if libpykokkos.get_device_available("OpenMP"):
+        if libpykokkos.backend_version.openmp >= 201307:
+            os.environ.setdefault("OMP_PROC_BIND", "spread")
+            os.environ.setdefault("OMP_PLACES", "threads")
+        elif libpykokkos.backend_version.openmp >= 201107:
+            os.environ.setdefault("OMP_PROC_BIND", "true")
+
+except Exception as e:
+    print(f"{e}")
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    raise

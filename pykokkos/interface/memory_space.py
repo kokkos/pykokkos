@@ -11,6 +11,8 @@ class MemorySpace(Enum):
     CudaSpace = kokkos.CudaSpace
     OpenMPTargetSpace = kokkos.OpenMPTargetSpace
     HostSpace = kokkos.HostSpace
+    HIPSpace = kokkos.HIPSpace
+    HIPManagedSpace = kokkos.HIPManagedSpace
     MemorySpaceDefault = None
 
 
@@ -27,5 +29,11 @@ def get_default_memory_space(space: ExecutionSpace) -> MemorySpace:
             return MemorySpace.CudaUVMSpace
         else:
             return MemorySpace.CudaSpace
-    else:
-        return MemorySpace.HostSpace
+
+    if space is ExecutionSpace.HIP:
+        if is_uvm_enabled():
+            return MemorySpace.HIPManagedSpace
+        else:
+            return MemorySpace.HIPSpace
+
+    return MemorySpace.HostSpace
