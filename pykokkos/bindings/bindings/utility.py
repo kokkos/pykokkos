@@ -44,7 +44,9 @@ from __future__ import absolute_import
 from . import libpykokkos as lib
 
 __author__ = "Jonathan R. Madsen"
-__copyright__ = "Copyright 2020, National Technology & Engineering Solutions of Sandia, LLC (NTESS)"
+__copyright__ = (
+    "Copyright 2020, National Technology & Engineering Solutions of Sandia, LLC (NTESS)"
+)
 __credits__ = ["Kokkos"]
 __license__ = "BSD-3"
 __version__ = "3.1.1"
@@ -53,8 +55,15 @@ __email__ = "jrmadsen@lbl.gov"
 __status__ = "Development"
 
 
-def array(label, shape, dtype=lib.double, space=lib.HostSpace, layout=None,
-          trait=None, dynamic=False):
+def array(
+    label,
+    shape,
+    dtype=lib.double,
+    space=lib.HostSpace,
+    layout=None,
+    trait=None,
+    dynamic=False,
+):
     # print("dtype = {}, space = {}".format(dtype, space))
     _prefix = "KokkosView"
     if dynamic:
@@ -70,7 +79,9 @@ def array(label, shape, dtype=lib.double, space=lib.HostSpace, layout=None,
     if trait is not None:
         _trait = lib.get_memory_trait(trait)
         if _trait == "Unmanaged":
-            raise ValueError("Use unmanaged_array() for the unmanaged view memory trait")
+            raise ValueError(
+                "Use unmanaged_array() for the unmanaged view memory trait"
+            )
         _name = "{}_{}_{}_{}".format(_prefix, _dtype, _space, _trait)
     if _name is None:
         _name = "{}_{}_{}".format(_prefix, _dtype, _space)
@@ -78,6 +89,7 @@ def array(label, shape, dtype=lib.double, space=lib.HostSpace, layout=None,
         _name = "{}_{}".format(_name, len(shape))
 
     return getattr(lib, _name)(label, shape)
+
 
 def unmanaged_array(array, dtype=lib.double, space=lib.HostSpace, dynamic=False):
     _prefix = "KokkosView"

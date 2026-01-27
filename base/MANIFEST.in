@@ -1,0 +1,40 @@
+
+# direct includes
+
+include CMakeLists.txt
+include VERSION
+include LICENSE
+include README.md
+include CHANGES.md
+include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+include requirements.txt
+include pytest.ini
+
+# recursive includes
+
+recursive-include cmake *
+recursive-include kokkos *
+recursive-include examples *
+recursive-include external *
+recursive-include include *
+recursive-include src *
+recursive-include tests *
+recursive-include scripts *
+recursive-include .requirements *
+
+# global exclude
+
+global-exclude *.pyc
+global-exclude *.git*
+global-exclude *__pycache__*
+global-exclude kokkos/libpykokkos.*
+global-exclude kokkos/__init__.py
+
+# recursive excludes
+
+recursive-exclude kokkos.egg-info *
+recursive-exclude _skbuild *
+recursive-exclude build *
+recursive-exclude dist *
+recursive-exclude kokkos/__pycache__ *

@@ -25,14 +25,27 @@ class TeamMember:
     def __index__(self) -> int:
         return self._league_rank
 
+
 class PerTeam:
-    def __init__(self, team_member: TeamMember):
-        self.team_member = team_member
+    def __init__(self, value):
+        # Can be either a TeamMember or a scratch size value
+        self.value = value
+        # For backward compatibility
+        if isinstance(value, TeamMember):
+            self.team_member = value
+        else:
+            self.team_member = None
 
 
 class PerThread:
-    def __init__(self, team_member: TeamMember):
-        self.team_member = team_member
+    def __init__(self, value):
+        # Can be either a TeamMember or a scratch size value
+        self.value = value
+        # For backward compatibility
+        if isinstance(value, TeamMember):
+            self.team_member = value
+        else:
+            self.team_member = None
 
 
 def single(policy, functor):

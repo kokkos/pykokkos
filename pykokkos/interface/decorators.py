@@ -1,6 +1,7 @@
 from enum import Enum
 from functools import partial
 
+
 class Decorator(Enum):
     Workload = "workload"
     Functor = "functor"
@@ -61,11 +62,13 @@ def workunit(func=None, **kwargs):
 
     return func
 
+
 def workload(func=None, **kwargs):
     if func is None:
         return partial(functor)
 
     return func
+
 
 def classtype(func):
     return func

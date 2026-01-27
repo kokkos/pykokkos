@@ -1,0 +1,9 @@
+// clang-format off
+
+#include "fwd.hpp"
+#include "pool_variants/@TYPE_VARIANT@_pool.hpp"
+
+void @FUNC@(py::module &kokkos) {
+  generate_@TYPE_VARIANT@_pool_variant<@ENUM@>(
+      kokkos, std::make_index_sequence<ExecutionSpacesEnd>{});
+}

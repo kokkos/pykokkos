@@ -25,8 +25,7 @@ class SimpleAtomics:
         for i in range(int(self.count[0])):
             print(int(self.result[i]), end=", ")
         print(
-            "\nFound", int(
-                self.count[0]), "prime numbers in", self.N, "random numbers"
+            "\nFound", int(self.count[0]), "prime numbers in", self.N, "random numbers"
         )
 
     @pk.workunit

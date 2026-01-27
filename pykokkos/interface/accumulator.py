@@ -1,9 +1,10 @@
 from typing import Generic, TypeVar
 
+
 class Acc(Generic[TypeVar("T")]):
     def __init__(self, val):
         self.val = val
-    
+
     def __add__(self, other):
         self.val = self.val + other
         return self
@@ -68,7 +69,7 @@ class Acc(Generic[TypeVar("T")]):
 
     def le(self, other):
         return self.val <= other
-    
+
     def eq(self, other):
         return self.val == other
 
@@ -80,4 +81,3 @@ class Acc(Generic[TypeVar("T")]):
 
     def gt(self, other):
         return self.val > other
-

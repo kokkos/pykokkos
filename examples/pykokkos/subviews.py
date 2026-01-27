@@ -20,5 +20,9 @@ class Workload:
         print(self.view)
 
 
-if __name__ == "__main__":
+def run() -> None:
     pk.execute(pk.ExecutionSpace.Default, Workload())
+
+
+if __name__ == "__main__":
+    run()
