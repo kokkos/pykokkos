@@ -75,6 +75,24 @@ op2str: Dict[type, str] = {
     # ast.NotIn: "not in",
 }
 
+# see Kokkos_MathematicalSpecialFunctions.hpp
+math_special_functions: Set = {
+    "expint1",
+    "erfcx",
+    "cyl_bessel_y0",
+    "cyl_bessel_j0",
+    "cyl_bessel_y1",
+    "cyl_bessel_j1",
+    "cyl_bessel_i0",
+    "cyl_bessel_k0",
+    "cyl_bessel_i1",
+    "cyl_bessel_k1",
+    "cyl_bessel_h10",
+    "cyl_bessel_h11",
+    "cyl_bessel_h20",
+    "cyl_bessel_h21",
+}
+
 # TODO: provide mapping to cmath versions
 math_functions: Set = {
     "acos",

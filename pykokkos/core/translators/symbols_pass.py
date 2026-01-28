@@ -7,6 +7,7 @@ from pykokkos.core.keywords import Keywords
 from pykokkos.core.visitors.visitors_util import (
     math_constants,
     math_functions,
+    math_special_functions,
     allowed_types,
     view_dtypes,
 )
@@ -62,6 +63,7 @@ class SymbolsPass:
 
         self.global_symbols.update(math_constants)
         self.global_symbols.update(math_functions)
+        self.global_symbols.update(math_special_functions)
         self.global_symbols.update(allowed_types)
         self.global_symbols.update(view_dtypes)
         self.global_symbols.update(
