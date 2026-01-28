@@ -12,7 +12,7 @@ jobs:
   test_array_api:
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
+        os: [ubuntu-latest, ubuntu-22.04-arm]
         python-version: [3.11, 3.12, 3.13]
     runs-on: ${{ matrix.os }}
     defaults:
