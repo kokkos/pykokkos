@@ -3173,11 +3173,13 @@ def argmax(view, axis=None):
 
 
 @pk.workunit
-def cumsum_impl_1d_double(tid: int,
-                          acc: pk.Acc[pk.double],
-                          last_pass: bool,
-                          view: pk.View1D[pk.double],
-                          new_view: pk.View1D[pk.double]):
+def cumsum_impl_1d_double(
+    tid: int,
+    acc: pk.Acc[pk.double],
+    last_pass: bool,
+    view: pk.View1D[pk.double],
+    new_view: pk.View1D[pk.double],
+):
     acc += view[tid]
     new_view[tid] = acc
     if last_pass:
@@ -3185,11 +3187,13 @@ def cumsum_impl_1d_double(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_1d_float(tid: int,
-                          acc: pk.Acc[pk.float],
-                          last_pass: bool,
-                          view: pk.View1D[pk.float],
-                          new_view: pk.View1D[pk.float]):
+def cumsum_impl_1d_float(
+    tid: int,
+    acc: pk.Acc[pk.float],
+    last_pass: bool,
+    view: pk.View1D[pk.float],
+    new_view: pk.View1D[pk.float],
+):
     acc += view[tid]
     new_view[tid] = acc
     if last_pass:
@@ -3197,11 +3201,13 @@ def cumsum_impl_1d_float(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_1d_int32(tid: int,
-                          acc: pk.Acc[pk.int32],
-                          last_pass: bool,
-                          view: pk.View1D[pk.int32],
-                          new_view: pk.View1D[pk.int32]):
+def cumsum_impl_1d_int32(
+    tid: int,
+    acc: pk.Acc[pk.int32],
+    last_pass: bool,
+    view: pk.View1D[pk.int32],
+    new_view: pk.View1D[pk.int32],
+):
     acc += view[tid]
     new_view[tid] = acc
     if last_pass:
@@ -3209,22 +3215,27 @@ def cumsum_impl_1d_int32(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_1d_int64(tid: int,
-                          acc: pk.Acc[pk.int64],
-                          last_pass: bool,
-                          view: pk.View1D[pk.int64],
-                          new_view: pk.View1D[pk.int64]):
+def cumsum_impl_1d_int64(
+    tid: int,
+    acc: pk.Acc[pk.int64],
+    last_pass: bool,
+    view: pk.View1D[pk.int64],
+    new_view: pk.View1D[pk.int64],
+):
     acc += view[tid]
     new_view[tid] = acc
     if last_pass:
         view[tid] = acc
 
+
 @pk.workunit
-def cumsum_impl_2d_double(tid: int,
-                          acc: pk.Acc[pk.double],
-                          last_pass: bool,
-                          view: pk.View2D[pk.double],
-                          new_view: pk.View2D[pk.double]):
+def cumsum_impl_2d_double(
+    tid: int,
+    acc: pk.Acc[pk.double],
+    last_pass: bool,
+    view: pk.View2D[pk.double],
+    new_view: pk.View2D[pk.double],
+):
     # NOTE: by default, NumPy assigns the result
     # to a new flattened array, but it is not clear
     # to me how we'd do that here; while we can make
@@ -3239,11 +3250,13 @@ def cumsum_impl_2d_double(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_2d_float(tid: int,
-                          acc: pk.Acc[pk.float],
-                          last_pass: bool,
-                          view: pk.View2D[pk.float],
-                          new_view: pk.View2D[pk.float]):
+def cumsum_impl_2d_float(
+    tid: int,
+    acc: pk.Acc[pk.float],
+    last_pass: bool,
+    view: pk.View2D[pk.float],
+    new_view: pk.View2D[pk.float],
+):
     for j in range(view.extent(1)):
         acc += view[tid][j]
         new_view[tid][j] = acc
@@ -3252,11 +3265,13 @@ def cumsum_impl_2d_float(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_2d_int32(tid: int,
-                          acc: pk.Acc[pk.int32],
-                          last_pass: bool,
-                          view: pk.View2D[pk.int32],
-                          new_view: pk.View2D[pk.int32]):
+def cumsum_impl_2d_int32(
+    tid: int,
+    acc: pk.Acc[pk.int32],
+    last_pass: bool,
+    view: pk.View2D[pk.int32],
+    new_view: pk.View2D[pk.int32],
+):
     for j in range(view.extent(1)):
         acc += view[tid][j]
         new_view[tid][j] = acc
@@ -3265,23 +3280,28 @@ def cumsum_impl_2d_int32(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_2d_int64(tid: int,
-                          acc: pk.Acc[pk.int64],
-                          last_pass: bool,
-                          view: pk.View2D[pk.int64],
-                          new_view: pk.View2D[pk.int64]):
+def cumsum_impl_2d_int64(
+    tid: int,
+    acc: pk.Acc[pk.int64],
+    last_pass: bool,
+    view: pk.View2D[pk.int64],
+    new_view: pk.View2D[pk.int64],
+):
     for j in range(view.extent(1)):
         acc += view[tid][j]
         new_view[tid][j] = acc
         if last_pass:
             view[tid][j] = acc
 
+
 @pk.workunit
-def cumsum_impl_3d_double(tid: int,
-                          acc: pk.Acc[pk.double],
-                          last_pass: bool,
-                          view: pk.View3D[pk.double],
-                          new_view: pk.View3D[pk.double]):
+def cumsum_impl_3d_double(
+    tid: int,
+    acc: pk.Acc[pk.double],
+    last_pass: bool,
+    view: pk.View3D[pk.double],
+    new_view: pk.View3D[pk.double],
+):
     for j in range(view.extent(1)):
         for k in range(view.extent(2)):
             acc += view[tid][j][k]
@@ -3291,11 +3311,13 @@ def cumsum_impl_3d_double(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_3d_float(tid: int,
-                          acc: pk.Acc[pk.float],
-                          last_pass: bool,
-                          view: pk.View3D[pk.float],
-                          new_view: pk.View3D[pk.float]):
+def cumsum_impl_3d_float(
+    tid: int,
+    acc: pk.Acc[pk.float],
+    last_pass: bool,
+    view: pk.View3D[pk.float],
+    new_view: pk.View3D[pk.float],
+):
     for j in range(view.extent(1)):
         for k in range(view.extent(2)):
             acc += view[tid][j][k]
@@ -3305,11 +3327,13 @@ def cumsum_impl_3d_float(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_3d_int32(tid: int,
-                         acc: pk.Acc[pk.int32],
-                         last_pass: bool,
-                         view: pk.View3D[pk.int32],
-                         new_view: pk.View3D[pk.int32]):
+def cumsum_impl_3d_int32(
+    tid: int,
+    acc: pk.Acc[pk.int32],
+    last_pass: bool,
+    view: pk.View3D[pk.int32],
+    new_view: pk.View3D[pk.int32],
+):
     for j in range(view.extent(1)):
         for k in range(view.extent(2)):
             acc += view[tid][j][k]
@@ -3319,11 +3343,13 @@ def cumsum_impl_3d_int32(tid: int,
 
 
 @pk.workunit
-def cumsum_impl_3d_int64(tid: int,
-                         acc: pk.Acc[pk.int64],
-                         last_pass: bool,
-                         view: pk.View3D[pk.int64],
-                         new_view: pk.View3D[pk.int64]):
+def cumsum_impl_3d_int64(
+    tid: int,
+    acc: pk.Acc[pk.int64],
+    last_pass: bool,
+    view: pk.View3D[pk.int64],
+    new_view: pk.View3D[pk.int64],
+):
     for j in range(view.extent(1)):
         for k in range(view.extent(2)):
             acc += view[tid][j][k]
@@ -3373,49 +3399,73 @@ def cumsum(view):
     range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, view.shape[0])
     if str(view.dtype) == "DataType.double" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.double)
-        pk.parallel_scan(range_policy, cumsum_impl_1d_double, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_1d_double, view=view, new_view=new_view
+        )
     elif str(view.dtype) == "DataType.float" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.float)
-        pk.parallel_scan(range_policy, cumsum_impl_1d_float, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_1d_float, view=view, new_view=new_view
+        )
     elif str(view.dtype) == "DataType.int32" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.int32)
-        pk.parallel_scan(range_policy, cumsum_impl_1d_int32, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_1d_int32, view=view, new_view=new_view
+        )
     elif str(view.dtype) == "DataType.int64" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.int64)
-        pk.parallel_scan(range_policy, cumsum_impl_1d_int64, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_1d_int64, view=view, new_view=new_view
+        )
     # NOTE: careful here--the default NumPy behavior is to calculate
     # cumsum over the *flattened* array, ignoring shape of the input
     elif str(view.dtype) == "DataType.double" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.double)
-        pk.parallel_scan(range_policy, cumsum_impl_2d_double, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_2d_double, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.float" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.float)
-        pk.parallel_scan(range_policy, cumsum_impl_2d_float, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_2d_float, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.int32" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.int32)
-        pk.parallel_scan(range_policy, cumsum_impl_2d_int32, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_2d_int32, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.int64" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.int64)
-        pk.parallel_scan(range_policy, cumsum_impl_2d_int64, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_2d_int64, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.double" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.double)
-        pk.parallel_scan(range_policy, cumsum_impl_3d_double, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_3d_double, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.float" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.float)
-        pk.parallel_scan(range_policy, cumsum_impl_3d_float, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_3d_float, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.int32" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.int32)
-        pk.parallel_scan(range_policy, cumsum_impl_3d_int32, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_3d_int32, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     elif str(view.dtype) == "DataType.int64" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.int64)
-        pk.parallel_scan(range_policy, cumsum_impl_3d_int64, view=view, new_view=new_view)
+        pk.parallel_scan(
+            range_policy, cumsum_impl_3d_int64, view=view, new_view=new_view
+        )
         new_view = np.reshape(new_view, view.size)
     else:
         raise NotImplementedError(
@@ -3437,6 +3487,8 @@ def cumsum(view):
     else:
         new_view = np.asarray(new_view)
     return new_view
+
+
 # TODO: Implement parallel sorting + filtering
 def unique(view):
     res = np.unique(view)
