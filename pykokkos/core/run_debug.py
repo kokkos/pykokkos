@@ -62,7 +62,7 @@ def call_workunit(
     workunit: Callable[..., None],
     index: Union[int, Tuple[int, int], TeamMember],
     acc: Acc,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Run a workunit for a single iteration
@@ -99,7 +99,7 @@ def run_workunit_debug(
     workunit: Callable[..., None],
     operation: str,
     initial_value=0,
-    **kwargs
+    **kwargs,
 ) -> Optional[Union[float, int]]:
     """
     Run a workunit in Python
