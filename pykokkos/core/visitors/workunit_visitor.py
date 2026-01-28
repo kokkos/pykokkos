@@ -353,13 +353,14 @@ class WorkunitVisitor(PyKokkosVisitor):
             # Kokkos::complex<Kokkos::complex<float>&>.
             s = cppast.Serializer()
             arg_str = s.serialize(args[0])
-            cmplx_type = (
-                f"std::remove_reference_t<decltype({arg_str})>"
-            )
+            cmplx_type = f"std::remove_reference_t<decltype({arg_str})>"
+            if name.endswith("h", 0, -2):
+                # special case of Hankel functions
+                arg_types = f"Kokkos::Experimental::{name}<{cmplx_type}>"
+            else:
+                arg_types = f"Kokkos::Experimental::{name}<{cmplx_type}, double, int>"
             math_call = cppast.CallExpr(
-                cppast.DeclRefExpr(
-                    f"Kokkos::Experimental::{name}<{cmplx_type}, double, int>"
-                ),
+                cppast.DeclRefExpr(arg_types),
                 args,
             )
             real_number_call = cppast.MemberCallExpr(
