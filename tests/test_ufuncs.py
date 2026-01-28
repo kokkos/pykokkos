@@ -348,8 +348,8 @@ def test_caching():
 @pytest.mark.parametrize(
     "pk_dtype, numpy_dtype",
     [
-        (pk.double, np.float64),
-        (pk.float, np.float32),
+        (pk.float64, np.float64),
+        (pk.float32, np.float32),
         (pk.int32, np.int32),
         (pk.int64, np.int64),
     ],
