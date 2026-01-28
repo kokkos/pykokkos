@@ -343,15 +343,22 @@ class WorkunitVisitor(PyKokkosVisitor):
 
             return rand_call
 
-        if name in {"cyl_bessel_j0", "cyl_bessel_j1"}:
+        if name.startswith("cyl_bessel_"):
             if len(args) != 1:
-                self.error(node, "pk.cyl_bessel_j0/j1 accepts only one argument")
+                self.error(node, "bessel functions accepts only one argument")
 
+            # Instantiate bessel functions with an explicit complex type derived
+            # from the argument, but make sure we strip references so we don't
+            # end up with invalid nested types like
+            # Kokkos::complex<Kokkos::complex<float>&>.
             s = cppast.Serializer()
             arg_str = s.serialize(args[0])
+            cmplx_type = (
+                f"std::remove_reference_t<decltype({arg_str})>"
+            )
             math_call = cppast.CallExpr(
                 cppast.DeclRefExpr(
-                    f"Kokkos::Experimental::{name}<Kokkos::complex<decltype({arg_str})>, double, int>"
+                    f"Kokkos::Experimental::{name}<{cmplx_type}, double, int>"
                 ),
                 args,
             )

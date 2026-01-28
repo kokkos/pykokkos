@@ -78,6 +78,7 @@ op2str: Dict[type, str] = {
 # see Kokkos_MathematicalSpecialFunctions.hpp
 math_special_functions: Set = {
     "expint1",
+    "erf",
     "erfcx",
     "cyl_bessel_y0",
     "cyl_bessel_j0",
@@ -107,7 +108,6 @@ math_functions: Set = {
     "cos",
     "cosh",
     "degrees",
-    "erf",
     "erfc",
     "exp",
     "expm1",
