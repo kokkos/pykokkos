@@ -3397,71 +3397,72 @@ def cumsum(view):
         # design than just these strings eventually..
         arr_type = "kokkos"
     range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, view.shape[0])
-    if str(view.dtype) == "DataType.double" and len(view.shape) == 1:
+    dtype_name = view.dtype.__name__
+    if (dtype_name == "double" or dtype_name == "float64") and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.double)
         pk.parallel_scan(
             range_policy, cumsum_impl_1d_double, view=view, new_view=new_view
         )
-    elif str(view.dtype) == "DataType.float" and len(view.shape) == 1:
+    elif (dtype_name == "float" or dtype_name == "float32") and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.float)
         pk.parallel_scan(
             range_policy, cumsum_impl_1d_float, view=view, new_view=new_view
         )
-    elif str(view.dtype) == "DataType.int32" and len(view.shape) == 1:
+    elif dtype_name == "int32" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.int32)
         pk.parallel_scan(
             range_policy, cumsum_impl_1d_int32, view=view, new_view=new_view
         )
-    elif str(view.dtype) == "DataType.int64" and len(view.shape) == 1:
+    elif dtype_name == "int64" and len(view.shape) == 1:
         new_view = pk.View(view.shape, pk.int64)
         pk.parallel_scan(
             range_policy, cumsum_impl_1d_int64, view=view, new_view=new_view
         )
     # NOTE: careful here--the default NumPy behavior is to calculate
     # cumsum over the *flattened* array, ignoring shape of the input
-    elif str(view.dtype) == "DataType.double" and len(view.shape) == 2:
+    elif (dtype_name == "double" or dtype_name == "float64") and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.double)
         pk.parallel_scan(
             range_policy, cumsum_impl_2d_double, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.float" and len(view.shape) == 2:
+    elif (dtype_name == "float" or dtype_name == "float32") and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.float)
         pk.parallel_scan(
             range_policy, cumsum_impl_2d_float, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.int32" and len(view.shape) == 2:
+    elif dtype_name == "int32" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.int32)
         pk.parallel_scan(
             range_policy, cumsum_impl_2d_int32, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.int64" and len(view.shape) == 2:
+    elif dtype_name == "int64" and len(view.shape) == 2:
         new_view = pk.View(view.shape, pk.int64)
         pk.parallel_scan(
             range_policy, cumsum_impl_2d_int64, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.double" and len(view.shape) == 3:
+    elif (dtype_name == "double" or dtype_name == "float64") and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.double)
         pk.parallel_scan(
             range_policy, cumsum_impl_3d_double, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.float" and len(view.shape) == 3:
+    elif (dtype_name == "float" or dtype_name == "float32") and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.float)
         pk.parallel_scan(
             range_policy, cumsum_impl_3d_float, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.int32" and len(view.shape) == 3:
+    elif dtype_name == "int32" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.int32)
         pk.parallel_scan(
             range_policy, cumsum_impl_3d_int32, view=view, new_view=new_view
         )
         new_view = np.reshape(new_view, view.size)
-    elif str(view.dtype) == "DataType.int64" and len(view.shape) == 3:
+    elif dtype_name == "int64" and len(view.shape) == 3:
         new_view = pk.View(view.shape, pk.int64)
         pk.parallel_scan(
             range_policy, cumsum_impl_3d_int64, view=view, new_view=new_view
@@ -3474,13 +3475,14 @@ def cumsum(view):
         )
     # try to return the same type you receive
     if arr_type == "kokkos":
-        if str(view.dtype) == "DataType.float":
+        dtype_name = view.dtype.__name__
+        if dtype_name == "float" or dtype_name == "float32":
             temp_view = pk.View([new_view.size], pk.float)
-        elif str(view.dtype) == "DataType.double":
+        elif dtype_name == "double" or dtype_name == "float64":
             temp_view = pk.View([new_view.size], pk.double)
-        elif str(view.dtype) == "DataType.int32":
+        elif dtype_name == "int32":
             temp_view = pk.View([new_view.size], pk.int32)
-        elif str(view.dtype) == "DataType.int64":
+        elif dtype_name == "int64":
             temp_view = pk.View([new_view.size], pk.int64)
         temp_view[:] = new_view
         new_view = temp_view
