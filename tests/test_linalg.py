@@ -200,76 +200,95 @@ def test_dgemm_input_handling():
     view_a = pk.array(np.zeros((4, 3)))
     view_b = pk.array([np.array([0, 0, 0], dtype=np.int32)] * 4)
     with pytest.raises(ValueError, match="Second dimensions"):
-        dgemm(alpha=alpha,
-              view_a=view_a,
-              view_b=view_b)
+        dgemm(alpha=alpha, view_a=view_a, view_b=view_b)
 
 
-@pytest.mark.parametrize("alpha, a, b, expected", [
-    (1.0,
-     np.ones((4, 4)),
-     np.ones((4, 4)),
-     np.full((4, 4), 4),
-    ),
-    (1.0,
-    np.eye(4, 4),
-    np.array([[0, 6, 5, 0],
-             [9, 2, 2, 1],
-             [3, 1, 3, 8],
-             [4, 9, 4, 2]], dtype=float),
-    np.array([[0, 6, 5, 0],
-             [9, 2, 2, 1],
-             [3, 1, 3, 8],
-             [4, 9, 4, 2]], dtype=float),
-    ),
-    (1.0,
-    np.ones((4, 4)),
-    np.array([[0, 6, 5, 0],
-             [9, 2, 2, 1],
-             [3, 1, 3, 8],
-             [4, 9, 4, 2]], dtype=float),
-    np.array([[16., 18., 14., 11.],
-              [16., 18., 14., 11.],
-              [16., 18., 14., 11.],
-              [16., 18., 14., 11.]], dtype=float)
-
-    ),
-    ])
+@pytest.mark.parametrize(
+    "alpha, a, b, expected",
+    [
+        (
+            1.0,
+            np.ones((4, 4)),
+            np.ones((4, 4)),
+            np.full((4, 4), 4),
+        ),
+        (
+            1.0,
+            np.eye(4, 4),
+            np.array(
+                [[0, 6, 5, 0], [9, 2, 2, 1], [3, 1, 3, 8], [4, 9, 4, 2]], dtype=float
+            ),
+            np.array(
+                [[0, 6, 5, 0], [9, 2, 2, 1], [3, 1, 3, 8], [4, 9, 4, 2]], dtype=float
+            ),
+        ),
+        (
+            1.0,
+            np.ones((4, 4)),
+            np.array(
+                [[0, 6, 5, 0], [9, 2, 2, 1], [3, 1, 3, 8], [4, 9, 4, 2]], dtype=float
+            ),
+            np.array(
+                [
+                    [16.0, 18.0, 14.0, 11.0],
+                    [16.0, 18.0, 14.0, 11.0],
+                    [16.0, 18.0, 14.0, 11.0],
+                    [16.0, 18.0, 14.0, 11.0],
+                ],
+                dtype=float,
+            ),
+        ),
+    ],
+)
 def test_dgemm_tiled(alpha, a, b, expected):
     # expected values hardcoded from SciPy output
-    actual_c = dgemm(alpha=alpha,
-                     view_a=pk.from_numpy(a),
-                     view_b=pk.from_numpy(b),
-                     beta=0.0,
-                     view_c=None,
-                     tile_width=2)
+    actual_c = dgemm(
+        alpha=alpha,
+        view_a=pk.from_numpy(a),
+        view_b=pk.from_numpy(b),
+        beta=0.0,
+        view_c=None,
+        tile_width=2,
+    )
     assert_allclose(actual_c, expected)
 
 
-@pytest.mark.parametrize("input_width, tile_width", [
-    (2 ** 2, 2),
-    (2 ** 3, 2),
-    (2 ** 5, 2),
-    (2 ** 7, 2),
-    ])
-@pytest.mark.parametrize("seed", [
-    100787, 90, 10,
-    ])
-@pytest.mark.parametrize("league_size", [
-    1, 4,
-    ])
+@pytest.mark.parametrize(
+    "input_width, tile_width",
+    [
+        (2**2, 2),
+        (2**3, 2),
+        (2**5, 2),
+        (2**7, 2),
+    ],
+)
+@pytest.mark.parametrize(
+    "seed",
+    [
+        100787,
+        90,
+        10,
+    ],
+)
+@pytest.mark.parametrize(
+    "league_size",
+    [
+        1,
+        4,
+    ],
+)
 def test_dgemm_square_tiled_vs_scipy(input_width, tile_width, seed, league_size):
     rng = np.random.default_rng(seed)
     a = rng.integers(low=0, high=10, size=(input_width, input_width)).astype(float)
     b = rng.integers(low=0, high=19, size=(input_width, input_width)).astype(float)
-    expected = scipy.linalg.blas.dgemm(alpha=1.0,
-                                       a=a,
-                                       b=b)
-    actual_c = dgemm(alpha=1.0,
-                     view_a=pk.from_numpy(a),
-                     view_b=pk.from_numpy(b),
-                     beta=0.0,
-                     view_c=None,
-                     league_size=league_size,
-                     tile_width=tile_width)
+    expected = scipy.linalg.blas.dgemm(alpha=1.0, a=a, b=b)
+    actual_c = dgemm(
+        alpha=1.0,
+        view_a=pk.from_numpy(a),
+        view_b=pk.from_numpy(b),
+        beta=0.0,
+        view_c=None,
+        league_size=league_size,
+        tile_width=tile_width,
+    )
     assert_allclose(actual_c, expected)

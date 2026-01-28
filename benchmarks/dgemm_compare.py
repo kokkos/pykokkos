@@ -37,7 +37,15 @@ def time_dgemm(expected, mode, alpha, a, b, league_size=4, tile_width=2):
     if mode == "pykokkos_no_tiling":
         actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None)
     elif mode == "pykokkos_with_tiling":
-        actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None, league_size=league_size, tile_width=tile_width)
+        actual = pk_dgemm(
+            alpha,
+            a,
+            b,
+            beta=0.0,
+            view_c=None,
+            league_size=league_size,
+            tile_width=tile_width,
+        )
     elif mode == "scipy":
         actual = scipy_dgemm(alpha, a, b)
     else:
@@ -55,12 +63,12 @@ def time_dgemm(expected, mode, alpha, a, b, league_size=4, tile_width=2):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--num-global-repeats', default=5)
-    parser.add_argument('-m', '--mode', default="scipy")
-    parser.add_argument('-p', '--power-of-two', default=10)
-    parser.add_argument('-w', '--tile-width', default=2)
-    parser.add_argument('-l', '--league-size', default=4)
-    parser.add_argument('-s', '--space', default="OpenMP")
+    parser.add_argument("-n", "--num-global-repeats", default=5)
+    parser.add_argument("-m", "--mode", default="scipy")
+    parser.add_argument("-p", "--power-of-two", default=10)
+    parser.add_argument("-w", "--tile-width", default=2)
+    parser.add_argument("-l", "--league-size", default=4)
+    parser.add_argument("-s", "--space", default="OpenMP")
     args = parser.parse_args()
     hostname = socket.gethostname()
 
@@ -72,10 +80,8 @@ if __name__ == "__main__":
         raise ValueError(f"Invalid execution space specified: {args.space}")
     pk.set_default_space(space)
 
-
     num_global_repeats = int(args.num_global_repeats)
     square_matrix_width = 2 ** int(args.power_of_two)
-
 
     num_threads = os.environ.get("OMP_NUM_THREADS")
     if num_threads is None:
@@ -85,11 +91,12 @@ if __name__ == "__main__":
     scenario_name = f"{hostname}_dgemm_{args.mode}_{num_threads}_OMP_threads_{space_name}_execution_space_{square_matrix_width}_square_matrix_width_{args.league_size}_league_size"
 
     cwd = os.getcwd()
-    shutil.rmtree(os.path.join(cwd, "pk_cpp"),
-                  ignore_errors=True)
+    shutil.rmtree(os.path.join(cwd, "pk_cpp"), ignore_errors=True)
 
-    df = pd.DataFrame(np.full(shape=(num_global_repeats, 2), fill_value=np.nan),
-                      columns=["scenario", "time (s)"])
+    df = pd.DataFrame(
+        np.full(shape=(num_global_repeats, 2), fill_value=np.nan),
+        columns=["scenario", "time (s)"],
+    )
     df["scenario"] = df["scenario"].astype(str)
     print("df before trials:\n", df)
 
@@ -98,7 +105,15 @@ if __name__ == "__main__":
     expected = scipy_dgemm(alpha, a, b)
     counter = 0
     for global_repeat in tqdm(range(1, num_global_repeats + 1)):
-        dgemm_time_sec = time_dgemm(expected, mode=args.mode, alpha=alpha, a=a, b=b, league_size=args.league_size, tile_width=args.tile_width)
+        dgemm_time_sec = time_dgemm(
+            expected,
+            mode=args.mode,
+            alpha=alpha,
+            a=a,
+            b=b,
+            league_size=args.league_size,
+            tile_width=args.tile_width,
+        )
         df.iloc[counter, 0] = f"{scenario_name}"
         df.iloc[counter, 1] = dgemm_time_sec
         counter += 1
@@ -106,6 +121,4 @@ if __name__ == "__main__":
     print("df after trials:\n", df)
 
     filename = f"{scenario_name}.parquet.gzip"
-    df.to_parquet(filename,
-                  engine="pyarrow",
-                  compression="gzip")
+    df.to_parquet(filename, engine="pyarrow", compression="gzip")
