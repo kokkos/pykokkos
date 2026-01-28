@@ -8,16 +8,23 @@ from parse_args import parse_args
 @pk.workload(
     y=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
+    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
+)
 class Workload:
     def __init__(self, N: int, M: int, E: int, nrepeat: int, fill: bool):
         self.N: int = N
         self.M: int = M
         self.E: int = E
         self.nrepeat: int = nrepeat
-        self.y: pk.View2D[pk.double] = pk.View([E, N], pk.double, layout=pk.Layout.LayoutRight)
-        self.x: pk.View2D[pk.double] = pk.View([E, M], pk.double, layout=pk.Layout.LayoutRight)
-        self.A: pk.View3D[pk.double] = pk.View([E, N, M], pk.double, layout=pk.Layout.LayoutRight)
+        self.y: pk.View2D[pk.double] = pk.View(
+            [E, N], pk.double, layout=pk.Layout.LayoutRight
+        )
+        self.x: pk.View2D[pk.double] = pk.View(
+            [E, M], pk.double, layout=pk.Layout.LayoutRight
+        )
+        self.A: pk.View3D[pk.double] = pk.View(
+            [E, N, M], pk.double, layout=pk.Layout.LayoutRight
+        )
 
         if fill:
             self.y.fill(1)
@@ -46,27 +53,32 @@ class Workload:
         for i in range(self.nrepeat):
             self.result = pk.parallel_reduce(
                 "team_scratch_memory",
-                pk.TeamPolicy(self.E, "auto", 32).set_scratch_size(0, pk.PerTeam(scratch_size)),
-                self.yAx)
+                pk.TeamPolicy(self.E, "auto", 32).set_scratch_size(
+                    0, pk.PerTeam(scratch_size)
+                ),
+                self.yAx,
+            )
 
         self.timer_result = timer.seconds()
 
     @pk.callback
     def results(self):
-        print(
-            f"Computed result for {self.N} x {self.M} x {self.E} is {self.result}")
+        print(f"Computed result for {self.N} x {self.M} x {self.E} is {self.result}")
         solution: float = self.N * self.M * self.E
 
         if self.result != solution:
-            pk.printf("Error: result (%lf) != solution (%lf)\n",
-                      self.result, solution)
+            pk.printf("Error: result (%lf) != solution (%lf)\n", self.result, solution)
 
-        print(f"N({self.N}) M({self.M}) E({self.E}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)")
+        print(
+            f"N({self.N}) M({self.M}) E({self.E}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)"
+        )
 
     @pk.workunit
     def yAx(self, team_member: pk.TeamMember, acc: pk.Acc[float]):
         e: int = team_member.league_rank()
-        s_x: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), self.M)
+        s_x: pk.ScratchView1D[float] = pk.ScratchView1D(
+            team_member.team_scratch(0), self.M
+        )
 
         def init_scratch(i: int):
             s_x[i] = self.x[e][i]
@@ -80,13 +92,15 @@ class Workload:
             def vector_reduce(i: int, vector_acc: pk.Acc[float]):
                 vector_acc += self.A[e][j][i] * s_x[i]
 
-            tempM: float = pk.parallel_reduce(pk.ThreadVectorRange(
-                team_member, self.M), vector_reduce)
+            tempM: float = pk.parallel_reduce(
+                pk.ThreadVectorRange(team_member, self.M), vector_reduce
+            )
 
             team_acc += self.y[e][j] * tempM
 
         tempN: float = pk.parallel_reduce(
-            pk.TeamThreadRange(team_member, self.N), team_reduce)
+            pk.TeamThreadRange(team_member, self.N), team_reduce
+        )
 
         def single_closure():
             nonlocal acc

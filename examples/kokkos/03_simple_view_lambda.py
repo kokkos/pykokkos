@@ -17,13 +17,17 @@ class SimpleView:
     @pk.main
     def run(self):
         pk.parallel_for(self.N, self.initialize_view)
-        self.total = pk.parallel_reduce(self.N, 
-            lambda i, accumulator: accumulator + self.a[i][0] * self.a[i][1] / (self.a[i][2]))
+        self.total = pk.parallel_reduce(
+            self.N,
+            lambda i, accumulator: accumulator
+            + self.a[i][0] * self.a[i][1] / (self.a[i][2]),
+        )
 
     @pk.workunit
     def initialize_view(self, i: int):
         for j in range(3):
             self.a[i][j] = (i + 1) ** (j + 1)
+
 
 if __name__ == "__main__":
     pk.execute(pk.ExecutionSpace.OpenMP, SimpleView(10))

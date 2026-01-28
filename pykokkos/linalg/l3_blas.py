@@ -48,9 +48,11 @@ def dgemm(alpha: float,
     k_b = view_b.shape[0]
 
     if k_a != k_b:
-        raise ValueError(f"Second dimensions shape of a is {k_a} "
-                          "which does not match first dimension shape of "
-                         f"b, {k_b}.")
+        raise ValueError(
+            f"Second dimensions shape of a is {k_a} "
+            "which does not match first dimension shape of "
+            f"b, {k_b}."
+        )
 
     C = pk.View([view_a.shape[0], view_b.shape[1]], dtype=pk.double)
 

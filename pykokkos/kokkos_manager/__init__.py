@@ -3,12 +3,14 @@ from types import ModuleType
 from typing import Any, Dict, List
 
 from pykokkos.bindings import kokkos
-from pykokkos.interface.execution_space import ExecutionSpace
+from pykokkos.interface.execution_space import ExecutionSpace, ExecutionSpaceInstance
 from pykokkos.interface.data_types import DataTypeClass, double
 
+
 CONSTANTS: Dict[str, Any] = {
-    "KOKKOS_VERSION": 3.7, # default to 3.7
+    "KOKKOS_VERSION": 3.7,  # default to 3.7
     "EXECUTION_SPACE": ExecutionSpace.OpenMP,
+    "AVAILABLE_EXECUTION_SPACES": {},
     "REAL_DTYPE": double,
     "IS_INITIALIZED": False,
     "ENABLE_UVM": False,
@@ -16,9 +18,20 @@ CONSTANTS: Dict[str, Any] = {
     "NUM_GPUS": 0,
     "KOKKOS_GPU_MODULE": kokkos,
     "KOKKOS_GPU_MODULE_LIST": [],
+    "KOKKOS_GPU_INSTANCE_LIST": [],
     "DEVICE_ID": 0,
-    "GPU_FRAMEWORK": None
+    "GPU_BACKEND": None,
 }
+
+pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
+if pk_kokkos_version is not None:
+    try:
+        CONSTANTS["KOKKOS_VERSION"] = float(pk_kokkos_version)
+    except ValueError:
+        print(
+            f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {CONSTANTS['KOKKOS_VERSION']}"
+        )
+
 
 def get_kokkos_version() -> float:
     """
@@ -26,6 +39,7 @@ def get_kokkos_version() -> float:
     """
 
     return CONSTANTS["KOKKOS_VERSION"]
+
 
 def get_default_space() -> ExecutionSpace:
     """
@@ -38,6 +52,7 @@ def get_default_space() -> ExecutionSpace:
         return ExecutionSpace.Debug
 
     return CONSTANTS["EXECUTION_SPACE"]
+
 
 def set_default_space(space: ExecutionSpace) -> None:
     """
@@ -52,6 +67,31 @@ def set_default_space(space: ExecutionSpace) -> None:
 
     CONSTANTS["EXECUTION_SPACE"] = space
 
+
+def get_execution_space_instance(space: ExecutionSpace) -> ExecutionSpaceInstance:
+    """
+    Return the default execution space instance for a given space
+
+    :param space: the execution space required
+    :returns: the kokkos execution space object
+    """
+
+    if space not in CONSTANTS["AVAILABLE_EXECUTION_SPACES"]:
+        raise ValueError(f"Execution space {space} is not available")
+
+    return CONSTANTS["AVAILABLE_EXECUTION_SPACES"][space]
+
+
+def get_available_execution_spaces() -> List[str]:
+    """
+    Get the available execution spaces
+
+    :returns: a list of the available spaces
+    """
+
+    return list(CONSTANTS["AVAILABLE_EXECUTION_SPACES"].keys())
+
+
 def get_default_precision() -> ExecutionSpace:
     """
     Get the default PyKokkos precision
@@ -60,6 +100,7 @@ def get_default_precision() -> ExecutionSpace:
     """
 
     return CONSTANTS["REAL_DTYPE"]
+
 
 def set_default_precision(precision: DataTypeClass) -> None:
     """
@@ -74,6 +115,7 @@ def set_default_precision(precision: DataTypeClass) -> None:
 
     CONSTANTS["REAL_DTYPE"] = precision
 
+
 def is_uvm_enabled() -> bool:
     """
     Check if UVM is enabled
@@ -83,6 +125,7 @@ def is_uvm_enabled() -> bool:
 
     return CONSTANTS["ENABLE_UVM"]
 
+
 def enable_uvm() -> None:
     """
     Enable CudaUVMSpace
@@ -90,12 +133,14 @@ def enable_uvm() -> None:
 
     CONSTANTS["ENABLE_UVM"] = True
 
+
 def disable_uvm() -> None:
     """
     Disable CudaUVMSpace
     """
 
     CONSTANTS["ENABLE_UVM"] = False
+
 
 def initialize() -> None:
     """
@@ -106,6 +151,7 @@ def initialize() -> None:
         kokkos.initialize()
         CONSTANTS["IS_INITIALIZED"] = True
 
+
 def finalize() -> None:
     """
     Call Kokkos::finalize() if initialize() has been called
@@ -114,6 +160,7 @@ def finalize() -> None:
     if CONSTANTS["IS_INITIALIZED"] == True:
         kokkos.finalize()
         CONSTANTS["IS_INITIALIZED"] = False
+
 
 def get_kokkos_module(is_cpu: bool) -> ModuleType:
     """
@@ -128,6 +175,7 @@ def get_kokkos_module(is_cpu: bool) -> ModuleType:
 
     return CONSTANTS["KOKKOS_GPU_MODULE"]
 
+
 def set_device_id(device_id: int) -> None:
     """
     Set the current device ID
@@ -140,17 +188,22 @@ def set_device_id(device_id: int) -> None:
 
     num_gpus: int = CONSTANTS["NUM_GPUS"]
     if device_id >= num_gpus or device_id < 0:
-        raise RuntimeError(f"Device {device_id} does not exist (range [0..{num_gpus})")
+        raise RuntimeError(f"Device {device_id} does not exist (range [0..{num_gpus}))")
 
     if num_gpus == 1:
         return
 
     import cupy
+
     cupy.cuda.runtime.setDevice(device_id)
     CONSTANTS["DEVICE_ID"] = device_id
 
     gpu_lib = CONSTANTS["KOKKOS_GPU_MODULE_LIST"][device_id]
     CONSTANTS["KOKKOS_GPU_MODULE"] = gpu_lib
+
+    exec_space_instance = CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"][device_id]
+    CONSTANTS["AVAILABLE_EXECUTION_SPACES"][get_gpu_framework()] = exec_space_instance
+
 
 def get_device_id() -> int:
     """
@@ -161,6 +214,7 @@ def get_device_id() -> int:
 
     return CONSTANTS["DEVICE_ID"]
 
+
 def is_multi_gpu_enabled() -> bool:
     """
     Check if pykokkos has been configured for multi-gpu use
@@ -169,6 +223,7 @@ def is_multi_gpu_enabled() -> bool:
     """
 
     return CONSTANTS["MULTI_GPU"]
+
 
 def get_kokkos_gpu_modules() -> List:
     """
@@ -179,6 +234,7 @@ def get_kokkos_gpu_modules() -> List:
 
     return CONSTANTS["KOKKOS_GPU_MODULE_LIST"]
 
+
 def get_num_gpus() -> bool:
     """
     Get the number of gpus pykokkos has been configured for
@@ -188,7 +244,8 @@ def get_num_gpus() -> bool:
 
     return CONSTANTS["NUM_GPUS"]
 
-def get_gpu_framework() -> str:
+
+def get_gpu_framework() -> ExecutionSpace:
     """
     Get the framework used by the GPU
 
@@ -197,12 +254,29 @@ def get_gpu_framework() -> str:
 
     return CONSTANTS["GPU_BACKEND"]
 
-pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
-if pk_kokkos_version is not None:
-    try:
-        CONSTANTS["KOKKOS_VERSION"] = float(pk_kokkos_version)
-    except ValueError:
-        print(f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {get_kokkos_version()}")
+
+try:
+    # Save the active device ID before calling initialize(), which
+    # will overwrite it
+    import cupy as cp
+
+    active_device: int = cp.cuda.runtime.getDevice()
+except ImportError:
+    pass
+
+initialize()
+
+# For every available execution space, create a default execution
+# space instance
+for space in ExecutionSpace:
+    if space in {ExecutionSpace.Debug, ExecutionSpace.Default}:
+        continue
+
+    if kokkos.get_device_available(space.value):
+        CONSTANTS["AVAILABLE_EXECUTION_SPACES"][space] = ExecutionSpaceInstance(space)
+
+        if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP}:
+            CONSTANTS["GPU_BACKEND"] = space
 
 # NOTE: multiple GPU support is almost certainly
 # broken, we can't just assume that there are modules
@@ -217,18 +291,20 @@ import sys
 
 try:
     import cupy as cp
+
     NUM_CUDA_GPUS: int = cp.cuda.runtime.getDeviceCount()
     KOKKOS_LIBS: List[str] = [f"gpu{id}" for id in range(NUM_CUDA_GPUS)]
 except ImportError:
     NUM_CUDA_GPUS = 0
     KOKKOS_LIBS = []
 
+CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
 
-KOKKOS_LIB_INSTANCES: List = []
+KOKKOS_GPU_MODULE_LIST: List = []
 for id, lib in enumerate(KOKKOS_LIBS):
     try:
         module = importlib.import_module(lib)
-        KOKKOS_LIB_INSTANCES.append(module)
+        KOKKOS_GPU_MODULE_LIST.append(module)
 
         # Can't pass device id directly to initialize(), so need to
         # append argument to select device to sys.argv.
@@ -240,13 +316,22 @@ for id, lib in enumerate(KOKKOS_LIBS):
     except ModuleNotFoundError:
         pass
 
-if len(KOKKOS_LIB_INSTANCES) > 1:
+if len(KOKKOS_GPU_MODULE_LIST) > 1:
     CONSTANTS["MULTI_GPU"] = True
-    CONSTANTS["NUM_GPUS"] = NUM_CUDA_GPUS
-    CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_LIB_INSTANCES
-    CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_LIB_INSTANCES[0]
+    CONSTANTS["KOKKOS_GPU_MODULE_LIST"] = KOKKOS_GPU_MODULE_LIST
 
-if kokkos.get_device_available("Cuda"):
-    CONSTANTS["GPU_BACKEND"] = "Cuda"
-elif kokkos.get_device_available("HIP"):
-    CONSTANTS["GPU_BACKEND"] = "HIP"
+    # Create an execution space instance per device from each GPU lib
+    KOKKOS_GPU_INSTANCE_LIST: List = []
+    for lib in KOKKOS_GPU_MODULE_LIST:
+        CONSTANTS["KOKKOS_GPU_MODULE"] = lib
+        KOKKOS_GPU_INSTANCE_LIST.append(ExecutionSpaceInstance(get_gpu_framework()))
+
+    CONSTANTS["KOKKOS_GPU_MODULE"] = KOKKOS_GPU_MODULE_LIST[0]
+    CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"] = KOKKOS_GPU_INSTANCE_LIST
+
+try:
+    import cupy as cp
+
+    cp.cuda.runtime.setDevice(active_device)
+except ImportError:
+    pass

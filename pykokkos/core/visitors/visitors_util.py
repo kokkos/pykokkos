@@ -7,7 +7,8 @@ from typing import Dict, List, Optional, Set, Union
 from pykokkos import kokkos_manager as km
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.interface import Layout, Trait
+from pykokkos.interface import Layout, MemorySpace, Trait
+
 
 def pretty_print(node):
     print(ast.dump(node, indent=4))
@@ -19,6 +20,9 @@ allowed_types: Dict[str, str] = {
     "double": "double",
     "bool": "bool",
     "TeamMember": f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value}>::member_type",
+    "cpp_auto": "auto",
+    "complex64": "Kokkos::complex<float>",
+    "complex128": "Kokkos::complex<double>",
 }
 
 # Maps from the DataType enum to cppast
@@ -32,11 +36,11 @@ view_dtypes: Dict[str, Union[cppast.BuiltinType, str]] = {
     "uint32": cppast.BuiltinType.UINT32,
     "uint64": cppast.BuiltinType.UINT64,
     "float": cppast.BuiltinType.FLOAT,
+    "float32": cppast.BuiltinType.FLOAT,  # Alias for float
     "double": cppast.BuiltinType.DOUBLE,
-
+    "float64": cppast.BuiltinType.DOUBLE,  # Alias for double
     "int": cppast.BuiltinType.INT32,
-
-    "real": Keywords.RealPrecision.value
+    "real": Keywords.RealPrecision.value,
 }
 
 op2str: Dict[type, str] = {
@@ -85,6 +89,8 @@ math_functions: Set = {
     "cos",
     "cosh",
     "degrees",
+    "erf",
+    "erfc",
     "exp",
     "expm1",
     "fabs",
@@ -96,7 +102,8 @@ math_functions: Set = {
     "isfinite",
     "isinf",
     "isnan",
-    "isqrt",
+    "rsqrt",
+    "lgamma",
     "log",
     "log10",
     "log1p",
@@ -111,6 +118,7 @@ math_functions: Set = {
     "sqrt",
     "tan",
     "tanh",
+    "tgamma",
     "trunc",
     "nan",
 }
@@ -130,7 +138,7 @@ def error(src, debug: bool, node, message) -> None:
     else:
         print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
-    if debug:
+    if debug and node is not None:
         print("DEBUG AST:")
         pretty_print(node)
 
@@ -182,7 +190,9 @@ def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
     return name
 
 
-def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str) -> Optional[cppast.Type]:
+def get_type(
+    annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_import: str
+) -> Optional[cppast.Type]:
     if isinstance(annotation, ast.Attribute):
         if annotation.value.id == pk_import:
             type_name: str = get_node_name(annotation)
@@ -197,11 +207,7 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
 
     if isinstance(annotation, ast.Index):
         # ast.Index has been deprecated since Python 3.9;
-        # this module attempts to shim around it, but we're
-        # still getting issues in gh-181 with Python 3.8
-
-        # we should probably drop support for Python 3.8 soon anyway
-        # per NEP29, but for now we attempt to handle ast.Index
+        # this module attempts to shim around it.
 
         # should convert to ast.Name:
         annotation = annotation.value
@@ -251,7 +257,9 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             if sys.version_info.minor <= 8:
                 # In Python >= 3.9, ast.Index is deprecated
                 # (see # https://docs.python.org/3/whatsnew/3.9.html)
-                dtype_node: ast.Attribute = subscript.value
+                dtype_node = (
+                    subscript.value if isinstance(subscript, ast.Index) else subscript
+                )
             else:
                 dtype_node: ast.Attribute = subscript
 
@@ -268,6 +276,123 @@ def get_type(annotation: Union[ast.Attribute, ast.Name, ast.Subscript], pk_impor
             return view_type
 
     return None
+
+
+def parse_view_template_params(
+    view_type: cppast.ClassType,
+    rank: Optional[int] = None,
+    space: Optional[str] = None,
+    layout: Optional[str] = None,
+    real: Optional[str] = None,
+) -> Dict[str, str]:
+    """
+    Parse the template params of a view type node
+
+    :param view_type: the cppast representation of the view
+    :param rank: optionally provide the rank (used by subviews)
+    :param space: optionally provide a memory space
+    :param layout: optionally provide a layout
+    :param real: optionally provide the precision of pk.real dtypes
+    :returns: a dict with an entry for each template parameter
+    """
+
+    py_type: str = view_type.typename
+    is_scratch_view: bool = py_type.startswith("ScratchView")
+
+    # Check if this is actually a view type (starts with "View" or "ScratchView")
+    # If not, this might be a dtype that was incorrectly passed as a view type
+    if not (py_type.startswith("View") or py_type.startswith("ScratchView")):
+        raise ValueError(
+            f"Expected a view type (e.g., 'View1D', 'View2D', 'ScratchView1D'), "
+            f"but got '{py_type}'. This might be a dtype that was incorrectly treated as a view type."
+        )
+
+    if rank is None:
+        # Match the rank number that comes after "View" or "ScratchView" and before "D"
+        # This prevents matching numbers from dtype names like "float32" or "float64"
+        match = re.search(r"(?:View|ScratchView)(\d+)D", py_type)
+        if match:
+            rank = int(match.group(1))
+        else:
+            # If pattern doesn't match, this is likely not a valid view type name
+            # or the typename format is unexpected - raise an error instead of
+            # using a fallback that could match wrong numbers from dtype names
+            raise ValueError(
+                f"Could not extract view rank from typename '{py_type}'. "
+                f"Expected format: 'View<rank>D' or 'ScratchView<rank>D' (e.g., 'View1D', 'View2D')"
+            )
+
+    if not 0 < rank < 8:
+        raise ValueError(f"View rank {rank} is not allowed")
+
+    params: Dict[str, str] = {}
+
+    # unmanaged views cannot have a layout
+    unmanaged: bool = False
+    if is_scratch_view:
+        unmanaged = True
+
+    template_params: List[cppast.Node] = view_type.template_params
+    s = cppast.Serializer()
+    for t in template_params:
+        parameter: str = s.serialize(t)
+
+        if parameter in (
+            "int",
+            "double",
+            "float",
+            "int8_t",
+            "int16_t",
+            "int32_t",
+            "int64_t",
+            "uint8_t",
+            "uint16_t",
+            "uint32_t",
+            "uint64_t",
+            "Kokkos::complex<float>",
+            "Kokkos::complex<double>",
+        ):
+            datatype: str = parameter + "*" * rank
+            params["dtype"] = datatype
+
+        elif parameter == Keywords.RealPrecision.value:
+            real_dtype: str = Keywords.RealPrecision.value
+            if real is not None:
+                real_dtype = real
+            datatype: str = real_dtype + "*" * rank
+            params["dtype"] = datatype
+
+        elif parameter in Trait.__members__:
+            if parameter not in ("TraitDefault", "Managed", "Unmanaged"):
+                params["trait"] = f"Kokkos::MemoryTraits<Kokkos::{parameter}>"
+
+        elif parameter in Layout.__members__:
+            if parameter != "LayoutDefault":
+                params["layout"] = f"Kokkos::{parameter}"
+
+        elif parameter in MemorySpace.__members__:
+            space = f"Kokkos::{parameter}"
+
+    if "layout" not in params and not unmanaged:
+        if layout is not None:
+            params["layout"] = layout
+        else:
+            params["layout"] = f"{Keywords.DefaultExecSpace.value}::array_layout"
+
+    if space is not None:
+        if space == "Kokkos::HIPSpace":
+            space = "Kokkos::Experimental::HIPSpace"
+        params["space"] = space
+    elif is_scratch_view:
+        params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
+    else:
+        params["space"] = f"{Keywords.DefaultExecSpace.value}::memory_space"
+
+    if is_scratch_view:
+        params["trait"] = f"Kokkos::MemoryTraits<Kokkos::Unmanaged>"
+
+    return params
+
 
 def cpp_view_type(
     view_type: cppast.ClassType,
@@ -287,65 +412,7 @@ def cpp_view_type(
     :returns: string representation of C++ view type
     """
 
-    py_type: str = view_type.typename
-    is_scratch_view: bool = py_type.startswith("ScratchView")
-
-    if rank is None:
-        rank = int(re.search(r'\d+', py_type).group())
-
-    if not 0 < rank < 8:
-        raise ValueError(f"View rank {rank} is not allowed")
-
-    params: Dict[str, str] = {}
-
-    # unmanaged views cannot have a layout
-    unmanaged: bool = False
-    if is_scratch_view:
-        unmanaged = True
-
-    template_params: List[cppast.Node] = view_type.template_params
-    s = cppast.Serializer()
-    for t in template_params:
-        parameter: str = s.serialize(t)
-
-        if parameter in ("int", "double", "float",
-                            "int8_t", "int16_t", "int32_t", "int64_t",
-                            "uint8_t", "uint16_t", "uint32_t", "uint64_t"):
-            datatype: str = parameter + "*" * rank
-            params["dtype"] = datatype
-
-        elif parameter == Keywords.RealPrecision.value:
-            real_dtype: str = Keywords.RealPrecision.value
-            if real is not None:
-                real_dtype = real
-            datatype: str = real_dtype + "*" * rank
-            params["dtype"] = datatype
-
-        elif parameter in Trait.__members__:
-            if parameter not in ("Default", "Managed", "Unmanaged"):
-                params["trait"] = f"Kokkos::MemoryTraits<Kokkos::{parameter}>"
-
-        elif parameter in Layout.__members__:
-            if parameter != "LayoutDefault":
-                params["layout"] = f"Kokkos::{parameter}"
-
-    if "layout" not in params and not unmanaged:
-        if layout is not None:
-            params["layout"] = layout
-        else:
-            params["layout"] = f"{Keywords.DefaultExecSpace.value}::array_layout"
-
-    if space is not None:
-        if space == "Kokkos::HIPSpace":
-            space = "Kokkos::Experimental::HIPSpace"
-        params["space"] = space
-    elif is_scratch_view:
-        params["space"] = f"{Keywords.DefaultExecSpace.value}::scratch_memory_space"
-    else:
-        params["space"] = f"{Keywords.DefaultExecSpace.value}::memory_space"
-
-    if is_scratch_view:
-        params["trait"] = f"Kokkos::MemoryTraits<Kokkos::Unmanaged>"
+    params = parse_view_template_params(view_type, rank, space, layout, real)
 
     params_ordered: List[str] = []
     params_ordered.append(params["dtype"])

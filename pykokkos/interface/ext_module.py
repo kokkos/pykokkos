@@ -3,7 +3,13 @@ from .execution_space import ExecutionSpace
 from pathlib import Path
 from typing import List
 
-def compile_into_module(path: Path, source: List[str], module_name: str, executionSpace: ExecutionSpace = ExecutionSpace.Default):
+
+def compile_into_module(
+    path: Path,
+    source: List[str],
+    module_name: str,
+    executionSpace: ExecutionSpace = ExecutionSpace.Default,
+):
     """
     Takes a c++ pybind11 source as a string and compiles it into a python module. The resulting python module is returned upon success
 
@@ -14,4 +20,6 @@ def compile_into_module(path: Path, source: List[str], module_name: str, executi
 
     return: The compiled python module
     """
-    return runtime_singleton.runtime.compile_into_module(path,source,module_name,executionSpace)
+    return runtime_singleton.runtime.compile_into_module(
+        path, source, module_name, executionSpace
+    )

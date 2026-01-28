@@ -13,15 +13,18 @@ LIB_SUFFIX="${10}"
 COMPILER_PATH="${11}"
 SRC=$(find -name "*.cpp")
 
+# set CXX standard to be the same as in KokkosCore_config.h
+CXX_STANDARD=$(g++ -dM -E -DKOKKOS_MACROS_HPP ${KOKKOS_INCLUDE_PATH}/KokkosCore_config.h | grep KOKKOS_ENABLE_CXX | tr -d ' ' | sed -e 's/.*\(..\)$/\1/')
 
 if [ "${COMPILER}" == "g++" ]; then
         g++ \
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
+        -march=native -mtune=native \
         -isystem "${KOKKOS_INCLUDE_PATH}" \
         -fPIC \
-        -fopenmp -std=c++14 \
+        -fopenmp -std=c++${CXX_STANDARD} \
         -DSPACE="${EXEC_SPACE}" \
         -o "${SRC}".o \
         -c "${SRC}" \
@@ -44,10 +47,11 @@ elif [ "${COMPILER}" == "nvcc" ]; then
         `python3 -m pybind11 --includes` \
         -I.. \
         -O3 \
+        -Xcompiler -march=native -Xcompiler -mtune=native \
         -isystem "${KOKKOS_INCLUDE_PATH}" \
         -arch="${COMPUTE_CAPABILITY}" \
         --expt-extended-lambda -fPIC \
-        -Xcompiler -fopenmp -std=c++14 \
+        -Xcompiler -fopenmp -std=c++${CXX_STANDARD} \
         -DSPACE="${EXEC_SPACE}" \
         -o "${SRC}".o \
         -c "${SRC}" \
@@ -74,7 +78,7 @@ elif [ "${COMPILER}" == "hipcc" ]; then
         -O3 \
         -isystem "${KOKKOS_INCLUDE_PATH}" \
         -fPIC -fno-gpu-rdc \
-        -fopenmp -std=c++14 \
+        -fopenmp -std=c++${CXX_STANDARD} \
         -DSPACE="${EXEC_SPACE}" \
         -o "${SRC}".o \
         -c "${SRC}" \

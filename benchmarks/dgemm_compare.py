@@ -32,12 +32,12 @@ def setup_data(mode):
         return a, b
 
 
-def time_dgemm(expected, mode, league_size=4, tile_width=2):
+def time_dgemm(expected, mode, alpha, a, b, league_size=4, tile_width=2):
     start = time.perf_counter()
     if mode == "pykokkos_no_tiling":
         actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None)
     elif mode == "pykokkos_with_tiling":
-        actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None, league_size=4, tile_width=2)
+        actual = pk_dgemm(alpha, a, b, beta=0.0, view_c=None, league_size=league_size, tile_width=tile_width)
     elif mode == "scipy":
         actual = scipy_dgemm(alpha, a, b)
     else:
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     expected = scipy_dgemm(alpha, a, b)
     counter = 0
     for global_repeat in tqdm(range(1, num_global_repeats + 1)):
-        dgemm_time_sec = time_dgemm(expected, mode=args.mode, league_size=args.league_size, tile_width=args.tile_width)
+        dgemm_time_sec = time_dgemm(expected, mode=args.mode, alpha=alpha, a=a, b=b, league_size=args.league_size, tile_width=args.tile_width)
         df.iloc[counter, 0] = f"{scenario_name}"
         df.iloc[counter, 1] = dgemm_time_sec
         counter += 1
