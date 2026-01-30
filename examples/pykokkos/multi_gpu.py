@@ -18,7 +18,7 @@ print(cp_arr_1.device)
 
 
 @pk.workunit(cp_arr=pk.ViewTypeInfo(space=pk.CudaSpace))
-def reduction_cp(i: int, acc: pk.Acc[int], cp_arr: pk.View1D[int]):
+def reduction_cp(i: int, acc: pk.Acc[int], cp_arr):
     acc += cp_arr[i]
 
 
@@ -40,19 +40,19 @@ print(f"Reducing array 1: {result_1}")
 print(f"Sum: {result_0 + result_1}")
 
 pk.set_device_id(0)
-view_0 = pk.View((size,), dtype=int)
+view_0 = np.zeros((size,), dtype=np.int32)
 
 pk.set_device_id(1)
-view_1 = pk.View((size,), dtype=int)
+view_1 = np.zeros((size,), dtype=np.int32)
 
 
 @pk.workunit
-def init_view(i: int, view: pk.View1D[int]):
+def init_view(i: int, view):
     view[i] = i
 
 
 @pk.workunit
-def reduce_view(i: int, acc: pk.Acc[int], view: pk.View1D[int]):
+def reduce_view(i: int, acc: pk.Acc[int], view):
     acc += view[i]
 
 

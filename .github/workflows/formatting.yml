@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.13]
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-22.04-arm]
+        os: [ubuntu-latest]
 
     runs-on: ${{matrix.os}}
     steps:

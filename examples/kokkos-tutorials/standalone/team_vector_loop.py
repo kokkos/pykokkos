@@ -1,4 +1,5 @@
 from typing import Tuple
+import numpy as np
 
 import pykokkos as pk
 
@@ -39,9 +40,10 @@ def run() -> None:
     nrepeat: int = 1000
     print(f"Total size S = {N * M} N = {N} M = {M} E = {E}")
 
-    y: pk.View2D = pk.View([E, N], pk.double, layout=pk.Layout.LayoutRight)
-    x: pk.View2D = pk.View([E, M], pk.double, layout=pk.Layout.LayoutRight)
-    A: pk.View3D = pk.View([E, N, M], pk.double, layout=pk.Layout.LayoutRight)
+    # Note: layout specified via ViewTypeInfo decorator if needed
+    y = np.zeros([E, N], dtype=np.float64)
+    x = np.zeros([E, M], dtype=np.float64)
+    A = np.zeros([E, N, M], dtype=np.float64)
 
     if fill:
         y.fill(1)

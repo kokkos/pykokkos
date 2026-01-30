@@ -1,38 +1,31 @@
 import pykokkos as pk
 
 
-@pk.workload
-class Workload:
-    def __init__(self, N: int):
-        self.N: int = N
-        self.A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
+@pk.workunit
+def init(i: int, A: pk.View1D[pk.int32]):
+    A[i] = i
 
-        self.result: int = 0
-        self.timer_result: float = 0
 
-    @pk.main
-    def run(self):
-        pk.parallel_for(self.N, lambda i: i, self.A)
-
-        timer = pk.Timer()
-
-        self.result = pk.parallel_scan(self.N, self.scan)
-
-        self.timer_result = timer.seconds()
-
-    @pk.callback
-    def results(self):
-        print(f"{self.A} total={self.result} time({self.timer_result})")
-
-    @pk.workunit
-    def scan(self, i: int, acc: pk.Acc[pk.double], last_pass: bool):
-        acc += self.A[i]
-        if last_pass:
-            self.A[i] = acc
+@pk.workunit
+def scan(i: int, acc: pk.Acc[pk.double], last_pass: bool, A: pk.View1D[pk.int32]):
+    acc += A[i]
+    if last_pass:
+        A[i] = acc
 
 
 def run() -> None:
-    pk.execute(pk.ExecutionSpace.OpenMP, Workload(10))
+    N: int = 10
+    pk.set_default_space(pk.ExecutionSpace.OpenMP)
+
+    A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
+
+    pk.parallel_for(N, init, A=A)
+
+    timer = pk.Timer()
+    result: int = pk.parallel_scan(N, scan, A=A)
+    timer_result: float = timer.seconds()
+
+    print(f"{A} total={result} time({timer_result})")
 
 
 if __name__ == "__main__":

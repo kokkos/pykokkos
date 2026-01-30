@@ -3,23 +3,45 @@ import random
 from typing import Tuple
 
 import pykokkos as pk
+import numpy as np
+
+try:
+    import cupy as cp
+
+    cupy_available = True
+except ImportError:
+    cupy_available = False
+
+
+def get_array_module(space: pk.ExecutionSpace):
+    """Return numpy or cupy module based on execution space"""
+    if cupy_available and space in (pk.ExecutionSpace.Cuda, pk.ExecutionSpace.HIP):
+        return cp
+    return np
 
 
 @pk.functor
 # use double type and unroll=8
 class Benchmark_double_8:
-    def __init__(self, N: int, K: int, R: int, D: int, F: int, T: int, S: int):
+    def __init__(
+        self,
+        N: int,
+        K: int,
+        R: int,
+        D: int,
+        F: int,
+        T: int,
+        S: int,
+        space: pk.ExecutionSpace,
+    ):
         self.K: int = K
         self.R: int = R
         self.F: int = F
 
-        self.A: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-        self.B: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-        self.C: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-
-        self.A.fill(1.5)
-        self.B.fill(2.5)
-        self.C.fill(3.5)
+        xp = get_array_module(space)
+        self.A = xp.full((N, K, D), 1.5, dtype=np.float64)
+        self.B = xp.full((N, K, D), 2.5, dtype=np.float64)
+        self.C = xp.full((N, K, D), 3.5, dtype=np.float64)
 
     @pk.workunit
     def benchmark(self, team: pk.TeamMember):
@@ -111,7 +133,7 @@ def run() -> None:
     pk.set_default_space(space)
 
     r = pk.TeamPolicy(N, T)
-    w = Benchmark_double_8(N, K, R, args.D, F, T, S)
+    w = Benchmark_double_8(N, K, R, args.D, F, T, S, space)
 
     timer = pk.Timer()
     pk.parallel_for(r, w.benchmark)

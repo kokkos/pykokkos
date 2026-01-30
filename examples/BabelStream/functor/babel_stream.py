@@ -3,6 +3,7 @@ import pykokkos as pk
 import argparse
 from functools import reduce
 import sys
+import numpy as np
 
 
 @pk.functor
@@ -10,9 +11,9 @@ class KokkosStream:
     def __init__(
         self, ARRAY_SIZE: int, initA: float, initB: float, initC: float, scalar: float
     ):
-        self.a: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
-        self.b: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
-        self.c: pk.View1D[pk.double] = pk.View([ARRAY_SIZE], pk.double)
+        self.a = np.zeros(ARRAY_SIZE, dtype=np.float64)
+        self.b = np.zeros(ARRAY_SIZE, dtype=np.float64)
+        self.c = np.zeros(ARRAY_SIZE, dtype=np.float64)
 
         self.initA: float = initA
         self.initB: float = initB

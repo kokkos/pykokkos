@@ -1,4 +1,5 @@
 import pykokkos as pk
+import numpy as np
 
 import argparse
 import sys
@@ -44,9 +45,9 @@ def run() -> None:
     print("Vector length        = ", length)
     print("Offset               = ", offset)
 
-    A: pk.View1D = pk.View([length], pk.double)
-    B: pk.View1D = pk.View([length], pk.double)
-    C: pk.View1D = pk.View([length], pk.double)
+    A = np.zeros([length], dtype=np.float64)
+    B = np.zeros([length], dtype=np.float64)
+    C = np.zeros([length], dtype=np.float64)
 
     p = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, length)
 

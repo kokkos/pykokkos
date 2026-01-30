@@ -27,6 +27,7 @@ class PyKokkosMembers:
             cppast.DeclRefExpr, List[cppast.DeclRefExpr]
         ] = {}
         self.real_dtype_views: Set[cppast.DeclRefExpr] = {}
+        self.numpy_cupy_views: Set[cppast.DeclRefExpr] = {}
 
         self.pk_workunits: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
         self.pk_functions: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
@@ -75,6 +76,7 @@ class PyKokkosMembers:
             for i, arg in enumerate(args):
                 if (
                     isinstance(arg.annotation, ast.Subscript)
+                    and isinstance(arg.annotation.value, ast.Attribute)
                     and arg.annotation.value.attr == "Acc"
                 ):
                     param_begin = i + 1

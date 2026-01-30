@@ -1,3 +1,4 @@
+import numpy as np
 import pykokkos as pk
 
 
@@ -17,9 +18,9 @@ def run():
     N1 = 4
     N2 = 4
 
-    A = pk.View((N0, N1, N2))
-    B = pk.View((N0, N1))
-    C = pk.View((N2,))
+    A = np.zeros((N0, N1, N2), dtype=np.float64)
+    B = np.zeros((N0, N1), dtype=np.float64)
+    C = np.zeros((N2,), dtype=np.float64)
 
     B.fill(1)
     C.fill(1)

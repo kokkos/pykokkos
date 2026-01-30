@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 
 import pykokkos as pk
 
@@ -37,24 +38,32 @@ class t_scalar3:
 
 @pk.workload
 class ForceLJCell(Force):
-    class t_fparams(pk.View2D):
-        def __init__(self, x: int = 0, y: int = 0, data_type: pk.DataType = pk.double):
-            super().__init__(x, y, data_type)
+    @staticmethod
+    def t_fparams(x: int = 0, y: int = 0, data_type: pk.DataType = pk.double):
+        import numpy as np
+
+        if data_type == pk.double:
+            np_dtype = np.float64
+        elif data_type == pk.int32:
+            np_dtype = np.int32
+        else:
+            np_dtype = np.float64
+        return np.zeros([x, y], dtype=np_dtype)
 
     def __init__(self, args: List[str], system: System, half_neigh: bool):
         super().__init__(args, system, half_neigh)
 
-        self.lj1: pk.View2D[pk.double] = self.t_fparams(system.ntypes, system.ntypes)
-        self.lj2: pk.View2D[pk.double] = self.t_fparams(system.ntypes, system.ntypes)
-        self.cutsq: pk.View2D[pk.double] = self.t_fparams(system.ntypes, system.ntypes)
+        self.lj1 = self.t_fparams(system.ntypes, system.ntypes)
+        self.lj2 = self.t_fparams(system.ntypes, system.ntypes)
+        self.cutsq = self.t_fparams(system.ntypes, system.ntypes)
 
-        self.bin_offsets: pk.View3D[pk.int32] = pk.View([0, 0, 0], pk.int32)
-        self.bin_count: pk.View3D[pk.int32] = pk.View([0, 0, 0], pk.int32)
-        self.permute_vector: pk.View1D[pk.int32] = pk.View([0], pk.int32)
+        self.bin_offsets = np.zeros([0, 0, 0], dtype=np.int32)
+        self.bin_count = np.zeros([0, 0, 0], dtype=np.int32)
+        self.permute_vector = np.zeros([0], dtype=np.int32)
 
-        self.x: pk.View2D[pk.double] = pk.View([0, 0], pk.double)
-        self.type: pk.View1D[pk.int32] = pk.View([0], pk.int32)
-        self.f: pk.View2D[pk.double] = pk.View([0, 0], pk.double)
+        self.x = np.zeros([0, 0], dtype=np.float64)
+        self.type = np.zeros([0], dtype=np.int32)
+        self.f = np.zeros([0, 0], dtype=np.float64)
 
         self.N_local: int = 0
         self.nbinx: int = 0

@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import pykokkos as pk
 import pytest
+from typing import List
 
 try:
     import cupy as cp
@@ -123,6 +124,41 @@ def add_two_init(i, view, v1, v2):
 @pk.workunit
 def no_view(i: int, acc: pk.Acc[pk.double], n):
     acc = acc + n
+
+
+# List[T] annotations at workunits
+@pk.workunit
+def list_int_add(i, view, lst: List[int]):
+    view[i] = view[i] + lst[i]
+
+
+@pk.workunit
+def list_float_add(i, view, lst: List[float]):
+    view[i] = view[i] + lst[i]
+
+
+@pk.workunit
+def list_int_reduce(i, acc: pk.Acc[pk.int32], lst: List[int]):
+    acc += lst[i]
+
+
+@pk.workunit
+def list_2d_sum(tid, result, lst: List[List[int]], rows: int, cols: int):
+    # Using single thread (tid==0) to avoid race conditions on result[0]
+    if tid == 0:
+        for i in range(rows):
+            for j in range(cols):
+                result[0] += lst[i][j]
+
+
+@pk.workunit
+def list_3d_sum(tid, result, lst: List[List[List[int]]], d0: int, d1: int, d2: int):
+    # Using single thread (tid==0) to avoid race conditions on result[0]
+    if tid == 0:
+        for i in range(d0):
+            for j in range(d1):
+                for k in range(d2):
+                    result[0] += lst[i][j][k]
 
 
 class TestTypeInference(unittest.TestCase):
@@ -567,6 +603,97 @@ class TestTypeInference(unittest.TestCase):
     def test_no_view(self):
         pk.parallel_reduce(self.range_policy, no_view, n=1)
         pk.parallel_reduce(self.range_policy, no_view, n=2.1)
+
+    def test_list_int_python_list(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(1)
+        python_list = [i for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            self.assertEqual(view[i], 1 + i)
+
+    def test_list_int_numpy_array(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(2)
+        numpy_array = np.arange(self.threads, dtype=np.int32)
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=numpy_array)
+
+        for i in range(self.threads):
+            self.assertEqual(view[i], 2 + i)
+
+    def test_list_float_python_list(self):
+        view = pk.View([self.threads], pk.double)
+        view.fill(1.5)
+        python_list = [float(i) * 0.5 for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_float_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            expected = 1.5 + (i * 0.5)
+            self.assertAlmostEqual(view[i], expected, places=5)
+
+    def test_list_int_reduce(self):
+        python_list = [1] * self.threads
+        result = pk.parallel_reduce(self.range_policy, list_int_reduce, lst=python_list)
+
+        expected_result = self.threads
+        self.assertEqual(result, expected_result)
+
+    def test_list_int_mixed_values(self):
+        view = pk.View([self.threads], pk.int32)
+        view.fill(10)
+        python_list = [(-1) ** i * i for i in range(self.threads)]
+
+        pk.parallel_for(self.range_policy, list_int_add, view=view, lst=python_list)
+
+        for i in range(self.threads):
+            expected = 10 + ((-1) ** i * i)
+            self.assertEqual(view[i], expected)
+
+    def test_list_2d_python_list(self):
+        rows, cols = 3, 4
+        python_2d = [[i * cols + j for j in range(cols)] for i in range(rows)]
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_2d_sum, result=result, lst=python_2d, rows=rows, cols=cols
+        )
+
+        expected = sum(sum(row) for row in python_2d)
+        self.assertEqual(result[0], expected)
+
+    def test_list_2d_numpy_array(self):
+        rows, cols = 3, 4
+        numpy_2d = np.arange(rows * cols, dtype=np.int32).reshape(rows, cols)
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_2d_sum, result=result, lst=numpy_2d, rows=rows, cols=cols
+        )
+
+        expected = int(numpy_2d.sum())
+        self.assertEqual(result[0], expected)
+
+    def test_list_3d_python_list(self):
+        d0, d1, d2 = 2, 3, 4
+        python_3d = [
+            [[i * 100 + j * 10 + k for k in range(d2)] for j in range(d1)]
+            for i in range(d0)
+        ]
+        result = pk.View([1], pk.int32)
+        result.fill(0)
+
+        pk.parallel_for(
+            1, list_3d_sum, result=result, lst=python_3d, d0=d0, d1=d1, d2=d2
+        )
+
+        expected = sum(sum(sum(row) for row in plane) for plane in python_3d)
+        self.assertEqual(result[0], expected)
 
 
 if __name__ == "__main__":

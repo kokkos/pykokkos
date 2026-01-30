@@ -57,6 +57,26 @@ class ParameterVisitor(ast.NodeVisitor):
         for a in args:
             self.visit(a)
 
+    def _get_list_depth(self, annotation: ast.Subscript) -> int:
+        """
+        Recursively determine the nesting depth of List annotations.
+
+        :param annotation: The annotation to parse
+        :returns: Nesting depth (1 for List[T], 2 for List[List[T]], etc.)
+        """
+        depth = 0
+        current = annotation
+
+        while isinstance(current, ast.Subscript):
+            if isinstance(current.value, ast.Name) and current.value.id == "List":
+                depth += 1
+                # Move to the subscript (the [T] part)
+                current = current.slice
+            else:
+                break
+
+        return depth
+
     def visit_arg(self, node: ast.arg) -> None:
         """
         Visit an individual parameter
@@ -73,6 +93,16 @@ class ParameterVisitor(ast.NodeVisitor):
 
         if decltype is None:
             self.error(node, "Type is not supported")
+
+        # Convert List[T], List[List[T]], etc. into PyKokkos ViewND
+        # (this is `List[]`-defined list. ast.List is literal list `[]`)
+        if isinstance(annotation, ast.Subscript):
+            if isinstance(annotation.value, ast.Name) and annotation.value.id == "List":
+                # Determine nesting depth recursively
+                depth = self._get_list_depth(annotation)
+                view_type = cppast.ClassType(f"View{depth}D")
+                view_type.add_template_param(decltype)
+                decltype = view_type
 
         # just checking decltype might be enough
         is_field: bool = isinstance(annotation, ast.Name) or isinstance(

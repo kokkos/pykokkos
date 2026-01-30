@@ -13,14 +13,14 @@ from types_h import MAX_TYPES_STACKPARAMS, t_f
 @pk.workunit
 def fullneigh_for(
     i: int,
-    rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float],
-    num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int],
-    x: pk.View2D[float],
-    f: pk.View2D[float],
-    type: pk.View1D[int],
+    rnd_lj1,
+    rnd_lj2,
+    rnd_cutsq,
+    num_neighs_view,
+    neighs_view,
+    x,
+    f,
+    type,
 ) -> None:
     x_i: float = x[i][0]
     y_i: float = x[i][1]
@@ -62,14 +62,14 @@ def fullneigh_for(
 @pk.workunit
 def halfneigh_for(
     i: int,
-    rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float],
-    num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int],
-    x: pk.View2D[float],
-    f: pk.View2D[float],
-    type: pk.View1D[int],
+    rnd_lj1,
+    rnd_lj2,
+    rnd_cutsq,
+    num_neighs_view,
+    neighs_view,
+    x,
+    f,
+    type,
     use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
@@ -135,14 +135,14 @@ def halfneigh_for(
 def fullneigh_reduce(
     i: int,
     PE: pk.Acc[float],
-    rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float],
-    num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int],
-    x: pk.View2D[float],
-    f: pk.View2D[float],
-    type: pk.View1D[int],
+    rnd_lj1,
+    rnd_lj2,
+    rnd_cutsq,
+    num_neighs_view,
+    neighs_view,
+    x,
+    f,
+    type,
     use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
@@ -195,15 +195,15 @@ def fullneigh_reduce(
 def halfneigh_reduce(
     i: int,
     PE: pk.Acc[float],
-    rnd_lj1: pk.View2D[float],
-    rnd_lj2: pk.View2D[float],
-    rnd_cutsq: pk.View2D[float],
+    rnd_lj1,
+    rnd_lj2,
+    rnd_cutsq,
     N_local: int,
-    num_neighs_view: pk.View1D[int],
-    neighs_view: pk.View2D[int],
-    x: pk.View2D[float],
-    f: pk.View2D[float],
-    type: pk.View1D[int],
+    num_neighs_view,
+    neighs_view,
+    x,
+    f,
+    type,
     use_stackparams: bool,
 ) -> None:
     x_i: float = x[i][0]
@@ -259,17 +259,29 @@ def halfneigh_reduce(
 
 
 class ForceLJNeigh(Force):
-    class t_fparams(pk.View):
-        def __init__(
-            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
-        ):
-            super().__init__([x, y], data_type)
+    @staticmethod
+    def t_fparams(x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        import numpy as np
 
-    class t_fparams_rnd(pk.View):
-        def __init__(
-            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
-        ):
-            super().__init__([x, y], data_type)
+        if data_type == pk.double:
+            np_dtype = np.float64
+        elif data_type == pk.int32:
+            np_dtype = np.int32
+        else:
+            np_dtype = np.float64
+        return np.zeros([x, y], dtype=np_dtype)
+
+    @staticmethod
+    def t_fparams_rnd(x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        import numpy as np
+
+        if data_type == pk.double:
+            np_dtype = np.float64
+        elif data_type == pk.int32:
+            np_dtype = np.int32
+        else:
+            np_dtype = np.float64
+        return np.zeros([x, y], dtype=np_dtype)
 
     def __init__(self, args: List[str], system: System, half_neigh: bool):
         super().__init__(args, system, half_neigh)
@@ -280,18 +292,18 @@ class ForceLJNeigh(Force):
         self.use_stackparams: bool = False
         # self.use_stackparams: bool = self.ntypes <= MAX_TYPES_STACKPARAMS
 
-        self.lj1: pk.View2D[pk.double] = self.t_fparams()
-        self.lj2: pk.View2D[pk.double] = self.t_fparams()
-        self.cutsq: pk.View2D[pk.double] = self.t_fparams()
+        self.lj1 = self.t_fparams()
+        self.lj2 = self.t_fparams()
+        self.cutsq = self.t_fparams()
 
         if not self.use_stackparams:
             self.lj1 = self.t_fparams(self.ntypes, self.ntypes)
             self.lj2 = self.t_fparams(self.ntypes, self.ntypes)
             self.cutsq = self.t_fparams(self.ntypes, self.ntypes)
 
-        self.rnd_lj1: pk.View2D[pk.double] = self.t_fparams()
-        self.rnd_lj2: pk.View2D[pk.double] = self.t_fparams()
-        self.rnd_cutsq: pk.View2D[pk.double] = self.t_fparams()
+        self.rnd_lj1 = self.t_fparams()
+        self.rnd_lj2 = self.t_fparams()
+        self.rnd_cutsq = self.t_fparams()
 
         self.step: int = 0
 

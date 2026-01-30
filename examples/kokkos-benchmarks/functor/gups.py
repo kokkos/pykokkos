@@ -3,13 +3,36 @@ import random
 from typing import Tuple
 
 import pykokkos as pk
+import numpy as np
+
+try:
+    import cupy as cp
+
+    cupy_available = True
+except ImportError:
+    cupy_available = False
+
+
+def get_array_module(space: pk.ExecutionSpace):
+    """Return numpy or cupy module based on execution space"""
+    if cupy_available and space in (pk.ExecutionSpace.Cuda, pk.ExecutionSpace.HIP):
+        return cp
+    return np
 
 
 @pk.functor
 class Benchmark:
-    def __init__(self, indices: int, data: int, repeats: int, use_atomics: bool):
-        self.indices: pk.View1D[pk.int64] = pk.View([indices], pk.int64)
-        self.data: pk.View1D[pk.int64] = pk.View([data], pk.int64)
+    def __init__(
+        self,
+        indices: int,
+        data: int,
+        repeats: int,
+        use_atomics: bool,
+        space: pk.ExecutionSpace,
+    ):
+        xp = get_array_module(space)
+        self.indices = xp.zeros(indices, dtype=np.int64)
+        self.data = xp.zeros(data, dtype=np.int64)
         self.datum: pk.int64 = -1
 
     @pk.workunit
@@ -56,7 +79,7 @@ def run() -> None:
 
     pk.set_default_space(space)
 
-    w = Benchmark(indices, data, repeats, use_atomics)
+    w = Benchmark(indices, data, repeats, use_atomics, space)
     range_indices = pk.RangePolicy(0, indices)
     range_data = pk.RangePolicy(0, data)
 

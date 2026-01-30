@@ -58,6 +58,10 @@ class ConstructorVisitor(ast.NodeVisitor):
                 ann_assign: Tuple = self.visit(statement)
                 if len(ann_assign) != 0:
                     members.append(ann_assign)
+            elif self.member_type == "views" and isinstance(statement, ast.Assign):
+                assign: Tuple = self.visit(statement)
+                if len(assign) != 0:
+                    members.append(assign)
 
         return members
 
@@ -266,6 +270,126 @@ class ConstructorVisitor(ast.NodeVisitor):
         qualifier: str = node.value.id
 
         return qualifier == self.pk_import
+
+    def visit_Assign(self, node: ast.Assign) -> Tuple[cppast.DeclRefExpr, cppast.Type]:
+        """
+        Extract PyKokkos View members from numpy/cupy array to allow users to
+        initialize views from numpy/cupy arrays (e.g., self.v = np.array(...)),
+        which are automatically converted to PyKokkos View types.
+
+        :param node: the assignment AST node
+        :returns: a tuple of (name, view_type) if it's a numpy/cupy array, else empty tuple
+        """
+        if self.member_type != "views":
+            return ()
+
+        # make sure that this is assignment to self attributes
+        if len(node.targets) != 1:
+            return ()
+        target = node.targets[0]
+        if (
+            not isinstance(target, ast.Attribute)
+            or not isinstance(target.value, ast.Name)
+            or target.value.id != "self"
+        ):
+            return ()
+
+        # make sure that value is a numpy/cupy array function call
+        declref: cppast.DeclRefExpr = self.visit(target)
+        value = node.value
+        if not isinstance(value, ast.Call):
+            return ()
+        func = value.func
+        if not isinstance(func, ast.Attribute) or not isinstance(func.value, ast.Name):
+            return ()
+        array_module = func.value.id
+        if array_module not in ("np", "numpy", "cp", "cupy"):
+            return ()
+
+        # infer view type from the array call
+        decltype = self._infer_view_type_from_array_call(value, array_module)
+        if decltype is None:
+            return ()
+
+        return (declref, decltype)
+
+    def _infer_view_type_from_array_call(
+        self, call: ast.Call, array_module: str
+    ) -> Optional[cppast.ClassType]:
+        """
+        Infer the View type from a numpy/cupy array creation call
+
+        :param call: the AST call node
+        :param array_module: the module name (np, numpy, cp, cupy)
+        :returns: the inferred view type or None
+        """
+        # shape from first positional argument
+        if len(call.args) == 0:
+            return None
+
+        shape_arg = call.args[0]
+
+        # determine the rank
+        rank = 1
+        if isinstance(shape_arg, (ast.List, ast.Tuple)):
+            rank = len(shape_arg.elts)
+        elif isinstance(shape_arg, ast.Constant):
+            rank = 1
+
+        # handle dtype
+        dtype = None
+        for kw in call.keywords:
+            if kw.arg == "dtype":
+                dtype = kw.value
+                break
+        if (
+            dtype is None
+            and len(call.args) > 1
+            and isinstance(call.args[1], ast.Attribute)
+        ):
+            dtype = call.args[1]
+
+        # translate dtype using existing get_type function
+        if dtype is None:
+            dtype_type = cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
+        elif (
+            isinstance(dtype, ast.Attribute)
+            and hasattr(dtype, "value")
+            and isinstance(dtype.value, ast.Name)
+        ):
+            module_name = dtype.value.id
+            dtype_attr = dtype.attr
+            if module_name in ("np", "numpy", "cp", "cupy"):
+                # edge case: numpy/cupy float64 -> double, float32 -> float
+                dtype_name = (
+                    "double"
+                    if dtype_attr == "float64"
+                    else ("float" if dtype_attr == "float32" else dtype_attr)
+                )
+                if dtype_name in visitors_util.view_dtypes:
+                    dtype_value = visitors_util.view_dtypes[dtype_name]
+                    if isinstance(dtype_value, cppast.BuiltinType):
+                        dtype_type = cppast.PrimitiveType(dtype_value)
+                    else:
+                        dtype_type = cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
+                else:
+                    dtype_type = cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
+            else:
+                dtype_type = visitors_util.get_type(dtype, self.pk_import)
+                if dtype_type is None or not isinstance(
+                    dtype_type, cppast.PrimitiveType
+                ):
+                    dtype_type = cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
+        else:
+            dtype_type = visitors_util.get_type(dtype, self.pk_import)
+            if dtype_type is None or not isinstance(dtype_type, cppast.PrimitiveType):
+                dtype_type = cppast.PrimitiveType(cppast.BuiltinType.DOUBLE)
+
+        view_type_name = f"View{rank}D"
+        view_type = cppast.ClassType(view_type_name)
+        view_type.add_template_param(dtype_type)
+
+        return view_type
 
     def error(self, node: ast.AST, message: str):
         visitors_util.error(self.src, self.debug, node, message)
