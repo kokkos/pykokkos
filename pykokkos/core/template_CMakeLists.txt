@@ -1,0 +1,164 @@
+cmake_minimum_required(VERSION 3.18)
+
+# Enable CUDA/HIP if needed
+if(ENABLE_CUDA)
+    project(PyKokkosModule CXX CUDA)
+elseif(ENABLE_HIP)
+    project(PyKokkosModule CXX HIP)
+else()
+    project(PyKokkosModule CXX)
+endif()
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD ${CXX_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Release build optimizations
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Find Python
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+# Find pybind11
+find_package(pybind11 CONFIG REQUIRED)
+
+# Find source files
+file(GLOB SOURCE_FILES "*.cpp")
+
+# Create the Python extension module
+add_library(${MODULE_NAME} SHARED ${SOURCE_FILES})
+
+# Python extension module properties
+set_target_properties(${MODULE_NAME} PROPERTIES
+    PREFIX ""  # No 'lib' prefix
+    POSITION_INDEPENDENT_CODE ON
+)
+
+# Platform-specific suffix for Python extension modules
+if(WIN32)
+    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".pyd")
+else()
+    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".so")
+endif()
+
+# Include directories
+target_link_libraries(${MODULE_NAME} PRIVATE pybind11::headers)
+target_include_directories(${MODULE_NAME} PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+target_include_directories(${MODULE_NAME} SYSTEM PRIVATE ${KOKKOS_INCLUDE_PATH})
+
+# Compiler definitions for PyKokkos
+target_compile_definitions(${MODULE_NAME} PRIVATE
+    SPACE="${EXEC_SPACE}"
+    pk_arg_memspace="${PK_ARG_MEMSPACE}"
+    pk_arg_layout="${PK_ARG_LAYOUT}"
+    pk_exec_space="Kokkos::${EXEC_SPACE}"
+    pk_real="${PK_REAL}"
+)
+
+# Optimization flags
+target_compile_options(${MODULE_NAME} PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-O3>
+    $<$<CXX_COMPILER_ID:MSVC>:/O2>
+)
+
+# CPU-specific optimizations (only for non-GPU builds)
+if(NOT ENABLE_CUDA AND NOT ENABLE_HIP)
+    target_compile_options(${MODULE_NAME} PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-march=native>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-mtune=native>
+    )
+endif()
+
+# OpenMP support
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+# CUDA-specific settings
+if(ENABLE_CUDA)
+    set_target_properties(${MODULE_NAME} PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_STANDARD ${CXX_STANDARD}
+    )
+    target_compile_options(${MODULE_NAME} PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda>
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=${COMPUTE_CAPABILITY}>
+    )
+    # Pass host compiler flags to CUDA
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${MODULE_NAME} PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-march=native>
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mtune=native>
+        )
+    endif()
+endif()
+
+# HIP-specific settings
+if(ENABLE_HIP)
+    target_compile_options(${MODULE_NAME} PRIVATE
+        -fno-gpu-rdc
+    )
+endif()
+
+# Find Kokkos libraries
+# Try to find Kokkos package first, then fall back to manual library finding
+if(KOKKOS_LIB_PATH)
+    # Manual library specification (for custom Kokkos installations)
+    find_library(KOKKOS_CORE_LIB
+        NAMES kokkoscore${LIB_SUFFIX}
+        PATHS ${KOKKOS_LIB_PATH}
+        NO_DEFAULT_PATH
+        REQUIRED
+    )
+    
+    find_library(KOKKOS_CONTAINERS_LIB
+        NAMES kokkoscontainers${LIB_SUFFIX}
+        PATHS ${KOKKOS_LIB_PATH}
+        NO_DEFAULT_PATH
+        REQUIRED
+    )
+    
+    # Link libraries
+    target_link_libraries(${MODULE_NAME} PRIVATE
+        ${KOKKOS_CONTAINERS_LIB}
+        ${KOKKOS_CORE_LIB}
+    )
+    
+    # Set RPATH/RUNPATH for runtime library location
+    if(APPLE)
+        set_target_properties(${MODULE_NAME} PROPERTIES
+            BUILD_RPATH "${KOKKOS_LIB_PATH}"
+            INSTALL_RPATH "${KOKKOS_LIB_PATH}"
+            INSTALL_NAME_DIR "${KOKKOS_LIB_PATH}"
+        )
+    elseif(UNIX AND NOT WIN32)
+        set_target_properties(${MODULE_NAME} PROPERTIES
+            BUILD_RPATH "${KOKKOS_LIB_PATH}"
+            INSTALL_RPATH "${KOKKOS_LIB_PATH}"
+            BUILD_RPATH_USE_ORIGIN ON
+        )
+    elseif(WIN32)
+        # On Windows, DLLs need to be in PATH or same directory
+        if(EXISTS "${KOKKOS_CORE_LIB}" AND EXISTS "${KOKKOS_CONTAINERS_LIB}")
+            add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${KOKKOS_CORE_LIB}"
+                    "$<TARGET_FILE_DIR:${MODULE_NAME}>"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${KOKKOS_CONTAINERS_LIB}"
+                    "$<TARGET_FILE_DIR:${MODULE_NAME}>"
+                COMMENT "Copying Kokkos DLLs to output directory"
+            )
+        endif()
+    endif()
+else()
+    # Try to find Kokkos via CMake package config
+    find_package(Kokkos REQUIRED)
+    target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore Kokkos::kokkoscontainers)
+endif()

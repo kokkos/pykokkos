@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from pathlib import Path
 import shutil
@@ -31,8 +32,8 @@ class CppSetup:
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
 
-        self.script: str = "compile.sh"
-        self.script_path: Path = Path(__file__).resolve().parent / self.script
+        self.cmake_template: str = "template_CMakeLists.txt"
+        self.cmake_template_path: Path = Path(__file__).resolve().parent / self.cmake_template
 
         self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
@@ -60,8 +61,8 @@ class CppSetup:
 
         self.initialize_directory(output_dir)
         self.write_raw_source(output_dir, source, filename)
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(output_dir, space, enable_uvm, compiler)
+        self.invoke_cmake(output_dir, cmake_args, module_name)
 
     def compile(
         self,
@@ -100,8 +101,8 @@ class CppSetup:
             bindings,
             bindings_filename,
         )
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(output_dir, space, enable_uvm, compiler)
+        self.invoke_cmake(output_dir, cmake_args, module_name)
         if (
             space in {ExecutionSpace.Cuda, ExecutionSpace.HIP}
             and km.is_multi_gpu_enabled()
@@ -173,19 +174,81 @@ class CppSetup:
             except Exception as ex:
                 print(f"Exception while formatting cpp: {ex}")
 
-    def copy_script(self, output_dir: Path) -> None:
+    def generate_cmake(
+        self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str
+    ) -> Tuple[List[str], str]:
         """
-        Copy the compilation script to the output directory
+        Copy CMakeLists.txt template and prepare CMake configuration variables
 
         :param output_dir: the base directory
+        :param space: the execution space of the workload
+        :param enable_uvm: whether to enable CudaUVMSpace
+        :param compiler: what compiler to use
+        :returns: tuple of (cmake_args, module_name)
         """
 
-        file_path: Path = output_dir / "compile.sh"
+        view_space: str = "Kokkos::HostSpace"
+        if space is ExecutionSpace.Cuda:
+            if enable_uvm:
+                view_space = "Kokkos::CudaUVMSpace"
+        if space is ExecutionSpace.HIP:
+            if enable_uvm:
+                view_space = "Kokkos::Experimental::HIPManagedSpace"
+
+        space_value: str
+        if space.value == "HIP":
+            space_value = "Experimental::HIP"
+        else:
+            space_value = space.value
+
+        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
+        view_layout = view_layout.split(".")[-1]
+        view_layout = f"Kokkos::{view_layout}"
+
+        precision: str = km.get_default_precision().__name__.split(".")[-1]
+        lib_path: Path
+        include_path: Path
+        compiler_path: Path
+        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
+        compute_capability: str = self.get_cuda_compute_capability(compiler)
+        lib_suffix: str = self.get_kokkos_lib_suffix(space)
+
+        # Get C++ standard from Kokkos config
+        cxx_standard = self.get_cxx_standard(include_path)
+
+        # Copy the CMakeLists.txt template to output directory
+        cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
-            shutil.copy(self.script_path, file_path)
+            shutil.copy(self.cmake_template_path, cmake_file)
         except Exception as ex:
-            print(f"Exception while copying views and makefile: {ex}")
+            print(f"Exception while copying CMakeLists.txt template: {ex}")
             sys.exit(1)
+
+        # Remove the .so extension from module file name for CMake target
+        module_name = self.module_file.replace(".so", "").replace(".pyd", "")
+
+        # Build CMake configuration arguments
+        cmake_args = [
+            f"-DMODULE_NAME={module_name}",
+            f"-DCXX_STANDARD={cxx_standard}",
+            f"-DEXEC_SPACE={space_value}",
+            f"-DPK_ARG_MEMSPACE={view_space}",
+            f"-DPK_ARG_LAYOUT={view_layout}",
+            f"-DPK_REAL={precision}",
+            f"-DKOKKOS_LIB_PATH={lib_path}",
+            f"-DKOKKOS_INCLUDE_PATH={include_path}",
+            f"-DLIB_SUFFIX={lib_suffix}",
+        ]
+
+        # Add backend-specific flags
+        if compiler == "nvcc":
+            cmake_args.append("-DENABLE_CUDA=ON")
+            if compute_capability:
+                cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
+        elif compiler == "hipcc":
+            cmake_args.append("-DENABLE_HIP=ON")
+
+        return cmake_args, module_name
 
     def get_kokkos_paths(
         self, space: ExecutionSpace, compiler: str
@@ -295,80 +358,110 @@ class CppSetup:
 
         return f"_{km.get_device_id()}"
 
-    def invoke_script(
-        self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str
-    ) -> None:
+    def get_cxx_standard(self, include_path: Path) -> str:
         """
-        Invoke the compilation script
+        Extract the C++ standard from KokkosCore_config.h
 
-        :param output_dir: the base directory
-        :param space: the execution space of the workload
-        :param enable_uvm: whether to enable CudaUVMSpace
-        :param compiler: what compiler to use
+        :param include_path: path to Kokkos include directory
+        :returns: the C++ standard as a string (e.g., "17")
+        """
+        
+        try:
+            # Try to extract CXX standard from KokkosCore_config.h
+            result = subprocess.run(
+                [
+                    "g++",
+                    "-dM",
+                    "-E",
+                    "-DKOKKOS_MACROS_HPP",
+                    str(include_path / "KokkosCore_config.h"),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if "KOKKOS_ENABLE_CXX" in line:
+                        # Extract the last two digits (e.g., "17" from "KOKKOS_ENABLE_CXX17")
+                        parts = line.strip().split()
+                        if len(parts) >= 2:
+                            macro_name = parts[1]
+                            # Extract digits from the end
+                            cxx_std = ''.join(filter(str.isdigit, macro_name))[-2:]
+                            if cxx_std:
+                                return cxx_std
+        except Exception:
+            pass
+        
+        # Default to C++17 if detection fails
+        return "17"
+
+    def invoke_cmake(self, output_dir: Path, cmake_args: List[str], module_name: str) -> None:
+        """
+        Invoke CMake to configure and build the project
+
+        :param output_dir: the base directory containing CMakeLists.txt
+        :param cmake_args: list of CMake configuration arguments
+        :param module_name: the name of the module being built
         """
 
-        view_space: str = "Kokkos::HostSpace"
-        if space is ExecutionSpace.Cuda:
-            if enable_uvm:
-                view_space = "Kokkos::CudaUVMSpace"
-        if space is ExecutionSpace.HIP:
-            if enable_uvm:
-                view_space = "Kokkos::Experimental::HIPManagedSpace"
+        # Create build directory
+        build_dir = output_dir / "build"
+        try:
+            os.makedirs(build_dir, exist_ok=True)
+        except FileExistsError:
+            pass
 
-        space_value: str
-        if space.value == "HIP":
-            space_value = "Experimental::HIP"
-        else:
-            space_value = space.value
-
-        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
-        view_layout = view_layout.split(".")[-1]
-        view_layout = f"Kokkos::{view_layout}"
-
-        precision: str = km.get_default_precision().__name__.split(".")[-1]
-        lib_path: Path
-        include_path: Path
-        compiler_path: Path
-        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
-        compute_capability: str = self.get_cuda_compute_capability(compiler)
-        lib_suffix: str = self.get_kokkos_lib_suffix(space)
-
-        command: List[str] = [
-            f"./{self.script}",
-            compiler,  # What compiler to use
-            self.module_file,  # Compilation target
-            space_value,  # Execution space
-            view_space,  # Argument views memory space
-            view_layout,  # Argument views memory layout
-            precision,  # Default real precision
-            str(lib_path),  # Path to Kokkos install lib/ directory
-            str(include_path),  # Path to Kokkos install include/ directory
-            compute_capability,  # Device compute capability
-            lib_suffix,  # The libkokkos* suffix identifying the gpu
-            str(compiler_path),
-        ]  # The path to the compiler to use
-        compile_result = subprocess.run(
-            command, cwd=output_dir, capture_output=True, check=False
+        # Run CMake configuration with arguments
+        cmake_config_cmd = ["cmake", ".."] + cmake_args
+        config_result = subprocess.run(
+            cmake_config_cmd, cwd=build_dir, capture_output=True, check=False
         )
 
-        if compile_result.returncode != 0:
-            print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed")
+        if config_result.returncode != 0:
+            print(config_result.stderr.decode("utf-8"))
+            print(f"CMake configuration in {output_dir} failed")
             sys.exit(1)
 
-        patchelf: List[str] = [
-            "patchelf",
-            "--set-rpath",
-            str(lib_path),
-            self.module_file,
-        ]
-
-        patchelf_result = subprocess.run(
-            patchelf, cwd=output_dir, capture_output=True, check=False
+        # Run CMake build with parallel jobs
+        num_jobs = multiprocessing.cpu_count()
+        cmake_build_cmd = ["cmake", "--build", ".", "--config", "Release", "-j", str(num_jobs)]
+        build_result = subprocess.run(
+            cmake_build_cmd, cwd=build_dir, capture_output=True, check=False
         )
-        if patchelf_result.returncode != 0:
-            print(patchelf_result.stderr.decode("utf-8"))
-            print(f"patchelf failed")
+
+        if build_result.returncode != 0:
+            print(build_result.stderr.decode("utf-8"))
+            print(f"CMake build in {output_dir} failed")
+            sys.exit(1)
+
+        # Move the compiled module from build directory to output directory
+        # Look for .so, .pyd, or .dylib files
+        module_patterns = [
+            f"{module_name}*.so",
+            f"{module_name}*.pyd",
+            f"{module_name}*.dylib",
+        ]
+        
+        compiled_module = None
+        for pattern in module_patterns:
+            module_files = list(build_dir.glob(pattern))
+            if module_files:
+                compiled_module = module_files[0]
+                break
+        
+        if not compiled_module:
+            print(f"Compiled module not found in {build_dir}")
+            sys.exit(1)
+
+        target_module = output_dir / self.module_file
+
+        try:
+            shutil.move(str(compiled_module), str(target_module))
+        except Exception as ex:
+            print(f"Exception while moving compiled module: {ex}")
             sys.exit(1)
 
     def copy_multi_gpu_kernel(self, output_dir: Path) -> None:
