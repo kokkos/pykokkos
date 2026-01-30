@@ -133,7 +133,7 @@ class Parser:
         check_entity: Callable[[ast.stmt], bool]
 
         if style is PyKokkosStyles.workload:
-            check_entity = self.is_workload
+            return entities
         elif style is PyKokkosStyles.functor:
             check_entity = self.is_functor
         elif style is PyKokkosStyles.workunit:
@@ -450,17 +450,6 @@ class Parser:
 
         return False
 
-    @staticmethod
-    def is_workload(node: ast.stmt, pk_import: str) -> bool:
-        """
-        Checks if an ast node is a a PyKokkos workload
-        Note: The workload decorator has been removed. This always returns False.
-
-        :param node: the node being checked
-        :param pk_import: the identifier used to access the PyKokkos package
-        :returns: false (workload decorator is no longer supported)
-        """
-        return False
 
     @staticmethod
     def is_functor(node: ast.stmt, pk_import: str) -> bool:
