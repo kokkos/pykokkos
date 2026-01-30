@@ -450,7 +450,6 @@ class Parser:
 
         return False
 
-
     @staticmethod
     def is_functor(node: ast.stmt, pk_import: str) -> bool:
         """

@@ -392,9 +392,7 @@ def generate_wrapper(
     :returns: the wrapper source
     """
 
-    params: Dict[str, str] = get_kernel_params(
-        members, is_hierarchical(workunit), real
-    )
+    params: Dict[str, str] = get_kernel_params(members, is_hierarchical(workunit), real)
     return_type: str = get_return_type(operation, workunit)
 
     args: List[str] = []
