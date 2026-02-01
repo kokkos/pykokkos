@@ -1,3 +1,4 @@
+import cupy as cp
 import pykokkos as pk
 
 
@@ -33,9 +34,10 @@ def main():
     team_size = 32
     num_teams = (N + team_size - 1) // team_size
 
-    view = pk.View([N], pk.int32)
+    view = cp.zeros(N, dtype=cp.int32)
+    view_pk = pk.array(view)
     p_init = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, N)
-    pk.parallel_for(p_init, init_data, view=view)
+    pk.parallel_for(p_init, init_data, view=view_pk)
 
     print(f"Total elements: {N}, Team size: {team_size}, Number of teams: {num_teams}")
 
@@ -47,7 +49,7 @@ def main():
     team_policy.set_scratch_size(0, pk.PerTeam(scratch_size))
 
     print("Running kernel...")
-    pk.parallel_for(team_policy, team_scan, view=view)
+    pk.parallel_for(team_policy, team_scan, view=view_pk)
     print(f"View, splitted by two groups of size = {team_size}")
     print(view)
 
