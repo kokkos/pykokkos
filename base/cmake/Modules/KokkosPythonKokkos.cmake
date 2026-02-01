@@ -83,30 +83,71 @@ IF(_INTERNAL_KOKKOS)
     SET(OpenMP_FOUND OFF)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
+    SET(HIP_FOUND OFF)
 
-    IF(NOT Kokkos_ENABLE_THREADS)
+    # Enable OpenMP if explicitly requested
+    IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
         FIND_PACKAGE(OpenMP QUIET)
-    ENDIF()
-
-    IF(NOT DEFINED Kokkos_ENABLE_THREADS AND NOT OpenMP_FOUND)
+    # If Threads is explicitly requested, find it
+    ELSEIF((DEFINED ENABLE_THREADS AND ENABLE_THREADS) OR (DEFINED Kokkos_ENABLE_THREADS AND Kokkos_ENABLE_THREADS))
         FIND_PACKAGE(Threads QUIET)
+    ELSE()
+        # if none requested - check what's available and prefer OpenMP
+        FIND_PACKAGE(OpenMP QUIET)
+        IF(NOT OpenMP_FOUND)
+            FIND_PACKAGE(Threads QUIET)
+        ENDIF()
     ENDIF()
 
-    IF(NOT DEFINED Kokkos_ENABLE_CUDA)
-        FIND_PACKAGE(CUDA QUIET)
+    # Only search for CUDA if explicitly enabled
+    IF((DEFINED ENABLE_CUDA AND ENABLE_CUDA) OR (DEFINED Kokkos_ENABLE_CUDA AND Kokkos_ENABLE_CUDA))
+        FIND_PACKAGE(CUDAToolkit QUIET)
+        IF(CUDAToolkit_FOUND)
+            FOREACH(INCLUDE_DIR ${CUDAToolkit_INCLUDE_DIRS})
+                SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${INCLUDE_DIR}")
+                SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -I${INCLUDE_DIR}")
+            ENDFOREACH()
+            SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "Flags used by the C++ compiler" FORCE)
+            SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}" CACHE STRING "Flags used by the CUDA compiler" FORCE)
+        ENDIF()
+
+        ENABLE_LANGUAGE(CUDA)
+        IF(CUDAToolkit_FOUND)
+            INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
+            GET_FILENAME_COMPONENT(CUDA_TOOLKIT_ROOT "${CUDAToolkit_BIN_DIR}" DIRECTORY)
+            SET(Kokkos_CUDA_DIR "${CUDA_TOOLKIT_ROOT}" CACHE PATH "CUDA installation directory" FORCE)
+        ENDIF()
+        SET(CUDA_FOUND ON)
+    ENDIF()
+
+    # search for HIP if explicitly enabled
+    IF((DEFINED ENABLE_HIP AND ENABLE_HIP) OR (DEFINED Kokkos_ENABLE_HIP AND Kokkos_ENABLE_HIP))
+        INCLUDE(CheckLanguage)
+        CHECK_LANGUAGE(HIP)
+        
+        IF(CMAKE_HIP_COMPILER)
+            ENABLE_LANGUAGE(HIP)
+            SET(HIP_FOUND ON)
+        ENDIF()
     ENDIF()
 
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
-    ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
-    ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" ${Threads_FOUND})
-    ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" ${CUDA_FOUND})
-
-    # if OpenMP defaulted to ON but Kokkos_ENABLE_THREADS was explicitly set,
-    # disable OpenMP defaulting to ON
-    IF(ENABLE_OPENMP AND Kokkos_ENABLE_THREADS)
-        SET(ENABLE_OPENMP OFF)
-        SET(Kokkos_ENABLE_OPENMP OFF)
+    # If OpenMP was explicitly requested, use that; otherwise use auto-detection result
+    IF((DEFINED ENABLE_OPENMP AND ENABLE_OPENMP) OR (DEFINED Kokkos_ENABLE_OPENMP AND Kokkos_ENABLE_OPENMP))
+        ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ON)
+    ELSE()
+        ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
     ENDIF()
+    # Only enable Threads if OpenMP is not available
+    IF(OpenMP_FOUND)
+        ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" OFF)
+    ELSE()
+        ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" ${Threads_FOUND})
+    ENDIF()
+    # CUDA must be explicitly enabled - default to OFF
+    ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" OFF)
+    # HIP must be explicitly enabled - default to OFF
+    ADD_OPTION(ENABLE_HIP "Enable HIP when building Kokkos submodule" OFF)
 
     # always disable pthread backend since pthreads are not supported on Windows
     IF(WIN32)
@@ -134,26 +175,32 @@ IF(_INTERNAL_KOKKOS)
         SET(ENABLE_CUDA ${Kokkos_ENABLE_CUDA})
     ENDIF()
 
+    # make sure this pykokkos-base option is synced to Kokkos option
+    IF(DEFINED Kokkos_ENABLE_HIP)
+        SET(ENABLE_HIP ${Kokkos_ENABLE_HIP})
+    ENDIF()
+
     # define the kokkos option as default and/or get it to display
     IF(ENABLE_SERIAL)
         ADD_OPTION(Kokkos_ENABLE_SERIAL "Build Kokkos submodule with serial support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_OPENMP)
         ADD_OPTION(Kokkos_ENABLE_OPENMP "Build Kokkos submodule with OpenMP support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_THREADS)
         ADD_OPTION(Kokkos_ENABLE_THREADS "Build Kokkos submodule with Pthread support" ON)
     ENDIF()
 
-    # define the kokkos option as default and/or get it to display
     IF(ENABLE_CUDA)
         ADD_OPTION(Kokkos_ENABLE_CUDA "Build Kokkos submodule with CUDA support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
+    ENDIF()
+
+    IF(ENABLE_HIP)
+        ADD_OPTION(Kokkos_ENABLE_HIP "Build Kokkos submodule with HIP support" ON)
     ENDIF()
 
     # Check if we should use submodule or FetchContent

@@ -63,7 +63,7 @@ jobs:
           -DPython3_EXECUTABLE=$(which python) \
           ${{github.workspace}}/base
 
-    - name: Build
+    - name: Build base
       run:
         cmake --build ${{github.workspace}}/base/build --target all --parallel 2 &&
         sudo cmake --build ${{github.workspace}}/base/build --target install --parallel 2
@@ -124,7 +124,7 @@ jobs:
           /tmp/kokkos-source &&
         cmake --build /tmp/kokkos-build --target all --parallel 2 &&
         sudo cmake --build /tmp/kokkos-build --target install --parallel 2
-    - name: Build
+    - name: Build base
       run: |
         CMAKE_BUILD_PARALLEL_LEVEL=2 PYKOKKOS_BASE_SETUP_ARGS="-DENABLE_WERROR=ON -DENABLE_MEMORY_TRAITS=ON -DENABLE_LAYOUTS=ON -DENABLE_VIEW_RANKS=2 -DCMAKE_CXX_STANDARD=17 -DKokkos_ENABLE_THREADS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF" \
           python -m pip install -v --user --no-deps .
@@ -187,7 +187,7 @@ jobs:
           -DPython3_EXECUTABLE=$(which python) \
           ${{github.workspace}}
 
-    - name: Build
+    - name: Build base
       run:
         cmake --build ${{github.workspace}}/build --target all --parallel 2 &&
         sudo cmake --build ${{github.workspace}}/build --target install --parallel 2
