@@ -1,4 +1,3 @@
-import numpy as np
 import pykokkos as pk
 
 
@@ -34,13 +33,14 @@ def main():
     team_size = 32
     num_teams = (N + team_size - 1) // team_size
 
-    view = np.zeros([N], dtype=np.int32)
-    p_init = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
+    view = pk.View([N], pk.int32)
+    p_init = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, N)
     pk.parallel_for(p_init, init_data, view=view)
 
     print(f"Total elements: {N}, Team size: {team_size}, Number of teams: {num_teams}")
 
-    team_policy = pk.TeamPolicy(pk.ExecutionSpace.OpenMP, num_teams, team_size)
+    # Use TeamPolicy
+    team_policy = pk.TeamPolicy(pk.ExecutionSpace.Cuda, num_teams, team_size)
 
     # Set scratch size for current team policy
     scratch_size = pk.ScratchView1D[int].shmem_size(team_size)
