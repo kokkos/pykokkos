@@ -52,8 +52,7 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
     """
     from pykokkos.interface.hierarchical import PerTeam
 
-    if (not hasattr(workunit, "_pk_scratch") or 
-        policy.scratch_size_level is not None):
+    if not hasattr(workunit, "_pk_scratch") or policy.scratch_size_level is not None:
         return
 
     scratch_specs = workunit._pk_scratch
