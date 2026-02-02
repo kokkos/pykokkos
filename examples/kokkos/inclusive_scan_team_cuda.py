@@ -8,9 +8,8 @@ def init_data(i: int, view):
 
 
 # Test inclusive_scan with scratch memory
-@pk.workunit
-def team_scan(team_member: pk.TeamMember, view):
-    team_size: int = team_member.team_size()
+@pk.workunit(scratch=[(int, lambda p: p.team_size)])
+def team_scan(team_member: pk.TeamMember, view, team_size):
     offset: int = team_member.league_rank() * team_size
     localIdx: int = team_member.team_rank()
     globalIdx: int = offset + localIdx
@@ -44,12 +43,8 @@ def main():
     # Use TeamPolicy
     team_policy = pk.TeamPolicy(pk.ExecutionSpace.Cuda, num_teams, team_size)
 
-    # Set scratch size for current team policy
-    scratch_size = pk.ScratchView1D[int].shmem_size(team_size)
-    team_policy.set_scratch_size(0, pk.PerTeam(scratch_size))
-
     print("Running kernel...")
-    pk.parallel_for(team_policy, team_scan, view=view_pk)
+    pk.parallel_for(team_policy, team_scan, view=view_pk, team_size=team_size)
     print(f"View, splitted by two groups of size = {team_size}")
     print(view)
 
