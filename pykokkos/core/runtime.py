@@ -42,6 +42,56 @@ from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
+def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None:
+    """
+    Apply scratch specification from the workunit decorator to the policy.
+
+    :param workunit: the workunit function with potential scratch specification
+    :param policy: the TeamPolicy to which scratch should be applied
+    :param kwargs: keyword arguments passed to the workunit (for size calculation)
+    """
+    from pykokkos.interface.hierarchical import PerTeam
+
+    if not hasattr(workunit, "_pk_scratch") or policy.scratch_size_level is not None:
+        return
+
+    scratch_specs = workunit._pk_scratch
+    if not isinstance(scratch_specs, list) or not scratch_specs:
+        return
+
+    # Temporarily add kwargs as policy attributes for lambda access
+    temp_attrs = {}
+    for key, value in kwargs.items():
+        if isinstance(value, (int, np.integer)):
+            if not hasattr(policy, key):
+                temp_attrs[key] = None
+                setattr(policy, key, int(value))
+
+    try:
+        total_scratch_size = 0
+
+        for dtype, size_func in scratch_specs:
+            if dtype == int:
+                element_size = np.dtype(np.int32).itemsize
+            elif dtype == float:
+                element_size = np.dtype(np.float64).itemsize
+            elif hasattr(dtype, "itemsize"):
+                element_size = dtype.itemsize
+            else:
+                element_size = 8
+
+            num_elements = size_func(policy)
+            total_scratch_size += element_size * num_elements
+
+        if total_scratch_size > 0:
+            policy.set_scratch_size(0, PerTeam(total_scratch_size))
+
+    finally:
+        for key in temp_attrs:
+            if temp_attrs[key] is None:
+                delattr(policy, key)
+
+
 class Runtime:
     """
     Executes (and optionally compiles) PyKokkos workloads
@@ -208,6 +258,10 @@ class Runtime:
         :param kwargs: the keyword arguments passed to the workunit
         :returns: the result of the operation (None for parallel_for)
         """
+
+        # Apply scratch specification from decorator if present and policy is TeamPolicy
+        if isinstance(policy, TeamPolicy) and not isinstance(workunit, list):
+            apply_scratch_spec(workunit, policy, **kwargs)
 
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
