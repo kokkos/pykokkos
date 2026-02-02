@@ -42,6 +42,30 @@ from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
+def _calculate_aligned_scratch_size(dtype, num_elements: int, alignment: int = 8) -> int:
+    """
+    Calculate aligned scratch size for a given dtype and element count
+
+    :param dtype: the data type (int, float, or numpy dtype with itemsize)
+    :param num_elements: number of elements
+    :param alignment: alignment requirement in bytes (default 8 to match Kokkos)
+    :returns: aligned size in bytes
+    """
+    if dtype == int:
+        element_size = np.dtype(np.int32).itemsize
+    elif dtype == float:
+        element_size = np.dtype(np.float64).itemsize
+    elif hasattr(dtype, "itemsize"):
+        element_size = dtype.itemsize
+    else:
+        element_size = 8
+
+    raw_size = element_size * num_elements
+    # Align to match Kokkos requirement (same as ScratchView.shmem_size)
+    aligned_size = ((raw_size + alignment - 1) // alignment) * alignment
+    return aligned_size
+
+
 def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None:
     """
     Apply scratch specification from the workunit decorator to the policy.
@@ -71,20 +95,12 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
         total_scratch_size = 0
 
         for dtype, size_func in scratch_specs:
-            if dtype == int:
-                element_size = np.dtype(np.int32).itemsize
-            elif dtype == float:
-                element_size = np.dtype(np.float64).itemsize
-            elif hasattr(dtype, "itemsize"):
-                element_size = dtype.itemsize
-            else:
-                element_size = 8
-
             num_elements = size_func(policy)
-            total_scratch_size += element_size * num_elements
+            total_scratch_size += _calculate_aligned_scratch_size(dtype, num_elements)
 
         if total_scratch_size > 0:
-            policy.set_scratch_size(0, PerTeam(total_scratch_size))
+            policy.scratch_size_level = 0
+            policy.scratch_size_value = PerTeam(total_scratch_size)
 
     finally:
         for key in temp_attrs:
