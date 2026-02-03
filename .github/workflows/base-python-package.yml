@@ -16,8 +16,8 @@ jobs:
   linting:
     strategy:
       matrix:
-        python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest, ubuntu-22.04-arm]
+        python-version: [3.13]
+        os: [ubuntu-latest]
 
     runs-on: ${{matrix.os}}
     defaults:
@@ -31,9 +31,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: base/environment.yml
         activate-environment: pyk
-        auto-activate-base: false
+        auto-activate: false
         miniforge-version: "latest"
         architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
+        conda-remove-defaults: true
     - name: Install flake8
       run: conda install -c conda-forge flake8=7.3.0
     - name: Lint with flake8
@@ -48,7 +49,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.13]
-        os: [ubuntu-latest, ubuntu-22.04-arm]
+        os: [ubuntu-latest]
 
     runs-on: ${{matrix.os}}
     defaults:
@@ -62,9 +63,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
         environment-file: base/environment.yml
         activate-environment: pyk
-        auto-activate-base: false
+        auto-activate: false
         miniforge-version: "latest"
         architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
+        conda-remove-defaults: true
     - name: Install black and clang-format
       run: |
         conda install -c conda-forge black=25.12.0

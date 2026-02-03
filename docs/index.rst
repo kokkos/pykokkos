@@ -52,6 +52,7 @@ interest to those already familiar with the Kokkos framework.
    policies
    workunits
    ndarrays
+   fusion
    examples
 
 ..

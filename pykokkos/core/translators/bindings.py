@@ -58,7 +58,6 @@ def get_view_memory_space(view_type: cppast.ClassType, location: str) -> str:
 def get_kernel_params(
     members: PyKokkosMembers,
     is_hierarchical: bool,
-    is_workload: bool,
     real: Optional[str],
 ) -> Dict[str, str]:
     """
@@ -88,19 +87,18 @@ def get_kernel_params(
 
     params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
 
-    if not is_workload:
-        params[Keywords.KernelName.value] = "const std::string&"
+    params[Keywords.KernelName.value] = "const std::string&"
 
-        if is_hierarchical:
-            params[Keywords.LeagueSize.value] = "int"
-            params[Keywords.TeamSize.value] = "int"
-            params[Keywords.VectorLength.value] = "int"
-            params[Keywords.ScratchSizeLevel.value] = "int"
-            params[Keywords.ScratchSizeValue.value] = "int"
-            params[Keywords.ScratchSizeIsPerTeam.value] = "bool"
-        else:
-            params[Keywords.ThreadsBegin.value] = "int"
-            params[Keywords.ThreadsEnd.value] = "int"
+    if is_hierarchical:
+        params[Keywords.LeagueSize.value] = "int"
+        params[Keywords.TeamSize.value] = "int"
+        params[Keywords.VectorLength.value] = "int"
+        params[Keywords.ScratchSizeLevel.value] = "int"
+        params[Keywords.ScratchSizeValue.value] = "int"
+        params[Keywords.ScratchSizeIsPerTeam.value] = "bool"
+    else:
+        params[Keywords.ThreadsBegin.value] = "int"
+        params[Keywords.ThreadsEnd.value] = "int"
 
     params[Keywords.RandPoolSeed.value] = "int"
     params[Keywords.RandPoolNumStates.value] = "int"
@@ -394,10 +392,7 @@ def generate_wrapper(
     :returns: the wrapper source
     """
 
-    is_workload: bool = True if operation == "workload" else False
-    params: Dict[str, str] = get_kernel_params(
-        members, is_hierarchical(workunit), is_workload, real
-    )
+    params: Dict[str, str] = get_kernel_params(members, is_hierarchical(workunit), real)
     return_type: str = get_return_type(operation, workunit)
 
     args: List[str] = []
@@ -444,7 +439,7 @@ def generate_kernel(
     """
 
     hierarchical: bool = is_hierarchical(workunit)
-    params: Dict[str, str] = get_kernel_params(members, hierarchical, False, real)
+    params: Dict[str, str] = get_kernel_params(members, hierarchical, real)
     return_type: str = get_return_type(operation, workunit)
     signature: str = generate_kernel_signature(return_type, kernel, params)
 
@@ -643,7 +638,7 @@ def bind_main_single(
         functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     main: List[str] = translate_mains(source, functor, members, pk_import)
-    params: Dict[str, str] = get_kernel_params(members, False, True, real)
+    params: Dict[str, str] = get_kernel_params(members, False, real)
 
     # fall back to the old hard-coded default
     # for now--this includes cases where an

@@ -1,29 +1,27 @@
 import pykokkos as pk
 
 
-@pk.workload
-class AddOne:
-    def __init__(self, n):
-        self.N: int = n
-        self.a: pk.View1D[pk.int32] = pk.View([n], pk.int32)
+@pk.workunit
+def add1(i: int, a: pk.View1D[pk.int32]):
+    a[i] += 1
 
-        for i in range(self.N):
-            self.a[i] = 2
-        print(f"Initialized view: [{self.a[0]}, ... repeats {n-1} times]")
 
-    @pk.main
-    def run(self):
-        pk.parallel_for(self.N, self.add1)
+def main():
+    n: int = 100 * 1000
+    N: int = n
+    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
-    @pk.callback
-    def results(self):
-        print(f"Results: [{self.a[0]}, ... repeats {n-1} times]")
+    a: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 
-    @pk.workunit
-    def add1(self, i: int):
-        self.a[i] += 1
+    # Initialize the view
+    for i in range(N):
+        a[i] = 2
+    print(f"Initialized view: [{a[0]}, ... repeats {n-1} times]")
+
+    pk.parallel_for(N, add1, a=a)
+
+    print(f"Results: [{a[0]}, ... repeats {n-1} times]")
 
 
 if __name__ == "__main__":
-    n = 100 * 1000
-    pk.execute(pk.ExecutionSpace.OpenMP, AddOne(n))
+    main()
