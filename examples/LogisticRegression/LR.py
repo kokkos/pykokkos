@@ -273,7 +273,7 @@ def _logistic_regression_path(
 
     _, n_features = X.shape
 
-    classes = pk.unique(y)
+    classes = np.unique(y)
 
     random_state = check_random_state(random_state)
 
@@ -333,8 +333,8 @@ def _logistic_regression_path(
             lbin = LabelBinarizer()
             Y_multi = asarray(lbin.fit_transform(y))
             if Y_multi.shape[1] == 1:
-                Y_multi = pk.hstack(
-                    pk.negative(pk.subtract(Y_multi, asarray([1]))), Y_multi
+                Y_multi = np.hstack(
+                    np.negative(np.subtract(Y_multi, asarray([1]))), Y_multi
                 )
 
         w0 = pk.zeros((classes.size, n_features + int(fit_intercept)), dtype=X.dtype)
@@ -397,7 +397,7 @@ def _logistic_regression_path(
             func = loss.loss
             grad = loss.gradient
             hess = loss.gradient_hessian_product  # hess = [gradient, hessp]
-        warm_start_sag = {"coef": pk.transpose(w0)}
+        warm_start_sag = {"coef": np.transpose(np.array(w0))}
     else:
         target = y_bin
         if solver == "lbfgs":
@@ -471,7 +471,7 @@ def _logistic_regression_path(
             )
             coef_ = asarray(coef_)
             if fit_intercept:
-                w0 = pk.hstack(pk.ravel(coef_), intercept_)
+                w0 = np.hstack(pk.ravel(coef_), intercept_)
             else:
                 w0 = pk.ravel(coef_)
 
@@ -862,7 +862,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
 
         X = asarray(X)
         y = asarray(y)
-        self.classes_ = pk.unique(y)
+        self.classes_ = np.unique(np.array(y))
 
         multi_class = _check_multi_class(self.multi_class, solver, len(self.classes_))
 
@@ -1024,7 +1024,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             if decision.ndim == 1:
                 # Workaround for multi_class="multinomial" and binary outcomes
                 # which requires softmax prediction with only a 1D decision.
-                decision_2d = pk.hstack(pk.negative(decision), decision)
+                decision_2d = np.hstack((np.negative(decision), decision))
             else:
                 decision_2d = decision
             return softmax(decision_2d, copy=False)
@@ -1045,7 +1045,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             Returns the log-probability of the sample for each class in the
             model, where classes are ordered as they are in ``self.classes_``.
         """
-        return pk.log(self.predict_proba(X))
+        return np.log(self.predict_proba(X))
 
     def predict(self, X):
         """
@@ -1065,7 +1065,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         else:
             indices = scores.argmax(axis=1)
 
-        return pk.index(self.classes_, asarray(indices, dtype=pk.int32))
+        return self.classes_[np.array(indices, dtype=np.int32)]
 
 
 def main():

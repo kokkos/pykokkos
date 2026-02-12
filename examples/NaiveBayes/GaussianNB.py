@@ -95,7 +95,7 @@ def type_of_target(y, input_name=""):
     else:
         suffix = ""  # [1, 2, 3] or [[1], [2], [3]]
 
-    if (len(pk.unique(y)) > 2) or (len(y.shape) >= 2 and len(y[0]) > 1):
+    if (len(np.unique(y)) > 2) or (len(y.shape) >= 2 and len(y[0]) > 1):
         return "multiclass" + suffix  # [1, 2, 3] or [[1., 2., 3]] or [[1, 2]]
     else:
         return "binary"  # [1, 2] or [["a"], ["b"]]
@@ -103,7 +103,7 @@ def type_of_target(y, input_name=""):
 
 def _unique_multiclass(y):
     if hasattr(y, "__array__"):
-        return pk.unique(asarray(y))
+        return np.unique(asarray(y))
     else:
         return set(y)
 
@@ -264,7 +264,7 @@ class _BaseNB(BaseEstimator, metaclass=ABCMeta):
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
 
-        return pk.index(self.classes_, pk.argmax(jll, axis=1))
+        return self.classes_[np.argmax(np.array(jll), axis=1)]
 
     def predict_log_proba(self, X):
         """
@@ -285,7 +285,7 @@ class _BaseNB(BaseEstimator, metaclass=ABCMeta):
         jll = self._joint_log_likelihood(X)
         # normalize by P(x) = P(f_1, ..., f_n)
         # log_prob_x = logsumexp(jll, axis=1)
-        # return jll - pk.transpose(pk.atleast_2d())
+        # return jll - np.transpose(pk.atleast_2d())
 
     def predict_proba(self, X):
         """
@@ -301,7 +301,7 @@ class _BaseNB(BaseEstimator, metaclass=ABCMeta):
             the model. The columns correspond to the classes in sorted
             order, as they appear in the attribute :term:`classes_`.
         """
-        return pk.exp(self.predict_log_proba(X))
+        return np.exp(self.predict_log_proba(X))
 
 
 class GaussianNB(_BaseNB):
@@ -366,7 +366,7 @@ class GaussianNB(_BaseNB):
     >>> print(clf.predict([[-0.8, -1]]))
     [1]
     >>> clf_pf = GaussianNB()
-    >>> clf_pf.partial_fit(X, Y, pk.unique(Y))
+    >>> clf_pf.partial_fit(X, Y, np.unique(Y))
     GaussianNB()
     >>> print(clf_pf.predict([[-0.8, -1]]))
     [1]
@@ -397,7 +397,7 @@ class GaussianNB(_BaseNB):
         y = asarray(self._validate_data(y=y))
 
         return self._partial_fit(
-            X, y, pk.unique(y), _refit=True, sample_weight=sample_weight
+            X, y, np.unique(y), _refit=True, sample_weight=sample_weight
         )
 
     def _check_X(self, X):
@@ -440,12 +440,14 @@ class GaussianNB(_BaseNB):
         # Compute (potentially weighted) mean and variance of new datapoints
         if sample_weight is not None:
             n_new = float(sample_weight.sum())
-            new_mu = pk.average(X, axis=0, weights=sample_weight)
-            new_var = pk.average((X - new_mu) ** 2, axis=0, weights=sample_weight)
+            new_mu = np.average(np.array(X), axis=0, weights=sample_weight)
+            new_var = np.average(
+                np.array(X - new_mu) ** 2, axis=0, weights=sample_weight
+            )
         else:
             n_new = X.shape[0]
-            new_var = pk.var(X, axis=0)
-            new_mu = pk.mean(X, axis=0)
+            new_var = np.var(np.array(X), axis=0)
+            new_mu = np.mean(np.array(X), axis=0)
 
         if n_past == 0:
             return new_mu, new_var
@@ -534,7 +536,7 @@ class GaussianNB(_BaseNB):
         # will cause numerical errors. To address this, we artificially
         # boost the variance by epsilon, a small fraction of the standard
         # deviation of the largest dimension.
-        self.epsilon_ = self.var_smoothing * pk.find_max(pk.var(X, axis=0))
+        self.epsilon_ = self.var_smoothing * pk.find_max(np.var(np.array(X), axis=0))
 
         if first_call:
             # This is the first call to partial_fit:
@@ -569,13 +571,13 @@ class GaussianNB(_BaseNB):
 
         classes = self.classes_
 
-        unique_y = pk.unique(y)
-        unique_y_in_classes = pk.in1d(unique_y, classes)
+        unique_y = np.unique(y)
+        unique_y_in_classes = np.in1d(unique_y, classes)
 
         if not pk.all(unique_y_in_classes):
             raise ValueError(
                 "The target label(s) %s in y do not exist in the initial classes %s"
-                % (unique_y[pk.logical_not(unique_y_in_classes)], classes)
+                % (unique_y[np.logical_not(unique_y_in_classes)], classes)
             )
 
         for y_i in unique_y:
@@ -602,7 +604,7 @@ class GaussianNB(_BaseNB):
         # Update if only no priors is provided
         if self.priors is None:
             # Empirical prior, with sample_weight taken into account
-            self.class_prior_ = pk.divide(self.class_count_, pk.sum(self.class_count_))
+            self.class_prior_ = np.divide(self.class_count_, pk.sum(self.class_count_))
 
         return self
 
@@ -611,15 +613,15 @@ class GaussianNB(_BaseNB):
         total_classes = reduce(lambda a, b: a * b, self.classes_.shape, 1)
 
         for i in range(total_classes):
-            jointi = pk.log(self.class_prior_[i])
+            jointi = np.log(self.class_prior_[i])
 
-            n_ij = -0.5 * pk.sum(pk.log(pk.multiply(self.var_[i, :], 2.0 * pi)))
-            n_ij = pk.add(
-                pk.negative(
-                    pk.multiply(
+            n_ij = -0.5 * pk.sum(np.log(np.multiply(self.var_[i, :], 2.0 * pi)))
+            n_ij = np.add(
+                np.negative(
+                    np.multiply(
                         pk.sum(
-                            pk.divide(
-                                pk.power(pk.add(X, pk.negative(self.theta_[i, :])), 2),
+                            np.divide(
+                                np.power(np.add(X, np.negative(self.theta_[i, :])), 2),
                                 self.var_[i, :],
                             ),
                             1,
@@ -630,9 +632,9 @@ class GaussianNB(_BaseNB):
                 n_ij,
             )
 
-            joint_log_likelihood.append(pk.add(n_ij, jointi))
+            joint_log_likelihood.append(np.add(n_ij, jointi))
 
-        joint_log_likelihood = pk.transpose(asarray(joint_log_likelihood))
+        joint_log_likelihood = np.transpose(asarray(joint_log_likelihood))
         return joint_log_likelihood
 
 
