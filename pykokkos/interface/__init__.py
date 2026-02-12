@@ -44,7 +44,6 @@ from .decorators import (
     function,
     functor,
     main,
-    workload,
     workunit,
 )
 from .execution_policy import (
