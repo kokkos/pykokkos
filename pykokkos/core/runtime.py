@@ -42,7 +42,9 @@ from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
-def _calculate_aligned_scratch_size(dtype, num_elements: int, alignment: int = 8) -> int:
+def _calculate_aligned_scratch_size(
+    dtype, num_elements: int, alignment: int = 8
+) -> int:
     """
     Calculate aligned scratch size for a given dtype and element count
 
