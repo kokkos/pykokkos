@@ -8,7 +8,7 @@ workloads
 """
 
 
-@pk.workunit
+@pk.workunit(scratch=[(float, lambda p: p.M)])
 def yAx(team_member, acc: pk.Acc[float], y, x, A, M, N):
     e: int = team_member.league_rank()
     s_x: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), M)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     nrepeat: int = values[4]
     fill: bool = values[-1]
 
-    space = pk.ExecutionSpace.OpenMP
+    space = pk.ExecutionSpace.Cuda
     pk.set_default_space(space)
 
     # Initialize data
@@ -71,13 +71,12 @@ if __name__ == "__main__":
     acc = 0
 
     timer = pk.Timer()
-    scratch_size: int = pk.ScratchView1D[float].shmem_size(M)
     print(f"Before: {N} | {M} | {E}")
 
     for i in range(nrepeat):
         result = pk.parallel_reduce(
             "team_scratch_workunit",
-            pk.TeamPolicy(E, "auto", 32).set_scratch_size(0, pk.PerTeam(scratch_size)),
+            pk.TeamPolicy(E, "auto", 32),
             yAx,
             acc=acc,
             y=y,

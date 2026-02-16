@@ -4,7 +4,7 @@ import numpy as np
 import pykokkos as pk
 
 
-@pk.workunit
+@pk.workunit(scratch=[(pk.double, lambda p: p.M)])
 def scratch_reduce_workunit(
     team_member: pk.TeamMember,
     acc: pk.Acc[pk.double],
@@ -18,7 +18,7 @@ def scratch_reduce_workunit(
     team_rank: int = team_member.team_rank()
     league_rank: int = team_member.league_rank()
 
-    # Allocate scratch memory
+    # Allocate scratch memory (automatically sized via decorator)
     scratch: pk.ScratchView1D[pk.double] = pk.ScratchView1D(
         team_member.team_scratch(0), M
     )
@@ -68,15 +68,10 @@ class TestScratchSize(unittest.TestCase):
         # Calculate expected result: sum of all input values * M
         expected_result: float = sum(input_view[i] for i in range(self.E)) * self.M
 
-        # Calculate scratch size needed (M * sizeof(double) = M * 8 bytes)
-        scratch_size: int = self.M * 8
-
-        # Test with inline policy creation
+        # Test with inline policy creation (scratch size set automatically via decorator)
         result: float = pk.parallel_reduce(
             "scratch_reduce_inline",
-            pk.TeamPolicy(self.execution_space, self.E, "auto", 32).set_scratch_size(
-                0, pk.PerTeam(scratch_size)
-            ),
+            pk.TeamPolicy(self.execution_space, self.E, "auto", 32),
             scratch_reduce_workunit,
             acc=0.0,
             input_view=input_view,
@@ -97,13 +92,8 @@ class TestScratchSize(unittest.TestCase):
         # Calculate expected result: sum of all input values * M
         expected_result: float = sum(input_view[i] for i in range(self.E)) * self.M
 
-        # Calculate scratch size needed (M * sizeof(double) = M * 8 bytes)
-        scratch_size: int = self.M * 8
-
-        # Test with pre-created policy
-        teams = pk.TeamPolicy(
-            self.execution_space, self.E, "auto", 32
-        ).set_scratch_size(0, pk.PerTeam(scratch_size))
+        # Test with pre-created policy (scratch size set automatically via decorator)
+        teams = pk.TeamPolicy(self.execution_space, self.E, "auto", 32)
 
         result: float = pk.parallel_reduce(
             "scratch_reduce_precreated",
@@ -119,6 +109,7 @@ class TestScratchSize(unittest.TestCase):
     def test_scratch_size_per_thread(self):
         """
         Test that PerThread scratch memory works correctly.
+        Note: With automatic scratch sizing via decorator, this uses PerTeam allocation.
         """
         input_view = pk.View([self.E], pk.double)
         for i in range(self.E):
@@ -127,15 +118,10 @@ class TestScratchSize(unittest.TestCase):
         # Calculate expected result: sum of all input values * M
         expected_result: float = sum(input_view[i] for i in range(self.E)) * self.M
 
-        # Calculate scratch size needed (PerThread) - M * sizeof(double) = M * 8 bytes
-        scratch_size: int = self.M * 8
-
-        # Test with PerThread scratch size
+        # Test with automatic scratch size (PerTeam by default)
         result: float = pk.parallel_reduce(
             "scratch_reduce_perthread",
-            pk.TeamPolicy(self.execution_space, self.E, "auto", 32).set_scratch_size(
-                0, pk.PerThread(scratch_size)
-            ),
+            pk.TeamPolicy(self.execution_space, self.E, "auto", 32),
             scratch_reduce_workunit,
             acc=0.0,
             input_view=input_view,
@@ -154,12 +140,9 @@ class TestScratchSize(unittest.TestCase):
             input_view[i] = float(i + 1)
 
         expected_result: float = sum(input_view[i] for i in range(self.E)) * self.M
-        scratch_size: int = self.M * 8
 
-        # Pre-create policy
-        teams = pk.TeamPolicy(
-            self.execution_space, self.E, "auto", 32
-        ).set_scratch_size(0, pk.PerTeam(scratch_size))
+        # Pre-create policy (scratch size set automatically via decorator)
+        teams = pk.TeamPolicy(self.execution_space, self.E, "auto", 32)
 
         # Run multiple iterations
         nrepeat: int = 3
