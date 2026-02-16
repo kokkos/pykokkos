@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 from types import ModuleType
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from pykokkos.interface import (
     ExecutionSpace,
@@ -33,7 +33,9 @@ class CppSetup:
         self.gpu_module_files: List[str] = gpu_module_files
 
         self.cmake_template: str = "template_CMakeLists.txt"
-        self.cmake_template_path: Path = Path(__file__).resolve().parent / self.cmake_template
+        self.cmake_template_path: Path = (
+            Path(__file__).resolve().parent / self.cmake_template
+        )
 
         self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
@@ -61,7 +63,9 @@ class CppSetup:
 
         self.initialize_directory(output_dir)
         self.write_raw_source(output_dir, source, filename)
-        cmake_args, module_name = self.generate_cmake(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
         self.invoke_cmake(output_dir, cmake_args, module_name)
 
     def compile(
@@ -101,7 +105,9 @@ class CppSetup:
             bindings,
             bindings_filename,
         )
-        cmake_args, module_name = self.generate_cmake(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
         self.invoke_cmake(output_dir, cmake_args, module_name)
         if (
             space in {ExecutionSpace.Cuda, ExecutionSpace.HIP}
@@ -215,7 +221,7 @@ class CppSetup:
 
         # Get C++ standard from Kokkos config
         cxx_standard = self.get_cxx_standard(include_path)
-
+        kokkos_include_for_cmake: Path = include_path.resolve()
         # Copy the CMakeLists.txt template to output directory
         cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
@@ -228,19 +234,29 @@ class CppSetup:
         module_name = self.module_file.replace(".so", "").replace(".pyd", "")
 
         # Build CMake configuration arguments
+        try:
+            import pybind11
+
+            pybind11_dir = pybind11.get_cmake_dir()
+        except ImportError:
+            pybind11_dir = None
         cmake_args = [
+            f"-DCMAKE_PREFIX_PATH={sys.prefix}",
             f"-DMODULE_NAME={module_name}",
             f"-DCXX_STANDARD={cxx_standard}",
             f"-DEXEC_SPACE={space_value}",
             f"-DPK_ARG_MEMSPACE={view_space}",
             f"-DPK_ARG_LAYOUT={view_layout}",
             f"-DPK_REAL={precision}",
-            f"-DKOKKOS_LIB_PATH={lib_path}",
-            f"-DKOKKOS_INCLUDE_PATH={include_path}",
+            f"-DKOKKOS_LIB_PATH={lib_path.resolve()}",
+            f"-DKOKKOS_INCLUDE_PATH={kokkos_include_for_cmake}",
             f"-DLIB_SUFFIX={lib_suffix}",
+            f"-DPython3_EXECUTABLE={sys.executable}",
         ]
+        if pybind11_dir is not None:
+            cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
 
-        # Add backend-specific flags
+        # Backend-specific flags (script: elif nvcc / elif hipcc)
         if compiler == "nvcc":
             cmake_args.append("-DENABLE_CUDA=ON")
             if compute_capability:
@@ -365,7 +381,7 @@ class CppSetup:
         :param include_path: path to Kokkos include directory
         :returns: the C++ standard as a string (e.g., "17")
         """
-        
+
         try:
             # Try to extract CXX standard from KokkosCore_config.h
             result = subprocess.run(
@@ -380,7 +396,7 @@ class CppSetup:
                 text=True,
                 check=False,
             )
-            
+
             if result.returncode == 0:
                 for line in result.stdout.splitlines():
                     if "KOKKOS_ENABLE_CXX" in line:
@@ -389,16 +405,18 @@ class CppSetup:
                         if len(parts) >= 2:
                             macro_name = parts[1]
                             # Extract digits from the end
-                            cxx_std = ''.join(filter(str.isdigit, macro_name))[-2:]
+                            cxx_std = "".join(filter(str.isdigit, macro_name))[-2:]
                             if cxx_std:
                                 return cxx_std
         except Exception:
             pass
-        
+
         # Default to C++17 if detection fails
         return "17"
 
-    def invoke_cmake(self, output_dir: Path, cmake_args: List[str], module_name: str) -> None:
+    def invoke_cmake(
+        self, output_dir: Path, cmake_args: List[str], module_name: str
+    ) -> None:
         """
         Invoke CMake to configure and build the project
 
@@ -407,8 +425,12 @@ class CppSetup:
         :param module_name: the name of the module being built
         """
 
-        # Create build directory
         build_dir = output_dir / "build"
+        # When using merged Kokkos include (host build), remove build dir so CMake
+        # reconfigures with the correct KOKKOS_INCLUDE_PATH (avoids stale cache)
+        if "KOKKOS_INCLUDE_PATH_FALLBACK" in " ".join(cmake_args):
+            if build_dir.exists():
+                shutil.rmtree(build_dir)
         try:
             os.makedirs(build_dir, exist_ok=True)
         except FileExistsError:
@@ -427,7 +449,15 @@ class CppSetup:
 
         # Run CMake build with parallel jobs
         num_jobs = multiprocessing.cpu_count()
-        cmake_build_cmd = ["cmake", "--build", ".", "--config", "Release", "-j", str(num_jobs)]
+        cmake_build_cmd = [
+            "cmake",
+            "--build",
+            ".",
+            "--config",
+            "Release",
+            "-j",
+            str(num_jobs),
+        ]
         build_result = subprocess.run(
             cmake_build_cmd, cwd=build_dir, capture_output=True, check=False
         )
@@ -444,14 +474,14 @@ class CppSetup:
             f"{module_name}*.pyd",
             f"{module_name}*.dylib",
         ]
-        
+
         compiled_module = None
         for pattern in module_patterns:
             module_files = list(build_dir.glob(pattern))
             if module_files:
                 compiled_module = module_files[0]
                 break
-        
+
         if not compiled_module:
             print(f"Compiled module not found in {build_dir}")
             sys.exit(1)
