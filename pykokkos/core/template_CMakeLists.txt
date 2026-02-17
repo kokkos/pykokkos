@@ -38,12 +38,6 @@ set_target_properties(${MODULE_NAME} PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
-if(WIN32)
-    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".pyd")
-else()
-    set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".so")
-endif()
-
 # Includes
 target_include_directories(${MODULE_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
