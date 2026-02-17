@@ -421,12 +421,17 @@ class CppSetup:
         """
 
         build_dir = output_dir / "build"
-        os.makedirs(build_dir, exist_ok=True)
 
         # Run CMake configuration with arguments
-        cmake_config_cmd = ["cmake", ".."] + cmake_args
+        cmake_config_cmd = [
+            "cmake",
+            "-B",
+            str(build_dir),
+            "-S",
+            str(output_dir),
+        ] + cmake_args
         config_result = subprocess.run(
-            cmake_config_cmd, cwd=build_dir, capture_output=True, check=False
+            cmake_config_cmd, capture_output=True, check=False
         )
 
         if config_result.returncode != 0:
@@ -439,15 +444,13 @@ class CppSetup:
         cmake_build_cmd = [
             "cmake",
             "--build",
-            ".",
+            str(build_dir),
             "--config",
             "Release",
             "-j",
             str(num_jobs),
         ]
-        build_result = subprocess.run(
-            cmake_build_cmd, cwd=build_dir, capture_output=True, check=False
-        )
+        build_result = subprocess.run(cmake_build_cmd, capture_output=True, check=False)
 
         if build_result.returncode != 0:
             print(build_result.stderr.decode("utf-8"))
@@ -457,12 +460,12 @@ class CppSetup:
         cmake_install_cmd = [
             "cmake",
             "--install",
-            ".",
+            str(build_dir),
             "--prefix",
             str(output_dir.resolve()),
         ]
         install_result = subprocess.run(
-            cmake_install_cmd, cwd=build_dir, capture_output=True, check=False
+            cmake_install_cmd, capture_output=True, check=False
         )
 
         if install_result.returncode != 0:
