@@ -236,9 +236,10 @@ class CppSetup:
 
             pybind11_dir = pybind11.get_cmake_dir()
         except ImportError:
-            pybind11_dir = None
+            print(f"Can not get pybind11 except dir: {ex}")
+            sys.exit(1)
+
         cmake_args = [
-            f"-DCMAKE_PREFIX_PATH={sys.prefix}",
             f"-DMODULE_NAME={module_name}",
             f"-DCXX_STANDARD={cxx_standard}",
             f"-DEXEC_SPACE={space_value}",
