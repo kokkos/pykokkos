@@ -289,7 +289,7 @@ class Compiler:
             self.bindings_file,
             space,
             force_uvm,
-            self.get_compiler(space),
+            self.get_compiler(),
         )
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
@@ -317,21 +317,19 @@ class Compiler:
         cpp_setup = CppSetup(module_file, [])
         c_start: float = time.perf_counter()
         cpp_setup.compile_raw_source(
-            output_dir, source, filename, space, force_uvm, self.get_compiler(space)
+            output_dir, source, filename, space, force_uvm, self.get_compiler()
         )
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
 
-    def get_compiler(self, space: Optional[ExecutionSpace] = None) -> str:
+    def get_compiler(self) -> str:
         """
-        Get the compiler to use for the given execution space.
+        Get the compiler to use based on the machine name
 
-        :param space: the execution space to compile for (if None, uses device availability only)
         :returns: g++, nvcc, or hipcc
         """
 
         from pykokkos.bindings import kokkos
-        from pykokkos.interface.execution_space import is_host_execution_space
 
         if kokkos.get_device_available("Cuda"):
             return "nvcc"
