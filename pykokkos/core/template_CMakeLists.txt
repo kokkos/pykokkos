@@ -52,36 +52,6 @@ target_compile_definitions(${MODULE_NAME} PRIVATE
     pk_real=${PK_REAL}
 )
 
-if(NOT ENABLE_CUDA AND NOT ENABLE_HIP)
-    target_compile_options(${MODULE_NAME} PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-march=native>
-        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-mtune=native>
-    )
-endif()
-
-if(ENABLE_CUDA)
-    set_target_properties(${MODULE_NAME} PROPERTIES
-        CUDA_SEPARABLE_COMPILATION OFF
-        CUDA_STANDARD ${CXX_STANDARD}
-    )
-
-    if(COMPUTE_CAPABILITY)
-        set_target_properties(${MODULE_NAME} PROPERTIES
-            CUDA_ARCHITECTURES ${COMPUTE_CAPABILITY}
-        )
-    endif()
-
-    target_compile_options(${MODULE_NAME} PRIVATE
-        $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda>
-    )
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(${MODULE_NAME} PRIVATE
-            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-march=native>
-            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mtune=native>
-        )
-    endif()
-endif()
-
 if(ENABLE_HIP)
     target_compile_options(${MODULE_NAME} PRIVATE -fno-gpu-rdc)
 endif()
