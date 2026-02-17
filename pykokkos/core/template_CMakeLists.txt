@@ -49,7 +49,7 @@ endif()
 
 # Link libraries
 target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python Kokkos::kokkos)
-target_link_libraries(${MODULE_NAME} PRIVATE kokkoscore${LIB_SUFFIX} kokkoscontainers${LIB_SUFFIX})
+target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore${LIB_SUFFIX} Kokkos::kokkoscontainers${LIB_SUFFIX})
 
 # Install
 install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION .)
