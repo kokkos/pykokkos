@@ -5,6 +5,4 @@ dependencies:
   - cmake>=3.16
   - scikit-build
   - numpy
-  - gcc=11.4.0
-  - gxx=11.4.0
-
+  
