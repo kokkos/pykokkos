@@ -241,12 +241,11 @@ class CppSetup:
 
         cmake_args = [
             f"-DMODULE_NAME={module_name}",
+            f"-DKokkos_ROOT={lib_path.parent.resolve()}",
             f"-DPK_EXEC_SPACE={space_value}",
             f"-DPK_ARG_MEMSPACE={view_space}",
             f"-DPK_ARG_LAYOUT={view_layout}",
             f"-DPK_REAL={precision}",
-            f"-DKOKKOS_LIB_PATH={lib_path.resolve()}",
-            f"-DKOKKOS_INCLUDE_PATH={kokkos_include_for_cmake}",
             f"-DLIB_SUFFIX={lib_suffix}",
             f"-DPython3_EXECUTABLE={sys.executable}",
         ]

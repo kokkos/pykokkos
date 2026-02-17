@@ -22,9 +22,6 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(OpenMP)
 
-if(KOKKOS_LIB_PATH)
-    get_filename_component(Kokkos_ROOT "${KOKKOS_LIB_PATH}" DIRECTORY)
-endif()
 find_package(Kokkos REQUIRED)
 enable_language(${Kokkos_COMPILE_LANGUAGE})
 
