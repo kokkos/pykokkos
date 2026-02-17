@@ -100,7 +100,7 @@ if(ENABLE_HIP)
 endif()
 
 # Link libraries
-target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python)
+target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python Kokkos::kokkos)
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
