@@ -241,8 +241,7 @@ class CppSetup:
 
         cmake_args = [
             f"-DMODULE_NAME={module_name}",
-            f"-DCXX_STANDARD={cxx_standard}",
-            f"-DEXEC_SPACE={space_value}",
+            f"-DPK_EXEC_SPACE={space_value}",
             f"-DPK_ARG_MEMSPACE={view_space}",
             f"-DPK_ARG_LAYOUT={view_layout}",
             f"-DPK_REAL={precision}",

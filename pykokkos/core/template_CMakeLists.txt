@@ -44,10 +44,10 @@ target_include_directories(${MODULE_NAME} PRIVATE
 
 # Compiler definitions and flags
 target_compile_definitions(${MODULE_NAME} PRIVATE
-    SPACE=${EXEC_SPACE}
+    SPACE=${PK_EXEC_SPACE}
     pk_arg_memspace=${PK_ARG_MEMSPACE}
     pk_arg_layout=${PK_ARG_LAYOUT}
-    pk_exec_space=Kokkos::${EXEC_SPACE}
+    pk_exec_space=Kokkos::${PK_EXEC_SPACE}
     pk_real=${PK_REAL}
 )
 
