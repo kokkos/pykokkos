@@ -454,31 +454,20 @@ class CppSetup:
             print(f"CMake build in {output_dir} failed")
             sys.exit(1)
 
-        # Move the compiled module from build directory to output directory
-        module_patterns = [
-            f"{module_name}*.so",
-            f"{module_name}*.pyd",
-            f"{module_name}*.dylib",
-            f"{module_name}*.dll",
+        cmake_install_cmd = [
+            "cmake",
+            "--install",
+            ".",
+            "--prefix",
+            str(output_dir.resolve()),
         ]
+        install_result = subprocess.run(
+            cmake_install_cmd, cwd=build_dir, capture_output=True, check=False
+        )
 
-        compiled_module = None
-        for pattern in module_patterns:
-            module_files = list(build_dir.glob(pattern))
-            if module_files:
-                compiled_module = module_files[0]
-                break
-
-        if not compiled_module:
-            print(f"Compiled module not found in {build_dir}")
-            sys.exit(1)
-
-        target_module = output_dir / self.module_file
-
-        try:
-            shutil.move(str(compiled_module), str(target_module))
-        except Exception as ex:
-            print(f"Exception while moving compiled module: {ex}")
+        if install_result.returncode != 0:
+            print(install_result.stderr.decode("utf-8"))
+            print(f"CMake install in {output_dir} failed")
             sys.exit(1)
 
     def copy_multi_gpu_kernel(self, output_dir: Path) -> None:

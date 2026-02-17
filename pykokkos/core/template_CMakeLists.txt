@@ -22,7 +22,6 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(OpenMP)
 
-message(STATUS "Kokkos lib path: ${KOKKOS_LIB_PATH}")
 if(KOKKOS_LIB_PATH)
     get_filename_component(Kokkos_ROOT "${KOKKOS_LIB_PATH}" DIRECTORY)
 endif()
@@ -58,10 +57,7 @@ endif()
 
 # Link libraries
 target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python Kokkos::kokkos)
-
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
-    target_compile_options(${MODULE_NAME} PRIVATE ${OpenMP_CXX_FLAGS})
-endif()
-
 target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore Kokkos::kokkoscontainers)
+
+# Install
+install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION .)
