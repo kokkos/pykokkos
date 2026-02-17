@@ -256,13 +256,24 @@ class CppSetup:
         if pybind11_dir is not None:
             cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
 
-        # Backend-specific flags (script: elif nvcc / elif hipcc)
-        if compiler == "nvcc":
+        # Backend-specific flags
+        # Only enable CUDA/HIP language when actually using those execution spaces
+        # Otherwise, use nvcc_wrapper/hipcc as the C++ compiler without enabling GPU languages
+        if space is ExecutionSpace.Cuda and compiler == "nvcc":
             cmake_args.append("-DENABLE_CUDA=ON")
             if compute_capability:
                 cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
-        elif compiler == "hipcc":
+        elif space is ExecutionSpace.HIP and compiler == "hipcc":
             cmake_args.append("-DENABLE_HIP=ON")
+        elif compiler == "nvcc":
+            # Use nvcc_wrapper as C++ compiler for non-CUDA execution spaces
+            compiler_path_for_cmake = (
+                str(compiler_path.resolve()) if compiler_path else "nvcc"
+            )
+            cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path_for_cmake}")
+        elif compiler == "hipcc":
+            # Use hipcc as C++ compiler for non-HIP execution spaces
+            cmake_args.append(f"-DCMAKE_CXX_COMPILER=hipcc")
 
         return cmake_args, module_name
 
@@ -564,7 +575,7 @@ class CppSetup:
         Get the compute capability of an Nvidia GPU
 
         :param compiler: the compiler being used (nvcc or g++)
-        :returns: the compute capability as a string or the empty
+        :returns: the compute capability as a string (e.g., "89") or the empty
             string if g++ is the compiler
         """
 
@@ -573,7 +584,7 @@ class CppSetup:
         else:
             import cupy
 
-        return f"sm_{cupy.cuda.Device().compute_capability}"
+        return str(cupy.cuda.Device().compute_capability)
 
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:

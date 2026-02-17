@@ -333,8 +333,6 @@ class Compiler:
         from pykokkos.bindings import kokkos
         from pykokkos.interface.execution_space import is_host_execution_space
 
-        if space is not None and is_host_execution_space(space):
-            return "g++"
         if kokkos.get_device_available("Cuda"):
             return "nvcc"
 
