@@ -213,14 +213,11 @@ class CppSetup:
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         lib_path: Path
-        include_path: Path
         compiler_path: Path
-        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
+        lib_path, compiler_path = self.get_kokkos_paths(space, compiler)
         compute_capability: str = self.get_cuda_compute_capability(compiler)
         lib_suffix: str = self.get_kokkos_lib_suffix(space)
-        cxx_standard: str = self.get_cxx_standard(include_path)
 
-        kokkos_include_for_cmake: Path = include_path.resolve()
         cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
             shutil.copy(self.cmake_template_path, cmake_file)
@@ -266,32 +263,25 @@ class CppSetup:
 
     def get_kokkos_paths(
         self, space: ExecutionSpace, compiler: str
-    ) -> Tuple[Path, Path, Path]:
+    ) -> Tuple[Path, Path]:
         """
-        Get the paths of the Kokkos instal lib and include
-        directories. If the environment variable is set, use that
+        Get the paths of the Kokkos install lib directory.
+        If the environment variable is set, use that
         Kokkos install. If not, fall back to the installed
         pykokkos-base package.
 
         :param space: the execution space to compile for
         :param compiler: what compiler to use
-        :returns: a tuple of paths to the Kokkos lib/, include/,
+        :returns: a tuple of paths to the Kokkos lib/
             and compiler to be used
         """
 
         lib_path: Path
-        include_path: Path
         if self.lib_path_env in os.environ:
             lib_path = Path(os.environ.get(self.lib_path_env))
             if not lib_path.is_dir():
                 raise RuntimeError(
                     f"lib/ directory path {str(lib_path)} does not exist"
-                )
-
-            include_path = lib_path.parent / "include"
-            if not include_path.is_dir():
-                raise RuntimeError(
-                    f"install/ directory path {str(include_path)} does not exist"
                 )
 
             compiler_path: Path
@@ -300,7 +290,7 @@ class CppSetup:
             else:
                 compiler_path = lib_path.parent / "bin/nvcc_wrapper"
 
-            return lib_path, include_path, compiler_path
+            return lib_path, compiler_path
 
         import sys
 
@@ -337,13 +327,6 @@ class CppSetup:
                 f" Try setting {self.lib_path_env} instead."
             )
 
-        include_path = install_path.parent / "include/kokkos"
-        if not include_path.exists():
-            # scikit-build may install includes to sys.prefix/include
-            sys_prefix = Path(sys.prefix)
-            if (sys_prefix / "include/kokkos").exists():
-                include_path = sys_prefix / "include/kokkos"
-
         compiler_path: Path
         if compiler != "nvcc":
             compiler_path = Path(compiler)
@@ -356,7 +339,7 @@ class CppSetup:
                 if alt_compiler_path.exists():
                     compiler_path = alt_compiler_path
 
-        return lib_path, include_path, compiler_path
+        return lib_path, compiler_path
 
     def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
         """
@@ -371,42 +354,6 @@ class CppSetup:
             return ""
 
         return f"_{km.get_device_id()}"
-
-    def get_cxx_standard(self, include_path: Path) -> str:
-        """
-        Extract the C++ standard from KokkosCore_config.h
-
-        :param include_path: path to Kokkos include directory
-        :returns: the C++ standard as a string (e.g., "17")
-        """
-
-        try:
-            config_file = include_path / "KokkosCore_config.h"
-            result = subprocess.run(
-                [
-                    "g++",
-                    "-dM",
-                    "-E",
-                    "-DKOKKOS_MACROS_HPP",
-                    str(config_file),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if result.returncode == 0:
-                for line in result.stdout.splitlines():
-                    if "KOKKOS_ENABLE_CXX" in line:
-                        cleaned = line.replace(" ", "")
-                        cxx_std = cleaned[-2:]
-                        if cxx_std.isdigit():
-                            return cxx_std
-        except Exception:
-            pass
-
-        # Default to C++17 if detection fails
-        return "17"
 
     def invoke_cmake(
         self, output_dir: Path, cmake_args: List[str], module_name: str
