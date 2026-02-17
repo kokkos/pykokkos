@@ -41,9 +41,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 # Includes
 target_include_directories(${MODULE_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${Python3_INCLUDE_DIRS}
 )
-target_include_directories(${MODULE_NAME} SYSTEM PRIVATE ${KOKKOS_INCLUDE_PATH})
 
 # Compiler definitions and flags
 target_compile_definitions(${MODULE_NAME} PRIVATE
@@ -52,11 +50,6 @@ target_compile_definitions(${MODULE_NAME} PRIVATE
     pk_arg_layout=${PK_ARG_LAYOUT}
     pk_exec_space=Kokkos::${EXEC_SPACE}
     pk_real=${PK_REAL}
-)
-
-target_compile_options(${MODULE_NAME} PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-O3>
-    $<$<CXX_COMPILER_ID:MSVC>:/O2>
 )
 
 if(NOT ENABLE_CUDA AND NOT ENABLE_HIP)
