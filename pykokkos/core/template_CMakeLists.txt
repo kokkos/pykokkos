@@ -16,9 +16,8 @@ endif()
 # Dependencies
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-find_package(OpenMP)
-
 find_package(Kokkos REQUIRED)
+
 enable_language(${Kokkos_COMPILE_LANGUAGE})
 
 # Sources and targets
