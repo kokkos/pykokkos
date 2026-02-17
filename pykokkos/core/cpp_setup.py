@@ -253,8 +253,6 @@ class CppSetup:
         if compiler == "nvcc":
             cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path}")
             cmake_args.append("-DENABLE_CUDA=ON")
-            if compute_capability:
-                cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
         elif compiler == "hipcc":
             cmake_args.append("-DCMAKE_CXX_COMPILER=hipcc")
             cmake_args.append("-DENABLE_HIP=ON")
