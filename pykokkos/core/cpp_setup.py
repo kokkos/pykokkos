@@ -218,8 +218,8 @@ class CppSetup:
         lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
         compute_capability: str = self.get_cuda_compute_capability(compiler)
         lib_suffix: str = self.get_kokkos_lib_suffix(space)
+        cxx_standard: str = self.get_cxx_standard(include_path)
 
-        cxx_standard = self.get_cxx_standard(include_path)
         kokkos_include_for_cmake: Path = include_path.resolve()
         cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
@@ -255,15 +255,12 @@ class CppSetup:
 
         # backend-specific flags
         if compiler == "nvcc":
-            compiler_path_for_cmake = (
-                str(compiler_path.resolve()) if compiler_path else "nvcc"
-            )
-            cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path_for_cmake}")
+            cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path}")
             cmake_args.append("-DENABLE_CUDA=ON")
             if compute_capability:
                 cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
         elif compiler == "hipcc":
-            cmake_args.append(f"-DCMAKE_CXX_COMPILER=hipcc")
+            cmake_args.append("-DCMAKE_CXX_COMPILER=hipcc")
             cmake_args.append("-DENABLE_HIP=ON")
 
         return cmake_args, module_name
@@ -385,14 +382,14 @@ class CppSetup:
         """
 
         try:
-            # Try to extract CXX standard from KokkosCore_config.h
+            config_file = include_path / "KokkosCore_config.h"
             result = subprocess.run(
                 [
                     "g++",
                     "-dM",
                     "-E",
                     "-DKOKKOS_MACROS_HPP",
-                    str(include_path / "KokkosCore_config.h"),
+                    str(config_file),
                 ],
                 capture_output=True,
                 text=True,
@@ -402,14 +399,10 @@ class CppSetup:
             if result.returncode == 0:
                 for line in result.stdout.splitlines():
                     if "KOKKOS_ENABLE_CXX" in line:
-                        # Extract the last two digits (e.g., "17" from "KOKKOS_ENABLE_CXX17")
-                        parts = line.strip().split()
-                        if len(parts) >= 2:
-                            macro_name = parts[1]
-                            # Extract digits from the end
-                            cxx_std = "".join(filter(str.isdigit, macro_name))[-2:]
-                            if cxx_std:
-                                return cxx_std
+                        cleaned = line.replace(" ", "")
+                        cxx_std = cleaned[-2:]
+                        if cxx_std.isdigit():
+                            return cxx_std
         except Exception:
             pass
 
@@ -428,15 +421,7 @@ class CppSetup:
         """
 
         build_dir = output_dir / "build"
-        # When using merged Kokkos include (host build), remove build dir so CMake
-        # reconfigures with the correct KOKKOS_INCLUDE_PATH (avoids stale cache)
-        if "KOKKOS_INCLUDE_PATH_FALLBACK" in " ".join(cmake_args):
-            if build_dir.exists():
-                shutil.rmtree(build_dir)
-        try:
-            os.makedirs(build_dir, exist_ok=True)
-        except FileExistsError:
-            pass
+        os.makedirs(build_dir, exist_ok=True)
 
         # Run CMake configuration with arguments
         cmake_config_cmd = ["cmake", ".."] + cmake_args
@@ -470,11 +455,11 @@ class CppSetup:
             sys.exit(1)
 
         # Move the compiled module from build directory to output directory
-        # Look for .so, .pyd, or .dylib files
         module_patterns = [
             f"{module_name}*.so",
             f"{module_name}*.pyd",
             f"{module_name}*.dylib",
+            f"{module_name}*.dll",
         ]
 
         compiled_module = None
