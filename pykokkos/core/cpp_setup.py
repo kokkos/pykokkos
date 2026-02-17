@@ -249,14 +249,6 @@ class CppSetup:
         if pybind11_dir is not None:
             cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
 
-        # backend-specific flags
-        if compiler == "nvcc":
-            cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path}")
-            cmake_args.append("-DENABLE_CUDA=ON")
-        elif compiler == "hipcc":
-            cmake_args.append("-DCMAKE_CXX_COMPILER=hipcc")
-            cmake_args.append("-DENABLE_HIP=ON")
-
         return cmake_args, module_name
 
     def get_kokkos_paths(
