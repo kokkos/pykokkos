@@ -219,10 +219,8 @@ class CppSetup:
         compute_capability: str = self.get_cuda_compute_capability(compiler)
         lib_suffix: str = self.get_kokkos_lib_suffix(space)
 
-        # Get C++ standard from Kokkos config
         cxx_standard = self.get_cxx_standard(include_path)
         kokkos_include_for_cmake: Path = include_path.resolve()
-        # Copy the CMakeLists.txt template to output directory
         cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
             shutil.copy(self.cmake_template_path, cmake_file)
@@ -233,7 +231,6 @@ class CppSetup:
         # Remove the .so extension from module file name for CMake target
         module_name = self.module_file.replace(".so", "").replace(".pyd", "")
 
-        # Build CMake configuration arguments
         try:
             import pybind11
 
@@ -256,24 +253,18 @@ class CppSetup:
         if pybind11_dir is not None:
             cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
 
-        # Backend-specific flags
-        # Only enable CUDA/HIP language when actually using those execution spaces
-        # Otherwise, use nvcc_wrapper/hipcc as the C++ compiler without enabling GPU languages
-        if space is ExecutionSpace.Cuda and compiler == "nvcc":
-            cmake_args.append("-DENABLE_CUDA=ON")
-            if compute_capability:
-                cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
-        elif space is ExecutionSpace.HIP and compiler == "hipcc":
-            cmake_args.append("-DENABLE_HIP=ON")
-        elif compiler == "nvcc":
-            # Use nvcc_wrapper as C++ compiler for non-CUDA execution spaces
+        # backend-specific flags
+        if compiler == "nvcc":
             compiler_path_for_cmake = (
                 str(compiler_path.resolve()) if compiler_path else "nvcc"
             )
             cmake_args.append(f"-DCMAKE_CXX_COMPILER={compiler_path_for_cmake}")
+            cmake_args.append("-DENABLE_CUDA=ON")
+            if compute_capability:
+                cmake_args.append(f"-DCOMPUTE_CAPABILITY={compute_capability}")
         elif compiler == "hipcc":
-            # Use hipcc as C++ compiler for non-HIP execution spaces
             cmake_args.append(f"-DCMAKE_CXX_COMPILER=hipcc")
+            cmake_args.append("-DENABLE_HIP=ON")
 
         return cmake_args, module_name
 
