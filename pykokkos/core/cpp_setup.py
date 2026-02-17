@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 from types import ModuleType
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from pykokkos.interface import (
     ExecutionSpace,
