@@ -22,17 +22,16 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(OpenMP)
 
-if(NOT KOKKOS_LIB_PATH)
-    find_package(Kokkos REQUIRED)
+message(STATUS "Kokkos lib path: ${KOKKOS_LIB_PATH}")
+if(KOKKOS_LIB_PATH)
+    get_filename_component(Kokkos_ROOT "${KOKKOS_LIB_PATH}" DIRECTORY)
 endif()
+find_package(Kokkos REQUIRED)
+enable_language(${Kokkos_COMPILE_LANGUAGE})
 
 # Sources and targets
 file(GLOB SOURCE_FILES "*.cpp")
 add_library(${MODULE_NAME} SHARED ${SOURCE_FILES})
-
-if(ENABLE_CUDA)
-    set_source_files_properties(${SOURCE_FILES} PROPERTIES LANGUAGE CUDA)
-endif()
 
 set_target_properties(${MODULE_NAME} PROPERTIES
     PREFIX ""
@@ -108,50 +107,4 @@ if(OpenMP_CXX_FOUND)
     target_compile_options(${MODULE_NAME} PRIVATE ${OpenMP_CXX_FLAGS})
 endif()
 
-if(KOKKOS_LIB_PATH)
-    find_library(KOKKOS_CORE_LIB
-        NAMES kokkoscore${LIB_SUFFIX}
-        PATHS ${KOKKOS_LIB_PATH}
-        NO_DEFAULT_PATH
-        REQUIRED
-    )
-    find_library(KOKKOS_CONTAINERS_LIB
-        NAMES kokkoscontainers${LIB_SUFFIX}
-        PATHS ${KOKKOS_LIB_PATH}
-        NO_DEFAULT_PATH
-        REQUIRED
-    )
-
-    target_link_libraries(${MODULE_NAME} PRIVATE
-        ${KOKKOS_CONTAINERS_LIB}
-        ${KOKKOS_CORE_LIB}
-    )
-
-    if(APPLE)
-        set_target_properties(${MODULE_NAME} PROPERTIES
-            BUILD_RPATH "${KOKKOS_LIB_PATH}"
-            INSTALL_RPATH "${KOKKOS_LIB_PATH}"
-            INSTALL_NAME_DIR "${KOKKOS_LIB_PATH}"
-        )
-    elseif(UNIX AND NOT WIN32)
-        set_target_properties(${MODULE_NAME} PROPERTIES
-            BUILD_RPATH "${KOKKOS_LIB_PATH}"
-            INSTALL_RPATH "${KOKKOS_LIB_PATH}"
-            BUILD_RPATH_USE_ORIGIN ON
-        )
-    elseif(WIN32)
-        if(EXISTS "${KOKKOS_CORE_LIB}" AND EXISTS "${KOKKOS_CONTAINERS_LIB}")
-            add_custom_command(TARGET ${MODULE_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${KOKKOS_CORE_LIB}"
-                    "$<TARGET_FILE_DIR:${MODULE_NAME}>"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${KOKKOS_CONTAINERS_LIB}"
-                    "$<TARGET_FILE_DIR:${MODULE_NAME}>"
-                COMMENT "Copying Kokkos DLLs to output directory"
-            )
-        endif()
-    endif()
-else()
-    target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore Kokkos::kokkoscontainers)
-endif()
+target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore Kokkos::kokkoscontainers)
