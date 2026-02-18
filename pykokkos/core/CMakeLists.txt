@@ -14,11 +14,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Dependencies
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-find_package(pybind11 CONFIG REQUIRED)
-find_package(Kokkos REQUIRED)
-
-enable_language(${Kokkos_COMPILE_LANGUAGE})
+find_package(Python3 3.11 COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 2.11 CONFIG REQUIRED)
+find_package(Kokkos 4.7.1 EXACT REQUIRED)
 
 # Sources and targets
 file(GLOB SOURCE_FILES "*.cpp")
@@ -26,7 +24,6 @@ add_library(${MODULE_NAME} SHARED ${SOURCE_FILES})
 
 set_target_properties(${MODULE_NAME} PROPERTIES
     PREFIX ""
-    POSITION_INDEPENDENT_CODE ON
 )
 
 # Includes
@@ -42,10 +39,6 @@ target_compile_definitions(${MODULE_NAME} PRIVATE
     pk_exec_space=Kokkos::${PK_EXEC_SPACE}
     pk_real=${PK_REAL}
 )
-
-if(ENABLE_HIP)
-    target_compile_options(${MODULE_NAME} PRIVATE -fno-gpu-rdc)
-endif()
 
 # Link libraries
 target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python Kokkos::kokkos)

@@ -32,7 +32,7 @@ class CppSetup:
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
 
-        self.cmake_template: str = "template_CMakeLists.txt"
+        self.cmake_template: str = "CMakeLists.txt"
         self.cmake_template_path: Path = (
             Path(__file__).resolve().parent / self.cmake_template
         )
