@@ -13,9 +13,13 @@ class SimpleSpaces:
 
     @pk.main
     def run(self):
-        self.sum = pk.parallel_reduce(self.N, 
-            lambda i, accumulator: accumulator + self.a[i][0] - self.a[i][1] + self.a[i][2])
-
+        self.sum = pk.parallel_reduce(
+            self.N,
+            lambda i, accumulator: accumulator
+            + self.a[i][0]
+            - self.a[i][1]
+            + self.a[i][2],
+        )
 
     @pk.callback
     def use_results(self):

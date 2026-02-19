@@ -83,21 +83,37 @@ class Rank:
 
 class MDRangePolicy(ExecutionPolicy):
     def __init__(
-        self, begin: List[int], end: List[int], tiling: List[int] = None,
+        self,
+        begin: List[int],
+        end: List[int],
+        tiling: List[int] = None,
         space: ExecutionSpace = ExecutionSpace.Default,
         iter_outer: Iterate = Iterate.Default,
         iter_inner: Iterate = Iterate.Default,
-        rank: Rank = None
+        rank: Rank = None,
     ):
 
+        # # Convert ExecutionSpace to ExecutionSpaceInstance (same as RangePolicy)
+        # if isinstance(space, ExecutionSpace):
+        #     if space is ExecutionSpace.Default:
+        #         space = km.get_default_space()
+
+        #     if space is not ExecutionSpace.Debug:
+        #         space = km.get_execution_space_instance(space)
+
+        # elif not isinstance(space, ExecutionSpaceInstance):
+        #     raise TypeError(f"Invalid space argument {space}")
+
         self.space: Final = space
-        self.begin: Final = begin 
-        self.end : Final = end
+        self.begin: Final = begin
+        self.end: Final = end
         self.tiling = tiling
 
         if rank is not None:
             if rank.n != len(begin):
-                raise ValueError(f"RangePolicy dimension mismatch: {rank.n} != {len(begin)}")
+                raise ValueError(
+                    f"RangePolicy dimension mismatch: {rank.n} != {len(begin)}"
+                )
 
             iter_outer = rank.iter_outer
             iter_inner = rank.iter_inner
@@ -106,7 +122,9 @@ class MDRangePolicy(ExecutionPolicy):
         self.iter_inner: Final = iter_inner
 
         if len(begin) != len(end):
-            raise ValueError(f"RangePolicy dimension mismatch: {len(begin)} != {len(end)}")
+            raise ValueError(
+                f"RangePolicy dimension mismatch: {len(begin)} != {len(end)}"
+            )
 
         self.rank = len(begin)
 
@@ -137,7 +155,9 @@ class TeamPolicy(ExecutionPolicy):
             second = unpacked[1]
             third = unpacked[2]
 
-            if isinstance(first, ExecutionSpace) or isinstance(first, ExecutionSpaceInstance):
+            if isinstance(first, ExecutionSpace) or isinstance(
+                first, ExecutionSpaceInstance
+            ):
                 space = first
                 league_size = second
                 team_size = third
@@ -180,32 +200,6 @@ class TeamPolicy(ExecutionPolicy):
         self.vector_length: int = vector_length
         self.scratch_size_level: Optional[int] = None
         self.scratch_size_value = None
-
-    def set_scratch_size(self, *args):  # -> TeamPolicy:
-        """
-        Set scratch memory size for team or thread level.
-
-        Supports two call patterns:
-        1. set_scratch_size(size) - size only, level defaults to 0
-        2. set_scratch_size(level, per_team_or_thread) - explicit level and size wrapper
-
-        :param args: Either (size) or (level, per_team_or_thread)
-        :returns: self for method chaining
-        """
-        if len(args) == 1:
-            # Pattern: set_scratch_size(size)
-            self.scratch_size_level = 0
-            self.scratch_size_value = args[0]
-        elif len(args) == 2:
-            # Pattern: set_scratch_size(level, per_team_or_thread)
-            self.scratch_size_level = args[0]
-            self.scratch_size_value = args[1]
-        else:
-            raise ValueError(
-                f"set_scratch_size expects 1 or 2 arguments, got {len(args)}"
-            )
-
-        return self
 
 
 class TeamThreadRange(ExecutionPolicy):

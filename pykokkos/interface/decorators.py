@@ -1,8 +1,8 @@
 from enum import Enum
 from functools import partial
 
+
 class Decorator(Enum):
-    Workload = "workload"
     Functor = "functor"
     WorkUnit = "workunit"
     KokkosClasstype = "classtype"
@@ -43,10 +43,6 @@ class Decorator(Enum):
     def is_functor(decorator: str) -> bool:
         return decorator == Decorator.Functor.value
 
-    @staticmethod
-    def is_workload(decorator: str) -> bool:
-        return decorator == Decorator.Workload.value
-
 
 def functor(func=None, **kwargs):
     if func is None:
@@ -55,17 +51,22 @@ def functor(func=None, **kwargs):
     return func
 
 
-def workunit(func=None, **kwargs):
+def workunit(func=None, *, scratch=None, **kwargs):
+    """
+    Decorator for PyKokkos workunits.
+
+    :param func: the function being decorated
+    :param scratch: optional list of tuples specifying scratch memory allocation
+    """
     if func is None:
-        return partial(functor)
+        return partial(workunit, scratch=scratch, **kwargs)
+
+    # Store scratch specification as function attribute
+    if scratch is not None:
+        func._pk_scratch = scratch
 
     return func
 
-def workload(func=None, **kwargs):
-    if func is None:
-        return partial(functor)
-
-    return func
 
 def classtype(func):
     return func

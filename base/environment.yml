@@ -1,0 +1,8 @@
+name: pyk
+channels:
+  - conda-forge
+dependencies:
+  - cmake>=3.16
+  - scikit-build
+  - numpy
+  

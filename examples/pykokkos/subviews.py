@@ -19,8 +19,10 @@ class Workload:
     def callback(self) -> None:
         print(self.view)
 
+
 def run() -> None:
     pk.execute(pk.ExecutionSpace.Default, Workload())
+
 
 if __name__ == "__main__":
     run()

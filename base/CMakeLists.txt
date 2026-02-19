@@ -37,8 +37,8 @@ if(NOT TARGET pybind11::module)
         MESSAGE(STATUS "Fetching pybind11")
         FETCHCONTENT_DECLARE(
           pybind11
-          URL https://github.com/pybind/pybind11/archive/refs/heads/v3.0.zip
-          URL_HASH SHA256=1816ea10bf7de362fb7864b131cc90bed6fc393feaf7e27b0ed5a03987bedd10
+          URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.0.zip
+          URL_HASH SHA256=dfe152af2f454a9d8cd771206c014aecb8c3977822b5756123f29fd488648334
         )
         FETCHCONTENT_MAKEAVAILABLE(pybind11)
     endif()

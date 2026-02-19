@@ -5,6 +5,7 @@
 import pykokkos as pk
 import numpy as np
 
+
 @pk.workunit
 def map_guard(i, out, a, size):
     if i < size:

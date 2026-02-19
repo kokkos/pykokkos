@@ -32,6 +32,7 @@ class DeclarationsVisitor(ast.NodeVisitor):
         for n in node.body:
             self.visit(n)
 
+
 class VariableRenamer(ast.NodeTransformer):
     """
     Renames variables in a fused ast according to a map
@@ -52,6 +53,7 @@ class VariableRenamer(ast.NodeTransformer):
         # If the name is not mapped, keep the original name
         node.arg = self.name_map.get(key, node.arg)
         return node
+
 
 def add_parent_refs(classdef: ast.ClassDef) -> ast.ClassDef:
     """

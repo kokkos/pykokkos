@@ -8,15 +8,22 @@ from parse_args import parse_args
 @pk.workload(
     y=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
     x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
-    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
+    A=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight),
+)
 class Workload:
     def __init__(self, N: int, M: int, nrepeat: int, fill: bool):
         self.N: int = N
         self.M: int = M
         self.nrepeat: int = nrepeat
-        self.y: pk.View1D[pk.double] = pk.View([N], pk.double, layout=pk.Layout.LayoutRight)
-        self.x: pk.View1D[pk.double] = pk.View([M], pk.double, layout=pk.Layout.LayoutRight)
-        self.A: pk.View2D[pk.double] = pk.View([N, M], pk.double, layout=pk.Layout.LayoutRight)
+        self.y: pk.View1D[pk.double] = pk.View(
+            [N], pk.double, layout=pk.Layout.LayoutRight
+        )
+        self.x: pk.View1D[pk.double] = pk.View(
+            [M], pk.double, layout=pk.Layout.LayoutRight
+        )
+        self.A: pk.View2D[pk.double] = pk.View(
+            [N, M], pk.double, layout=pk.Layout.LayoutRight
+        )
 
         if fill:
             self.y.fill(1)
@@ -41,8 +48,9 @@ class Workload:
         timer = pk.Timer()
 
         for i in range(self.nrepeat):
-            self.result = pk.parallel_reduce("team_policy",
-                pk.TeamPolicy(self.N, "auto"), self.yAx)
+            self.result = pk.parallel_reduce(
+                "team_policy", pk.TeamPolicy(self.N, "auto"), self.yAx
+            )
 
         self.timer_result = timer.seconds()
 
@@ -52,10 +60,11 @@ class Workload:
         solution: float = self.N * self.M
 
         if self.result != solution:
-            pk.printf("Error: result (%lf) != solution (%lf)\n",
-                      self.result, solution)
+            pk.printf("Error: result (%lf) != solution (%lf)\n", self.result, solution)
 
-        print(f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)")
+        print(
+            f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)"
+        )
 
     @pk.workunit
     def yAx(self, team_member: pk.TeamMember, acc: pk.Acc[float]):
@@ -65,7 +74,8 @@ class Workload:
             inner_acc += self.A[j][i] * self.x[i]
 
         temp2: float = pk.parallel_reduce(
-            pk.TeamThreadRange(team_member, self.M), inner_reduce)
+            pk.TeamThreadRange(team_member, self.M), inner_reduce
+        )
 
         if team_member.team_rank() == 0:
             acc += self.y[j] * temp2

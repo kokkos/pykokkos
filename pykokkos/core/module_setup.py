@@ -22,8 +22,8 @@ class EntityMetadata:
     """
 
     entity: Union[Callable[..., None], type, None]
-    name: str # the name of the functor/workunit
-    path: str # the path to the file containing the entity
+    name: str  # the name of the functor/workunit
+    path: str  # the path to the file containing the entity
 
 
 def get_functor(workunit: Callable[..., None]) -> type:
@@ -83,7 +83,7 @@ class ModuleSetup:
         entity: Union[Callable[..., None], type, List[Callable[..., None]]],
         space: ExecutionSpace,
         types_signature: Optional[str] = None,
-        restricted_views: Optional[Set[str]] = None
+        restricted_views: Optional[Set[str]] = None,
     ):
         """
         ModuleSetup constructor
@@ -106,7 +106,9 @@ class ModuleSetup:
         self.types_signature = types_signature
         self.restrict_signature: Optional[str] = None
         if restricted_views is not None:
-            self.restrict_signature = hashlib.md5("".join(sorted(restricted_views)).encode()).hexdigest()
+            self.restrict_signature = hashlib.md5(
+                "".join(sorted(restricted_views)).encode()
+            ).hexdigest()
 
         suffix: Optional[str] = sysconfig.get_config_var("EXT_SUFFIX")
         self.module_file: str = f"kernel{suffix}"
@@ -114,16 +116,36 @@ class ModuleSetup:
         # The path to the main file if using the console
         self.console_main: str = "pk_console"
 
-        self.main: Path = self.get_main_path()
-        self.output_dir: Optional[Path] = self.get_output_dir(self.main, self.metadata, space, types_signature, self.restrict_signature)
+        if self.metadata and self.metadata[0].path:
+            entity_path = Path(self.metadata[0].path)
+            if entity_path.suffix == ".py":
+                self.main = entity_path.with_suffix("")
+            else:
+                self.main = entity_path
+        else:
+            self.main: Path = self.get_main_path()
+
+        self.output_dir: Optional[Path] = self.get_output_dir(
+            self.main, self.metadata, space, types_signature, self.restrict_signature
+        )
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
-            self.gpu_module_files = [f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())]
+            self.gpu_module_files = [
+                f"kernel{device_id}{suffix}" for device_id in range(km.get_num_gpus())
+            ]
 
         if self.output_dir is not None:
-            self.path: str = os.path.join(self.output_dir, self.module_file)
+            output_dir_abs = (
+                Path(self.output_dir).resolve()
+                if not Path(self.output_dir).is_absolute()
+                else Path(self.output_dir)
+            )
+            self.path: str = str(output_dir_abs / self.module_file)
             if km.is_multi_gpu_enabled():
-                self.gpu_module_paths: str = [os.path.join(self.output_dir, module_file) for module_file in self.gpu_module_files]
+                self.gpu_module_paths: str = [
+                    os.path.join(self.output_dir, module_file)
+                    for module_file in self.gpu_module_files
+                ]
 
             self.name: str = hashlib.sha256(self.path.encode()).hexdigest()
 
@@ -133,7 +155,7 @@ class ModuleSetup:
         metadata: List[EntityMetadata],
         space: ExecutionSpace,
         types_signature: Optional[str] = None,
-        restrict_signature: Optional[str] = None
+        restrict_signature: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Get the output directory for an execution space
@@ -172,6 +194,7 @@ class ModuleSetup:
         :returns: the path to the base output directory
         """
 
+        base_dir = self.get_main_dir(main)
         entity_dir: str = ""
 
         for m in metadata[:5]:
@@ -186,7 +209,7 @@ class ModuleSetup:
         if remaining != "":
             entity_dir += hashlib.md5(("".join(remaining)).encode()).hexdigest()
 
-        return self.get_main_dir(main) / Path(entity_dir)
+        return base_dir / Path(entity_dir)
 
     @staticmethod
     def get_main_dir(main: Path) -> Path:
@@ -197,13 +220,19 @@ class ModuleSetup:
         :returns: the path to the main directory
         """
 
-        # If the parent directory is root, remove it so we can
-        # concatenate it to pk_cpp
-        main_path: Path = main
-        if str(main).startswith("/"):
-            main_path = Path(str(main)[1:])
+        # convert to absolute path and make it relative to CWD
+        main_abs: Path = (
+            main.resolve() if main.is_absolute() else (Path.cwd() / main).resolve()
+        )
+        try:
+            main_rel: Path = main_abs.relative_to(Path.cwd())
+        except ValueError:
+            # main_abs is not under cwd - fall back to old behavior
+            main_rel = (
+                Path(str(main_abs)[1:]) if str(main_abs).startswith("/") else main_abs
+            )
 
-        return Path(BASE_DIR) / main_path
+        return Path(BASE_DIR) / main_rel
 
     def get_main_path(self) -> Path:
         """
@@ -214,7 +243,7 @@ class ModuleSetup:
 
         if hasattr(sys.modules["__main__"], "__file__"):
             path: str = sys.modules["__main__"].__file__
-            path = path[:-3] # remove the .py extensions
+            path = path[:-3]  # remove the .py extensions
             return Path(path)
 
         return Path(self.console_main)
@@ -224,4 +253,12 @@ class ModuleSetup:
         Check if this module is compiled for its execution space
         """
 
-        return CppSetup.is_compiled(self.get_output_dir(self.main, self.metadata, self.space, self.types_signature, self.restrict_signature))
+        return CppSetup.is_compiled(
+            self.get_output_dir(
+                self.main,
+                self.metadata,
+                self.space,
+                self.types_signature,
+                self.restrict_signature,
+            )
+        )

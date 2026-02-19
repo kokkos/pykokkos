@@ -8,7 +8,7 @@ workloads
 """
 
 
-@pk.workunit
+@pk.workunit(scratch=[(float, lambda p: p.M)])
 def yAx(team_member, acc: pk.Acc[float], y, x, A, M, N):
     e: int = team_member.league_rank()
     s_x: pk.ScratchView1D[float] = pk.ScratchView1D(team_member.team_scratch(0), M)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     nrepeat: int = values[4]
     fill: bool = values[-1]
 
-    space = pk.ExecutionSpace.OpenMP
+    space = pk.ExecutionSpace.Cuda
     pk.set_default_space(space)
 
     # Initialize data
@@ -71,17 +71,19 @@ if __name__ == "__main__":
     acc = 0
 
     timer = pk.Timer()
-    # For workunits, pass M and let the C++ code compute scratch size
-    # Approximate scratch size: M * sizeof(double) = M * 8 bytes
-    # scratch_size: int = pk.ScratchView1D[float].shmem_size(M)
-    scratch_size: int = M * 8
     print(f"Before: {N} | {M} | {E}")
 
     for i in range(nrepeat):
         result = pk.parallel_reduce(
             "team_scratch_workunit",
-            pk.TeamPolicy(E, "auto", 32).set_scratch_size(0, pk.PerTeam(scratch_size)),
-            yAx, acc=acc, y=y, x=x, A=A, M=M, N=N
+            pk.TeamPolicy(E, "auto", 32),
+            yAx,
+            acc=acc,
+            y=y,
+            x=x,
+            A=A,
+            M=M,
+            N=N,
         )
 
     timer_result = timer.seconds()
@@ -90,4 +92,3 @@ if __name__ == "__main__":
     print(
         f"result: {result} | solution {solution} | result==soluton: {result==solution}"
     )
-    print(f"Total size S = {N * M} N = {N} M = {M} E = {E}")

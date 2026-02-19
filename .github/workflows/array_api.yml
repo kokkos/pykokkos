@@ -12,22 +12,32 @@ jobs:
   test_array_api:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
-        python-version: ["3.13"]
-    runs-on: ${{ matrix.platform }}
+        os: [ubuntu-latest, ubuntu-22.04-arm]
+        python-version: [3.11, 3.12, 3.13]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+      - name: Set up conda environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
+          environment-file: base/environment.yml
+          activate-environment: pyk
+          auto-activate: false
+          miniforge-version: "latest"
+          architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
+          conda-remove-defaults: true
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf tqdm
+          conda install -c conda-forge numpy mypy cmake pytest pybind11 scikit-build patchelf tqdm &&
+          conda remove --force-remove -y ninja || true
       - name: Install pykokkos-base
         working-directory: base
         run: |
+          export CMAKE_BUILD_PARALLEL_LEVEL=2 &&
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5
       - name: Install pykokkos
         run: |
@@ -39,7 +49,7 @@ jobs:
           cd array-api-tests
           git checkout 2022.09.30
           git submodule update --init
-          pip install -r requirements.txt
+          conda install -c conda-forge --file requirements.txt
           export ARRAY_API_TESTS_MODULE=pykokkos
           # we precompile some of the ufunc implementations
           # to circumvent the currently slow performance of

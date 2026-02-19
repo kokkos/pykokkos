@@ -9,11 +9,12 @@ class SquareSum:
 
     @pk.main
     def run(self):
-        self.total = pk.parallel_reduce(self.N, lambda i, acc: acc + i*i)
+        self.total = pk.parallel_reduce(self.N, lambda i, acc: acc + i * i)
 
     @pk.callback
     def results(self):
         print("Sum:", self.total)
+
 
 if __name__ == "__main__":
     pk.execute(pk.ExecutionSpace.OpenMP, SquareSum(10))

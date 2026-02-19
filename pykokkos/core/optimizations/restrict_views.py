@@ -59,6 +59,7 @@ def may_share_memory(a, b) -> bool:
 
     return False
 
+
 def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Dict[str, ViewType], str]:
     """
     Identify views that do not alias each other to apply the restrict
@@ -89,9 +90,11 @@ def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Dict[str, ViewType],
             base_type = str(type(view.xp_array))
             if "numpy" in base_type:
                 import numpy as np
+
                 xp_lib = np
             elif "cupy" in base_type:
                 import cupy as cp
+
                 xp_lib = cp
             else:
                 raise RuntimeError(f"unsupported array type {base_type}")
@@ -130,7 +133,9 @@ def get_restrict_views(views: Dict[str, ViewType]) -> Tuple[Dict[str, ViewType],
     for arr in aliasing_arrays:
         restricted_views.pop(arr, None)
 
-    restricted_signature: str = hashlib.md5("".join(sorted(restricted_views)).encode()).hexdigest()
+    restricted_signature: str = hashlib.md5(
+        "".join(sorted(restricted_views)).encode()
+    ).hexdigest()
 
     return restricted_views, restricted_signature
 
@@ -178,7 +183,12 @@ def get_restrict_ptr_type(view_type: str) -> Tuple[cppast.ClassType, int]:
     return decltype, rank
 
 
-def define_restrict_function(functor: cppast.RecordDecl, operation: str, workunit: cppast.MethodDecl, restrict_views: Set[str]) -> cppast.MethodDecl:
+def define_restrict_function(
+    functor: cppast.RecordDecl,
+    operation: str,
+    workunit: cppast.MethodDecl,
+    restrict_views: Set[str],
+) -> cppast.MethodDecl:
     """
     Define the kokkos function that will have restrict
 
@@ -210,18 +220,26 @@ def define_restrict_function(functor: cppast.RecordDecl, operation: str, workuni
 
         params.append(cppast.ParmVarDecl(decltype, get_restrict_ptr_name(field_name)))
         for i in range(rank):
-            params.append(cppast.ParmVarDecl(cppast.ClassType("size_t"), get_stride_name(field_name, i)))
+            params.append(
+                cppast.ParmVarDecl(
+                    cppast.ClassType("size_t"), get_stride_name(field_name, i)
+                )
+            )
 
     typename: str = functor.typename.typename
     name: str = f"pk_kokkos_function_{typename}"
-    method = cppast.MethodDecl("KOKKOS_FUNCTION", cppast.ClassType("void"), name, params, workunit.body)
+    method = cppast.MethodDecl(
+        "KOKKOS_FUNCTION", cppast.ClassType("void"), name, params, workunit.body
+    )
     method.is_const = True
     functor.add_decl(method)
 
     return method
-    
 
-def index_restrict_view(name: cppast.DeclRefExpr, indices: List[cppast.Expr], view: ViewType) -> cppast.ArraySubscriptExpr:
+
+def index_restrict_view(
+    name: cppast.DeclRefExpr, indices: List[cppast.Expr], view: ViewType
+) -> cppast.ArraySubscriptExpr:
     """
     Get the indexing operation of a particular view with a given list
     of indices
@@ -235,20 +253,44 @@ def index_restrict_view(name: cppast.DeclRefExpr, indices: List[cppast.Expr], vi
 
     # Subviews could be strided
     if isinstance(view, Subview) or view.rank() > 2:
-        full_index = cppast.BinaryOperator(indices[0], get_stride_name(name, 0), cppast.BinaryOperatorKind.Mul)
+        full_index = cppast.BinaryOperator(
+            indices[0], get_stride_name(name, 0), cppast.BinaryOperatorKind.Mul
+        )
         for i, index in enumerate(indices[1:]):
-            current_stride: cppast.DeclRefExpr = get_stride_name(name, i + 1) # Add one since we did zero before the loop
-            current_mul = cppast.BinaryOperator(index, current_stride, cppast.BinaryOperatorKind.Mul)
-            full_index = cppast.BinaryOperator(current_mul, full_index, cppast.BinaryOperatorKind.Add)
+            current_stride: cppast.DeclRefExpr = get_stride_name(
+                name, i + 1
+            )  # Add one since we did zero before the loop
+            current_mul = cppast.BinaryOperator(
+                index, current_stride, cppast.BinaryOperatorKind.Mul
+            )
+            full_index = cppast.BinaryOperator(
+                current_mul, full_index, cppast.BinaryOperatorKind.Add
+            )
 
     else:
         if view.rank() == 1:
             full_index = indices[0]
         elif view.rank() == 2:
             if view.layout is Layout.LayoutRight:
-                full_index = cppast.BinaryOperator(cppast.BinaryOperator(indices[0], get_stride_name(name, 0), cppast.BinaryOperatorKind.Mul), indices[1], cppast.BinaryOperatorKind.Add)
+                full_index = cppast.BinaryOperator(
+                    cppast.BinaryOperator(
+                        indices[0],
+                        get_stride_name(name, 0),
+                        cppast.BinaryOperatorKind.Mul,
+                    ),
+                    indices[1],
+                    cppast.BinaryOperatorKind.Add,
+                )
             elif view.layout is Layout.LayoutLeft:
-                full_index = cppast.BinaryOperator(cppast.BinaryOperator(indices[1], get_stride_name(name, 1), cppast.BinaryOperatorKind.Mul), indices[0], cppast.BinaryOperatorKind.Add)
+                full_index = cppast.BinaryOperator(
+                    cppast.BinaryOperator(
+                        indices[1],
+                        get_stride_name(name, 1),
+                        cppast.BinaryOperatorKind.Mul,
+                    ),
+                    indices[0],
+                    cppast.BinaryOperatorKind.Add,
+                )
 
     return cppast.ArraySubscriptExpr(restrict_name, [full_index])
 
@@ -259,7 +301,7 @@ def adjust_kokkos_function_definition(
     name: str,
     params: List[cppast.ParmVarDecl],
     body: cppast.CompoundStmt,
-    restrict_views: Set[str]
+    restrict_views: Set[str],
 ) -> cppast.MethodDecl:
     """
     Adjust the definition of a kokkos function by replacing views with
@@ -292,10 +334,16 @@ def adjust_kokkos_function_definition(
         rank: int
         decltype, rank = get_restrict_ptr_type(field_type)
 
-        new_params.append(cppast.ParmVarDecl(decltype, get_restrict_ptr_name(param_name)))
+        new_params.append(
+            cppast.ParmVarDecl(decltype, get_restrict_ptr_name(param_name))
+        )
         for i in range(rank):
-            new_params.append(cppast.ParmVarDecl(cppast.ClassType("size_t"), get_stride_name(param_name, i)))
-    
+            new_params.append(
+                cppast.ParmVarDecl(
+                    cppast.ClassType("size_t"), get_stride_name(param_name, i)
+                )
+            )
+
     return cppast.MethodDecl(attributes, return_type, name, new_params, body)
 
 
@@ -303,7 +351,7 @@ def adjust_kokkos_function_call(
     function: cppast.DeclRefExpr,
     args: List[cppast.Expr],
     restrict_views: Set[str],
-    views: Dict[cppast.DeclRefExpr, cppast.Type]
+    views: Dict[cppast.DeclRefExpr, cppast.Type],
 ) -> cppast.CallExpr:
     """
     Adjust the call to a kokkos function by accounting for the new
@@ -331,7 +379,7 @@ def adjust_kokkos_function_call(
         view_type: cppast.ClassType = views[arg]
 
         # View type here is of the form View2D<double, ...>
-        rank = int(re.search(r'\d+', view_type.typename).group())
+        rank = int(re.search(r"\d+", view_type.typename).group())
 
         for i in range(rank):
             new_args.append(get_stride_name(arg, i))
@@ -339,7 +387,11 @@ def adjust_kokkos_function_call(
     return cppast.CallExpr(function, new_args)
 
 
-def add_function_call(kokkos_function: cppast.MethodDecl, workunit: cppast.MethodDecl, restrict_views: Set[str]) -> None:
+def add_function_call(
+    kokkos_function: cppast.MethodDecl,
+    workunit: cppast.MethodDecl,
+    restrict_views: Set[str],
+) -> None:
     """
     Add the call to the restricted Kokkos function call to the
     workunit body
@@ -358,11 +410,19 @@ def add_function_call(kokkos_function: cppast.MethodDecl, workunit: cppast.Metho
             get_call = cppast.MemberCallExpr(view_name, cppast.DeclRefExpr("data"), [])
             args.append(get_call)
 
-        elif name.declname.startswith("pk_stride_"): # Is a stride parameter
+        elif name.declname.startswith("pk_stride_"):  # Is a stride parameter
             split_name: List[str] = name.declname.split("_")
             dimension = int(split_name[-1].replace("stride", ""))
-            view_name = name.declname.replace("pk_stride_", "").replace(f"_stride{dimension}", "")
-            args.append(cppast.MemberCallExpr(cppast.DeclRefExpr(view_name), cppast.DeclRefExpr(f"stride_{dimension}"), []))
+            view_name = name.declname.replace("pk_stride_", "").replace(
+                f"_stride{dimension}", ""
+            )
+            args.append(
+                cppast.MemberCallExpr(
+                    cppast.DeclRefExpr(view_name),
+                    cppast.DeclRefExpr(f"stride_{dimension}"),
+                    [],
+                )
+            )
 
         else:
             args.append(name)
@@ -371,7 +431,12 @@ def add_function_call(kokkos_function: cppast.MethodDecl, workunit: cppast.Metho
     workunit._body = cppast.CallStmt(call)
 
 
-def add_restrict_views(functor: cppast.RecordDecl, operation: str, workunit: cppast.MethodDecl, restrict_views: Set[str]):
+def add_restrict_views(
+    functor: cppast.RecordDecl,
+    operation: str,
+    workunit: cppast.MethodDecl,
+    restrict_views: Set[str],
+):
     """
     Define the restrict kokkos function and call it
 
@@ -381,5 +446,7 @@ def add_restrict_views(functor: cppast.RecordDecl, operation: str, workunit: cpp
     :param restrict_views: the views with the restrict keyword
     """
 
-    kokkos_function: cppast.MethodDecl = define_restrict_function(functor, operation, workunit, restrict_views)
+    kokkos_function: cppast.MethodDecl = define_restrict_function(
+        functor, operation, workunit, restrict_views
+    )
     add_function_call(kokkos_function, workunit, restrict_views)

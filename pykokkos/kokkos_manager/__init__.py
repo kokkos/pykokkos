@@ -8,7 +8,7 @@ from pykokkos.interface.data_types import DataTypeClass, double
 
 
 CONSTANTS: Dict[str, Any] = {
-    "KOKKOS_VERSION": 3.7, # default to 3.7
+    "KOKKOS_VERSION": 3.7,  # default to 3.7
     "EXECUTION_SPACE": ExecutionSpace.OpenMP,
     "AVAILABLE_EXECUTION_SPACES": {},
     "REAL_DTYPE": double,
@@ -20,7 +20,7 @@ CONSTANTS: Dict[str, Any] = {
     "KOKKOS_GPU_MODULE_LIST": [],
     "KOKKOS_GPU_INSTANCE_LIST": [],
     "DEVICE_ID": 0,
-    "GPU_BACKEND": None
+    "GPU_BACKEND": None,
 }
 
 pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
@@ -28,7 +28,10 @@ if pk_kokkos_version is not None:
     try:
         CONSTANTS["KOKKOS_VERSION"] = float(pk_kokkos_version)
     except ValueError:
-        print(f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {CONSTANTS['KOKKOS_VERSION']}")
+        print(
+            f"WARNING: PK_KOKKOS_INTERFACE value '{pk_kokkos_version}' is invalid; reverting to {CONSTANTS['KOKKOS_VERSION']}"
+        )
+
 
 def get_kokkos_version() -> float:
     """
@@ -36,6 +39,7 @@ def get_kokkos_version() -> float:
     """
 
     return CONSTANTS["KOKKOS_VERSION"]
+
 
 def get_default_space() -> ExecutionSpace:
     """
@@ -48,6 +52,7 @@ def get_default_space() -> ExecutionSpace:
         return ExecutionSpace.Debug
 
     return CONSTANTS["EXECUTION_SPACE"]
+
 
 def set_default_space(space: ExecutionSpace) -> None:
     """
@@ -62,6 +67,7 @@ def set_default_space(space: ExecutionSpace) -> None:
 
     CONSTANTS["EXECUTION_SPACE"] = space
 
+
 def get_execution_space_instance(space: ExecutionSpace) -> ExecutionSpaceInstance:
     """
     Return the default execution space instance for a given space
@@ -75,6 +81,7 @@ def get_execution_space_instance(space: ExecutionSpace) -> ExecutionSpaceInstanc
 
     return CONSTANTS["AVAILABLE_EXECUTION_SPACES"][space]
 
+
 def get_available_execution_spaces() -> List[str]:
     """
     Get the available execution spaces
@@ -84,6 +91,7 @@ def get_available_execution_spaces() -> List[str]:
 
     return list(CONSTANTS["AVAILABLE_EXECUTION_SPACES"].keys())
 
+
 def get_default_precision() -> ExecutionSpace:
     """
     Get the default PyKokkos precision
@@ -92,6 +100,7 @@ def get_default_precision() -> ExecutionSpace:
     """
 
     return CONSTANTS["REAL_DTYPE"]
+
 
 def set_default_precision(precision: DataTypeClass) -> None:
     """
@@ -106,6 +115,7 @@ def set_default_precision(precision: DataTypeClass) -> None:
 
     CONSTANTS["REAL_DTYPE"] = precision
 
+
 def is_uvm_enabled() -> bool:
     """
     Check if UVM is enabled
@@ -115,6 +125,7 @@ def is_uvm_enabled() -> bool:
 
     return CONSTANTS["ENABLE_UVM"]
 
+
 def enable_uvm() -> None:
     """
     Enable CudaUVMSpace
@@ -122,12 +133,14 @@ def enable_uvm() -> None:
 
     CONSTANTS["ENABLE_UVM"] = True
 
+
 def disable_uvm() -> None:
     """
     Disable CudaUVMSpace
     """
 
     CONSTANTS["ENABLE_UVM"] = False
+
 
 def initialize() -> None:
     """
@@ -138,6 +151,7 @@ def initialize() -> None:
         kokkos.initialize()
         CONSTANTS["IS_INITIALIZED"] = True
 
+
 def finalize() -> None:
     """
     Call Kokkos::finalize() if initialize() has been called
@@ -146,6 +160,7 @@ def finalize() -> None:
     if CONSTANTS["IS_INITIALIZED"] == True:
         kokkos.finalize()
         CONSTANTS["IS_INITIALIZED"] = False
+
 
 def get_kokkos_module(is_cpu: bool) -> ModuleType:
     """
@@ -159,6 +174,7 @@ def get_kokkos_module(is_cpu: bool) -> ModuleType:
         return kokkos
 
     return CONSTANTS["KOKKOS_GPU_MODULE"]
+
 
 def set_device_id(device_id: int) -> None:
     """
@@ -178,6 +194,7 @@ def set_device_id(device_id: int) -> None:
         return
 
     import cupy
+
     cupy.cuda.runtime.setDevice(device_id)
     CONSTANTS["DEVICE_ID"] = device_id
 
@@ -186,6 +203,7 @@ def set_device_id(device_id: int) -> None:
 
     exec_space_instance = CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"][device_id]
     CONSTANTS["AVAILABLE_EXECUTION_SPACES"][get_gpu_framework()] = exec_space_instance
+
 
 def get_device_id() -> int:
     """
@@ -196,6 +214,7 @@ def get_device_id() -> int:
 
     return CONSTANTS["DEVICE_ID"]
 
+
 def is_multi_gpu_enabled() -> bool:
     """
     Check if pykokkos has been configured for multi-gpu use
@@ -204,6 +223,7 @@ def is_multi_gpu_enabled() -> bool:
     """
 
     return CONSTANTS["MULTI_GPU"]
+
 
 def get_kokkos_gpu_modules() -> List:
     """
@@ -214,6 +234,7 @@ def get_kokkos_gpu_modules() -> List:
 
     return CONSTANTS["KOKKOS_GPU_MODULE_LIST"]
 
+
 def get_num_gpus() -> bool:
     """
     Get the number of gpus pykokkos has been configured for
@@ -222,6 +243,7 @@ def get_num_gpus() -> bool:
     """
 
     return CONSTANTS["NUM_GPUS"]
+
 
 def get_gpu_framework() -> ExecutionSpace:
     """
@@ -232,10 +254,12 @@ def get_gpu_framework() -> ExecutionSpace:
 
     return CONSTANTS["GPU_BACKEND"]
 
+
 try:
     # Save the active device ID before calling initialize(), which
     # will overwrite it
     import cupy as cp
+
     active_device: int = cp.cuda.runtime.getDevice()
 except ImportError:
     pass
@@ -267,6 +291,7 @@ import sys
 
 try:
     import cupy as cp
+
     NUM_CUDA_GPUS: int = cp.cuda.runtime.getDeviceCount()
     KOKKOS_LIBS: List[str] = [f"gpu{id}" for id in range(NUM_CUDA_GPUS)]
 except ImportError:
@@ -306,6 +331,7 @@ if len(KOKKOS_GPU_MODULE_LIST) > 1:
 
 try:
     import cupy as cp
+
     cp.cuda.runtime.setDevice(active_device)
 except ImportError:
     pass
