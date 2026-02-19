@@ -24,6 +24,7 @@ add_library(${MODULE_NAME} SHARED ${SOURCE_FILES})
 
 set_target_properties(${MODULE_NAME} PROPERTIES
     PREFIX ""
+    SUFFIX ".so"
 )
 
 # Includes
@@ -41,7 +42,7 @@ target_compile_definitions(${MODULE_NAME} PRIVATE
 )
 
 # Link libraries
-target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Python3::Python Kokkos::kokkos)
+target_link_libraries(${MODULE_NAME} PRIVATE pybind11::module Kokkos::kokkos)
 target_link_libraries(${MODULE_NAME} PRIVATE Kokkos::kokkoscore${LIB_SUFFIX} Kokkos::kokkoscontainers${LIB_SUFFIX})
 
 # Install
