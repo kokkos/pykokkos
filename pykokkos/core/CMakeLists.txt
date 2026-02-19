@@ -14,7 +14,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Dependencies
-find_package(Python3 3.11 COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 2.11 CONFIG REQUIRED)
 find_package(Kokkos 4.7.1 EXACT REQUIRED)
 
