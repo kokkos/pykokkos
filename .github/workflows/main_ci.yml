@@ -26,7 +26,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade numpy mypy==1.0.1 cmake pytest pybind11 scikit-build patchelf
       - name: Install pykokkos-base
-        working-directory: base
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=2
           python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=5
