@@ -36,4 +36,4 @@ jobs:
           mypy pykokkos
       - name: import pykokkos
         run: |
-          python examples/kokkos/01_hello_world.py
+          python examples/kokkos-tutorials/standalone/01.py
