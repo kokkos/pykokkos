@@ -33,6 +33,14 @@ from pykokkos.lib.util import (
 from pykokkos.lib.constants import e, pi, inf, nan
 from pykokkos.interface.views import astype
 
+import numpy as np
+
+isnan = np.isnan
+isinf = np.isinf
+isfinite = np.isfinite
+equal = np.equal
+
+
 runtime_singleton.runtime = Runtime()
 
 import weakref
