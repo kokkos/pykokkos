@@ -36,17 +36,12 @@ from itertools import chain
 from math import pi
 from typing import Sequence
 
-import pykokkos as pk
 import numpy as np
 from sklearn.base import BaseEstimator
 
 
 def asarray(arr):
-    arr = np.asarray(arr)
-
-    view = pk.View(arr.shape, pk.double)
-    view[:] = arr
-    return view
+    return np.asarray(arr, dtype=np.float64)
 
 
 def type_of_target(y, input_name=""):
@@ -103,7 +98,7 @@ def type_of_target(y, input_name=""):
 
 def _unique_multiclass(y):
     if hasattr(y, "__array__"):
-        return np.unique(asarray(y))
+        return np.unique(np.array(asarray(y)))
     else:
         return set(y)
 
@@ -140,8 +135,7 @@ def unique_labels(*ys):
         raise ValueError("Mix of label input types (string and number)")
 
     sorted_label = sorted(ys_labels)
-    labels = pk.View([len(sorted_label)], pk.double)
-    labels[:] = sorted_label
+    labels = np.array(sorted_label, dtype=np.float64)
     return labels
 
 
@@ -536,17 +530,17 @@ class GaussianNB(_BaseNB):
         # will cause numerical errors. To address this, we artificially
         # boost the variance by epsilon, a small fraction of the standard
         # deviation of the largest dimension.
-        self.epsilon_ = self.var_smoothing * pk.find_max(np.var(np.array(X), axis=0))
+        self.epsilon_ = self.var_smoothing * np.max(np.var(np.array(X), axis=0))
 
         if first_call:
             # This is the first call to partial_fit:
             # initialize various cumulative counters
             n_features = X.shape[1]
             n_classes = len(self.classes_)
-            self.theta_ = pk.zeros((n_classes, n_features))
-            self.var_ = pk.zeros((n_classes, n_features))
+            self.theta_ = np.zeros((n_classes, n_features), dtype=np.float64)
+            self.var_ = np.zeros((n_classes, n_features), dtype=np.float64)
 
-            self.class_count_ = pk.zeros(n_classes, dtype=pk.double)
+            self.class_count_ = np.zeros(n_classes, dtype=np.float64)
 
             # Initialise the class prior
             # Take into account the priors
@@ -561,7 +555,7 @@ class GaussianNB(_BaseNB):
                 self.class_prior_ = priors
             else:
                 # Initialize the priors to zeros for each class
-                self.class_prior_ = pk.zeros(len(self.classes_), dtype=pk.double)
+                self.class_prior_ = np.zeros(len(self.classes_), dtype=np.float64)
         else:
             if X.shape[1] != self.theta_.shape[1]:
                 msg = "Number of features %d does not match previous data %d."
@@ -574,14 +568,14 @@ class GaussianNB(_BaseNB):
         unique_y = np.unique(y)
         unique_y_in_classes = np.in1d(unique_y, classes)
 
-        if not pk.all(unique_y_in_classes):
+        if not np.all(unique_y_in_classes):
             raise ValueError(
                 "The target label(s) %s in y do not exist in the initial classes %s"
                 % (unique_y[np.logical_not(unique_y_in_classes)], classes)
             )
 
         for y_i in unique_y:
-            i = int(pk.searchsorted(classes, y_i))  # linear search
+            i = int(np.searchsorted(classes, y_i))  # linear search
             X_i = X[y == y_i, :]
 
             if sample_weight is not None:
@@ -604,7 +598,7 @@ class GaussianNB(_BaseNB):
         # Update if only no priors is provided
         if self.priors is None:
             # Empirical prior, with sample_weight taken into account
-            self.class_prior_ = np.divide(self.class_count_, pk.sum(self.class_count_))
+            self.class_prior_ = np.divide(self.class_count_, np.sum(self.class_count_))
 
         return self
 
@@ -615,11 +609,11 @@ class GaussianNB(_BaseNB):
         for i in range(total_classes):
             jointi = np.log(self.class_prior_[i])
 
-            n_ij = -0.5 * pk.sum(np.log(np.multiply(self.var_[i, :], 2.0 * pi)))
+            n_ij = -0.5 * np.sum(np.log(self.var_[i, :] * 2.0 * pi))
             n_ij = np.add(
                 np.negative(
                     np.multiply(
-                        pk.sum(
+                        np.sum(
                             np.divide(
                                 np.power(np.add(X, np.negative(self.theta_[i, :])), 2),
                                 self.var_[i, :],
