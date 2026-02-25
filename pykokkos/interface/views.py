@@ -538,9 +538,7 @@ class View(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        result = pk.View(result_np.shape, dtype=pk.bool)
-        result[:] = result_np
-        return result
+        return result_np
 
     def __hash__(self):
         try:
@@ -703,9 +701,7 @@ class Subview(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        result = pk.View(result_np.shape, dtype=pk.bool)
-        result[:] = result_np
-        return result
+        return result_np
 
     def __add__(self, other):
         if isinstance(other, float):
