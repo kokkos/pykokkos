@@ -36,10 +36,11 @@ class DataType(Enum):
 class DataTypeClass:
     pass
 
+
 class DataTypeMeta(type):
     def __eq__(cls, other):
         if isinstance(other, np.dtype):
-            return hasattr(cls, 'np_equiv') and cls.np_equiv == other.type
+            return hasattr(cls, "np_equiv") and cls.np_equiv == other.type
         return super().__eq__(other)
 
     def __hash__(cls):
@@ -48,6 +49,7 @@ class DataTypeMeta(type):
 
 class DataTypeClass(metaclass=DataTypeMeta):
     pass
+
 
 class uint8(DataTypeClass):
     value = kokkos.uint8

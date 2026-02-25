@@ -39,11 +39,11 @@ isnan = np.isnan
 isinf = np.isinf
 isfinite = np.isfinite
 equal = np.equal
-sign = np.sign        
-round = np.round      
-trunc = np.trunc     
-ceil = np.ceil        
-floor = np.floor   
+sign = np.sign
+round = np.round
+trunc = np.trunc
+ceil = np.ceil
+floor = np.floor
 
 
 runtime_singleton.runtime = Runtime()
