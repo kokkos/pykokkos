@@ -33,10 +33,6 @@ class DataType(Enum):
     complex128 = kokkos.complex_float64_dtype
 
 
-class DataTypeClass:
-    pass
-
-
 class DataTypeMeta(type):
     def __eq__(cls, other):
         if isinstance(other, np.dtype):
