@@ -33,17 +33,7 @@ class DataType(Enum):
     complex128 = kokkos.complex_float64_dtype
 
 
-class DataTypeMeta(type):
-    def __eq__(cls, other):
-        if isinstance(other, np.dtype):
-            return hasattr(cls, "np_equiv") and cls.np_equiv == other.type
-        return super().__eq__(other)
-
-    def __hash__(cls):
-        return super().__hash__()
-
-
-class DataTypeClass(metaclass=DataTypeMeta):
+class DataTypeClass:
     pass
 
 
