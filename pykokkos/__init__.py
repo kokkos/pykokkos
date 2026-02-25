@@ -36,6 +36,7 @@ from pykokkos.interface.views import astype
 import numpy as np
 from pykokkos.lib.pk_array import PKArray
 
+
 def _pk_func(np_func):
     def wrapper(*args, **kwargs):
         return PKArray(np_func(*args, **kwargs))

@@ -742,7 +742,9 @@ def from_numpy(
     """
 
     dtype: DataTypeClass
-    np_dtype = array.dtype.type if isinstance(array.dtype, np.dtype) else array.dtype.np_equiv
+    np_dtype = (
+        array.dtype.type if isinstance(array.dtype, np.dtype) else array.dtype.np_equiv
+    )
 
     if np_dtype is np.void and cp_array is not None:
         # This means that this is a cupy array passed through
