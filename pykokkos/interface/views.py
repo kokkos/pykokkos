@@ -9,6 +9,7 @@ from types import ModuleType
 from typing import Dict, Generic, Iterator, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from pykokkos.lib.pk_array import PKArray
 
 import pykokkos as pk
 from pykokkos.bindings import kokkos
@@ -538,7 +539,7 @@ class View(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        return result_np
+        return PKArray(result_np)
 
     def __hash__(self):
         try:
@@ -550,7 +551,9 @@ class View(ViewType):
     def __index__(self) -> int:
         return int(self.data[0])
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if self.shape == ():
+            return np.squeeze(self.data)
         return self.data
 
     def __pos__(self):
@@ -701,7 +704,7 @@ class Subview(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        return result_np
+        return PKArray(result_np)
 
     def __add__(self, other):
         if isinstance(other, float):
@@ -739,7 +742,7 @@ def from_numpy(
     """
 
     dtype: DataTypeClass
-    np_dtype = array.dtype.type
+    np_dtype = array.dtype.type if isinstance(array.dtype, np.dtype) else array.dtype.np_equiv
 
     if np_dtype is np.void and cp_array is not None:
         # This means that this is a cupy array passed through
