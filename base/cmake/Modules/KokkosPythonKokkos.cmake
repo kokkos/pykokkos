@@ -154,6 +154,10 @@ IF(_INTERNAL_KOKKOS)
         ADD_OPTION(Kokkos_ENABLE_CUDA "Build Kokkos submodule with CUDA support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
+        # Kokkos 5+ requires DEPRECATED_CODE_4 to use CUDA UVM (UVM is deprecated in favor of SharedSpace)
+        IF(Kokkos_ENABLE_CUDA_UVM)
+            SET(Kokkos_ENABLE_DEPRECATED_CODE_4 ON CACHE BOOL "Required for Kokkos_ENABLE_CUDA_UVM in Kokkos 5+" FORCE)
+        ENDIF()
     ENDIF()
 
     # Check if we should use submodule or FetchContent
