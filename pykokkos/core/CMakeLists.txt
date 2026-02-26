@@ -15,7 +15,7 @@ endif()
 
 # Dependencies
 find_package(pybind11 2.11 CONFIG REQUIRED)
-find_package(Kokkos 4.7.1 EXACT REQUIRED)
+find_package(Kokkos 5.0.2 EXACT REQUIRED)
 
 # Sources and targets
 file(GLOB SOURCE_FILES "*.cpp")
