@@ -109,7 +109,7 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
 
         for dtype, size_func in scratch_specs:
             nparams = len(inspect.signature(size_func).parameters)
-            # Two args lambda - 
+            # Two args lambda -
             if nparams >= 2 and bound_self is not None:
                 num_elements = size_func(policy, bound_self)
             else:

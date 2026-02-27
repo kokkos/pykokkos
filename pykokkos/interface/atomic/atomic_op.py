@@ -2,7 +2,6 @@ from functools import reduce
 from typing import List, Union
 from ..views import View
 
-
 # Atomic operations from:
 # https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_op
 

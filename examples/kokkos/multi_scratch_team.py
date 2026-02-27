@@ -12,12 +12,13 @@ def init_data(i: int, view):
 #   scratch_val - N      float64 elements (passed as kwarg)
 @pk.workunit(
     scratch=[
-        (int,   lambda p: p.n_ints),
+        (int, lambda p: p.n_ints),
         (float, lambda p: p.N),
     ]
 )
-def scale_kernel(team_member: pk.TeamMember, input_view, output_view,
-                 team_size, scale, n_ints, N):
+def scale_kernel(
+    team_member: pk.TeamMember, input_view, output_view, team_size, scale, n_ints, N
+):
     offset: int = team_member.league_rank() * team_size
     rank: int = team_member.team_rank()
 
