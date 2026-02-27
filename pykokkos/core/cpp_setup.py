@@ -39,7 +39,7 @@ class CppSetup:
 
         self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
-        self.format: bool = False
+        self.format: bool = os.getenv("PK_FORMAT") is not None
 
     def compile_raw_source(
         self,
