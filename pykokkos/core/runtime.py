@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import os
 from pathlib import Path
 import sys
@@ -72,6 +73,14 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
     """
     Apply scratch specification from the workunit decorator to the policy.
 
+    Each entry in ``workunit._pk_scratch`` is a ``(dtype, size_func)`` tuple.
+    ``size_func`` may accept one or two positional arguments:
+
+    - ``lambda p: ...``       - receives the ``TeamPolicy`` only.
+    - ``lambda p, s: ...``    - receives the ``TeamPolicy`` and the bound class
+      instance (``workunit.__self__``), enabling access to instance attributes
+      when the workunit is a bound method.
+
     :param workunit: the workunit function with potential scratch specification
     :param policy: the TeamPolicy to which scratch should be applied
     :param kwargs: keyword arguments passed to the workunit (for size calculation)
@@ -93,11 +102,18 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
                 temp_attrs[key] = None
                 setattr(policy, key, int(value))
 
+    bound_self = getattr(workunit, "__self__", None)
+
     try:
         total_scratch_size = 0
 
         for dtype, size_func in scratch_specs:
-            num_elements = size_func(policy)
+            nparams = len(inspect.signature(size_func).parameters)
+            # Two args lambda - 
+            if nparams >= 2 and bound_self is not None:
+                num_elements = size_func(policy, bound_self)
+            else:
+                num_elements = size_func(policy)
             total_scratch_size += _calculate_aligned_scratch_size(dtype, num_elements)
 
         if total_scratch_size > 0:

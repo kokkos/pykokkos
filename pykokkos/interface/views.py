@@ -551,8 +551,11 @@ class View(ViewType):
     def __index__(self) -> int:
         return int(self.data[0])
 
-    def __array__(self, dtype=None):
-        return self.data
+    def __array__(self, dtype=None, copy=None):
+        arr = self.data
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
 
     def __pos__(self):
         return pk.positive(self)
