@@ -201,13 +201,28 @@ class CppSetup:
             if enable_uvm:
                 view_space = "Kokkos::Experimental::HIPManagedSpace"
 
+        # kernel compiled for host but default space is device
+        # in this case we need to convert them a bit
+        if is_host_execution_space(space):
+            default_space: ExecutionSpace = km.get_default_space()
+            if not is_host_execution_space(default_space):
+                ns = get_default_memory_space(default_space).name
+                prefix = "Kokkos::Experimental" if "HIP" in ns else "Kokkos"
+                view_space = f"{prefix}::{ns}"
+
         space_value: str
         if space.value == "HIP":
             space_value = "Experimental::HIP"
         else:
             space_value = space.value
 
-        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
+        # layout must also match the caller's views (GPU = LayoutLeft)
+        if is_host_execution_space(space):
+            default_space = km.get_default_space()
+            view_layout_space = default_space if not is_host_execution_space(default_space) else space
+        else:
+            view_layout_space = space
+        view_layout: str = str(get_default_layout(get_default_memory_space(view_layout_space)))
         view_layout = view_layout.split(".")[-1]
         view_layout = f"Kokkos::{view_layout}"
 

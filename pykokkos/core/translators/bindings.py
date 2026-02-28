@@ -82,7 +82,11 @@ def get_kernel_params(
             continue
 
         space: str = get_view_memory_space(t, "bindings")
-        layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
+        # Use pk_arg_layout (set at compile time to match the caller's view
+        # layout) rather than pk_exec_space::array_layout.  This lets a host
+        # execution space (Serial, OpenMP) accept GPU-layout views from a Cuda
+        # caller; create_mirror_view_and_copy inside run_* handles the copy.
+        layout: str = Keywords.ArgLayout.value
         params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
     params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
@@ -139,6 +143,50 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     }
 
 
+def _generate_mirror_with_exec_layout(
+    src: str,
+    dst: str,
+    view_type: cppast.ClassType,
+    exec_space_instance: str,
+    real: Optional[str],
+) -> str:
+    """
+    Generate C++ code that creates a properly-typed mirror view in the
+    execution space's native memory space AND layout, then deep-copies from
+    the source view.
+
+    Using Kokkos::create_mirror_view_and_copy is not sufficient here because
+    it preserves the source layout.  When a host execution space (Serial,
+    OpenMP) receives a GPU-allocated view (CudaUVMSpace / LayoutLeft), the
+    mirror would be LayoutLeft/HostSpace but the functor template expects
+    LayoutRight/HostSpace (ExecSpace::array_layout for Serial = LayoutRight).
+    Kokkos::deep_copy handles both the memory-space transfer and the
+    layout conversion in one call.
+    """
+    # Build the destination view type with the execution space's native
+    # memory space and array layout.
+    exec_space: str = Keywords.DefaultExecSpace.value
+    dst_type: str = cpp_view_type(
+        view_type,
+        space=f"{exec_space}::memory_space",
+        layout=f"{exec_space}::array_layout",
+        real=real,
+    )
+
+    # Determine rank to emit the right number of extent() calls.
+    typename: str = view_type.typename
+    match = re.search(r"(?:View|ScratchView)(\d+)D", typename)
+    rank: int = int(match.group(1)) if match else 1
+    extents: str = ",".join(f"{src}.extent({i})" for i in range(rank))
+
+    code: str = (
+        f'{dst_type} {dst}('
+        f'Kokkos::view_alloc("{dst}", Kokkos::WithoutInitializing), {extents});'
+        f"Kokkos::deep_copy({dst}, {src});"
+    )
+    return code
+
+
 def generate_functor_instance(
     functor: str,
     members: PyKokkosMembers,
@@ -180,11 +228,15 @@ def generate_functor_instance(
                 get_view_memory_space(view_type, "bindings")
                 == Keywords.ArgMemSpace.value
             ):
-                mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+                mirror_views += _generate_mirror_with_exec_layout(
+                    v, d_v, view_type, exec_space_instance, None
+                )
             else:
                 mirror_views += f"auto {d_v} = {v};"
         else:
-            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+            mirror_views += _generate_mirror_with_exec_layout(
+                v, d_v, members.views[cppast.DeclRefExpr(v)], exec_space_instance, None
+            )
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
