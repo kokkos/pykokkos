@@ -278,6 +278,34 @@ def get_type(
     return None
 
 
+def get_view_rank_from_typename(typename: str) -> int:
+    """
+    Extract view rank from a view type name (e.g. 'View2D', 'ScratchView3D').
+
+    :param typename: view type string such as 'View1D', 'ScratchView2D'
+    :returns: rank as int (1-7)
+    :raises ValueError: if typename is not a valid view type name
+    """
+    if typename.startswith("ScratchView"):
+        suffix = typename[len("ScratchView") :]
+    elif typename.startswith("View"):
+        suffix = typename[len("View") :]
+    else:
+        raise ValueError(
+            f"Expected a view type (e.g., 'View1D', 'View2D', 'ScratchView1D'), "
+            f"but got '{typename}'."
+        )
+    if not suffix.endswith("D") or len(suffix) < 2:
+        raise ValueError(
+            f"Could not extract view rank from typename '{typename}'. "
+            f"Expected format: 'View<rank>D' or 'ScratchView<rank>D' (e.g., 'View1D', 'View2D')"
+        )
+    rank = int(suffix[:-1])
+    if not 0 < rank < 8:
+        raise ValueError(f"View rank {rank} is not allowed")
+    return rank
+
+
 def parse_view_template_params(
     view_type: cppast.ClassType,
     rank: Optional[int] = None,
@@ -308,22 +336,7 @@ def parse_view_template_params(
         )
 
     if rank is None:
-        # Match the rank number that comes after "View" or "ScratchView" and before "D"
-        # This prevents matching numbers from dtype names like "float32" or "float64"
-        match = re.search(r"(?:View|ScratchView)(\d+)D", py_type)
-        if match:
-            rank = int(match.group(1))
-        else:
-            # If pattern doesn't match, this is likely not a valid view type name
-            # or the typename format is unexpected - raise an error instead of
-            # using a fallback that could match wrong numbers from dtype names
-            raise ValueError(
-                f"Could not extract view rank from typename '{py_type}'. "
-                f"Expected format: 'View<rank>D' or 'ScratchView<rank>D' (e.g., 'View1D', 'View2D')"
-            )
-
-    if not 0 < rank < 8:
-        raise ValueError(f"View rank {rank} is not allowed")
+        rank = get_view_rank_from_typename(py_type)
 
     params: Dict[str, str] = {}
 

@@ -1,5 +1,4 @@
 import sys
-import re
 from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
@@ -143,28 +142,19 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     }
 
 
+
 def _generate_mirror_with_exec_layout(
     src: str,
     dst: str,
     view_type: cppast.ClassType,
-    exec_space_instance: str,
     real: Optional[str],
 ) -> str:
     """
     Generate C++ code that creates a properly-typed mirror view in the
     execution space's native memory space AND layout, then deep-copies from
     the source view.
-
-    Using Kokkos::create_mirror_view_and_copy is not sufficient here because
-    it preserves the source layout.  When a host execution space (Serial,
-    OpenMP) receives a GPU-allocated view (CudaUVMSpace / LayoutLeft), the
-    mirror would be LayoutLeft/HostSpace but the functor template expects
-    LayoutRight/HostSpace (ExecSpace::array_layout for Serial = LayoutRight).
-    Kokkos::deep_copy handles both the memory-space transfer and the
-    layout conversion in one call.
     """
-    # Build the destination view type with the execution space's native
-    # memory space and array layout.
+    # build destination view type with specified memory and layout
     exec_space: str = Keywords.DefaultExecSpace.value
     dst_type: str = cpp_view_type(
         view_type,
@@ -173,10 +163,7 @@ def _generate_mirror_with_exec_layout(
         real=real,
     )
 
-    # Determine rank to emit the right number of extent() calls.
-    typename: str = view_type.typename
-    match = re.search(r"(?:View|ScratchView)(\d+)D", typename)
-    rank: int = int(match.group(1)) if match else 1
+    rank: int = visitors_util.get_view_rank_from_typename(view_type.typename)
     extents: str = ",".join(f"{src}.extent({i})" for i in range(rank))
 
     code: str = (
@@ -185,7 +172,6 @@ def _generate_mirror_with_exec_layout(
         f"Kokkos::deep_copy({dst}, {src});"
     )
     return code
-
 
 def generate_functor_instance(
     functor: str,
@@ -277,7 +263,7 @@ def generate_copy_back_from_dict(
 
         # Need to resize views for binsort. Unmanaged views cannot be resized.
         if cppast.DeclRefExpr("Unmanaged") not in view_type.template_params:
-            rank = int(re.search(r"\d+", view_type.typename).group())
+            rank = visitors_util.get_view_rank_from_typename(view_type.typename)
             resize_args: List[str] = [v]
 
             for i in range(rank):
