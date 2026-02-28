@@ -8,6 +8,7 @@ import sysconfig
 from typing import Callable, List, Optional, Set, Union
 
 from pykokkos.interface import ExecutionSpace
+from pykokkos.interface.execution_space import is_host_execution_space
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
@@ -181,7 +182,17 @@ class ModuleSetup:
         if restrict_signature is not None:
             out_dir = out_dir / f"restrict_{restrict_signature}"
 
-        out_dir = out_dir / space.value
+        # special case:
+        # default space is device (all contexts are GPU-sided), but the kernel
+        # call is from host need to handle this differently, because
+        # `pk_arg_memspace/pk_arg_layout`s are GPU-oriented!!
+        dir_name: str = space.value
+        if is_host_execution_space(space):
+            default_space: ExecutionSpace = km.get_default_space()
+            if not is_host_execution_space(default_space):
+                dir_name = f"{space.value}_caller_{default_space.value}"
+
+        out_dir = out_dir / dir_name
 
         return out_dir
 
@@ -250,15 +261,19 @@ class ModuleSetup:
 
     def is_compiled(self) -> bool:
         """
-        Check if this module is compiled for its execution space
+        Check if this module is compiled for its execution space.
+        Verifies the actual .so file exists, not just the directory, so that
+        a failed compilation (which leaves the directory but no .so) is
+        correctly detected as not-yet-compiled and retried.
         """
 
-        return CppSetup.is_compiled(
-            self.get_output_dir(
-                self.main,
-                self.metadata,
-                self.space,
-                self.types_signature,
-                self.restrict_signature,
-            )
+        output_dir: Optional[Path] = self.get_output_dir(
+            self.main,
+            self.metadata,
+            self.space,
+            self.types_signature,
+            self.restrict_signature,
         )
+        if output_dir is None:
+            return False
+        return (output_dir / self.module_file).is_file()
