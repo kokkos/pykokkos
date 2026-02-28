@@ -219,7 +219,9 @@ class CppSetup:
         # layout must also match the caller's views (GPU = LayoutLeft)
         if is_host_execution_space(space):
             default_space = km.get_default_space()
-            view_layout_space = default_space if not is_host_execution_space(default_space) else space
+            view_layout_space = (
+                default_space if not is_host_execution_space(default_space) else space
+            )
         else:
             view_layout_space = space
         view_layout: str = str(
