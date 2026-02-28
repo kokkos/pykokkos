@@ -1,5 +1,4 @@
 import ast
-import os
 from typing import Any, Dict, List, Set, Tuple, Union
 
 from .util import DeclarationsVisitor, VariableRenamer
@@ -47,7 +46,7 @@ def fuse_workunit_kwargs_and_params(
 
         for p in current_params:
             current_arg = current_kwargs[p.arg]
-            if "PK_FUSE_ARGS" in os.environ and id(current_arg) in view_ids:
+            if id(current_arg) in view_ids:
                 continue
 
             view_ids.add(id(current_arg))
@@ -131,7 +130,7 @@ def fuse_arguments(
                 continue
 
             current_arg = current_kwargs[old_name]
-            if "PK_FUSE_ARGS" in os.environ and id(current_arg) in fused_view_names:
+            if id(current_arg) in fused_view_names:
                 name_map[key] = fused_view_names[id(current_arg)]
                 continue
 
