@@ -222,7 +222,9 @@ class CppSetup:
             view_layout_space = default_space if not is_host_execution_space(default_space) else space
         else:
             view_layout_space = space
-        view_layout: str = str(get_default_layout(get_default_memory_space(view_layout_space)))
+        view_layout: str = str(
+            get_default_layout(get_default_memory_space(view_layout_space))
+        )
         view_layout = view_layout.split(".")[-1]
         view_layout = f"Kokkos::{view_layout}"
 

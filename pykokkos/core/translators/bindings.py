@@ -142,7 +142,6 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     }
 
 
-
 def _generate_mirror_with_exec_layout(
     src: str,
     dst: str,
@@ -167,11 +166,12 @@ def _generate_mirror_with_exec_layout(
     extents: str = ",".join(f"{src}.extent({i})" for i in range(rank))
 
     code: str = (
-        f'{dst_type} {dst}('
+        f"{dst_type} {dst}("
         f'Kokkos::view_alloc("{dst}", Kokkos::WithoutInitializing), {extents});'
         f"Kokkos::deep_copy({dst}, {src});"
     )
     return code
+
 
 def generate_functor_instance(
     functor: str,
@@ -215,13 +215,13 @@ def generate_functor_instance(
                 == Keywords.ArgMemSpace.value
             ):
                 mirror_views += _generate_mirror_with_exec_layout(
-                    v, d_v, view_type, exec_space_instance, None
+                    v, d_v, view_type, None
                 )
             else:
                 mirror_views += f"auto {d_v} = {v};"
         else:
             mirror_views += _generate_mirror_with_exec_layout(
-                v, d_v, members.views[cppast.DeclRefExpr(v)], exec_space_instance, None
+                v, d_v, members.views[cppast.DeclRefExpr(v)], None
             )
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
