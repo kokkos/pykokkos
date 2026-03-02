@@ -119,6 +119,17 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
         if total_scratch_size > 0:
             policy.scratch_size_level = 0
             policy.scratch_size_value = PerTeam(total_scratch_size)
+            try:
+                max_scratch = TeamPolicy.scratch_size_max(0)
+                if max_scratch > 0 and total_scratch_size > max_scratch:
+                    raise ValueError(
+                        f"Requested scratch size ({total_scratch_size} bytes) "
+                        f"exceeds maximum for level 0 ({max_scratch} bytes). "
+                        "Reduce scratch allocation or use a different level."
+                    )
+            except (ImportError, AttributeError):
+                # backend may not expose scratch_size_max
+                pass
 
     finally:
         for key in temp_attrs:
