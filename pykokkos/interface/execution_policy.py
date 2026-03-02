@@ -201,6 +201,27 @@ class TeamPolicy(ExecutionPolicy):
         self.scratch_size_level: Optional[int] = None
         self.scratch_size_value = None
 
+    @staticmethod
+    def scratch_size_max(level: int = 0) -> int:
+        """
+        Return the maximum total scratch size in bytes for the given level.
+
+        Calls into the Kokkos backend (precompiled at PyKokkos build time).
+
+        :param level: scratch level (0 or 1)
+        :returns: maximum scratch size in bytes for that level
+        """
+        from pykokkos.bindings import kokkos
+
+        if not hasattr(kokkos, "scratch_size_max"):
+            raise RuntimeError(
+                "scratch_size_max is not available in the loaded Kokkos bindings. "
+                "Rebuild and reinstall PyKokkos so that libpykokkos exports "
+                "TeamPolicy::scratch_size_max."
+            )
+
+        return int(kokkos.scratch_size_max(level))
+
 
 class TeamThreadRange(ExecutionPolicy):
     def __init__(self, team_member: TeamMember, count: int):
