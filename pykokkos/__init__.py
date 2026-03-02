@@ -34,26 +34,12 @@ from pykokkos.lib.constants import e, pi, inf, nan
 from pykokkos.interface.views import astype
 
 import numpy as np
-from pykokkos.lib.pk_array import PKArray
 
 
-def _pk_func(np_func):
-    def wrapper(*args, **kwargs):
-        return PKArray(np_func(*args, **kwargs))
-
-    return wrapper
-
-
-isnan = _pk_func(np.isnan)
-isinf = _pk_func(np.isinf)
-isfinite = _pk_func(np.isfinite)
-equal = _pk_func(np.equal)
-sign = _pk_func(np.sign)
-round = _pk_func(np.round)
-trunc = _pk_func(np.trunc)
-ceil = _pk_func(np.ceil)
-floor = _pk_func(np.floor)
-
+isnan = np.isnan
+isinf = np.isinf
+isfinite = np.isfinite
+equal = np.equal
 
 runtime_singleton.runtime = Runtime()
 
