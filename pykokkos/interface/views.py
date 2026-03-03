@@ -9,7 +9,6 @@ from types import ModuleType
 from typing import Dict, Generic, Iterator, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
-from pykokkos.lib.pk_array import PKArray
 
 import pykokkos as pk
 from pykokkos.bindings import kokkos
@@ -539,7 +538,7 @@ class View(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        return PKArray(result_np)
+        return result_np
 
     def __hash__(self):
         try:
@@ -704,7 +703,7 @@ class Subview(ViewType):
         else:
             raise ValueError("unexpected types!")
         result_np = np.equal(np.array(self), np.array(new_other))
-        return PKArray(result_np)
+        return result_np
 
     def __add__(self, other):
         if isinstance(other, float):
