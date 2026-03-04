@@ -39,7 +39,7 @@ import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
 from .module_setup import EntityMetadata, get_metadata, ModuleSetup
-from .run_debug import run_workload_debug, run_workunit_debug
+from .run_debug import run_workunit_debug
 
 
 def _calculate_aligned_scratch_size(
@@ -123,26 +123,6 @@ class Runtime:
         self.module_setups: Dict[Tuple, ModuleSetup] = {}
 
         self.fusion_strategy: Optional[str] = os.getenv("PK_FUSION")
-
-    def run_workload(self, space: ExecutionSpace, workload: object) -> None:
-        """
-        Run the workload
-
-        :param space: the execution space of the workload
-        :param workload: the workload object
-        """
-
-        if self.is_debug(space):
-            run_workload_debug(workload)
-            return
-
-        module_setup: ModuleSetup = self.get_module_setup(workload, space)
-        members: PyKokkosMembers = self.compiler.compile_object(
-            module_setup, space, km.is_uvm_enabled(), None, None, None, set()
-        )
-
-        self.execute(workload, module_setup, members, space)
-        self.run_callbacks(workload, members)
 
     def precompile_workunit(
         self,

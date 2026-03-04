@@ -17,46 +17,6 @@ from pykokkos.interface import (
 import pykokkos.kokkos_manager as km
 
 
-def run_workload_debug(workload: object) -> None:
-    """
-    Run a workload in Python
-
-    :param workload: the workload object
-    """
-
-    workload_source: str = inspect.getsource(type(workload))
-    tree: ast.Module = ast.parse(workload_source)
-    classdef: ast.ClassDef = tree.body[0]
-
-    def get_annotated_functions(decorator: Decorator) -> Dict[str, ast.FunctionDef]:
-        visitor = ast.NodeVisitor()
-        functions: Dict[str, ast.FunctionDef] = {}
-
-        def visit_FunctionDef(node):
-            if node.decorator_list:
-                try:
-                    node_decorator: str = node.decorator_list[0].id
-                except AttributeError:
-                    node_decorator: str = node.decorator_list[0].attr
-
-                if decorator.value == node_decorator:
-                    functions[node.name] = node
-
-        visitor.visit_FunctionDef = visit_FunctionDef
-        for method in classdef.body:
-            visitor.visit(method)
-
-        return functions
-
-    for name in get_annotated_functions(Decorator.KokkosMain):
-        kokkos_main = getattr(workload, name)
-        kokkos_main()
-
-    for name in get_annotated_functions(Decorator.KokkosCallback):
-        kokkos_callback = getattr(workload, name)
-        kokkos_callback()
-
-
 def call_workunit(
     operation: str,
     workunit: Callable[..., None],
