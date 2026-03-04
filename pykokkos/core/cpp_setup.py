@@ -187,7 +187,7 @@ class CppSetup:
         Copy CMakeLists.txt template and prepare CMake configuration variables
 
         :param output_dir: the base directory
-        :param space: the execution space of the workload
+        :param space: the execution space of the workunit
         :param enable_uvm: whether to enable CudaUVMSpace
         :param compiler: what compiler to use
         :returns: tuple of (cmake_args, module_name)

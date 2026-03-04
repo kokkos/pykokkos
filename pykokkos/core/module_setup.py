@@ -45,7 +45,7 @@ def get_metadata(entity: Union[Callable[..., None], object]) -> EntityMetadata:
     """
     Gets the name and filepath of an entity
 
-    :param entity: the workload or workunit function object
+    :param entity: the workunit function object
     :returns: an EntityMetadata object
     """
 
@@ -88,7 +88,7 @@ class ModuleSetup:
         """
         ModuleSetup constructor
 
-        :param entity: the functor/workunit/workload or list of workunits for fusion
+        :param entity: the functor/workunit or list of workunits for fusion
         :param types_signature: hash/string to identify workunit signature against types
         :param restricted_views: a set of view names that do not alias any other views
         """

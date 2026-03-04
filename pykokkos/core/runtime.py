@@ -112,14 +112,14 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
 
 class Runtime:
     """
-    Executes (and optionally compiles) PyKokkos workloads
+    Executes (and optionally compiles) PyKokkos workunits/functors
     """
 
     def __init__(self):
         self.compiler: Compiler = Compiler()
         self.tracer: Tracer = Tracer()
 
-        # cache module_setup objects using a workload/workunit and space tuple
+        # cache module_setup objects using a workunit and space tuple
         self.module_setups: Dict[Tuple, ModuleSetup] = {}
 
         self.fusion_strategy: Optional[str] = os.getenv("PK_FUSION")
@@ -390,7 +390,7 @@ class Runtime:
         """
         Imports the module containing the bindings and executes the necessary function
 
-        :param entity: the workload or workunit object
+        :param entity: the workunit object
         :param module_path: the path to the compiled module
         :param members: a collection of PyKokkos related members
         :param space: the execution space
@@ -398,7 +398,7 @@ class Runtime:
         :param name: the name of the kernel
         :param operation: the name of the operation "for", "reduce", or "scan"
         :param kwargs: the keyword arguments passed to the workunit
-        :returns: the result of the operation (None for "for" and workloads)
+        :returns: the result of the operation (None for "for")
         """
 
         module_path: str
@@ -460,7 +460,7 @@ class Runtime:
         """
         Get the arguments for a wrapper function, including fields, views, etc
 
-        :param entity: the workload or workunit object
+        :param entity: the workunit object
         :param members: a collection of PyKokkos related members
         :param space: the execution space
         :param policy: the execution policy of the operation
@@ -513,7 +513,7 @@ class Runtime:
         """
         Call the wrapper in the imported module
 
-        :param entity: the workload or workunit object
+        :param entity: the workunit object
         :param members: a collection of PyKokkos related members
         :param args: the arguments to be passed to the wrapper
         :param module: the imported module
@@ -572,112 +572,6 @@ class Runtime:
 
         return precision
 
-    def get_result_arguments(self, members: PyKokkosMembers) -> Dict[str, Any]:
-        """
-        Get the views that are passed as arguments to hold the results for workloads
-
-        :param members: a collection of PyKokkos related members
-        :returns: a dictionary of argument name to value
-        """
-
-        args: Dict[str, Any] = {}
-
-        for result in members.reduction_result_queue:
-            name: str = f"reduction_result_{result}"
-            result_view = View([1], DataType.double, MemorySpace.HostSpace)
-            args[name] = result_view.array
-
-        for result in members.timer_result_queue:
-            name: str = f"timer_result_{result}"
-            result_view = View([1], DataType.double, MemorySpace.HostSpace)
-            args[name] = result_view.array
-
-        return args
-
-    def get_policy_arguments(self, policy: ExecutionPolicy) -> Dict[str, Any]:
-        """
-        Get the arguments that are used for to hold the results for workloads
-
-        :param policy: the execution policy of the operation
-        :returns: a dictionary of argument name to value
-        """
-
-        args: Dict[str, Any] = {}
-
-        args["pk_exec_space_instance"] = policy.space.instance
-
-        if isinstance(policy, RangePolicy):
-            args["pk_threads_begin"] = policy.begin
-            args["pk_threads_end"] = policy.end
-        elif isinstance(policy, TeamPolicy):
-            args["pk_league_size"] = policy.league_size
-            args["pk_team_size"] = policy.team_size
-            args["pk_vector_length"] = policy.vector_length
-
-            # Add scratch size information if it was set, otherwise use -1 to indicate not set
-            if policy.scratch_size_level is not None:
-                args["pk_scratch_size_level"] = policy.scratch_size_level
-                # Extract the actual size value from PerTeam/PerThread wrapper if present
-                from pykokkos.interface.hierarchical import PerTeam, PerThread
-
-                if isinstance(policy.scratch_size_value, PerTeam):
-                    # PerTeam wrapper - extract the value and set flag
-                    args["pk_scratch_size_is_per_team"] = True
-                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
-                elif isinstance(policy.scratch_size_value, PerThread):
-                    # PerThread wrapper - extract the value and set flag
-                    args["pk_scratch_size_is_per_team"] = False
-                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
-                elif isinstance(policy.scratch_size_value, (int, np.integer)):
-                    # Direct size value (workunit case without wrapper)
-                    args["pk_scratch_size_is_per_team"] = (
-                        True  # Default to PerTeam for simple int
-                    )
-                    args["pk_scratch_size_value"] = int(policy.scratch_size_value)
-                else:
-                    # Unknown type, treat as PerTeam with value from variable
-                    args["pk_scratch_size_is_per_team"] = True
-                    args["pk_scratch_size_value"] = policy.scratch_size_value
-            else:
-                # No scratch size set, use -1 as indicator
-                args["pk_scratch_size_level"] = -1
-                args["pk_scratch_size_value"] = 0
-                args["pk_scratch_size_is_per_team"] = True
-
-        return args
-
-    def get_fields(self, members: Dict[str, type]) -> Dict[str, Any]:
-        """
-        Gets all the primitive type fields from the workload object
-
-        :param workload: the dictionary containing all members
-        :returns: a dict mapping from field name to value
-        """
-
-        fields: Dict[str, Any] = {}
-        for key, value in members.items():
-            if type(value) in (
-                int,
-                float,
-                bool,
-                np.int8,
-                np.int16,
-                np.int32,
-                np.int64,
-                np.uint8,
-                np.uint16,
-                np.uint32,
-                np.uint64,
-                np.float32,
-                np.double,
-                np.float64,
-            ):
-                fields[key] = value
-            if isinstance(value, Future):
-                fields[key] = value.value
-
-        return fields
-
     def _convert_functor_arrays(self, members: Dict[str, Any]) -> None:
         """
         Convert numpy/cupy arrays in functor members to Views (similar to convert_arrays for kwargs)
@@ -703,55 +597,6 @@ class Runtime:
             elif cp_available and isinstance(v, cp.ndarray):
                 members[k] = array(v)
 
-    def get_views(self, members: Dict[str, type]) -> Dict[str, Any]:
-        """
-        Gets all the views from the workload object
-
-        :param workload: the dictionary containing all members
-        :returns: a dict mapping from view name to object
-        """
-
-        views: Dict[str, Any] = {}
-        for key, value in members.items():
-            if isinstance(value, ViewType):
-                views[key] = value.array
-
-        return views
-
-    def retrieve_results(
-        self, workload: object, members: PyKokkosMembers, args: Dict[str, Any]
-    ) -> None:
-        """
-        Get the results for workloads
-
-        :param workload: the workload object
-        :param members: a collection of PyKokkos related members
-        :param args: the arguments passed to the wrapper, including views that hold results
-        """
-
-        for result in members.reduction_result_queue:
-            name: str = f"reduction_result_{result}"
-            view: View = args[name]
-            setattr(workload, result, view[0])
-
-        for result in members.timer_result_queue:
-            name: str = f"timer_result_{result}"
-            view: View = args[name]
-            setattr(workload, result, view[0])
-
-    def run_callbacks(self, workload: object, members: PyKokkosMembers) -> None:
-        """
-        Run all methods in the workload that are annotated with @pk.callback
-
-        :param workload: the workload object
-        :param members: a collection of PyKokkos related members in workload
-        """
-
-        callbacks = members.pk_callbacks
-        for name in callbacks:
-            callback = getattr(workload, name.declname)
-            callback()
-
     def get_module_setup(
         self,
         entity: Union[object, Callable[..., None]],
@@ -762,7 +607,7 @@ class Runtime:
         """
         Get the compiled module setup information unique to an entity + space
 
-        :param entity: the workload or workunit object
+        :param entity: the workunit object
         :param space: the execution space
         :param types_signature: Hash/identifer string for workunit module against data types
         :param restrict_signature: Hash/identifer string for views that do not alias any other views
@@ -795,10 +640,10 @@ class Runtime:
         """
         Get a unique module setup id for an entity + space
         combination. For workunits, the idenitifier is just the
-        workunit and execution space. For workloads and functors, we
+        workunit and execution space. For functors, we
         need the type of the class as well as the file containing it.
 
-        :param entity: the workload or workunit object
+        :param entity: the workunit object
         :param space: the execution space
         :param types_signature: optional identifier/hash string for
             types of parameters against workunit module
