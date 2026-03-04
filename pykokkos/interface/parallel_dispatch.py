@@ -370,12 +370,5 @@ def parallel_scan(*args, **kwargs) -> Union[float, int]:
     return reduce_body("scan", *args, **kwargs)
 
 
-def execute(space: ExecutionSpace, workload: object) -> None:
-    if space is ExecutionSpace.Default:
-        runtime_singleton.runtime.run_workload(km.get_default_space(), workload)
-    else:
-        runtime_singleton.runtime.run_workload(space, workload)
-
-
 def flush():
     runtime_singleton.runtime.flush_trace()

@@ -67,7 +67,6 @@ from .hierarchical import AUTO, TeamMember, PerTeam, PerThread, single
 from .mathematical_special_functions import cyl_bessel_j0, cyl_bessel_j1
 from .memory_space import MemorySpace, get_default_memory_space
 from .parallel_dispatch import (
-    execute,
     flush,
     parallel_for,
     parallel_reduce,
