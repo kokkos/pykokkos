@@ -172,8 +172,6 @@ class StaticTranslator:
         symbols_pass = SymbolsPass(self.pk_members, self.pk_import, path)
 
         error_messages: List[str] = []
-        for AST in self.pk_members.pk_mains.values():
-            error_messages.extend(symbols_pass.check_symbols(AST))
         for AST in self.pk_members.pk_workunits.values():
             error_messages.extend(symbols_pass.check_symbols(AST))
         for AST in self.pk_members.pk_functions.values():

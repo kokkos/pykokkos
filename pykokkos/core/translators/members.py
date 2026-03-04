@@ -30,8 +30,6 @@ class PyKokkosMembers:
 
         self.pk_workunits: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
         self.pk_functions: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
-        self.pk_mains: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
-        self.pk_callbacks: Dict[cppast.DeclRefExpr, ast.FunctionDef] = {}
 
         self.classtype_methods: Dict[cppast.DeclRefExpr, List[cppast.DeclRefExpr]] = {}
 
@@ -102,9 +100,6 @@ class PyKokkosMembers:
             self.pk_functions = self.get_decorated_functions(
                 AST, Decorator.KokkosFunction
             )
-            self.pk_callbacks = self.get_decorated_functions(
-                AST, Decorator.KokkosCallback
-            )
         else:
             self.pk_workunits[cppast.DeclRefExpr(AST.name)] = AST
             self.pk_functions = self.get_decorated_functions(
@@ -112,10 +107,6 @@ class PyKokkosMembers:
             )
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
-
-        if len(self.pk_mains) > 1:
-            print("ERROR: Only one pk.main function can be translated")
-            sys.exit(1)
 
     def get_fields(
         self, classdef: ast.ClassDef, source: Tuple[List[str], int], pk_import: str

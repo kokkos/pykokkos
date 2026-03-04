@@ -7,8 +7,6 @@ class Decorator(Enum):
     WorkUnit = "workunit"
     KokkosClasstype = "classtype"
     KokkosFunction = "function"
-    KokkosMain = "main"
-    KokkosCallback = "callback"
     Space = "space"
 
     @staticmethod
@@ -26,14 +24,6 @@ class Decorator(Enum):
     @staticmethod
     def is_kokkos_function(decorator: str) -> bool:
         return decorator == Decorator.KokkosFunction.value
-
-    @staticmethod
-    def is_kokkos_main(decorator: str) -> bool:
-        return decorator == Decorator.KokkosMain.value
-
-    @staticmethod
-    def is_kokkos_callback(decorator: str) -> bool:
-        return decorator == Decorator.KokkosCallback.value
 
     @staticmethod
     def is_space(decorator: str) -> bool:
@@ -73,12 +63,4 @@ def classtype(func):
 
 
 def function(func):
-    return func
-
-
-def main(func):
-    return func
-
-
-def callback(func):
     return func

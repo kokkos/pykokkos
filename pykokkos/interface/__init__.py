@@ -38,12 +38,10 @@ from .data_types import (
     complex128,
 )
 from .decorators import (
-    callback,
     classtype,
     Decorator,
     function,
     functor,
-    main,
     workunit,
 )
 from .execution_policy import (
