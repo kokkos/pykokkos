@@ -14,7 +14,6 @@ class PyKokkosStyles(Enum):
     """
 
     functor = auto()
-    workload = auto()
     workunit = auto()
     classtype = auto()
     fused = auto()
@@ -61,7 +60,6 @@ class Parser:
             self.functors: Dict[str, PyKokkosEntity] = {}
             self.workunits: Dict[str, PyKokkosEntity] = {}
 
-            self.workloads = self.get_entities(PyKokkosStyles.workload)
             self.classtypes = self.get_entities(PyKokkosStyles.classtype)
             self.functors = self.get_entities(PyKokkosStyles.functor)
             self.workunits = self.get_entities(PyKokkosStyles.workunit)
@@ -74,7 +72,6 @@ class Parser:
             self.tree = ast.Module(body=[])
             self.path = None
             self.pk_import = pk_import
-            self.workloads: Dict[str, PyKokkosEntity] = {}
             self.classtypes: Dict[str, PyKokkosEntity] = {}
             self.functors: Dict[str, PyKokkosEntity] = {}
             self.workunits: Dict[str, PyKokkosEntity] = {}
@@ -132,9 +129,7 @@ class Parser:
         entities: Dict[str, PyKokkosEntity] = {}
         check_entity: Callable[[ast.stmt], bool]
 
-        if style is PyKokkosStyles.workload:
-            return entities
-        elif style is PyKokkosStyles.functor:
+        if style is PyKokkosStyles.functor:
             check_entity = self.is_functor
         elif style is PyKokkosStyles.workunit:
             check_entity = self.is_workunit

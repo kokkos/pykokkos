@@ -56,13 +56,7 @@ class PyKokkosMembers:
         source: Tuple[List[str], int] = entity.source
         pk_import: str = entity.pk_import
 
-        if entity.style is PyKokkosStyles.workload:
-            self.pk_mains = self.get_decorated_functions(AST, Decorator.KokkosMain)
-            self.fields = self.get_fields(AST, source, pk_import)
-            self.views = self.get_views(AST, source, pk_import)
-            self.random_pool = self.get_random_pool(AST, source, pk_import)
-
-        elif entity.style is PyKokkosStyles.functor:
+        if entity.style is PyKokkosStyles.functor:
             self.fields = self.get_fields(AST, source, pk_import)
             self.views = self.get_views(AST, source, pk_import)
             self.random_pool = self.get_random_pool(AST, source, pk_import)
@@ -104,7 +98,7 @@ class PyKokkosMembers:
             if n in self.view_template_params:
                 t.template_params.extend(self.view_template_params[n])
 
-        if entity.style in (PyKokkosStyles.workload, PyKokkosStyles.functor):
+        if entity.style == PyKokkosStyles.functor:
             self.pk_workunits = self.get_decorated_functions(AST, Decorator.WorkUnit)
             self.pk_functions = self.get_decorated_functions(
                 AST, Decorator.KokkosFunction
@@ -119,12 +113,6 @@ class PyKokkosMembers:
             )
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
-
-        if entity.style is PyKokkosStyles.workload:
-            name: str = f"pk_functor_{entity.name}"
-            self.reduction_result_queue, self.timer_result_queue = self.get_queues(
-                source, name, pk_import
-            )
 
         if len(self.pk_mains) > 1:
             print("ERROR: Only one pk.main function can be translated")

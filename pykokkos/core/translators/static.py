@@ -511,14 +511,9 @@ class StaticTranslator:
         """
 
         bindings: List[str]
-        if entity.style is PyKokkosStyles.workload:
-            bindings = bind_main(
-                functor_name, self.pk_members, source, self.pk_import, self.module_file
-            )
-        else:
-            bindings = bind_workunits(
-                functor_name, self.pk_members, workunits, self.module_file
-            )
+        bindings = bind_workunits(
+            functor_name, self.pk_members, workunits, self.module_file
+        )
 
         return bindings
 
