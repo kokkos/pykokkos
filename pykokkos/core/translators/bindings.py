@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.core.visitors import cpp_view_type, KokkosMainVisitor, visitors_util
+from pykokkos.core.visitors import cpp_view_type, visitors_util
 from pykokkos.interface.data_types import DataType
 
 from .members import PyKokkosMembers
@@ -562,49 +562,6 @@ def bind_workunits(
     bindings.append(bind_wrappers(module, wrapper_names))
 
     return bindings
-
-
-def translate_mains(
-    source: Tuple[List[str], int],
-    functor: str,
-    members: PyKokkosMembers,
-    pk_import: str,
-) -> List[str]:
-    """
-    Translate all PyKokkos main functions
-
-    :param source: the python source code of the workload
-    :param functor: the name of the functor
-    :param members: an object containing the fields and views
-    :returns: a list of strings of translated source code
-    """
-
-    node_visitor = KokkosMainVisitor(
-        {},
-        source,
-        members.views,
-        members.pk_workunits,
-        members.fields,
-        members.pk_functions,
-        members.classtype_methods,
-        functor,
-        pk_import,
-        debug=True,
-    )
-
-    translation: List[str] = []
-
-    for main in members.pk_mains.values():
-        try:
-            translation.append(node_visitor.visit(main))
-        except NotImplementedError:
-            print(f"Translation of {main.name} failed")
-            sys.exit(1)
-
-    members.reduction_result_queue = node_visitor.reduction_result_queue
-    members.timer_result_queue = node_visitor.timer_result_queue
-
-    return translation
 
 
 def bind_main_single(
