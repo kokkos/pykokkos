@@ -15,7 +15,7 @@ from pykokkos.core.visitors import (
     WorkunitVisitor,
 )
 
-from .bindings import bind_main, bind_workunits
+from .bindings import bind_workunits
 from .functor import generate_functor
 from .functor_cast import generate_cast
 from .members import PyKokkosMembers

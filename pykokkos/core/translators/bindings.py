@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.core.visitors import cpp_view_type, KokkosMainVisitor, visitors_util
+from pykokkos.core.visitors import cpp_view_type, visitors_util
 from pykokkos.interface.data_types import DataType
 
 from .members import PyKokkosMembers
