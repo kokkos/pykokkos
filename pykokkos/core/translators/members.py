@@ -115,9 +115,12 @@ class PyKokkosMembers:
         Get all fields (or instance variables) in classdef by parsing the constructor
 
         :param classdef: the classdef being parsed
-        :param source: the python source code of the workload
+        :param source: the python source code of the functor
         :param pk_import: the identifier used to access the PyKokkos package
         :returns: a dictionary mapping from field name to type
+
+
+        NOTE: **used by workloads & functors; depreciate with functions** 
         """
 
         visitor = ConstructorVisitor(source, "fields", pk_import, True)
@@ -133,9 +136,11 @@ class PyKokkosMembers:
         Get all views defined in classdef by parsing the constructor
 
         :param classdef: the classdef to be parsed
-        :param source: the python source code of the workload
+        :param source: the python source code of the functor
         :param pk_import: the identifier used to access the PyKokkos package
         :returns: a dictionary mapping from view name to type (only dimensionality and type)
+
+        NOTE: **used by workloads & functors; depreciate with functions** 
         """
 
         visitor = ConstructorVisitor(source, "views", pk_import, True)
@@ -179,7 +184,7 @@ class PyKokkosMembers:
         Gets all fields and views passed as parameters to the workunit
 
         :param functiondef: the functiondef to be parsed
-        :param source: the python source code of the workload
+        :param source: the python source code of the workunit
         :param param_begin: where workunit argument begins (excluding tid/acc)
         """
 
@@ -198,7 +203,7 @@ class PyKokkosMembers:
         Get the template parameters for all views defined in the constructor
 
         :param node: the classdef or functiondef to be parsed
-        :param source: the python source code of the workload
+        :param source: the python source code of the workunit
         :returns: a dictionary mapping from view name to a list of template parameters
         """
 
@@ -268,9 +273,11 @@ class PyKokkosMembers:
         Gets the type of the random pool if it exists
 
         :param classdef: the classdef to be parsed
-        :param source: the python source code of the workload
+        :param source: the python source code of the functor
         :param pk_import: the identifier used to access the PyKokkos package
         :returns: the type of the random pool if it exists
+
+        NOTE: **used by workloads & functors; depreciate with functions** 
         """
 
         visitor = ConstructorVisitor(source, "randpool", pk_import, True)

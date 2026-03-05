@@ -22,6 +22,8 @@ class ConstructorVisitor(ast.NodeVisitor):
         :param member_type: specifies which members to retrieve, "fields", "views", or "typeinfo"
         :param pk_import: the identifier used to access the PyKokkos package
         :param debug: if true, prints the python AST when an error is encountered
+
+        NOTE: **used by workloads & functors; depreciate with functions** 
         """
 
         if member_type not in ("fields", "views", "typeinfo", "randpool"):
