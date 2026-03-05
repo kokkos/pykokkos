@@ -100,7 +100,7 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
 
     name: Optional[str] = None
     policy: Union[ExecutionPolicy, int]
-    workunit: Callable
+    workunit: Union[Callable, List[Callable]]
     view: Optional[ViewType] = None
     initial_value: Union[int, float] = 0
 
@@ -151,13 +151,19 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
             raise TypeError(
                 f"ERROR: name expected to be type 'str', got '{name}' of type '{type(name)}'"
             )
-    if not isinstance(policy, ExecutionPolicy) and not isinstance(policy, int):
+    if not (isinstance(policy, ExecutionPolicy) or isinstance(policy, int)):
         raise TypeError(
             f"ERROR: policy expected to be type 'ExecutionPolicy' or 'int', got '{policy}' of type '{type(policy)}'"
         )
-    if not isinstance(workunit, Callable):
+    if not (
+        isinstance(workunit, Callable)
+        or (
+            isinstance(workunit, list)
+            and all(isinstance(w, Callable) for w in workunit)
+        )
+    ):
         raise TypeError(
-            f"ERROR: workunit expected to be type 'Callable', got '{workunit}' of type '{type(workunit)}'"
+            f"ERROR: workunit expected to be type 'Callable' or 'List[Callable]', got '{workunit}' of type '{type(workunit)}'"
         )
 
     return HandledArgs(name, policy, workunit, view, initial_value)
