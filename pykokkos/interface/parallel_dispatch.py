@@ -145,6 +145,21 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
     if isinstance(policy, (int, np.integer)):
         policy = RangePolicy(ExecutionSpace.Default, 0, int(policy))
 
+    # check type instance for input args
+    if name is not None:
+        if not isinstance(name, str):
+            raise TypeError(
+                f"ERROR: name expected to be type 'str', got '{name}' of type '{type(name)}'"
+            )
+    if not isinstance(policy, ExecutionPolicy) and not isinstance(policy, int):
+        raise TypeError(
+            f"ERROR: policy expected to be type 'ExecutionPolicy' or 'int', got '{policy}' of type '{type(policy)}'"
+        )
+    if not isinstance(workunit, Callable):
+        raise TypeError(
+            f"ERROR: workunit expected to be type 'Callable', got '{workunit}' of type '{type(workunit)}'"
+        )
+
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 
