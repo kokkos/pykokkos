@@ -112,7 +112,7 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
 
 class Runtime:
     """
-    Executes (and optionally compiles) PyKokkos workunits/functors
+    Executes (and optionally compiles) PyKokkos workunits
     """
 
     def __init__(self):
@@ -420,10 +420,6 @@ class Runtime:
 
         result = self.call_wrapper(entity, members, args, module)
 
-        is_workunit_or_functor: bool = isinstance(entity, (Callable, list))
-        if not is_workunit_or_functor:
-            self.retrieve_results(entity, members, args)
-
         return result
 
     def import_module(self, module_name: str, module_path: str):
@@ -572,6 +568,90 @@ class Runtime:
 
         return precision
 
+    def get_policy_arguments(self, policy: ExecutionPolicy) -> Dict[str, Any]:
+        """
+        Get the arguments that are used for to hold the results for workunits
+
+        :param policy: the execution policy of the operation
+        :returns: a dictionary of argument name to value
+        """
+
+        args: Dict[str, Any] = {}
+
+        args["pk_exec_space_instance"] = policy.space.instance
+
+        if isinstance(policy, RangePolicy):
+            args["pk_threads_begin"] = policy.begin
+            args["pk_threads_end"] = policy.end
+        elif isinstance(policy, TeamPolicy):
+            args["pk_league_size"] = policy.league_size
+            args["pk_team_size"] = policy.team_size
+            args["pk_vector_length"] = policy.vector_length
+
+            # Add scratch size information if it was set, otherwise use -1 to indicate not set
+            if policy.scratch_size_level is not None:
+                args["pk_scratch_size_level"] = policy.scratch_size_level
+                # Extract the actual size value from PerTeam/PerThread wrapper if present
+                from pykokkos.interface.hierarchical import PerTeam, PerThread
+
+                if isinstance(policy.scratch_size_value, PerTeam):
+                    # PerTeam wrapper - extract the value and set flag
+                    args["pk_scratch_size_is_per_team"] = True
+                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
+                elif isinstance(policy.scratch_size_value, PerThread):
+                    # PerThread wrapper - extract the value and set flag
+                    args["pk_scratch_size_is_per_team"] = False
+                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
+                elif isinstance(policy.scratch_size_value, (int, np.integer)):
+                    # Direct size value (workunit case without wrapper)
+                    args["pk_scratch_size_is_per_team"] = (
+                        True  # Default to PerTeam for simple int
+                    )
+                    args["pk_scratch_size_value"] = int(policy.scratch_size_value)
+                else:
+                    # Unknown type, treat as PerTeam with value from variable
+                    args["pk_scratch_size_is_per_team"] = True
+                    args["pk_scratch_size_value"] = policy.scratch_size_value
+            else:
+                # No scratch size set, use -1 as indicator
+                args["pk_scratch_size_level"] = -1
+                args["pk_scratch_size_value"] = 0
+                args["pk_scratch_size_is_per_team"] = True
+
+        return args
+
+    def get_fields(self, members: Dict[str, type]) -> Dict[str, Any]:
+        """
+        Gets all the primitive type fields from the workunit object
+
+        :param members: the dictionary containing all members
+        :returns: a dict mapping from field name to value
+        """
+
+        fields: Dict[str, Any] = {}
+        for key, value in members.items():
+            if type(value) in (
+                int,
+                float,
+                bool,
+                np.int8,
+                np.int16,
+                np.int32,
+                np.int64,
+                np.uint8,
+                np.uint16,
+                np.uint32,
+                np.uint64,
+                np.float32,
+                np.double,
+                np.float64,
+            ):
+                fields[key] = value
+            if isinstance(value, Future):
+                fields[key] = value.value
+
+        return fields
+
     def _convert_functor_arrays(self, members: Dict[str, Any]) -> None:
         """
         Convert numpy/cupy arrays in functor members to Views (similar to convert_arrays for kwargs)
@@ -596,6 +676,21 @@ class Runtime:
                 members[k] = array(v)
             elif cp_available and isinstance(v, cp.ndarray):
                 members[k] = array(v)
+
+    def get_views(self, members: Dict[str, type]) -> Dict[str, Any]:
+        """
+        Gets all the views from the workunit object
+
+        :param workunit: the dictionary containing all members
+        :returns: a dict mapping from view name to object
+        """
+
+        views: Dict[str, Any] = {}
+        for key, value in members.items():
+            if isinstance(value, ViewType):
+                views[key] = value.array
+
+        return views
 
     def get_module_setup(
         self,

@@ -4,22 +4,22 @@ from typing import Dict, List, Optional, Tuple
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.core.visitors import cpp_view_type, visitors_util
+from pykokkos.core.visitors import cpp_view_type, KokkosMainVisitor, visitors_util
 from pykokkos.interface.data_types import DataType
 
 from .members import PyKokkosMembers
 
 
-def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
+def is_hierarchical(workunit: cppast.MethodDecl) -> bool:
     """
     Checks if a workunit uses hierarchical parallelism by checking if it has a TeamMember instead of a thread ID
 
-    :param workunit: the workunit definition or None for a workload
+    :param workunit: the workunit definition
     :returns: true if hierarchical false otherwise
     """
 
     if workunit is None:
-        return False
+        raise ValueError("workunit definition must be passed")
 
     # Iterate over each parameter (skipping the tag)
     for p in workunit.params[1:]:
@@ -256,7 +256,7 @@ def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     """
     Get the return type of a binding
 
-    :param operation: the type of the operation (for, reduce, scan, or workload)
+    :param operation: the type of the operation (for, reduce, or scan)
     :param workunit: the workunit for which the binding is being generated
     :returns: the return type as a string
     """
@@ -384,7 +384,7 @@ def generate_wrapper(
     Generate the wrapper that calls the kernel and its binding
 
     :param members: an object containing the fields and views
-    :param operation: the type of the operation (for, reduce, scan, or workload)
+    :param operation: the type of the operation (for, reduce, or scan)
     :param workunit: the workunit for which the binding is being generated
     :param wrapper: the name of the wrapper
     :param kernel: the name of the kernel
@@ -558,105 +558,6 @@ def bind_workunits(
         w, b = bind_workunits_single(functor, members, workunits, None)
         bindings.extend(b)
         wrapper_names.extend(w)
-
-    bindings.append(bind_wrappers(module, wrapper_names))
-
-    return bindings
-
-
-def bind_main_single(
-    functor: str,
-    members: PyKokkosMembers,
-    source: Tuple[List[str], int],
-    pk_import: str,
-    precision: Optional[DataType],
-) -> Tuple[str, str]:
-    """
-    Generates the kernel and its python binding
-
-    :param functor: the functor class name
-    :param members: an object containing the fields and views
-    :param source: the python source code of the workload
-    :param pk_import: the pykokkos import alias
-    :param precision: the precision for which to generate a binding
-    :returns: a tuple of strings containing the wrapper name, and the kernel and wrapper
-    """
-
-    wrapper_name: str = "wrapper"
-    kernel_name: str = "run"
-
-    real: Optional[str] = None
-    if precision is not None:
-        real = visitors_util.view_dtypes[precision.name].value
-        wrapper_name += f"_{real}"
-        kernel_name += f"_{real}"
-        functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
-    else:
-        functor += f"<{Keywords.DefaultExecSpace.value}>"
-
-    main: List[str] = translate_mains(source, functor, members, pk_import)
-    params: Dict[str, str] = get_kernel_params(members, False, real)
-
-    # fall back to the old hard-coded default
-    # for now--this includes cases where an
-    # accumulator is not even defined
-    acc_type = "double"
-
-    for element in source[0]:
-        # TODO: support more types
-        if "pk.Acc" in element:
-            if "pk.int64" in element:
-                acc_type = "int64_t"
-            elif "pk.double" in element:
-                acc_type = "double"
-
-    signature: str = generate_kernel_signature("void", kernel_name, params)
-    instantiation: str = generate_functor_instance(functor, members)
-    acc: str = f"{acc_type} {Keywords.Accumulator.value} = 0;"
-    body: str = "".join(main)
-    copy_back: str = generate_copy_back(members)
-    # fence: str = generate_fence_call()
-
-    kernel: str = f"{signature} {{ {instantiation} {acc} {body} {copy_back} }}"
-    wrapper: str = generate_wrapper(
-        members, "workload", None, wrapper_name, kernel_name, real
-    )
-    binding: str = f"{kernel} {wrapper}"
-
-    return wrapper_name, binding
-
-
-def bind_main(
-    functor: str,
-    members: PyKokkosMembers,
-    source: Tuple[List[str], int],
-    pk_import: str,
-    module: str,
-) -> List[str]:
-    """
-    Generates the kernel and its python binding
-
-    :param functor: the functor class name
-    :param members: an object containing the fields and views
-    :param source: the python source code of the workload
-    :param pk_import: the pykokkos import alias
-    :param module: the name of the generated module
-    :returns: a list of strings containing the kernel, wrapper, and binding
-    """
-
-    bindings: List[str] = []
-    wrapper_names: List[str] = []
-    if members.has_real:
-        for d in DataType:
-            if d is DataType.real:
-                continue
-            w, b = bind_main_single(functor, members, source, pk_import, d)
-            bindings.append(b)
-            wrapper_names.append(w)
-    else:
-        w, b = bind_main_single(functor, members, source, pk_import, None)
-        bindings.append(b)
-        wrapper_names.append(w)
 
     bindings.append(bind_wrappers(module, wrapper_names))
 
