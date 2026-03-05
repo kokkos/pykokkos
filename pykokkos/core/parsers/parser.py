@@ -36,7 +36,7 @@ class PyKokkosEntity:
 
 class Parser:
     """
-    Parse a PyKokkos workload and its dependencies
+    Parse a PyKokkos workunit and its dependencies
     """
 
     def __init__(self, path: Optional[str], pk_import: Optional[str] = None):
@@ -55,7 +55,6 @@ class Parser:
                 self.tree = ast.parse("".join(self.lines))
             self.path: Optional[str] = path
             self.pk_import: str = self.get_import()
-            self.workloads: Dict[str, PyKokkosEntity] = {}
             self.classtypes: Dict[str, PyKokkosEntity] = {}
             self.functors: Dict[str, PyKokkosEntity] = {}
             self.workunits: Dict[str, PyKokkosEntity] = {}
@@ -109,8 +108,6 @@ class Parser:
         :returns: the PyKokkosEntity representation of the entity
         """
 
-        if name in self.workloads:
-            return self.workloads[name]
         if name in self.functors:
             return self.functors[name]
         if name in self.workunits:

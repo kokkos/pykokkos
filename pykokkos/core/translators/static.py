@@ -34,7 +34,7 @@ def generate_include_guard_end() -> str:
 
 class StaticTranslator:
     """
-    Translates a PyKokkos workload to C++ using static analysis only
+    Translates a PyKokkos workunit to C++ using static analysis only
     """
 
     def __init__(
@@ -189,9 +189,9 @@ class StaticTranslator:
         self, classtypes: List[PyKokkosEntity], restrict_views: Set[str]
     ) -> List[cppast.RecordDecl]:
         """
-        Translate all classtypes, i.e. classes that the workload uses internally
+        Translate all classtypes, i.e. classes that the workunit uses internally
 
-        :param classtypes: the list of classtypes needed by the workload
+        :param classtypes: the list of classtypes needed by the workunit
         :param restrict_views: the views with the restrict keyword
         :returns: a list of strings of translated source code
         """
@@ -363,7 +363,7 @@ class StaticTranslator:
         """
         Translate all PyKokkos functions
 
-        :param source: the python source code of the workload
+        :param source: the python source code of the workunit
         :param restrict_views: the views with the restrict keyword
         :returns: a list of method declarations
         """
@@ -400,9 +400,9 @@ class StaticTranslator:
         """
         Translate the workunits
 
-        :param source: the python source code of the workload
+        :param source: the python source code of the workunit
         :param restrict_views: the views with the restrict keyword
-        :returns: a tuple of a dictionary mapping from workload name
+        :returns: a tuple of a dictionary mapping from workunit name
             to a tuple of operation name and source, and a boolean
             indicating whether the workunit has a call to pk.rand()
         """

@@ -17,7 +17,7 @@ class ParameterVisitor(ast.NodeVisitor):
         """
         ParameterVisitor constructor
 
-        :param src: the python source code of the workload
+        :param src: the python source code of the workunit
         :param param_begin: where workunit argument begins (excluding tid/acc)
         :param pk_import: the identifier used to access the PyKokkos package
         :param debug: if true, prints the python AST when an error is encountered

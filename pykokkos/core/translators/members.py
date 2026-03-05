@@ -120,7 +120,7 @@ class PyKokkosMembers:
         :returns: a dictionary mapping from field name to type
 
 
-        NOTE: **used by workloads & functors; depreciate with functions** 
+        NOTE: **used by workloads & functors; depreciate with functions**
         """
 
         visitor = ConstructorVisitor(source, "fields", pk_import, True)
@@ -140,7 +140,7 @@ class PyKokkosMembers:
         :param pk_import: the identifier used to access the PyKokkos package
         :returns: a dictionary mapping from view name to type (only dimensionality and type)
 
-        NOTE: **used by workloads & functors; depreciate with functions** 
+        NOTE: **used by workloads & functors; depreciate with functions**
         """
 
         visitor = ConstructorVisitor(source, "views", pk_import, True)
@@ -277,7 +277,7 @@ class PyKokkosMembers:
         :param pk_import: the identifier used to access the PyKokkos package
         :returns: the type of the random pool if it exists
 
-        NOTE: **used by workloads & functors; depreciate with functions** 
+        NOTE: **used by workloads & functors; depreciate with functions**
         """
 
         visitor = ConstructorVisitor(source, "randpool", pk_import, True)

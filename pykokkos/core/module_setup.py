@@ -52,22 +52,15 @@ def get_metadata(entity: Union[Callable[..., None], object]) -> EntityMetadata:
     name: str
     filepath: str
 
-    if isinstance(entity, Callable):
-        # Workunit/functor
-        is_functor: bool = hasattr(entity, "__self__")
-        if is_functor:
-            entity_type: type = get_functor(entity)
-            name = entity_type.__name__
-            filepath = inspect.getfile(entity_type)
-        else:
-            name = entity.__name__
-            filepath = inspect.getfile(entity)
-
-    else:
-        # Workload
-        entity_type: type = type(entity)
+    # Workunit/functor
+    is_functor: bool = hasattr(entity, "__self__")
+    if is_functor:
+        entity_type: type = get_functor(entity)
         name = entity_type.__name__
         filepath = inspect.getfile(entity_type)
+    else:
+        name = entity.__name__
+        filepath = inspect.getfile(entity)
 
     return EntityMetadata(entity, name, filepath)
 
