@@ -3,13 +3,18 @@ from types import ModuleType
 from typing import Any, Dict, List
 
 from pykokkos.bindings import kokkos
-from pykokkos.interface.execution_space import ExecutionSpace, ExecutionSpaceInstance
+from pykokkos.interface.execution_space import (
+    ExecutionSpace,
+    ExecutionSpaceInstance,
+    DeviceExecutionSpace,
+    HostParallelExecutionSpace,
+    HostSerialExecutionSpace,
+)
 from pykokkos.interface.data_types import DataTypeClass, double
-
 
 CONSTANTS: Dict[str, Any] = {
     "KOKKOS_VERSION": 3.7,  # default to 3.7
-    "EXECUTION_SPACE": ExecutionSpace.OpenMP,
+    "EXECUTION_SPACE": None,  # chosen by fist call of get_default_space()
     "AVAILABLE_EXECUTION_SPACES": {},
     "REAL_DTYPE": double,
     "IS_INITIALIZED": False,
@@ -46,10 +51,39 @@ def get_default_space() -> ExecutionSpace:
     Get the default PyKokkos execution space
 
     :returns: the ExecutionSpace object
+
+    Notes:
+        from (https://kokkos.org/kokkos-core-wiki/API/core/execution_spaces.html#kokkos-defaultexecutionspace):
+        Kokkos::DefaultExecutionSpace is an alias of ExecutionSpace()
+        type pointing to an ExecutionSpace based on the current
+        configuration of Kokkos.
+        It is set to the highest available in the hierarchy
+        device,host-parallel,host-serial.
+        It also serves as default for optionally specified
+        template parameters of ExecutionSpace() type.
     """
 
     if os.environ.get("DEBUG"):
         return ExecutionSpace.Debug
+
+    if CONSTANTS["EXECUTION_SPACE"] is None:
+        default_space = None
+        spaces = get_available_execution_spaces()
+        for space in spaces:
+            if space in DeviceExecutionSpace:
+                default_space = space
+            elif (
+                default_space not in DeviceExecutionSpace
+                and space in HostParallelExecutionSpace
+            ):
+                default_space = space
+            elif (
+                default_space not in DeviceExecutionSpace
+                and default_space not in HostParallelExecutionSpace
+                and space in HostSerialExecutionSpace
+            ):
+                default_space = space
+        CONSTANTS["EXECUTION_SPACE"] = default_space
 
     return CONSTANTS["EXECUTION_SPACE"]
 

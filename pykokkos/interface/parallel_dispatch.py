@@ -8,7 +8,7 @@ import pykokkos.kokkos_manager as km
 from pykokkos.core.cppast import BuiltinType
 
 from .execution_policy import ExecutionPolicy, RangePolicy
-from .execution_space import ExecutionSpace
+from .execution_space import ExecutionSpace, is_host_execution_space
 from .views import ViewType, array
 
 from .interface_util import generic_error, get_filename, get_lineno
@@ -228,8 +228,23 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Optional[Callable] = None) 
             # Convert Python list to numpy array, then to View
             kwargs[k] = array(np.array(v, dtype=dtype))
         elif isinstance(v, np.ndarray):
+            default_space: ExecutionSpace = km.get_default_space()
+            _gpu_spaces = {ExecutionSpace.Cuda, ExecutionSpace.HIP}
+            if default_space in _gpu_spaces:
+                raise TypeError(
+                    f"Argument '{k}' is a numpy array, which cannot be accessed "
+                    f"from the {default_space.value} execution space. "
+                    f"Use a pk.View (e.g. pk.View([...], dtype)) or a CuPy array instead."
+                )
             kwargs[k] = array(v)
         elif cp_available and isinstance(v, cp.ndarray):
+            default_space = km.get_default_space()
+            if is_host_execution_space(default_space):
+                raise TypeError(
+                    f"Argument '{k}' is a CuPy array, which cannot be accessed "
+                    f"from the {default_space.value} (host) execution space. "
+                    f"Convert it to a numpy array or pk.View in host memory first."
+                )
             kwargs[k] = array(v)
         elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v)

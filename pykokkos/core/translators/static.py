@@ -70,6 +70,7 @@ class StaticTranslator:
         """
 
         self.pk_import = entity.pk_import
+        self._current_entity_path: Optional[str] = entity.path
         # Create parser instance to reuse its methods
         # For fused workunits, path is None, so we pass pk_import explicitly
         if entity.path is not None:
@@ -215,6 +216,7 @@ class StaticTranslator:
                 self.pk_import,
                 restrict_views,
                 debug=True,
+                path=getattr(c, "path", self._current_entity_path),
             )
 
             definition: cppast.RecordDecl = node_visitor.visit(classdef)
@@ -384,6 +386,7 @@ class StaticTranslator:
             self.pk_import,
             restrict_views,
             debug=True,
+            path=self._current_entity_path,
         )
 
         translation: List[cppast.MethodDecl] = []
@@ -417,6 +420,7 @@ class StaticTranslator:
             self.pk_import,
             restrict_views,
             debug=True,
+            path=self._current_entity_path,
         )
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}

@@ -326,7 +326,7 @@ class Compiler:
         """
         Get the compiler to use based on the machine name
 
-        :returns: g++ or nvcc
+        :returns: g++, nvcc, or hipcc
         """
 
         from pykokkos.bindings import kokkos

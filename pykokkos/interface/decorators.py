@@ -51,9 +51,19 @@ def functor(func=None, **kwargs):
     return func
 
 
-def workunit(func=None, **kwargs):
+def workunit(func=None, *, scratch=None, **kwargs):
+    """
+    Decorator for PyKokkos workunits.
+
+    :param func: the function being decorated
+    :param scratch: optional list of tuples specifying scratch memory allocation
+    """
     if func is None:
-        return partial(functor)
+        return partial(workunit, scratch=scratch, **kwargs)
+
+    # Store scratch specification as function attribute
+    if scratch is not None:
+        func._pk_scratch = scratch
 
     return func
 

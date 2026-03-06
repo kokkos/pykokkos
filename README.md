@@ -2,6 +2,8 @@
 # PyKokkos
 [![Python Testing](https://github.com/kokkos/pykokkos/actions/workflows/main_ci.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/main_ci.yml)
 [![Documentation](https://github.com/kokkos/pykokkos/actions/workflows/documentation.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/documentation.yml)
+[![Linux](https://github.com/kokkos/pykokkos/actions/workflows/build_linux.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/build_linux.yml)
+[![MacOS](https://github.com/kokkos/pykokkos/actions/workflows/build_macos.yml/badge.svg)](https://github.com/kokkos/pykokkos/actions/workflows/build_macos.yml)
 
 PyKokkos is a framework for writing high-performance Python code
 similar to Numba. In contrast to Numba, PyKokkos kernels are primarily

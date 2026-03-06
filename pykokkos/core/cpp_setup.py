@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from pathlib import Path
 import shutil
@@ -31,12 +32,14 @@ class CppSetup:
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
 
-        self.script: str = "compile.sh"
-        self.script_path: Path = Path(__file__).resolve().parent / self.script
+        self.cmake_template: str = "CMakeLists.txt"
+        self.cmake_template_path: Path = (
+            Path(__file__).resolve().parent / self.cmake_template
+        )
 
         self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
-        self.format: bool = False
+        self.format: bool = os.getenv("PK_FORMAT") is not None
 
     def compile_raw_source(
         self,
@@ -60,8 +63,10 @@ class CppSetup:
 
         self.initialize_directory(output_dir)
         self.write_raw_source(output_dir, source, filename)
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
+        self.invoke_cmake(output_dir, cmake_args, module_name)
 
     def compile(
         self,
@@ -100,8 +105,10 @@ class CppSetup:
             bindings,
             bindings_filename,
         )
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
+        self.invoke_cmake(output_dir, cmake_args, module_name)
         if (
             space in {ExecutionSpace.Cuda, ExecutionSpace.HIP}
             and km.is_multi_gpu_enabled()
@@ -173,48 +180,98 @@ class CppSetup:
             except Exception as ex:
                 print(f"Exception while formatting cpp: {ex}")
 
-    def copy_script(self, output_dir: Path) -> None:
+    def generate_cmake(
+        self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str
+    ) -> Tuple[List[str], str]:
         """
-        Copy the compilation script to the output directory
+        Copy CMakeLists.txt template and prepare CMake configuration variables
 
         :param output_dir: the base directory
+        :param space: the execution space of the workload
+        :param enable_uvm: whether to enable CudaUVMSpace
+        :param compiler: what compiler to use
+        :returns: tuple of (cmake_args, module_name)
         """
 
-        file_path: Path = output_dir / "compile.sh"
+        view_space: str = "Kokkos::HostSpace"
+        if space is ExecutionSpace.Cuda:
+            if enable_uvm:
+                view_space = "Kokkos::CudaUVMSpace"
+        if space is ExecutionSpace.HIP:
+            if enable_uvm:
+                view_space = "Kokkos::Experimental::HIPManagedSpace"
+
+        space_value: str
+        if space.value == "HIP":
+            space_value = "Experimental::HIP"
+        else:
+            space_value = space.value
+
+        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
+        view_layout = view_layout.split(".")[-1]
+        view_layout = f"Kokkos::{view_layout}"
+
+        precision: str = km.get_default_precision().__name__.split(".")[-1]
+        lib_path: Path
+        compiler_path: Path
+        lib_path, compiler_path = self.get_kokkos_paths(space, compiler)
+        compute_capability: str = self.get_cuda_compute_capability(compiler)
+        lib_suffix: str = self.get_kokkos_lib_suffix(space)
+
+        cmake_file: Path = output_dir / "CMakeLists.txt"
         try:
-            shutil.copy(self.script_path, file_path)
+            shutil.copy(self.cmake_template_path, cmake_file)
         except Exception as ex:
-            print(f"Exception while copying views and makefile: {ex}")
+            print(f"Exception while copying CMakeLists.txt template: {ex}")
             sys.exit(1)
+
+        # Remove the .so extension from module file name for CMake target
+        module_name = self.module_file.replace(".so", "").replace(".pyd", "")
+
+        try:
+            import pybind11
+
+            pybind11_dir = pybind11.get_cmake_dir()
+        except ImportError:
+            print(f"Can not get pybind11 except dir: {ex}")
+            sys.exit(1)
+
+        cmake_args = [
+            f"-DMODULE_NAME={module_name}",
+            f"-DKokkos_ROOT={lib_path.parent.resolve()}",
+            f"-DPK_EXEC_SPACE={space_value}",
+            f"-DPK_ARG_MEMSPACE={view_space}",
+            f"-DPK_ARG_LAYOUT={view_layout}",
+            f"-DPK_REAL={precision}",
+            f"-DLIB_SUFFIX={lib_suffix}",
+            f"-DPython3_EXECUTABLE={sys.executable}",
+        ]
+        if pybind11_dir is not None:
+            cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
+
+        return cmake_args, module_name
 
     def get_kokkos_paths(
         self, space: ExecutionSpace, compiler: str
-    ) -> Tuple[Path, Path, Path]:
+    ) -> Tuple[Path, Path]:
         """
-        Get the paths of the Kokkos instal lib and include
-        directories. If the environment variable is set, use that
+        Get the paths of the Kokkos install lib directory.
+        If the environment variable is set, use that
         Kokkos install. If not, fall back to the installed
         pykokkos-base package.
 
         :param space: the execution space to compile for
         :param compiler: what compiler to use
-        :returns: a tuple of paths to the Kokkos lib/, include/,
+        :returns: a tuple of paths to the Kokkos lib/
             and compiler to be used
         """
 
         lib_path: Path
-        include_path: Path
         if self.lib_path_env in os.environ:
             lib_path = Path(os.environ.get(self.lib_path_env))
             if not lib_path.is_dir():
                 raise RuntimeError(
                     f"lib/ directory path {str(lib_path)} does not exist"
-                )
-
-            include_path = lib_path.parent / "include"
-            if not include_path.is_dir():
-                raise RuntimeError(
-                    f"install/ directory path {str(include_path)} does not exist"
                 )
 
             compiler_path: Path
@@ -223,7 +280,7 @@ class CppSetup:
             else:
                 compiler_path = lib_path.parent / "bin/nvcc_wrapper"
 
-            return lib_path, include_path, compiler_path
+            return lib_path, compiler_path
 
         import sys
 
@@ -260,13 +317,6 @@ class CppSetup:
                 f" Try setting {self.lib_path_env} instead."
             )
 
-        include_path = install_path.parent / "include/kokkos"
-        if not include_path.exists():
-            # scikit-build may install includes to sys.prefix/include
-            sys_prefix = Path(sys.prefix)
-            if (sys_prefix / "include/kokkos").exists():
-                include_path = sys_prefix / "include/kokkos"
-
         compiler_path: Path
         if compiler != "nvcc":
             compiler_path = Path(compiler)
@@ -279,7 +329,7 @@ class CppSetup:
                 if alt_compiler_path.exists():
                     compiler_path = alt_compiler_path
 
-        return lib_path, include_path, compiler_path
+        return lib_path, compiler_path
 
     def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
         """
@@ -295,80 +345,68 @@ class CppSetup:
 
         return f"_{km.get_device_id()}"
 
-    def invoke_script(
-        self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str
+    def invoke_cmake(
+        self, output_dir: Path, cmake_args: List[str], module_name: str
     ) -> None:
         """
-        Invoke the compilation script
+        Invoke CMake to configure and build the project
 
-        :param output_dir: the base directory
-        :param space: the execution space of the workload
-        :param enable_uvm: whether to enable CudaUVMSpace
-        :param compiler: what compiler to use
+        :param output_dir: the base directory containing CMakeLists.txt
+        :param cmake_args: list of CMake configuration arguments
+        :param module_name: the name of the module being built
         """
 
-        view_space: str = "Kokkos::HostSpace"
-        if space is ExecutionSpace.Cuda:
-            if enable_uvm:
-                view_space = "Kokkos::CudaUVMSpace"
-        if space is ExecutionSpace.HIP:
-            if enable_uvm:
-                view_space = "Kokkos::Experimental::HIPManagedSpace"
+        build_dir = output_dir / "build"
 
-        space_value: str
-        if space.value == "HIP":
-            space_value = "Experimental::HIP"
-        else:
-            space_value = space.value
-
-        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
-        view_layout = view_layout.split(".")[-1]
-        view_layout = f"Kokkos::{view_layout}"
-
-        precision: str = km.get_default_precision().__name__.split(".")[-1]
-        lib_path: Path
-        include_path: Path
-        compiler_path: Path
-        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
-        compute_capability: str = self.get_cuda_compute_capability(compiler)
-        lib_suffix: str = self.get_kokkos_lib_suffix(space)
-
-        command: List[str] = [
-            f"./{self.script}",
-            compiler,  # What compiler to use
-            self.module_file,  # Compilation target
-            space_value,  # Execution space
-            view_space,  # Argument views memory space
-            view_layout,  # Argument views memory layout
-            precision,  # Default real precision
-            str(lib_path),  # Path to Kokkos install lib/ directory
-            str(include_path),  # Path to Kokkos install include/ directory
-            compute_capability,  # Device compute capability
-            lib_suffix,  # The libkokkos* suffix identifying the gpu
-            str(compiler_path),
-        ]  # The path to the compiler to use
-        compile_result = subprocess.run(
-            command, cwd=output_dir, capture_output=True, check=False
+        # Run CMake configuration with arguments
+        cmake_config_cmd = [
+            "cmake",
+            "-B",
+            str(build_dir),
+            "-S",
+            str(output_dir),
+        ] + cmake_args
+        config_result = subprocess.run(
+            cmake_config_cmd, capture_output=True, check=False
         )
 
-        if compile_result.returncode != 0:
-            print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed")
+        if config_result.returncode != 0:
+            print(config_result.stderr.decode("utf-8"))
+            print(f"CMake configuration in {output_dir} failed")
             sys.exit(1)
 
-        patchelf: List[str] = [
-            "patchelf",
-            "--set-rpath",
-            str(lib_path),
-            self.module_file,
+        # Run CMake build with parallel jobs
+        num_jobs = multiprocessing.cpu_count()
+        cmake_build_cmd = [
+            "cmake",
+            "--build",
+            str(build_dir),
+            "--config",
+            "Release",
+            "-j",
+            str(num_jobs),
         ]
+        build_result = subprocess.run(cmake_build_cmd, capture_output=True, check=False)
 
-        patchelf_result = subprocess.run(
-            patchelf, cwd=output_dir, capture_output=True, check=False
+        if build_result.returncode != 0:
+            print(build_result.stderr.decode("utf-8"))
+            print(f"CMake build in {output_dir} failed")
+            sys.exit(1)
+
+        cmake_install_cmd = [
+            "cmake",
+            "--install",
+            str(build_dir),
+            "--prefix",
+            str(output_dir.resolve()),
+        ]
+        install_result = subprocess.run(
+            cmake_install_cmd, capture_output=True, check=False
         )
-        if patchelf_result.returncode != 0:
-            print(patchelf_result.stderr.decode("utf-8"))
-            print(f"patchelf failed")
+
+        if install_result.returncode != 0:
+            print(install_result.stderr.decode("utf-8"))
+            print(f"CMake install in {output_dir} failed")
             sys.exit(1)
 
     def copy_multi_gpu_kernel(self, output_dir: Path) -> None:
@@ -441,7 +479,7 @@ class CppSetup:
         Get the compute capability of an Nvidia GPU
 
         :param compiler: the compiler being used (nvcc or g++)
-        :returns: the compute capability as a string or the empty
+        :returns: the compute capability as a string (e.g., "89") or the empty
             string if g++ is the compiler
         """
 
@@ -450,7 +488,7 @@ class CppSetup:
         else:
             import cupy
 
-        return f"sm_{cupy.cuda.Device().compute_capability}"
+        return str(cupy.cuda.Device().compute_capability)
 
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:
