@@ -17,6 +17,8 @@ from pykokkos.kokkos_manager import (
     set_device_id,
 )
 
+from pykokkos.lib.ufuncs import _isnan as isnan, _isfinite as isfinite
+
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros, zeros_like, ones, ones_like, full, full_like
 from pykokkos.lib.manipulate import reshape, ravel, expand_dims
