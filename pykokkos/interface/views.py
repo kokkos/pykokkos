@@ -503,6 +503,8 @@ class View(ViewType):
         return None
 
     def __eq__(self, other):
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import _equal
 
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
@@ -537,8 +539,7 @@ class View(ViewType):
             new_other = other
         else:
             raise ValueError("unexpected types!")
-        result_np = np.equal(np.array(self), np.array(new_other))
-        return result_np
+        return _equal(self, new_other)
 
     def __hash__(self):
         try:
@@ -550,9 +551,7 @@ class View(ViewType):
     def __index__(self) -> int:
         return int(self.data[0])
 
-    def __array__(self, dtype=None, copy=None):
-        if self.shape == ():
-            return np.squeeze(self.data)
+    def __array__(self, dtype=None):
         return self.data
 
     def __pos__(self):
@@ -668,6 +667,8 @@ class Subview(ViewType):
         return base_view
 
     def __eq__(self, other):
+        # avoid circular import with scoped import
+        from pykokkos.lib.ufuncs import _equal
 
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
@@ -702,8 +703,7 @@ class Subview(ViewType):
             new_other = other
         else:
             raise ValueError("unexpected types!")
-        result_np = np.equal(np.array(self), np.array(new_other))
-        return result_np
+        return _equal(self, new_other)
 
     def __add__(self, other):
         if isinstance(other, float):
@@ -741,9 +741,7 @@ def from_numpy(
     """
 
     dtype: DataTypeClass
-    np_dtype = (
-        array.dtype.type if isinstance(array.dtype, np.dtype) else array.dtype.np_equiv
-    )
+    np_dtype = array.dtype.type
 
     if np_dtype is np.void and cp_array is not None:
         # This means that this is a cupy array passed through
