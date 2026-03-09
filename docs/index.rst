@@ -53,6 +53,7 @@ interest to those already familiar with the Kokkos framework.
    workunits
    ndarrays
    fusion
+   environment_variables
    examples
 
 ..

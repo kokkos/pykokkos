@@ -29,9 +29,11 @@ class PyKokkosVisitor(ast.NodeVisitor):
         pk_import: str,
         restrict_views: Set[str],
         debug=False,
+        path: Optional[str] = None,
     ):
         self.env = env
         self.src = src
+        self.path = path
         self.views = views
         self.work_units = work_units
         self.fields = fields
@@ -739,7 +741,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
         return cpp_view_type
 
     def error(self, node, message):
-        visitors_util.error(self.src, self.debug, node, message)
+        visitors_util.error(self.src, self.debug, node, message, self.path)
 
     def generic_error(self, node):
         self.error(node, "Not supported for translation")

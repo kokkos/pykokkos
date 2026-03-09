@@ -23,6 +23,7 @@ class WorkunitVisitor(PyKokkosVisitor):
         pk_import: str,
         restrict_views: Set[str],
         debug=False,
+        path: Optional[str] = None,
     ):
         self.has_rand_call: bool = False
         super().__init__(
@@ -36,6 +37,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             pk_import,
             restrict_views,
             debug,
+            path,
         )
 
     def visit_FunctionDef(

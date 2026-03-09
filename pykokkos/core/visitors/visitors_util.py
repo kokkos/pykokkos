@@ -132,11 +132,17 @@ math_constants: Dict[str, str] = {
 }
 
 
-def error(src, debug: bool, node, message) -> None:
+def error(src, debug: bool, node, message, path: Optional[str] = None) -> None:
     if hasattr(node, "lineno"):
-        print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
+        if path:
+            print(f"\n\033[31m\033[01mError in {path}:{node.lineno}\033[0m: {message}")
+        else:
+            print(f"\n\033[31m\033[01mError:{node.lineno} \033[0m: {message}")
     else:
-        print(f"\n\033[31m\033[01mError\033[0m: {message}")
+        if path:
+            print(f"\n\033[31m\033[01mError in {path}\033[0m: {message}")
+        else:
+            print(f"\n\033[31m\033[01mError\033[0m: {message}")
 
     if debug and node is not None:
         print("DEBUG AST:")

@@ -201,32 +201,6 @@ class TeamPolicy(ExecutionPolicy):
         self.scratch_size_level: Optional[int] = None
         self.scratch_size_value = None
 
-    def set_scratch_size(self, *args):  # -> TeamPolicy:
-        """
-        Set scratch memory size for team or thread level.
-
-        Supports two call patterns:
-        1. set_scratch_size(size) - size only, level defaults to 0
-        2. set_scratch_size(level, per_team_or_thread) - explicit level and size wrapper
-
-        :param args: Either (size) or (level, per_team_or_thread)
-        :returns: self for method chaining
-        """
-        if len(args) == 1:
-            # Pattern: set_scratch_size(size)
-            self.scratch_size_level = 0
-            self.scratch_size_value = args[0]
-        elif len(args) == 2:
-            # Pattern: set_scratch_size(level, per_team_or_thread)
-            self.scratch_size_level = args[0]
-            self.scratch_size_value = args[1]
-        else:
-            raise ValueError(
-                f"set_scratch_size expects 1 or 2 arguments, got {len(args)}"
-            )
-
-        return self
-
 
 class TeamThreadRange(ExecutionPolicy):
     def __init__(self, team_member: TeamMember, count: int):
