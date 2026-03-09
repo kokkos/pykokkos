@@ -146,6 +146,7 @@ def _equal(view1, view2, profiler_name: Optional[str] = None):
     )
     return out
 
+
 def _isnan(view, profiler_name: Optional[str] = None):
     dtype = view.dtype
     ndims = len(view.shape)
@@ -171,6 +172,30 @@ def _isnan(view, profiler_name: Optional[str] = None):
         view=view,
     )
     return out
+
+
+def _isinf(view, profiler_name: Optional[str] = None):
+    dtype = view.dtype
+    ndims = len(view.shape)
+    if ndims > 2:
+        raise NotImplementedError("isinf() ufunc only supports up to 2D views")
+    out = pk.View([*view.shape], dtype=pk.bool)
+    if view.shape == ():
+        tid = 1
+    else:
+        tid = view.shape[0]
+    _ufunc_kernel_dispatcher(
+        profiler_name=profiler_name,
+        tid=tid,
+        dtype=dtype,
+        ndims=ndims,
+        op="isinf",
+        sub_dispatcher=pk.parallel_for,
+        out=out,
+        view=view,
+    )
+    return out
+
 
 def _isfinite(view, profiler_name: Optional[str] = None):
     dtype = view.dtype
