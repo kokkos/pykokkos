@@ -17,7 +17,7 @@ from pykokkos.kokkos_manager import (
     set_device_id,
 )
 
-from pykokkos.lib.ufuncs import _isnan as isnan, _isinf as isinf, _isfinite as isfinite
+from pykokkos.lib.ufuncs import _isnan as isnan, _isinf as isinf, _isfinite as isfinite, _equal as equal
 
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros, zeros_like, ones, ones_like, full, full_like
