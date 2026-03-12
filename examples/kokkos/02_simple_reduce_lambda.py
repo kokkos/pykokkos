@@ -1,20 +1,13 @@
 import pykokkos as pk
 
 
-@pk.workload
-class SquareSum:
-    def __init__(self, n):
-        self.N: int = n
-        self.total: int = 0
+def main():
+    N: int = 10
 
-    @pk.main
-    def run(self):
-        self.total = pk.parallel_reduce(self.N, lambda i, acc: acc + i * i)
+    total = pk.parallel_reduce(N, lambda i, acc: acc + i * i)
 
-    @pk.callback
-    def results(self):
-        print("Sum:", self.total)
+    print("Sum:", total)
 
 
 if __name__ == "__main__":
-    pk.execute(SquareSum(10))
+    main()

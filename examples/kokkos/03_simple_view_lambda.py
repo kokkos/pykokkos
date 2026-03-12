@@ -1,33 +1,20 @@
+import numpy as np
 import pykokkos as pk
 
+def main():
+    N = 10
 
-@pk.workload
-class SimpleView:
-    def __init__(self, n):
-        self.N: int = n
-        self.total: int = 0
-        self.a: pk.View2D[pk.int32] = pk.View([self.N, 3], pk.int32)
+    i = np.arange(1, N + 1, dtype=np.int32)
+    j = np.arange(1, 3 + 1, dtype=np.int32)
+    a = i.reshape(-1, 1) ** j.reshape(1, -1)
+    print(a)
 
-    @pk.callback
-    def results(self):
-        for row in self.a:
-            print(row)
-        print("\nResult is", self.total)
+    total: int = pk.parallel_reduce(N, lambda u, acc: acc + a[i][0] * a[i][1] / a[i][2], a=a)
 
-    @pk.main
-    def run(self):
-        pk.parallel_for(self.N, self.initialize_view)
-        self.total = pk.parallel_reduce(
-            self.N,
-            lambda i, accumulator: accumulator
-            + self.a[i][0] * self.a[i][1] / (self.a[i][2]),
-        )
-
-    @pk.workunit
-    def initialize_view(self, i: int):
-        for j in range(3):
-            self.a[i][j] = (i + 1) ** (j + 1)
+    for row in a:
+        print(row)
+    print("\nResult is", total)
 
 
 if __name__ == "__main__":
-    pk.execute(SimpleView(10))
+    main()
