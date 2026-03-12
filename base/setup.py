@@ -68,10 +68,10 @@ add_arg_bool_option("werror", "ENABLE_WERROR")
 add_arg_bool_option("timing", "ENABLE_TIMING")
 parser.add_argument(
     "--cxx-standard",
-    default=17,
+    default=20,
     type=int,
     choices=[14, 17, 20],
-    help="Set C++ language standard",
+    help="Set C++ language standard (Kokkos 5+ requires C++20)",
 )
 parser.add_argument(
     "--enable-view-ranks",

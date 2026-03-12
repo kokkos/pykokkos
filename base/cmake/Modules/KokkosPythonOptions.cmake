@@ -84,7 +84,7 @@ set(CMAKE_C_VISIBILITY_PRESET "default" CACHE STRING "Default visibility")
 set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE STRING "Default visibility")
 
 # pybind11 has not migrated to CMAKE_CXX_STANDARD and neither has kokkos
-SET(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ language standard")
+SET(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ language standard")
 SET(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require standard")
 SET(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Extensions")
 IF(NOT Kokkos_CXX_STANDARD)
