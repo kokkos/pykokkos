@@ -17,4 +17,4 @@ class SquareSum:
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, SquareSum(10))
+    pk.execute(SquareSum(10))

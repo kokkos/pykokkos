@@ -27,4 +27,4 @@ class SimpleSpaces:
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, SimpleSpaces(10))
+    pk.execute(SimpleSpaces(10))

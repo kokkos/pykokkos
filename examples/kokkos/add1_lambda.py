@@ -23,4 +23,4 @@ class AddOne:
 
 if __name__ == "__main__":
     n = 100 * 1000
-    pk.execute(pk.ExecutionSpace.OpenMP, AddOne(n))
+    pk.execute(AddOne(n))

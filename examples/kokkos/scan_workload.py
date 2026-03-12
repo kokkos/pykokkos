@@ -15,7 +15,6 @@ def scan(i: int, acc: pk.Acc[pk.double], last_pass: bool, A: pk.View1D[pk.int32]
 
 def run() -> None:
     N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 

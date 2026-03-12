@@ -15,11 +15,10 @@ def scan(i: int, acc: pk.Acc[pk.double], last_pass: bool, A: pk.View1D[pk.int32]
 
 def run() -> None:
     N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 
-    p = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
+    p = pk.RangePolicy(0, N)
 
     pk.parallel_for(p, init, A=A)
 

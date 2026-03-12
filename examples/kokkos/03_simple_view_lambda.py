@@ -30,4 +30,4 @@ class SimpleView:
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, SimpleView(10))
+    pk.execute(SimpleView(10))

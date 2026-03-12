@@ -12,4 +12,4 @@ class HelloWorld:
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, HelloWorld(10))
+    pk.execute(HelloWorld(10))
