@@ -40,10 +40,11 @@ jobs:
             echo "Running $f..."
             if [[ "$f" == *_lambda.py ]]; then
               output=$(python "$f" 2>&1) || {
-                if echo "$output" | grep -qv "TypeError"; then
+                if ! echo "$output" | grep -q "TypeError"; then
                   echo "$output"
                   exit 1
                 fi
+                echo "Ignoring TypeError in $f"
               }
               echo "$output"
             else
