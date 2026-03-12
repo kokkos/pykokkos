@@ -1,6 +1,7 @@
 import numpy as np
 import pykokkos as pk
 
+
 def main():
     N = 10
 
@@ -9,7 +10,9 @@ def main():
     a = i.reshape(-1, 1) ** j.reshape(1, -1)
     print(a)
 
-    total: int = pk.parallel_reduce(N, lambda u, acc: acc + a[i][0] * a[i][1] / a[i][2], a=a)
+    total: int = pk.parallel_reduce(
+        N, lambda u, acc: acc + a[i][0] * a[i][1] / a[i][2], a=a
+    )
 
     for row in a:
         print(row)
