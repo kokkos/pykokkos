@@ -83,10 +83,22 @@ install ``base`` with required CMake flags (example performs an install with  Op
       -DENABLE_THREADS=OFF \              # disable pthreads execution space
       -DENABLE_LAYOUTS=ON \               # enable layout left/right ordering
       -DENABLE_CUDA=ON \                  # enable cuda execution space
-      -DENABLE_OPENMP=ON                  # enable openmp execution space
+      -DENABLE_OPENMP=ON \                # enable openmp execution space
 
 
-See `Kokkos CMake Options <https://kokkos.org/kokkos-kernels/docs/cmake-keywords.html>`_ for a complete list of CMake flags.
+**CMake Flags**
+===================== ==================
+PyKokkos Flags        Description
+===================== =================
+ENABLE_VIEW_RANKS     Set this value to the max number of ranks needed for Kokkos::View<...>. E.g. value of 4 means Kokkos::View<int*****, Kokkos::HostSpace> cannot be returned to python
+ENABLE_LAYOUTS        Build support for layouts (long NVCC compile times) 
+ENABLE_MEMORY_TRAITS  Build support for memory traits (long NVCC compile times) 
+ENABLE_THREADS        Build Kokkos submodule with Pthread support 
+ENABLE_OPENMP         Build Kokkos submodule with OpenMP support
+ENABLE_CUDA           Build Kokkos submodule with CUDA support
+ENABLE_HIP            Build Kokkos submodule with HIP support
+ARCH                  `Kokkos GPU architecture <https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures>`_, required for HIP builds
+
 Other ``pykokkos`` configuration and installation options can be
 found in that project's `README
 <https://github.com/kokkos/pykokkos/blob/main/base/README.md>`_.  Note
