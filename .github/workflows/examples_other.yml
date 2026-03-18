@@ -38,6 +38,10 @@ jobs:
         run: |
           for f in examples/graphs/*.py examples/pykokkos/*.py; do
             echo "Running $f..."
+            if [[ "$f" == *"team_thread_mdrange.py" ]]; then
+              echo "Skipping $f (requires GPU)"
+              continue
+            fi
             output=$(python "$f" 2>&1) || {
               if ! echo "$output" | grep -q "ModuleNotFoundError"; then
                 echo "$output"
