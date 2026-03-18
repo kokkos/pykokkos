@@ -54,15 +54,15 @@ def check_vis(
 
     flag: int = 0
 
-        # if the value of the current index is 0, then the distance is 0,
-        # and the node is marked as visited
-        # otherwise, check whether the neighbors were visited,
-        # if visited, the value of the current index can be decided
+    # if the value of the current index is 0, then the distance is 0,
+    # and the node is marked as visited
+    # otherwise, check whether the neighbors were visited,
+    # if visited, the value of the current index can be decided
     if mat[var_row][var_col] == 0 and visited[i] == 0:
         visited[i] = 1
         val[i] = 0
     else:
-            # check the neighbor on the previous row
+        # check the neighbor on the previous row
         if i >= M:
             if visited[i - M] == 1:
                 flag = 1
