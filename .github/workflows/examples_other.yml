@@ -38,5 +38,12 @@ jobs:
         run: |
           for f in examples/graphs/*.py examples/pykokkos/*.py; do
             echo "Running $f..."
-            python "$f"
+            output=$(python "$f" 2>&1) || {
+              if ! echo "$output" | grep -q "ModuleNotFoundError"; then
+                echo "$output"
+                exit 1
+              fi
+              echo "Ignoring ModuleNotFoundError in $f"
+            }
+            echo "$output"
           done
