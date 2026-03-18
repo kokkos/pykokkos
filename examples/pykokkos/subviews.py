@@ -1,6 +1,11 @@
 import numpy as np
 import pykokkos as pk
 
+if pk.get_default_space() in pk.DeviceExecutionSpace:
+        import cupy as np
+else:
+        import numpy as np
+
 
 def main():
     view = np.zeros((10, 10), dtype=np.int32)
