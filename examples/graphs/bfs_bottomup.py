@@ -1,5 +1,8 @@
 import pykokkos as pk
-import numpy as np
+if pk.get_default_space() in pk.DeviceExecutionSpace:
+        import cupy as np
+else:
+        import numpy as np
 
 import argparse
 
