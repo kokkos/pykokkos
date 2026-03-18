@@ -91,7 +91,8 @@ parser.add_argument(
     default=[],
     type=str,
     nargs="*",
-    help="Pass arguments to CMake. For pip installs, set PYKOKKOS_BASE_SETUP_ARGS instead.",
+    help="Pass arguments to CMake. For pip installs, "
+         "set PYKOKKOS_BASE_SETUP_ARGS instead.",
 )
 
 args, left = parser.parse_known_args()
