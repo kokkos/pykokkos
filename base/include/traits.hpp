@@ -137,7 +137,7 @@ EXECUTION_SPACE(Kokkos::Threads, Threads_Backend, "Threads")
 EXECUTION_SPACE(Kokkos::OpenMP, OpenMP_Backend, "OpenMP")
 EXECUTION_SPACE(Kokkos::Cuda, Cuda_Backend, "Cuda")
 EXECUTION_SPACE(Kokkos::Experimental::HPX, HPX_Backend, "HPX")
-EXECUTION_SPACE(Kokkos::Experimental::HIP, HIP_Backend, "HIP")
+EXECUTION_SPACE(Kokkos::HIP, HIP_Backend, "HIP")
 EXECUTION_SPACE(Kokkos::Experimental::SYCL, SYCL_Backend, "SYCL")
 EXECUTION_SPACE(Kokkos::Experimental::OpenMPTarget, OpenMPTarget_Backend,
                 "OpenMPTarget")
@@ -147,7 +147,7 @@ MEMORY_SPACE_IDX(Kokkos::Threads, HostSpace)
 MEMORY_SPACE_IDX(Kokkos::OpenMP, HostSpace)
 MEMORY_SPACE_IDX(Kokkos::Cuda, CudaSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::HPX, HostSpace)
-MEMORY_SPACE_IDX(Kokkos::Experimental::HIP, HIPSpace)
+MEMORY_SPACE_IDX(Kokkos::HIP, HIPSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::SYCL, SYCLSharedUSMSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::OpenMPTarget, OpenMPTargetSpace)
 
@@ -168,7 +168,7 @@ DISABLE_TYPE(Kokkos::Cuda)
 #endif
 
 #if !defined(KOKKOS_ENABLE_HIP)
-DISABLE_TYPE(Kokkos::Experimental::HIP)
+DISABLE_TYPE(Kokkos::HIP)
 #endif
 
 #if !defined(KOKKOS_ENABLE_HPX)
