@@ -99,6 +99,10 @@ ENABLE_CUDA           Build Kokkos submodule with CUDA support
 ENABLE_HIP            Build Kokkos submodule with HIP support
 ARCH                  `Kokkos GPU architecture <https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures>`_, required for HIP builds
 
+.. note::
+        Ensure that amdclang++ is used for building HIP device code 
+        by passing `-DCMAKE_CXX_COMPILER=amdclang++` as a CMake flag.
+
 Other ``pykokkos`` configuration and installation options can be
 found in that project's `README
 <https://github.com/kokkos/pykokkos/blob/main/base/README.md>`_.  Note
