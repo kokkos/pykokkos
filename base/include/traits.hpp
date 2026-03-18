@@ -61,14 +61,14 @@ DISABLE_TYPE(type_list<>)
 /// theoretically just say that python only supports up to 3 dimensions and if
 /// higher than that, user bindings must convert View to DynRankView.
 ///
-VIEW_DATA_DIMS(1, T *)
-VIEW_DATA_DIMS(2, T **)
-VIEW_DATA_DIMS(3, T ***)
-VIEW_DATA_DIMS(4, T ****)
-VIEW_DATA_DIMS(5, T *****)
-VIEW_DATA_DIMS(6, T ******)
-VIEW_DATA_DIMS(7, T *******)
-VIEW_DATA_DIMS(8, T ********)
+VIEW_DATA_DIMS(1, T*)
+VIEW_DATA_DIMS(2, T**)
+VIEW_DATA_DIMS(3, T***)
+VIEW_DATA_DIMS(4, T****)
+VIEW_DATA_DIMS(5, T*****)
+VIEW_DATA_DIMS(6, T******)
+VIEW_DATA_DIMS(7, T*******)
+VIEW_DATA_DIMS(8, T********)
 
 //----------------------------------------------------------------------------//
 // <data-type> <enum> <string identifiers>
@@ -226,8 +226,7 @@ MEMORY_SPACE(Kokkos::Experimental::HBWSpace, HBWSpace, "HBWSpace")
 MEMORY_SPACE(Kokkos::HIPSpace, HIPSpace, "HIPSpace", "HIP")
 MEMORY_SPACE(Kokkos::HIPHostPinnedSpace, HIPHostPinnedSpace,
              "HIPHostPinnedSpace")
-MEMORY_SPACE(Kokkos::HIPManagedSpace, HIPManagedSpace,
-             "HIPManagedSpace")
+MEMORY_SPACE(Kokkos::HIPManagedSpace, HIPManagedSpace, "HIPManagedSpace")
 MEMORY_SPACE(Kokkos::Experimental::OpenMPTargetSpace, OpenMPTargetSpace,
              "OpenMPTargetSpace", "OpenMPTarget")
 MEMORY_SPACE(Kokkos::Experimental::SYCLSharedUSMSpace, SYCLSharedUSMSpace,
