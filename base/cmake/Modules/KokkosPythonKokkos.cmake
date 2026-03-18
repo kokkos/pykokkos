@@ -156,22 +156,15 @@ IF(_INTERNAL_KOKKOS)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
     ENDIF()
 
-    # Check if we should use submodule or FetchContent
-    IF(EXISTS ${PROJECT_SOURCE_DIR}/external/kokkos/CMakeLists.txt)
-        # Use git submodule
-        ADD_SUBDIRECTORY(external)
-        SET(Kokkos_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/kokkos/core/src)
-    ELSE()
-        # Use FetchContent to download Kokkos
-        INCLUDE(FetchContent)
-        MESSAGE(STATUS "Fetching Kokkos via FetchContent")
-        FETCHCONTENT_DECLARE(
-          Kokkos
-          URL https://github.com/kokkos/kokkos/releases/download/4.7.01/kokkos-4.7.01.zip
-          URL_HASH SHA256=2b7c9964ace4245dec0b952932873d4b1235933dbb7d8d1d69e17b4368784503
-        )
-        FETCHCONTENT_MAKEAVAILABLE(Kokkos)
-        FETCHCONTENT_GETPROPERTIES(Kokkos SOURCE_DIR Kokkos_SOURCE_DIR)
-        SET(Kokkos_INCLUDE_DIR ${Kokkos_SOURCE_DIR}/core/src)
-    ENDIF()
+    # Use FetchContent to download Kokkos
+    INCLUDE(FetchContent)
+    MESSAGE(STATUS "Fetching Kokkos via FetchContent")
+    FETCHCONTENT_DECLARE(
+      Kokkos
+      URL https://github.com/kokkos/kokkos/releases/download/4.7.01/kokkos-4.7.01.zip
+      URL_HASH SHA256=2b7c9964ace4245dec0b952932873d4b1235933dbb7d8d1d69e17b4368784503
+    )
+    FETCHCONTENT_MAKEAVAILABLE(Kokkos)
+    FETCHCONTENT_GETPROPERTIES(Kokkos SOURCE_DIR Kokkos_SOURCE_DIR)
+    SET(Kokkos_INCLUDE_DIR ${Kokkos_SOURCE_DIR}/core/src)
 ENDIF()
