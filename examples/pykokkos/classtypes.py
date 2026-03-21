@@ -11,13 +11,16 @@ class TestClass:
 
 
 @pk.workunit
-def work(tid: int):
-    pk.printf("%d\n", tid)
+def work(tid: int, acc: pk.Acc[pk.double]) -> None:
+    tc: TestClass = TestClass(float(tid))
+    acc += tc.test()
 
 
 def main():
     total_threads: int = 10
-    pk.parallel_for(total_threads, work)
+    result: float = pk.parallel_reduce(total_threads, work)
+    expected: float = sum(2.0 * float(i) for i in range(total_threads))
+    print(f"parallel_reduce: {result} (expected {expected})")
 
 
 if __name__ == "__main__":

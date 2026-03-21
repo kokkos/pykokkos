@@ -1,4 +1,3 @@
-import numpy as np
 import pykokkos as pk
 
 if pk.get_default_space() in pk.DeviceExecutionSpace:
@@ -8,15 +7,24 @@ else:
 
 
 def main():
-    view = np.zeros((10, 10), dtype=np.int32)
-    subview = view[3, 2:5]
-    pk.parallel_for(10, work, view=view)
+    n: int = 10
+    # 2D view; each thread takes a row subview and a column-range subview inside the workunit.
+    view = np.zeros((n, n), dtype=np.int32)
+    pk.parallel_for(n, work, view=view)
+    print(
+        "PyKokkos subviews: each iteration builds Kokkos::subview row = view[i, :] and "
+        "band = view[i, 2:5], then writes through those 1D subviews (not view[i][j] alone).\n"
+    )
     print(view)
 
 
 @pk.workunit
 def work(i: int, view: pk.View2D[pk.int32]):
-    view[i][i] = 1
+    # Plain `name = view[...]` becomes Kokkos::subview (annotated assign does not).
+    row = view[i, :]
+    band = view[i, 2:5]
+    row[i] = 1
+    band[i % 3] = i + 1
 
 
 if __name__ == "__main__":

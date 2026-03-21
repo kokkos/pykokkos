@@ -12,11 +12,14 @@ def main():
     view = np.zeros(total_threads, dtype=np.int32)
 
     pk.parallel_for(total_threads, work, total_threads=total_threads, view=view)
+    max_bins = total_threads // 2
+    min_key = total_threads
+    max_key = total_threads * 2 - 1
     bin_op = pk.BinOp1D(
         view,
-        (total_threads // 2),
-        total_threads,
-        total_threads * 2 - 1,
+        max_bins,
+        min_key,
+        max_key,
     )
     bin_sort = pk.BinSort(view, bin_op)
     bin_sort.create_permute_vector()
@@ -25,10 +28,31 @@ def main():
     bin_count = bin_sort.get_bin_count()
     bin_sort.sort(view)
 
-    print(view)
-    print(permute_vector)
-    print(bin_offsets)
-    print(bin_count)
+    print(
+        "PyKokkos BinSort demo: fill a 1D key view on the device, bucket keys into "
+        f"{max_bins} bins over [{min_key}, {max_key}], then sort.\n"
+        f"  Initial keys: view[i] = i + {total_threads} (see work unit).\n"
+    )
+    print(
+        "Sorted keys (same 1D view, after bin_sort.sort(view) — in-place reorder):\n",
+        view,
+        "\n",
+    )
+    print(
+        "Permute vector from create_permute_vector / get_permute_vector — "
+        "indices describing how elements were reordered:\n",
+        permute_vector,
+        "\n",
+    )
+    print(
+        "Bin offsets (get_bin_offsets) — start index of each bin in the sorted layout:\n",
+        bin_offsets,
+        "\n",
+    )
+    print(
+        "Bin counts (get_bin_count) — number of keys in each bin:\n",
+        bin_count,
+    )
 
 
 @pk.workunit

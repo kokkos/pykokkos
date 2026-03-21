@@ -1,3 +1,8 @@
+import argparse
+from collections import deque
+
+import numpy as np_cpu
+
 import pykokkos as pk
 
 if pk.get_default_space() in pk.DeviceExecutionSpace:
@@ -5,7 +10,56 @@ if pk.get_default_space() in pk.DeviceExecutionSpace:
 else:
     import numpy as np
 
-import argparse
+
+def _view_to_numpy_host(x):
+    """Host NumPy array for comparisons (handles Cupy-backed views)."""
+    if hasattr(x, "get"):
+        return np_cpu.asarray(x.get())
+    return np_cpu.asarray(x)
+
+
+def reference_grid_bfs_distances(N: int, M: int, mat) -> np_cpu.ndarray:
+    """
+    Shortest hop count (4-neighbor grid) from every cell to any cell with mat==0.
+    Same graph as the PyKokkos workunits: vertices are grid cells, edges to N/E/S/W
+    neighbors. Multi-source BFS using a queue, following the standard pattern in
+    https://www.geeksforgeeks.org/python/python-program-for-breadth-first-search-or-bfs-for-a-graph/
+    """
+    mat_h = _view_to_numpy_host(mat)
+    dist = np_cpu.full(N * M, -1, dtype=np_cpu.int32)
+    q = deque()
+    for r in range(N):
+        for c in range(M):
+            if mat_h[r, c] == 0:
+                idx = r * M + c
+                dist[idx] = 0
+                q.append((r, c))
+    while q:
+        r, c = q.popleft()
+        d = int(dist[r * M + c])
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < N and 0 <= nc < M:
+                ni = nr * M + nc
+                if dist[ni] == -1:
+                    dist[ni] = d + 1
+                    q.append((nr, nc))
+    return dist.astype(np_cpu.float64)
+
+
+def assert_bfs_matches_pykokkos(N: int, M: int, mat, val, max_arr) -> None:
+    ref = reference_grid_bfs_distances(N, M, mat)
+    val_h = _view_to_numpy_host(val)
+    max_h = float(_view_to_numpy_host(max_arr)[0])
+    if not np_cpu.allclose(val_h, ref, rtol=0.0, atol=1e-9):
+        bad = np_cpu.where(np_cpu.abs(val_h - ref) > 1e-9)[0][:16]
+        raise AssertionError(
+            f"distance mismatch at linear indices (first few): {bad.tolist()}"
+        )
+    ref_max = float(np_cpu.max(ref))
+    if not np_cpu.isclose(max_h, ref_max, rtol=0.0, atol=1e-9):
+        raise AssertionError(f"max distance mismatch: got {max_h}, expected {ref_max}")
+    print("BFS correctness check: OK (matches queue-based NumPy reference)")
 
 
 def main(N: int, M: int):
@@ -28,6 +82,8 @@ def main(N: int, M: int):
 
     pk.parallel_for(N, extend2D, N=N, max_arr=max_arr, max_arr2D=max_arr2D)
     pk.parallel_for(N, reduce1D, N=N, max_arr=max_arr, max_arr2D=max_arr2D)
+
+    assert_bfs_matches_pykokkos(N, M, mat, val, max_arr)
 
     print(f"\ndistance of every cell:\n")
     for i in range(element):
@@ -73,21 +129,21 @@ def check_vis(
                 if min_val > val[i - M]:
                     min_val = val[i - M]
 
-            # check the neighbor on the next row
+        # check the neighbor on the next row
         if i // M < (N - 1):
             if visited[i + M] == 1:
                 flag = 1
                 if min_val > val[i + M]:
                     min_val = val[i + M]
 
-            # check the neighbor on the left
+        # check the neighbor on the left
         if i % M > 0:
             if visited[i - 1] == 1:
                 flag = 1
                 if min_val > val[i - 1]:
                     min_val = val[i - 1]
 
-            # check the neighbor on the right
+        # check the neighbor on the right
         if i % M < (M - 1):
             if visited[i + 1] == 1:
                 flag = 1
@@ -96,10 +152,10 @@ def check_vis(
 
         # if there is at least one neighbor visited, the value of
         # the current index can be updated and should be marked as visited
-    if flag == 1:
-        if val[i] > min_val:
-            val[i] = min_val + 1
-        visited[i] = 1
+        if flag == 1:
+            if val[i] > min_val:
+                val[i] = min_val + 1
+            visited[i] = 1
 
     ################################
     # findmax will find the maximum value of cell in each row
