@@ -113,6 +113,8 @@ def cleanup():
                 view.array = None
             if hasattr(view, "data"):
                 view.data = None
+            if hasattr(view, "xp_array"):
+                view.xp_array = None
         except (ReferenceError, AttributeError):
             pass
 

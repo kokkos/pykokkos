@@ -628,6 +628,14 @@ class Subview(ViewType):
         self.ndim = self.data.ndim
         self.size = self.data.size
 
+        try:
+            from pykokkos import _view_registry
+
+            _view_registry.add(self)
+        except (ImportError, AttributeError):
+            pass
+
+
     def _create_slice(self, data_slice: Union[slice, Tuple]) -> List[Union[int, slice]]:
         """
         Transforms the slice into a list, removing all None values for start and stop
