@@ -36,7 +36,7 @@ conda env update -n pyk -f base/environment.yml
 conda activate pyk
 
 # Install pykokkos-base from the root directory
-python install_base.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
+python install_base.py install --verbose -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON
 ```
 
 #### Installing pykokkos

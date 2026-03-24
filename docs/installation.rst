@@ -77,7 +77,7 @@ install ``base`` with required CMake flags (example performs an install with  Op
 
 .. code-block:: bash
 
-   python install_base.py install -- \
+   python install_base.py install --verbose -- \
       -DENABLE_VIEW_RANKS=3 \             # maximum number of view ranks enabled
       -DENABLE_MEMORY_TRAITS=OFF \        # disable memory space concept
       -DENABLE_THREADS=OFF \              # disable pthreads execution space
