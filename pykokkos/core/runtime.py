@@ -518,31 +518,40 @@ class Runtime:
         args: Dict[str, Any] = {}
 
         entity_members: Dict[str, type]
+        is_workload: bool = not isinstance(entity, (Callable, list))
 
-        if policy is None:
-            raise RuntimeError("Execution policy is None")
+        if is_workload:
+            args.update(self.get_result_arguments(members))
+            entity_members = entity.__dict__
+            args["pk_exec_space_instance"] = km.get_execution_space_instance(
+                space
+            ).instance
 
-        args.update(self.get_policy_arguments(policy))
-        is_functor: bool = hasattr(entity, "__self__")
-        if is_functor:
-            functor: object = entity.__self__
-            entity_members = functor.__dict__
-            self._convert_functor_arrays(entity_members)
         else:
-            is_fused: bool = isinstance(entity, list)
-            if is_fused:
-                parsers = [
-                    self.compiler.get_parser(get_metadata(e).path) for e in entity
-                ]
-                entity_trees = [
-                    this_parser.get_entity(get_metadata(this_entity).name).AST
-                    for this_entity, this_parser in zip(entity, parsers)
-                ]
+            if policy is None:
+                raise RuntimeError("Execution policy is None")
 
-                kwargs, _ = fuse_workunit_kwargs_and_params(
-                    entity_trees, kwargs, f"parallel_{operation}"
-                )
-            entity_members = kwargs
+            args.update(self.get_policy_arguments(policy))
+            is_functor: bool = hasattr(entity, "__self__")
+            if is_functor:
+                functor: object = entity.__self__
+                entity_members = functor.__dict__
+                self._convert_functor_arrays(entity_members)
+            else:
+                is_fused: bool = isinstance(entity, list)
+                if is_fused:
+                    parsers = [
+                        self.compiler.get_parser(get_metadata(e).path) for e in entity
+                    ]
+                    entity_trees = [
+                        this_parser.get_entity(get_metadata(this_entity).name).AST
+                        for this_entity, this_parser in zip(entity, parsers)
+                    ]
+
+                    kwargs, _ = fuse_workunit_kwargs_and_params(
+                        entity_trees, kwargs, f"parallel_{operation}"
+                    )
+                entity_members = kwargs
 
         args.update(self.get_fields(entity_members))
         args.update(self.get_views(entity_members))
@@ -857,9 +866,17 @@ class Runtime:
         if isinstance(entity, list):
             entity = tuple(entity)  # Since entity needs to be hashed
 
+        is_workload: bool = not isinstance(entity, (Callable, tuple))
         is_functor: bool = hasattr(entity, "__self__")
 
-        if is_functor:
+        if is_workload:
+            workload_type: Type = type(entity)
+            module_setup_id: Tuple[Callable, str, ExecutionSpace] = (
+                workload_type,
+                workload_type.__module__,
+                space,
+            )
+        elif is_functor:
             functor_type: Type = type(entity.__self__)
             module_setup_id: Tuple[Callable, str, str, ExecutionSpace] = (
                 type(functor_type),

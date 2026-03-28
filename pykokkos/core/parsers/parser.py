@@ -133,7 +133,7 @@ class Parser:
         check_entity: Callable[[ast.stmt], bool]
 
         if style is PyKokkosStyles.workload:
-            return entities
+            check_entity = self.is_workload
         elif style is PyKokkosStyles.functor:
             check_entity = self.is_functor
         elif style is PyKokkosStyles.workunit:
@@ -442,6 +442,35 @@ class Parser:
         for attribute in node.decorator_list:
             if isinstance(attribute, ast.Attribute):
                 if attribute.value.id == pk_import and Decorator.is_kokkos_classtype(
+                    attribute.attr
+                ):
+                    return True
+
+        return False
+
+    @staticmethod
+    def is_workload(node: ast.stmt, pk_import: str) -> bool:
+        """
+        Checks if an ast node is a a PyKokkos workload
+
+        :param node: the node being checked
+        :param pk_import: the identifier used to access the PyKokkos package
+        :returns: true or false
+        """
+
+        if not isinstance(node, ast.ClassDef):
+            return False
+
+        for decorator in node.decorator_list:
+            attribute = None
+
+            if isinstance(decorator, ast.Call):
+                attribute = decorator.func
+            elif isinstance(decorator, ast.Attribute):
+                attribute = decorator
+
+            if isinstance(attribute, ast.Attribute):
+                if attribute.value.id == pk_import and Decorator.is_workload(
                     attribute.attr
                 ):
                     return True
