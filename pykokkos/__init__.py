@@ -97,7 +97,7 @@ runtime_singleton.runtime = Runtime()
 
 import weakref
 
-_view_registry: weakref.WeakSet = weakref.WeakSet()
+_view_registry: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
 
 def cleanup():
@@ -107,7 +107,7 @@ def cleanup():
     Also cleanup all View objects before finalization
     """
 
-    for view in list(_view_registry):
+    for view in list(_view_registry.values()):
         try:
             if hasattr(view, "array"):
                 view.array = None
