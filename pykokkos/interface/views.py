@@ -310,7 +310,7 @@ class View(ViewType):
         try:
             from pykokkos import _view_registry
 
-            _view_registry.add(self)
+            _view_registry[id(self)] = self
         except (ImportError, AttributeError):
             pass
 

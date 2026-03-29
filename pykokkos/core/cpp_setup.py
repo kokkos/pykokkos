@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import sysconfig
 from types import ModuleType
 from typing import List, Tuple
 
@@ -193,23 +194,40 @@ class CppSetup:
         :returns: tuple of (cmake_args, module_name)
         """
 
-        view_space: str = "Kokkos::HostSpace"
+        # Handle the execution spaces where the default exec space is host, but
+        # default space is not host (memory space depends on default exec space)
+        default_space: ExecutionSpace = km.get_default_space()
+
+        # Determine view memory space and layout
+        view_space: str
+        view_layout: str
+
         if space is ExecutionSpace.Cuda:
-            if enable_uvm:
-                view_space = "Kokkos::CudaUVMSpace"
-        if space is ExecutionSpace.HIP:
-            if enable_uvm:
-                view_space = "Kokkos::Experimental::HIPManagedSpace"
-
-        space_value: str
-        if space.value == "HIP":
-            space_value = "Experimental::HIP"
+            view_space = "Kokkos::CudaUVMSpace" if enable_uvm else "Kokkos::CudaSpace"
+            view_layout = "Kokkos::LayoutLeft"
+        elif space is ExecutionSpace.HIP:
+            view_space = (
+                "Kokkos::Experimental::HIPManagedSpace"
+                if enable_uvm
+                else "Kokkos::Experimental::HIPSpace"
+            )
+            view_layout = "Kokkos::LayoutLeft"
+        elif is_host_execution_space(space):
+            if not is_host_execution_space(default_space):
+                # Host policy with GPU default: use caller's view memory/layout
+                mem_space = get_default_memory_space(default_space)
+                prefix = "Kokkos::Experimental" if "HIP" in mem_space.name else "Kokkos"
+                view_space = f"{prefix}::{mem_space.name}"
+                view_layout = "Kokkos::LayoutLeft"
+            else:
+                # Host policy with host default
+                view_space = "Kokkos::HostSpace"
+                view_layout = "Kokkos::LayoutRight"
         else:
-            space_value = space.value
+            view_space = "Kokkos::HostSpace"
+            view_layout = "Kokkos::LayoutRight"
 
-        view_layout: str = str(get_default_layout(get_default_memory_space(space)))
-        view_layout = view_layout.split(".")[-1]
-        view_layout = f"Kokkos::{view_layout}"
+        space_value: str = "Experimental::HIP" if space.value == "HIP" else space.value
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         lib_path: Path
@@ -499,4 +517,7 @@ class CppSetup:
         :returns: true if compiled
         """
 
-        return output_dir.is_dir()
+        if not output_dir.is_dir():
+            return False
+        ext: str = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+        return (output_dir / f"kernel{ext}").is_file()

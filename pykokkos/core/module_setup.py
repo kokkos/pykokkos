@@ -7,7 +7,7 @@ import sys
 import sysconfig
 from typing import Callable, List, Optional, Set, Union
 
-from pykokkos.interface import ExecutionSpace
+from pykokkos.interface import ExecutionSpace, is_host_execution_space
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
@@ -181,7 +181,15 @@ class ModuleSetup:
         if restrict_signature is not None:
             out_dir = out_dir / f"restrict_{restrict_signature}"
 
-        out_dir = out_dir / space.value
+        # Serial + default Cuda uses different PK_ARG_* than Serial + default
+        # OpenMP, so we need to separate JIT dirs (Serial_caller_Cuda)
+        dir_name: str = space.value
+        if is_host_execution_space(space):
+            default_space: ExecutionSpace = km.get_default_space()
+            if not is_host_execution_space(default_space):
+                dir_name = f"{dir_name}_caller_{default_space.value}"
+
+        out_dir = out_dir / dir_name
 
         return out_dir
 

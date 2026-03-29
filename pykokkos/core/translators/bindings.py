@@ -83,7 +83,13 @@ def get_kernel_params(
             continue
 
         space: str = get_view_memory_space(t, "bindings")
-        layout: str = f"{Keywords.DefaultExecSpace.value}::array_layout"
+        # Use PK_ARG_LAYOUT when space is pk_arg_memspace. Serial/OpenMP policy
+        # uses pk_exec_space::array_layout (LayoutRight) but default CUDA views
+        # are LayoutLeft
+        if space == Keywords.ArgMemSpace.value:
+            layout: str = Keywords.ArgLayout.value
+        else:
+            layout = f"{Keywords.DefaultExecSpace.value}::array_layout"
         params[n.declname] = cpp_view_type(t, space=space, layout=layout, real=real)
 
     params[Keywords.DefaultExecSpaceInstance.value] = Keywords.DefaultExecSpace.value
@@ -141,6 +147,39 @@ def get_device_views(members: PyKokkosMembers) -> Dict[str, str]:
     }
 
 
+def _generate_mirror_with_exec_layout(
+    src: str,
+    dst: str,
+    view_type: cppast.ClassType,
+    real: Optional[str],
+) -> str:
+    """
+    Generate code to create a mirror view with execution space layout from
+    the source view.
+
+    :param src: the name of the source view
+    :param dst: the name of the destination view
+    :param view_type: the cppast representation of the view type
+    :param real: optionally provide the precision of pk.real dtypes
+    :returns: the generated C++ code
+    """
+    exec_space: str = Keywords.DefaultExecSpace.value
+    dst_type: str = cpp_view_type(
+        view_type,
+        space=f"{exec_space}::memory_space",
+        layout=f"{exec_space}::array_layout",
+        real=real,
+    )
+    rank: int = int(re.search(r"\d+", view_type.typename).group())
+    extents: str = ",".join(f"{src}.extent({i})" for i in range(rank))
+    code: str = (
+        f'{dst_type} {dst}('
+        f'Kokkos::view_alloc("{dst}", Kokkos::WithoutInitializing), {extents});'
+        f"Kokkos::deep_copy({dst}, {src});"
+    )
+    return code
+
+
 def generate_functor_instance(
     functor: str,
     members: PyKokkosMembers,
@@ -182,11 +221,13 @@ def generate_functor_instance(
                 get_view_memory_space(view_type, "bindings")
                 == Keywords.ArgMemSpace.value
             ):
-                mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+                mirror_views += _generate_mirror_with_exec_layout(v, d_v, view_type, None)
             else:
                 mirror_views += f"auto {d_v} = {v};"
         else:
-            mirror_views += f"auto {d_v} = Kokkos::create_mirror_view_and_copy({exec_space_instance}, {v});"
+            mirror_views += _generate_mirror_with_exec_layout(
+                v, d_v, members.views[cppast.DeclRefExpr(v)], None
+            )
 
     # Kokkos fails to compile a functor if there are no parameters in its constructor
     if len(args) == 0:
