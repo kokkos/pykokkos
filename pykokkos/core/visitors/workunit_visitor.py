@@ -295,7 +295,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             else:
                 return cppast.CallExpr(function, [args[0], f"pk_id_{work_unit}"])
 
-        atomic_fetch_op: re.Pattern = re.compile("atomic_*")
+        atomic_fetch_op: re.Pattern = re.compile("atomic_fetch_*")
         is_atomic_fetch_op: bool = atomic_fetch_op.match(name)
         is_atomic_increment: bool = name == "atomic_increment"
         is_atomic_compare_exchange: bool = name == "atomic_compare_exchange"
