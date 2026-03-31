@@ -5,6 +5,7 @@ import math
 from enum import Enum
 import os
 import sys
+import warnings
 from types import ModuleType
 from typing import Dict, Generic, Iterator, List, Optional, Tuple, TypeVar, Union
 
@@ -945,7 +946,7 @@ def is_array(array) -> bool:
     return True
 
 
-def array(
+def _array(
     array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
 ) -> ViewType:
     """
@@ -958,14 +959,36 @@ def array(
     """
 
     # if numpy array, use from_numpy()
-    if isinstance(array, np.ndarray) or np.isscalar(array):
+    if isinstance(array, np.ndarray):
         return from_numpy(array, space, layout)
+    # Python scalars do not expose .dtype, so normalize first
+    if np.isscalar(array):
+        return from_numpy(np.asarray(array), space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
     if is_array(array):
         return from_array(array)
     # try converting the input data to numpy and using that route to convert
     return from_numpy(np.asarray(array), space, layout)
+
+
+def array(
+    array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
+) -> ViewType:
+    """
+    Deprecated public compatibility shim for internal array conversion.
+
+    Prefer `pk.asarray` for user-level conversions.
+    """
+
+    warnings.warn(
+        "pk.array is deprecated and will be removed in a future release. "
+        "Use pk.asarray for user conversions; pk._array is internal/private.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    return _array(array, space, layout)
 
 
 # asarray is required for comformance with the array API:
@@ -977,7 +1000,17 @@ def asarray(obj, /, *, dtype=None, device=None, copy=None):
     # for now, let's cheat and use NumPy asarray() followed
     # by pykokkos from_numpy()
 
-    if not isinstance(obj, list) and obj in {pk.e, pk.pi, pk.inf, pk.nan}:
+    is_array_api_constant = False
+    if np.isscalar(obj):
+        if obj in (pk.e, pk.pi, pk.inf):
+            is_array_api_constant = True
+        else:
+            try:
+                is_array_api_constant = bool(np.isnan(obj))
+            except TypeError:
+                is_array_api_constant = False
+
+    if is_array_api_constant:
         if dtype is None:
             dtype = pk.float64
         view = pk.View([1], dtype=dtype)

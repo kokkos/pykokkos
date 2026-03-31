@@ -34,7 +34,7 @@ def main():
     num_teams = (N + team_size - 1) // team_size
 
     view = cp.zeros(N, dtype=cp.int32)
-    view_pk = pk.array(view)
+    view_pk = pk._array(view)
     p_init = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, N)
     pk.parallel_for(p_init, init_data, view=view_pk)
 

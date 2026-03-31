@@ -182,12 +182,12 @@ def test_dgemm_shape(shape_a, shape_b):
 def test_dgemm_vs_scipy(alpha, a, b, c, beta, expected_c):
     # test against expected results from
     # scipy.linalg.blas.dgemm
-    view_a = pk.array(a)
-    view_b = pk.array(b)
+    view_a = pk.asarray(a)
+    view_b = pk.asarray(b)
     if c is None:
         view_c = None
     else:
-        view_c = pk.array(c)
+        view_c = pk.asarray(c)
     actual_c = dgemm(
         alpha=alpha, view_a=view_a, view_b=view_b, view_c=view_c, beta=beta
     )
@@ -196,7 +196,7 @@ def test_dgemm_vs_scipy(alpha, a, b, c, beta, expected_c):
 
 def test_dgemm_input_handling():
     alpha = 1.0
-    view_a = pk.array(np.zeros((4, 3)))
-    view_b = pk.array([np.array([0, 0, 0], dtype=np.int32)] * 4)
+    view_a = pk.asarray(np.zeros((4, 3)))
+    view_b = pk.asarray([np.array([0, 0, 0], dtype=np.int32)] * 4)
     with pytest.raises(ValueError, match="Second dimensions"):
         dgemm(alpha=alpha, view_a=view_a, view_b=view_b)

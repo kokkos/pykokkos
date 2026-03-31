@@ -66,7 +66,7 @@ def test_squaresum_types(series_max, dtype):
     np_data = np.arange(series_max, dtype=dtype)
     expected = np.sum(np_data**2)
 
-    view = pk.array(np_data)
+    view = pk.asarray(np_data)
     policy = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, series_max)
 
     if dtype == np.float64:
