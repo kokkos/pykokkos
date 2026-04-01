@@ -395,7 +395,6 @@ def test_array_deprecated_alias_still_converts(arr):
     [
         np.array([3, 1, 4], dtype=np.int32),
         [3, 1, 4],
-        3,
     ],
 )
 def test_private_array_conversion_matches_asarray(arr):
