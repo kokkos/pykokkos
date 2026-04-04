@@ -14,6 +14,7 @@ class Keywords(Enum):
     ThreadsBegin = "pk_threads_begin"
     ThreadsEnd = "pk_threads_end"
     ArgMemSpace = "pk_arg_memspace"
+    ArgLayout = "pk_arg_layout"
     DefaultExecSpace = "pk_exec_space"
     DefaultExecSpaceInstance = "pk_exec_space_instance"
     KernelName = "pk_kernel_name"

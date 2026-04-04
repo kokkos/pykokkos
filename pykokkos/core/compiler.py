@@ -172,7 +172,7 @@ class Compiler:
         }:
             raise Exception(f"Types are required for style: {entity.style}")
 
-        if self.is_compiled(module_setup.output_dir):
+        if self.is_compiled(module_setup.output_dir) and module_setup.is_compiled():
             if hash not in self.members:  # True if pre-compiled
                 if len(metadata) > 1:
                     entity, classtypes = self.fuse_objects(

@@ -92,6 +92,15 @@ class ConstructorVisitor(ast.NodeVisitor):
             if not isinstance(node.annotation, ast.Subscript):
                 return ()
 
+            if (
+                node.value is not None
+                and isinstance(node.value, ast.Subscript)
+                and isinstance(node.value.value, ast.Attribute)
+                and isinstance(node.value.value.value, ast.Name)
+                and node.value.value.value.id == "self"
+            ):
+                return (declref, None)
+
             decltype: cppast.ClassType = visitors_util.get_type(
                 node.annotation, self.pk_import
             )
