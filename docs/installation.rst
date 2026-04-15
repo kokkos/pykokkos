@@ -87,17 +87,29 @@ install ``base`` with required CMake flags (example performs an install with  Op
 
 
 **CMake Flags**
-===================== ==================
-PyKokkos Flags        Description
-===================== =================
-ENABLE_VIEW_RANKS     Set this value to the max number of ranks needed for Kokkos::View<...>. E.g. value of 4 means Kokkos::View<int*****, Kokkos::HostSpace> cannot be returned to python
-ENABLE_LAYOUTS        Build support for layouts (long NVCC compile times) 
-ENABLE_MEMORY_TRAITS  Build support for memory traits (long NVCC compile times) 
-ENABLE_THREADS        Build Kokkos submodule with Pthread support 
-ENABLE_OPENMP         Build Kokkos submodule with OpenMP support
-ENABLE_CUDA           Build Kokkos submodule with CUDA support
-ENABLE_HIP            Build Kokkos submodule with HIP support
-ARCH                  `Kokkos GPU architecture <https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures>`_, required for HIP builds
+
+.. list-table:: CMake Flags
+   :header-rows: 1
+
+   * - PyKokkos Flags
+     - Description
+   * - ENABLE_VIEW_RANKS
+     - Set this value to the max number of ranks needed for Kokkos::View<...>.
+       E.g. value of 4 means Kokkos::View<int*****, Kokkos::HostSpace> cannot be returned to python
+   * - ENABLE_LAYOUTS
+     - Build support for layouts (long NVCC compile times)
+   * - ENABLE_MEMORY_TRAITS
+     - Build support for memory traits (long NVCC compile times)
+   * - ENABLE_THREADS
+     - Build Kokkos submodule with Pthread support
+   * - ENABLE_OPENMP
+     - Build Kokkos submodule with OpenMP support
+   * - ENABLE_CUDA
+     - Build Kokkos submodule with CUDA support
+   * - ENABLE_HIP
+     - Build Kokkos submodule with HIP support
+   * - ARCH
+     - `Kokkos GPU architecture <https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures>`_
 
 .. note::
         Ensure that amdclang++ is used for building HIP device code 
