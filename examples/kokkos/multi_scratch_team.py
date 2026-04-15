@@ -31,8 +31,8 @@ def scale_kernel(
         team_member.team_scratch(0), N
     )
 
-    # write from global memory to scratch memory, 
-    #   using barriers so each thread in a block 
+    # write from global memory to scratch memory,
+    #   using barriers so each thread in a block
     #   sees the same value.
     scratch_idx[rank] = input_view[offset + rank]
     team_member.team_barrier()
@@ -41,7 +41,7 @@ def scale_kernel(
     scratch_val[rank] = float(scratch_idx[rank]) * scale
     team_member.team_barrier()
 
-    # write from scratch memory to global memory 
+    # write from scratch memory to global memory
     output_view[offset + rank] = scratch_val[rank]
 
 
