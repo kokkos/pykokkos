@@ -12,7 +12,7 @@ efficiently on different hardware (CPUs, NVIDIA GPUs, and AMD GPUs)
 with no changes required.
 
 For more information about PyKokkos, see the PyKokkos GitHub pages:
-https://kokkos.github.io/pykokkos/index.html
+https://kokkos.org/pykokkos/
 
 ## Installation
 
@@ -50,7 +50,15 @@ pip install -e .
 ```
 
 For more detailed installation instructions, please visit:
-https://kokkos.github.io/pykokkos/installation.html
+https://kokkos.org/pykokkos/installation.html
+
+## Documentation
+The documentation is available online at https://kokkos.org/pykokkos.
+It can be built locally with the sphinx package by updating the `pyk` conda environment with
+`conda install -c conda-forge sphinx sphinx_rtd_theme`
+and running `cd docs; make html`.
+The resulting html files reside in `_build/html` and
+can be viewed in a browser (e.g., in a bash terminal run `open _build/html/index.html`).
 
 ## Citation
 
