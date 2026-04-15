@@ -85,9 +85,6 @@ install ``base`` with required CMake flags (example performs an install with  Op
       -DENABLE_CUDA=ON \                  # enable cuda execution space
       -DENABLE_OPENMP=ON \                # enable openmp execution space
 
-
-**CMake Flags**
-
 .. list-table:: CMake Flags
    :header-rows: 1
 
@@ -95,7 +92,10 @@ install ``base`` with required CMake flags (example performs an install with  Op
      - Description
    * - ENABLE_VIEW_RANKS
      - Set this value to the max number of ranks needed for Kokkos::View<...>.
-       E.g. value of 4 means Kokkos::View<int*****, Kokkos::HostSpace> cannot be returned to python
+
+       E.g., value of 4 means Kokkos::View<int*****, Kokkos::HostSpace> **cannot** be returned to python
+
+       Higher values lead to longer compile times.
    * - ENABLE_LAYOUTS
      - Build support for layouts (long NVCC compile times)
    * - ENABLE_MEMORY_TRAITS
