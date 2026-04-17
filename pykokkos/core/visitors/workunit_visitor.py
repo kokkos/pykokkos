@@ -296,14 +296,16 @@ class WorkunitVisitor(PyKokkosVisitor):
                 return cppast.CallExpr(function, [args[0], f"pk_id_{work_unit}"])
 
         atomic_op: re.Pattern = re.compile("atomic_*")
-        is_atomic_fetch_op: bool = atomic_op.match(name)
         is_atomic_increment: bool = name == "atomic_increment"
         is_atomic_compare_exchange: bool = name == "atomic_compare_exchange"
+        is_atomic_op: bool = atomic_op.match(name) and not (
+            is_atomic_increment or is_atomic_compare_exchange
+        )
 
-        if is_atomic_fetch_op or is_atomic_compare_exchange or is_atomic_increment:
+        if is_atomic_op or is_atomic_compare_exchange or is_atomic_increment:
             if is_atomic_increment and len(args) != 2:
                 self.error(node, "is_atomic_increment takes exactly 2 arguments")
-            if not is_atomic_increment and is_atomic_fetch_op and len(args) != 3:
+            if not is_atomic_increment and is_atomic_op and len(args) != 3:
                 self.error(node, "atomic_op functions take exactly 3 arguments")
             if is_atomic_compare_exchange and len(args) != 4:
                 self.error(node, "atomic_compare_exchange takes exactly 4 arguments")
@@ -312,7 +314,7 @@ class WorkunitVisitor(PyKokkosVisitor):
             args[0] = cppast.CallExpr(args[0], args[1].exprs)
             del args[1]
 
-            # atomic_fetch_* operations need to have an address as
+            # atomic_* & atomic_fetch_* operations need to have an address as
             # their first argument
             args[0] = cppast.UnaryOperator(args[0], cppast.BinaryOperatorKind.AddrOf)
             return cppast.CallExpr(function, args)

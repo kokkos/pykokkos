@@ -24,6 +24,7 @@ class AtomicsTestFunctor:
         self.view1D_rshift: pk.View1D[pk.int32] = pk.View([1], pk.int32)
         self.view1D_sub: pk.View1D[pk.double] = pk.View([1], pk.double)
         self.view1D_xor: pk.View1D[pk.int32] = pk.View([1], pk.int32)
+        self.view1D_ace: pk.View1D[pk.int32] = pk.View([1], pk.int32)
 
         self.view1D_add[0] = f_1
         self.view1D_and[0] = i_1
@@ -37,6 +38,7 @@ class AtomicsTestFunctor:
         self.view1D_rshift[0] = i_1
         self.view1D_sub[0] = f_1
         self.view1D_xor[0] = i_1
+        self.view1D_ace[0] = i_1
 
     @pk.workunit
     def atomic_add(self, tid: int) -> None:
@@ -133,6 +135,10 @@ class AtomicsTestFunctor:
     @pk.workunit
     def atomic_fetch_xor(self, tid: int) -> None:
         old_value: pk.double = pk.atomic_fetch_xor(self.view1D_xor, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_compare_exchange(self, tide: int) -> None:
+        old_value: pk.int32 = pk.atomic_compare_exchange(self.view1D_ace, [0], self.i_1, self.i_2)
 
 
 class TestAtomic(unittest.TestCase):
@@ -337,6 +343,14 @@ class TestAtomic(unittest.TestCase):
 
         pk.parallel_for(self.range_policy, self.functor.atomic_fetch_xor)
         result: int = self.functor.view1D_xor[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_compare_exchange(self):
+        expected_result: int = self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_compare_exchange)
+        result: int = self.functor.view1D_ace[0]
 
         self.assertEqual(expected_result, result)
 
