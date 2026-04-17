@@ -29,11 +29,7 @@ def is_host_execution_space(space: ExecutionSpace) -> bool:
     if space is ExecutionSpace.Default:
         space = km.get_default_space()
 
-    return space in {
-        ExecutionSpace.OpenMP,
-        ExecutionSpace.Threads,
-        ExecutionSpace.Serial,
-    }
+    return space in HostParallelExecutionSpace | HostSerialExecutionSpace
 
 
 class ExecutionSpaceInstance:

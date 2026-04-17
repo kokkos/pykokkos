@@ -61,6 +61,9 @@ from .execution_policy import (
 from .execution_space import (
     ExecutionSpace,
     ExecutionSpaceInstance,
+    DeviceExecutionSpace,
+    HostParallelExecutionSpace,
+    HostSerialExecutionSpace,
     is_host_execution_space,
 )
 from .layout import Layout, get_default_layout
