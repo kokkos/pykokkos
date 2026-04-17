@@ -138,7 +138,9 @@ class AtomicsTestFunctor:
 
     @pk.workunit
     def atomic_compare_exchange(self, tide: int) -> None:
-        old_value: pk.int32 = pk.atomic_compare_exchange(self.view1D_ace, [0], self.i_1, self.i_2)
+        old_value: pk.int32 = pk.atomic_compare_exchange(
+            self.view1D_ace, [0], self.i_1, self.i_2
+        )
 
 
 class TestAtomic(unittest.TestCase):
