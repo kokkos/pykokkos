@@ -504,7 +504,7 @@ class View(ViewType):
 
     def __eq__(self, other):
         # avoid circular import with scoped import
-        from pykokkos.lib.ufuncs import equal
+        from pykokkos.lib.ufuncs import _equal
 
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
@@ -539,7 +539,7 @@ class View(ViewType):
             new_other = other
         else:
             raise ValueError("unexpected types!")
-        return equal(self, new_other)
+        return _equal(self, new_other)
 
     def __hash__(self):
         try:
@@ -671,7 +671,7 @@ class Subview(ViewType):
 
     def __eq__(self, other):
         # avoid circular import with scoped import
-        from pykokkos.lib.ufuncs import equal
+        from pykokkos.lib.ufuncs import _equal
 
         if isinstance(other, float):
             new_other = pk.View((), dtype=pk.double)
@@ -706,7 +706,7 @@ class Subview(ViewType):
             new_other = other
         else:
             raise ValueError("unexpected types!")
-        return equal(self, new_other)
+        return _equal(self, new_other)
 
     def __add__(self, other):
         if isinstance(other, float):

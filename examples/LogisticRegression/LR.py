@@ -31,7 +31,6 @@
 
 import numbers
 import numpy as np
-import pykokkos as pk
 import warnings
 
 from joblib import Parallel, effective_n_jobs
@@ -62,12 +61,8 @@ _LOGISTIC_SOLVER_CONVERGENCE_MSG = (
 )
 
 
-def asarray(arr, dtype=pk.double):
-    arr = np.asarray(arr)
-
-    view = pk.View(arr.shape, dtype)
-    view[:] = arr
-    return view
+def asarray(arr, dtype=np.float64):
+    return np.asarray(arr, dtype=dtype)
 
 
 def _check_solver(solver, penalty, dual):
@@ -267,13 +262,13 @@ def _logistic_regression_path(
         The "copy" parameter was removed.
     """
     if isinstance(Cs, numbers.Integral):
-        Cs = pk.logspace(-4, 4, Cs)
+        Cs = np.logspace(-4, 4, Cs)
 
     solver = _check_solver(solver, penalty, dual)
 
     _, n_features = X.shape
 
-    classes = pk.unique(y)
+    classes = np.unique(y)
 
     random_state = check_random_state(random_state)
 
@@ -301,9 +296,9 @@ def _logistic_regression_path(
     # multinomial case this is not necessary.
 
     if multi_class == "ovr":
-        w0 = pk.zeros(n_features + int(fit_intercept), dtype=X.dtype)
+        w0 = np.zeros(n_features + int(fit_intercept), dtype=X.dtype)
         mask = y == pos_class
-        y_bin = pk.ones(y.shape, dtype=X.dtype)
+        y_bin = np.ones(y.shape, dtype=X.dtype)
         if solver in ["lbfgs", "newton-cg"]:
             # HalfBinomialLoss, used for those solvers, represents y in [0, 1] instead
             # of in [-1, 1].
@@ -333,11 +328,11 @@ def _logistic_regression_path(
             lbin = LabelBinarizer()
             Y_multi = asarray(lbin.fit_transform(y))
             if Y_multi.shape[1] == 1:
-                Y_multi = pk.hstack(
-                    pk.negative(pk.subtract(Y_multi, asarray([1]))), Y_multi
+                Y_multi = np.hstack(
+                    (np.negative(np.subtract(Y_multi, asarray([1]))), Y_multi)
                 )
 
-        w0 = pk.zeros((classes.size, n_features + int(fit_intercept)), dtype=X.dtype)
+        w0 = np.zeros((classes.size, n_features + int(fit_intercept)), dtype=X.dtype)
 
     if coef is not None:
         # it must work both giving the bias term and not
@@ -384,7 +379,7 @@ def _logistic_regression_path(
             # i.e. 1d-arrays. LinearModelLoss expects classes to be contiguous and
             # reconstructs the 2d-array via w0.reshape((n_classes, -1), order="F").
             # As w0 is F-contiguous, ravel(order="F") also avoids a copy.
-            w0 = pk.ravel(w0, order="F")
+            w0 = np.ravel(w0, order="F")
 
             loss = LinearModelLoss(
                 base_loss=HalfMultinomialLoss(n_classes=classes.size),
@@ -397,7 +392,7 @@ def _logistic_regression_path(
             func = loss.loss
             grad = loss.gradient
             hess = loss.gradient_hessian_product  # hess = [gradient, hessp]
-        warm_start_sag = {"coef": pk.transpose(w0)}
+        warm_start_sag = {"coef": np.transpose(np.array(w0))}
     else:
         target = y_bin
         if solver == "lbfgs":
@@ -412,15 +407,15 @@ def _logistic_regression_path(
             func = loss.loss
             grad = loss.gradient
             hess = loss.gradient_hessian_product  # hess = [gradient, hessp]
-        warm_start_sag = {"coef": pk.expand_dims(w0, axis=1)}
+        warm_start_sag = {"coef": np.expand_dims(w0, axis=1)}
 
     coefs = list()
 
-    n_iter = pk.zeros(len(Cs), dtype=pk.int32)
+    n_iter = np.zeros(len(Cs), dtype=np.int32)
     for i, C in enumerate(Cs):
         if solver == "lbfgs":
             l2_reg_strength = 1.0 / C
-            iprint = [-1, 50, 1, 100, 101][pk.searchsorted([0, 1, 2, 3], verbose)]
+            iprint = [-1, 50, 1, 100, 101][np.searchsorted([0, 1, 2, 3], verbose)]
             opt_res = optimize.minimize(
                 func,
                 np.asarray(w0),
@@ -471,9 +466,9 @@ def _logistic_regression_path(
             )
             coef_ = asarray(coef_)
             if fit_intercept:
-                w0 = pk.hstack(pk.ravel(coef_), intercept_)
+                w0 = np.hstack((np.ravel(coef_), intercept_))
             else:
-                w0 = pk.ravel(coef_)
+                w0 = np.ravel(coef_)
 
         elif solver in ["sag", "saga"]:
             if multi_class == "multinomial":
@@ -518,7 +513,7 @@ def _logistic_regression_path(
         if multi_class == "multinomial":
             n_classes = max(2, classes.size)
             if solver in ["lbfgs", "newton-cg"]:
-                multi_w0 = pk.reshape(w0, (n_classes, -1), order="F")
+                multi_w0 = np.reshape(w0, (n_classes, -1), order="F")
             else:
                 multi_w0 = w0
             coefs.append(asarray(multi_w0))
@@ -829,7 +824,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
                     "Setting penalty='none' will ignore the C and l1_ratio parameters"
                 )
                 # Note that check for l1_ratio is done right above
-            C_ = pk.inf
+            C_ = np.inf
             penalty = "l2"
         else:
             C_ = self.C
@@ -862,7 +857,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
 
         X = asarray(X)
         y = asarray(y)
-        self.classes_ = pk.unique(y)
+        self.classes_ = np.unique(np.array(y))
 
         multi_class = _check_multi_class(self.multi_class, solver, len(self.classes_))
 
@@ -969,7 +964,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         )
 
         fold_coefs_, _, n_iter_ = zip(*fold_coefs_)
-        self.n_iter_ = pk.col(asarray(n_iter_), 0)
+        self.n_iter_ = np.array(n_iter_)
 
         n_features = X.shape[1]
         if multi_class == "multinomial":
@@ -984,7 +979,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             self.intercept_ = self.coef_[:, -1]
             self.coef_ = self.coef_[:, :-1]
         else:
-            self.intercept_ = pk.zeros(n_classes)
+            self.intercept_ = np.zeros(n_classes)
 
         return self
 
@@ -1024,7 +1019,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             if decision.ndim == 1:
                 # Workaround for multi_class="multinomial" and binary outcomes
                 # which requires softmax prediction with only a 1D decision.
-                decision_2d = pk.hstack(pk.negative(decision), decision)
+                decision_2d = np.hstack((np.negative(decision), decision))
             else:
                 decision_2d = decision
             return softmax(decision_2d, copy=False)
@@ -1045,7 +1040,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             Returns the log-probability of the sample for each class in the
             model, where classes are ordered as they are in ``self.classes_``.
         """
-        return pk.log(self.predict_proba(X))
+        return np.log(self.predict_proba(X))
 
     def predict(self, X):
         """
@@ -1065,7 +1060,7 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         else:
             indices = scores.argmax(axis=1)
 
-        return pk.index(self.classes_, asarray(indices, dtype=pk.int32))
+        return self.classes_[np.array(indices, dtype=np.int32)]
 
 
 def main():
