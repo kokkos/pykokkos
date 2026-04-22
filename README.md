@@ -25,6 +25,34 @@ PyKokkos consists of two components that need to be installed separately:
 
 #### Installing pykokkos-base
 
+<details>
+
+<summary>Known issue: macOS + homebrew OpenMP</summary>
+Homebrew does not add OpenMP to standard paths after
+an install, leading to CMake build failures of the form:
+
+```
+...
+Could NOT find OpenMP_CXX (missing: OpenMP_CXX_FLAGS OpenMP_CXX_LIB_NAMES)
+...
+```
+
+Such failures can be resolved by adding OpenMP to the `CPATH` and `LIBRARYPATH`:
+```
+export OMP_PREFIX=$(brew --prefix libomp)
+export CPATH="${OMP_PREFIX}/include${CPATH:+:$CPATH}"
+export LIBRARY_PATH="${OMP_PREFIX}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+```
+
+Additionally, OpenMP must be added to the `DYLD_LIBRARY_PATH` for just-in-time compilation
+```
+export DYLD_LIBRARY_PATH="${OMP_PREFIX}/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+```
+Note that the `DYDL_LIBRARY_PATH` must be set for each shell session; we recommend
+adding it to the shell profile.
+
+</details>
+
 ```bash
 # Clone the repository
 git clone https://github.com/kokkos/pykokkos.git

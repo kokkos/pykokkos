@@ -75,6 +75,35 @@ create a conda environment:
 Once the necessary packages have been downloaded and installed,
 install ``base`` with required CMake flags (example performs an install with  OpenMP and CUDA enabled):
 
+.. admonition:: Known issue: macOS + homebrew OpenMP
+   :collapsible: closed
+
+        Homebrew does not add OpenMP to standard paths after
+        an install, leading to CMake build failures of the form:
+
+        .. code-block:: bash
+
+                ...
+                Could NOT find OpenMP_CXX (missing: OpenMP_CXX_FLAGS OpenMP_CXX_LIB_NAMES)
+                ...
+
+        Such failures can be resolved by adding OpenMP to the :code:`CPATH` and :code:`LIBRARYPATH`:
+
+        .. code-block:: bash
+
+                export OMP_PREFIX=$(brew --prefix libomp)
+                export CPATH="${OMP_PREFIX}/include${CPATH:+:$CPATH}"
+                export LIBRARY_PATH="${OMP_PREFIX}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+
+        Additionally, OpenMP must be added to the :code:`DYLD_LIBRARY_PATH` for just-in-time compilation
+
+        .. code-block:: bash
+
+                export DYLD_LIBRARY_PATH="${OMP_PREFIX}/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+
+        Note that the :code:`DYDL_LIBRARY_PATH` must be set for each shell session; we recommend
+        adding it to the shell profile.
+
 .. code-block:: bash
 
    python install_base.py install --verbose -- \
