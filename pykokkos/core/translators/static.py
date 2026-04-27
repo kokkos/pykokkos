@@ -434,9 +434,8 @@ class StaticTranslator:
                     workunit: cppast.MethodDecl = workunits[n][1]
                     self.add_rand_pool_state(workunit)
                     node_visitor.has_rand_call = False
-            except:
-                print(f"Translation of {w} {w.name} failed")
-                sys.exit(1)
+            except Exception as e:
+                raise Exception(f"Translation of {w} {w.name} failed") from e
 
         return workunits, has_rand_call
 
