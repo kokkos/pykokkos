@@ -153,7 +153,7 @@ def error(src, debug: bool, node, message, path: Optional[str] = None) -> None:
         err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
         print(" " * node.col_offset + "^" * err_len)
 
-    raise Exception("PyKokkos: Translation failed")
+    sys.exit("PyKokkos: Translation failed")
 
 
 def generic_error(src, debug: bool, node) -> None:
