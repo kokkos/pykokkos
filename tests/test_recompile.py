@@ -24,7 +24,7 @@ BUGGY_SOURCE = textwrap.dedent("""\
     import pykokkos as pk
  
     @pk.workunit
-    def add1(i, arr):
+    def add1(i: int, arr: pk.View1D[int]):
         arr[i] += 2
 """)
 
@@ -32,7 +32,7 @@ CORRECT_SOURCE = textwrap.dedent("""\
     import pykokkos as pk
  
     @pk.workunit
-    def add1(i, arr):
+    def add1(i: int, arr: pk.View1D[int]):
         arr[i] += 1
 """)
 
