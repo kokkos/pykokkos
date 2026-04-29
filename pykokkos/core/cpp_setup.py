@@ -117,7 +117,8 @@ class CppSetup:
 
     def initialize_directory(self, name: Path) -> None:
         """
-        Creates an output directory, overwriting an existing directory with the same name
+        Creates an output directory, overwriting an existing directory with the same name.
+        Checks if an older AST directory exists, and if so copies over the relevant information.
 
         :param name: the name of the directory
         """
@@ -127,6 +128,31 @@ class CppSetup:
         except OSError:
             pass
 
+        # make the parent directory if necessary
+        try:
+            os.makedirs(name.parent, exist_ok=True)
+        except FileExistsError:
+            pass
+
+        # check if an older AST library exists
+        old_dir = [
+            f for f in name.parent.parent.iterdir() if f.is_dir() and f != name.parent
+        ]
+        if len(old_dir) == 1:
+            # if an older AST directory exists, change the name to the new AST directory
+            old_dir = old_dir[0]
+            old_dir.rename(name.parent)
+            # CMakeCache.txt has hardcoded absolute paths to the old AST directory.
+            # Delete only the cache files so CMake reconfigures with correct paths
+            # while keeping object files in build/ for incremental recompilation.
+            stale_cache = name / "build" / "CMakeCache.txt"
+            if stale_cache.is_file():
+                stale_cache.unlink()
+            stale_cache_check = name / "build" / "CMakeFiles" / "cmake.check_cache"
+            if stale_cache_check.is_file():
+                stale_cache_check.unlink()
+
+        # make the name directory if necessary
         try:
             os.makedirs(name, exist_ok=True)
         except FileExistsError:
