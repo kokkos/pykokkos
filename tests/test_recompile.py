@@ -20,21 +20,25 @@ from pathlib import Path
 import numpy as np
 import pykokkos as pk
 
-BUGGY_SOURCE = textwrap.dedent("""\
+BUGGY_SOURCE = textwrap.dedent(
+    """\
     import pykokkos as pk
  
     @pk.workunit
     def add1(i: int, arr: pk.View1D[int]):
         arr[i] += 2
-""")
+"""
+)
 
-CORRECT_SOURCE = textwrap.dedent("""\
+CORRECT_SOURCE = textwrap.dedent(
+    """\
     import pykokkos as pk
  
     @pk.workunit
     def add1(i: int, arr: pk.View1D[int]):
         arr[i] += 1
-""")
+"""
+)
 
 MODULE_NAME = "_test_jit_kernel_add1"
 
