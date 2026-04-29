@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
 import sysconfig
+import hashlib
 
 import numpy as np
 
@@ -349,10 +350,17 @@ class Runtime:
             }
             restrict_views, restrict_signature = get_restrict_views(view_dict)
 
+        # Set ast signature
+        if isinstance(parser, list):
+            ast_signature = "".join([p.signature for p in parser])
+            ast_signature = hashlib.md5(ast_signature.encode()).hexdigest()
+        else:
+            ast_signature = parser.signature
+
         execution_space: ExecutionSpace = policy.space.space
         members: PyKokkosMembers = self.precompile_workunit(
             workunit,
-            parser.signature,
+            ast_signature,
             execution_space,
             updated_decorator,
             updated_types,
@@ -365,7 +373,7 @@ class Runtime:
         module_setup: ModuleSetup = self.get_module_setup(
             workunit,
             execution_space,
-            parser.signature,
+            ast_signature,
             types_signature=types_signature,
             restrict_signature=restrict_signature,
         )
