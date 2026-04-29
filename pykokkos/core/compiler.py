@@ -275,8 +275,9 @@ class Compiler:
             main,
             module_setup.metadata,
             space,
-            module_setup.types_signature,
-            module_setup.restrict_signature,
+            module_setup.ast_signature,
+            types_signature=module_setup.types_signature,
+            restrict_signature=module_setup.restrict_signature,
         )
         c_start: float = time.perf_counter()
         cpp_setup.compile(

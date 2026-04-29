@@ -76,6 +76,10 @@ def test_recompilation(tmp_path):
         raise AssertionError("buggy kernel is incorrect") from e
 
     # ---- Stage 2: correct kernel
+
+    # reload pykokkos to clear cache
+    importlib.reload(sys.modules["pykokkos"])
+
     kernel_file.write_text(CORRECT_SOURCE, encoding="utf-8")
     mod_correct = _load_fresh(kernel_file)
 

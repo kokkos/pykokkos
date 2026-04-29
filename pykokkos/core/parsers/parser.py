@@ -1,4 +1,5 @@
 import ast
+import hashlib
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -78,6 +79,10 @@ class Parser:
             self.classtypes: Dict[str, PyKokkosEntity] = {}
             self.functors: Dict[str, PyKokkosEntity] = {}
             self.workunits: Dict[str, PyKokkosEntity] = {}
+
+        # get parser signature
+        signature = ast.dump(self.tree)
+        self.signature = hashlib.md5(signature.encode()).hexdigest()
 
     def get_import(self) -> str:
         """
