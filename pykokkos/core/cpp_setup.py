@@ -125,11 +125,6 @@ class CppSetup:
         :param name: the name of the directory
         """
 
-        try:
-            shutil.rmtree(name)
-        except OSError:
-            pass
-
         # make the parent directory if necessary
         os.makedirs(name.parent, exist_ok=True)
 
