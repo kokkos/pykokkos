@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pykokkos as pk
 
-BUGGY_SOURCE = textwrap.dedent(
+WORKUNIT_V1 = textwrap.dedent(
     """\
     import pykokkos as pk
  
@@ -30,7 +30,7 @@ BUGGY_SOURCE = textwrap.dedent(
 """
 )
 
-CORRECT_SOURCE = textwrap.dedent(
+WORKUNIT_V2 = textwrap.dedent(
     """\
     import pykokkos as pk
  
@@ -61,21 +61,21 @@ def _load_fresh(path: Path):
 def test_recompilation(tmp_path):
     kernel_file = tmp_path / "_test_jit_recompile.py"
 
-    # ---- Stage 1: buggy kernel
+    # ---- Stage 1: workunit v1 (add 2 to the array)
     # write buggy source
-    kernel_file.write_text(BUGGY_SOURCE, encoding="utf-8")
+    kernel_file.write_text(WORKUNIT_V1, encoding="utf-8")
 
-    # load buggy source
+    # load source for workunit v1
     mod_buggy = _load_fresh(kernel_file)
 
     # run the buggy kernel
     n = 5
-    arr_buggy = np.zeros(n, dtype=np.int32)
-    pk.parallel_for(n, mod_buggy.add1, arr=arr_buggy)
+    arr_v1 = np.zeros(n, dtype=np.int32)
+    pk.parallel_for(n, mod_buggy.add1, arr=arr_v1)
 
-    # assert add2 array is correct
+    # assert workunit v1 array is correct
     try:
-        np.testing.assert_equal(arr_buggy, np.zeros(n, dtype=np.int32) + 2)
+        np.testing.assert_equal(arr_v1, np.zeros(n, dtype=np.int32) + 2)
     except AssertionError as e:
         raise AssertionError("buggy kernel is incorrect") from e
 
@@ -84,15 +84,15 @@ def test_recompilation(tmp_path):
     # reload pykokkos to clear cache
     importlib.reload(sys.modules["pykokkos"])
 
-    kernel_file.write_text(CORRECT_SOURCE, encoding="utf-8")
+    kernel_file.write_text(WORKUNIT_V2, encoding="utf-8")
     mod_correct = _load_fresh(kernel_file)
 
-    arr_correct = np.zeros(n, dtype=np.int32)
-    pk.parallel_for(n, mod_correct.add1, arr=arr_correct)
+    arr_v2 = np.zeros(n, dtype=np.int32)
+    pk.parallel_for(n, mod_correct.add1, arr=arr_v2)
     expected = np.zeros(n, dtype=np.int32) + 1
     try:
-        np.testing.assert_equal(arr_correct, expected)
+        np.testing.assert_equal(arr_v2, expected)
     except AssertionError as e:
         raise AssertionError(
-            f"kernel is incorrect\nactual:  {arr_correct}\ndesired: {expected}"
+            f"kernel is incorrect\nactual:  {arr_v2}\ndesired: {expected}"
         ) from e
