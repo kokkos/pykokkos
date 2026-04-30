@@ -51,6 +51,7 @@ interest to those already familiar with the Kokkos framework.
    patterns
    policies
    workunits
+   jit_compilation
    ndarrays
    fusion
    environment_variables

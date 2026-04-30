@@ -12,7 +12,7 @@ import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
 
-BASE_DIR: str = "pk_cpp"
+BASE_DIR: str = ".pykokkos"
 
 
 @dataclass
