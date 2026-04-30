@@ -73,7 +73,7 @@ def test_recompilation(tmp_path):
     arr_buggy = np.zeros(n, dtype=np.int32)
     pk.parallel_for(n, mod_buggy.add1, arr=arr_buggy)
 
-    # assert buggy array is correct
+    # assert add2 array is correct
     try:
         np.testing.assert_equal(arr_buggy, np.zeros(n, dtype=np.int32) + 2)
     except AssertionError as e:
