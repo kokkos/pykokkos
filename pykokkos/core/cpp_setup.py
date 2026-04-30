@@ -134,7 +134,7 @@ class CppSetup:
         except FileExistsError:
             pass
 
-        # check if an older AST library exists
+        # check if an older AST hash exists
         old_dir = [
             f for f in name.parent.parent.iterdir() if f.is_dir() and f != name.parent
         ]
