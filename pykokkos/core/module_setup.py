@@ -169,7 +169,20 @@ class ModuleSetup:
         restrict_signature: Optional[str] = None,
     ) -> Optional[Path]:
         """
-        Get the output directory for an execution space
+        Get the output directory for an execution space.
+
+        The directory structure is hierarchical to allow for efficient caching.
+        The AST signature is given highest priority as it defines the
+        core logic of the kernel; a change in the AST necessitates a new
+        compilation regardless of other parameters. The type signature
+        and restrict signature are used to avoid excessive recompilation;
+        e.g., if a script requires multiple-precision executions of a workunit,
+        both builds are cached using different type signatures, and logic for
+        both builds is ensured to be current by the AST signature.
+
+        Directory structure:
+        [BASE_DIR] / (optional) [TYPE_SIGNATURE] / (optional) [RESTRICT_SIGNATURE] / [AST_SIGNATURE]
+
 
         :param main: the path to the main file in the current PyKokkos application
         :param metadata: the metadata of the entity or fused entities being compiled
