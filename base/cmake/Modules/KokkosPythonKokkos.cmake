@@ -166,7 +166,7 @@ IF(_INTERNAL_KOKKOS)
     # define the kokkos option as default and/or get it to display
     IF(ENABLE_CUDA)
         ADD_OPTION(Kokkos_ENABLE_CUDA "Build Kokkos submodule with CUDA support" ON)
-        ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" ON)
+        ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" OFF)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
         if (ARCH)
             ADD_OPTION(Kokkos_ARCH_${ARCH} "Target NVIDIA GPU architecture: ${ARCH}" ON)
