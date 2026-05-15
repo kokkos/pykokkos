@@ -83,6 +83,7 @@ IF(_INTERNAL_KOKKOS)
     SET(OpenMP_FOUND OFF)
     SET(Threads_FOUND OFF)
     SET(CUDA_FOUND OFF)
+    SET(HIP_FOUND OFF)
 
     IF(NOT Kokkos_ENABLE_THREADS)
         FIND_PACKAGE(OpenMP QUIET)
@@ -96,10 +97,18 @@ IF(_INTERNAL_KOKKOS)
         FIND_PACKAGE(CUDA QUIET)
     ENDIF()
 
+    IF(NOT DEFINED Kokkos_ENABLE_HIP)
+        FIND_PACKAGE(HIP QUIET)
+    ENDIF()
+
+
     ADD_OPTION(ENABLE_SERIAL "Enable Serial backend when building Kokkos submodule" ON)
     ADD_OPTION(ENABLE_OPENMP "Enable OpenMP when building Kokkos submodule" ${OpenMP_FOUND})
     ADD_OPTION(ENABLE_THREADS "Enable Pthreads when building Kokkos submodule" ${Threads_FOUND})
     ADD_OPTION(ENABLE_CUDA "Enable CUDA when building Kokkos submodule" ${CUDA_FOUND})
+    ADD_OPTION(ENABLE_HIP "Enable HIP when building Kokkos submodule" ${HIP_FOUND})
+
+    SET(ARCH "" CACHE STRING "Kokkos GPU architecture, see https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures")
 
     # if OpenMP defaulted to ON but Kokkos_ENABLE_THREADS was explicitly set,
     # disable OpenMP defaulting to ON
@@ -134,6 +143,11 @@ IF(_INTERNAL_KOKKOS)
         SET(ENABLE_CUDA ${Kokkos_ENABLE_CUDA})
     ENDIF()
 
+    # make sure this pykokkos-base option is synced to Kokkos option
+    IF(DEFINED Kokkos_ENABLE_HIP)
+        SET(ENABLE_HIP ${Kokkos_ENABLE_HIP})
+    ENDIF()
+
     # define the kokkos option as default and/or get it to display
     IF(ENABLE_SERIAL)
         ADD_OPTION(Kokkos_ENABLE_SERIAL "Build Kokkos submodule with serial support" ON)
@@ -154,24 +168,33 @@ IF(_INTERNAL_KOKKOS)
         ADD_OPTION(Kokkos_ENABLE_CUDA "Build Kokkos submodule with CUDA support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_UVM "Build Kokkos submodule with CUDA UVM support" ON)
         ADD_OPTION(Kokkos_ENABLE_CUDA_LAMBDA "Build Kokkos submodule with CUDA lambda support" ON)
+        if (ARCH)
+            ADD_OPTION(Kokkos_ARCH_${ARCH} "Target NVIDIA GPU architecture: ${ARCH}" ON)
+        ENDIF()
     ENDIF()
 
-    # Check if we should use submodule or FetchContent
-    IF(EXISTS ${PROJECT_SOURCE_DIR}/external/kokkos/CMakeLists.txt)
-        # Use git submodule
-        ADD_SUBDIRECTORY(external)
-        SET(Kokkos_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external/kokkos/core/src)
-    ELSE()
-        # Use FetchContent to download Kokkos
-        INCLUDE(FetchContent)
-        MESSAGE(STATUS "Fetching Kokkos via FetchContent")
-        FETCHCONTENT_DECLARE(
-          Kokkos
-          URL https://github.com/kokkos/kokkos/archive/refs/heads/release-candidate-4.7.01.zip
-          URL_HASH SHA256=e256f111716259ef0cec0339ddf44d716b1f495e5514ca0806fcf80635f5b4cc
-        )
-        FETCHCONTENT_MAKEAVAILABLE(Kokkos)
-        FETCHCONTENT_GETPROPERTIES(Kokkos SOURCE_DIR Kokkos_SOURCE_DIR)
-        SET(Kokkos_INCLUDE_DIR ${Kokkos_SOURCE_DIR}/core/src)
+    # define the kokkos option as default and/or get it to display
+    IF(ENABLE_HIP)
+        IF(NOT ARCH)
+            MESSAGE(FATAL_ERROR "ENABLE_HIP is ON but ARCH is not set. "
+                                "Please specify your GPU architecture, e.g. -DARCH=AMD_GFX942. "
+                                "Run 'rocm_agent_enumerator' to find your gfx code.")
+        ENDIF()
+        ADD_OPTION(Kokkos_ENABLE_HIP "Build Kokkos submodule with HIP support" ON)
+        ADD_OPTION(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS "Build Kokkos submodule with HIP multiple kernel support" ON)
+        ADD_OPTION(Kokkos_ENABLE_RELOCATABLE_DEVICE_CODE "Build Kokkos submodule with HIP relocatable device code support" ON)
+        ADD_OPTION(Kokkos_ARCH_${ARCH} "Target AMD GPU architecture: ${ARCH}" ON)
     ENDIF()
+
+    # Use FetchContent to download Kokkos
+    INCLUDE(FetchContent)
+    MESSAGE(STATUS "Fetching Kokkos via FetchContent")
+    FETCHCONTENT_DECLARE(
+      Kokkos
+      URL https://github.com/kokkos/kokkos/releases/download/4.7.01/kokkos-4.7.01.zip
+      URL_HASH SHA256=2b7c9964ace4245dec0b952932873d4b1235933dbb7d8d1d69e17b4368784503
+    )
+    FETCHCONTENT_MAKEAVAILABLE(Kokkos)
+    FETCHCONTENT_GETPROPERTIES(Kokkos SOURCE_DIR Kokkos_SOURCE_DIR)
+    SET(Kokkos_INCLUDE_DIR ${Kokkos_SOURCE_DIR}/core/src)
 ENDIF()

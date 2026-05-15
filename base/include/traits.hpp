@@ -61,14 +61,14 @@ DISABLE_TYPE(type_list<>)
 /// theoretically just say that python only supports up to 3 dimensions and if
 /// higher than that, user bindings must convert View to DynRankView.
 ///
-VIEW_DATA_DIMS(1, T *)
-VIEW_DATA_DIMS(2, T **)
-VIEW_DATA_DIMS(3, T ***)
-VIEW_DATA_DIMS(4, T ****)
-VIEW_DATA_DIMS(5, T *****)
-VIEW_DATA_DIMS(6, T ******)
-VIEW_DATA_DIMS(7, T *******)
-VIEW_DATA_DIMS(8, T ********)
+VIEW_DATA_DIMS(1, T*)
+VIEW_DATA_DIMS(2, T**)
+VIEW_DATA_DIMS(3, T***)
+VIEW_DATA_DIMS(4, T****)
+VIEW_DATA_DIMS(5, T*****)
+VIEW_DATA_DIMS(6, T******)
+VIEW_DATA_DIMS(7, T*******)
+VIEW_DATA_DIMS(8, T********)
 
 //----------------------------------------------------------------------------//
 // <data-type> <enum> <string identifiers>
@@ -137,7 +137,7 @@ EXECUTION_SPACE(Kokkos::Threads, Threads_Backend, "Threads")
 EXECUTION_SPACE(Kokkos::OpenMP, OpenMP_Backend, "OpenMP")
 EXECUTION_SPACE(Kokkos::Cuda, Cuda_Backend, "Cuda")
 EXECUTION_SPACE(Kokkos::Experimental::HPX, HPX_Backend, "HPX")
-EXECUTION_SPACE(Kokkos::Experimental::HIP, HIP_Backend, "HIP")
+EXECUTION_SPACE(Kokkos::HIP, HIP_Backend, "HIP")
 EXECUTION_SPACE(Kokkos::Experimental::SYCL, SYCL_Backend, "SYCL")
 EXECUTION_SPACE(Kokkos::Experimental::OpenMPTarget, OpenMPTarget_Backend,
                 "OpenMPTarget")
@@ -147,7 +147,7 @@ MEMORY_SPACE_IDX(Kokkos::Threads, HostSpace)
 MEMORY_SPACE_IDX(Kokkos::OpenMP, HostSpace)
 MEMORY_SPACE_IDX(Kokkos::Cuda, CudaSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::HPX, HostSpace)
-MEMORY_SPACE_IDX(Kokkos::Experimental::HIP, HIPSpace)
+MEMORY_SPACE_IDX(Kokkos::HIP, HIPSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::SYCL, SYCLSharedUSMSpace)
 MEMORY_SPACE_IDX(Kokkos::Experimental::OpenMPTarget, OpenMPTargetSpace)
 
@@ -168,7 +168,7 @@ DISABLE_TYPE(Kokkos::Cuda)
 #endif
 
 #if !defined(KOKKOS_ENABLE_HIP)
-DISABLE_TYPE(Kokkos::Experimental::HIP)
+DISABLE_TYPE(Kokkos::HIP)
 #endif
 
 #if !defined(KOKKOS_ENABLE_HPX)
@@ -202,9 +202,9 @@ DISABLE_TYPE(Kokkos::Experimental::HBWSpace)
 #endif
 
 #if !defined(KOKKOS_ENABLE_HIP)
-DISABLE_TYPE(Kokkos::Experimental::HIPSpace)
-DISABLE_TYPE(Kokkos::Experimental::HIPHostPinnedSpace)
-DISABLE_TYPE(Kokkos::Experimental::HIPManagedSpace)
+DISABLE_TYPE(Kokkos::HIPSpace)
+DISABLE_TYPE(Kokkos::HIPHostPinnedSpace)
+DISABLE_TYPE(Kokkos::HIPManagedSpace)
 #endif
 
 #if !defined(KOKKOS_ENABLE_OPENMPTARGET)
@@ -223,11 +223,10 @@ MEMORY_SPACE(Kokkos::CudaUVMSpace, CudaUVMSpace, "CudaUVMSpace")
 MEMORY_SPACE(Kokkos::CudaHostPinnedSpace, CudaHostPinnedSpace,
              "CudaHostPinnedSpace")
 MEMORY_SPACE(Kokkos::Experimental::HBWSpace, HBWSpace, "HBWSpace")
-MEMORY_SPACE(Kokkos::Experimental::HIPSpace, HIPSpace, "HIPSpace", "HIP")
-MEMORY_SPACE(Kokkos::Experimental::HIPHostPinnedSpace, HIPHostPinnedSpace,
+MEMORY_SPACE(Kokkos::HIPSpace, HIPSpace, "HIPSpace", "HIP")
+MEMORY_SPACE(Kokkos::HIPHostPinnedSpace, HIPHostPinnedSpace,
              "HIPHostPinnedSpace")
-MEMORY_SPACE(Kokkos::Experimental::HIPManagedSpace, HIPManagedSpace,
-             "HIPManagedSpace")
+MEMORY_SPACE(Kokkos::HIPManagedSpace, HIPManagedSpace, "HIPManagedSpace")
 MEMORY_SPACE(Kokkos::Experimental::OpenMPTargetSpace, OpenMPTargetSpace,
              "OpenMPTargetSpace", "OpenMPTarget")
 MEMORY_SPACE(Kokkos::Experimental::SYCLSharedUSMSpace, SYCLSharedUSMSpace,

@@ -50,14 +50,15 @@ class ExaMiniMD:
         if self.input.binning_type == BinningType.BINNING_KKSORT.value:
             self.binning = BinningKKSort(self.system)
 
-        self.force = force_modules_instantiation(
-            self.input, self.system, self.binning)
+        self.force = force_modules_instantiation(self.input, self.system, self.binning)
 
         for line in range(self.input.force_coeff_lines.extent(0)):
             self.force.init_coeff(
                 self.input.input_data.words_in_line(
-                    int(self.input.force_coeff_lines[line])),
-                self.input.input_data.words[int(self.input.force_coeff_lines[line])])
+                    int(self.input.force_coeff_lines[line])
+                ),
+                self.input.input_data.words[int(self.input.force_coeff_lines[line])],
+            )
 
         self.neighbor = neighbor_modules_instantiation(self.input)
 
@@ -68,8 +69,10 @@ class ExaMiniMD:
             self.neighbor.comm_newton = self.input.comm_newton
 
         if self.system.do_print:
-            print(f"Using: {self.force.name()} {self.neighbor.name()}"
-                  f" {self.comm.name()} {self.binning.name()}")
+            print(
+                f"Using: {self.force.name()} {self.neighbor.name()}"
+                f" {self.comm.name()} {self.binning.name()}"
+            )
 
         if self.system.N == 0:
             self.input.create_lattice(self.comm)
@@ -79,16 +82,19 @@ class ExaMiniMD:
         neigh_cutoff: float = self.input.force_cutoff + self.input.neighbor_skin
 
         self.binning.create_binning(
-            neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, False, True)
+            neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, False, True
+        )
 
         self.comm.exchange_halo()
 
         self.binning.create_binning(
-            neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, True, False)
+            neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, True, False
+        )
 
         if self.neighbor is not None:
             self.neighbor.create_neigh_list(
-                self.system, self.binning, self.force.half_neigh, False, self.input.fill)
+                self.system, self.binning, self.force.half_neigh, False, self.input.fill
+            )
 
         if self.input.fill:
             self.system.f.fill(0)
@@ -108,16 +114,17 @@ class ExaMiniMD:
             kine = KinE(self.comm)
 
             T: float = temp.compute(self.system)
-            PE: float = pote.compute(
-                self.system, self.binning, self.neighbor, self.force) / self.system.N
+            PE: float = (
+                pote.compute(self.system, self.binning, self.neighbor, self.force)
+                / self.system.N
+            )
             KE: float = kine.compute(self.system) / self.system.N
 
             if self.system.do_print:
                 if not self.system.print_lammps:
                     print()
                     print("#Timestep Temperature PotE ETot Time Atomsteps/s")
-                    print(
-                        f"{step} {T:.6f} {PE:.6f} {PE + KE:.6f} {0.0:.6f} {0.0:e}")
+                    print(f"{step} {T:.6f} {PE:.6f} {PE + KE:.6f} {0.0:.6f} {0.0:e}")
                 else:
                     print()
                     print("Step Temp E_pair TotEng CPU")
@@ -161,7 +168,8 @@ class ExaMiniMD:
 
                 other_timer.reset()
                 self.binning.create_binning(
-                    neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, False, True)
+                    neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, False, True
+                )
                 other_time += other_timer.seconds()
 
                 comm_timer.reset()
@@ -170,11 +178,17 @@ class ExaMiniMD:
 
                 neigh_timer.reset()
                 self.binning.create_binning(
-                    neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, True, False)
+                    neigh_cutoff, neigh_cutoff, neigh_cutoff, 1, True, True, False
+                )
 
                 if self.neighbor is not None:
                     self.neighbor.create_neigh_list(
-                        self.system, self.binning, self.force.half_neigh, False, self.input.fill)
+                        self.system,
+                        self.binning,
+                        self.force.half_neigh,
+                        False,
+                        self.input.fill,
+                    )
                 neigh_time += neigh_timer.seconds()
 
             else:
@@ -204,8 +218,10 @@ class ExaMiniMD:
 
             if step % self.input.thermo_rate == 0:
                 T: float = temp.compute(self.system)
-                PE: float = pote.compute(
-                    self.system, self.binning, self.neighbor, self.force) / self.system.N
+                PE: float = (
+                    pote.compute(self.system, self.binning, self.neighbor, self.force)
+                    / self.system.N
+                )
                 KE: float = kine.compute(self.system) / self.system.N
 
                 if self.system.do_print:
@@ -213,12 +229,14 @@ class ExaMiniMD:
                         time: float = timer.seconds()
                         print(
                             f"{step} {T:.6f} {PE:.6f} {PE + KE:.6f} {timer.seconds():.6f}"
-                            f" {1.0 * self.system.N * self.input.thermo_rate / (time - last_time):e}")
+                            f" {1.0 * self.system.N * self.input.thermo_rate / (time - last_time):e}"
+                        )
                         last_time = time
                     else:
                         time: float = timer.seconds()
                         print(
-                            f"     {step} {T:.6f} {PE:.6f} {PE + KE:.6f} {timer.seconds():.6f}")
+                            f"     {step} {T:.6f} {PE:.6f} {PE + KE:.6f} {timer.seconds():.6f}"
+                        )
                         last_time = time
 
             if self.input.dumpbinaryflag:
@@ -231,8 +249,10 @@ class ExaMiniMD:
 
         time: float = timer.seconds()
         T: float = temp.compute(self.system)
-        PE: float = pote.compute(
-            self.system, self.binning, self.neighbor, self.force) / self.system.N
+        PE: float = (
+            pote.compute(self.system, self.binning, self.neighbor, self.force)
+            / self.system.N
+        )
         KE: float = kine.compute(self.system) / self.system.N
 
         if self.system.do_print:
@@ -243,15 +263,17 @@ class ExaMiniMD:
                     " Time T_Force T_Neigh T_Comm T_Other |"
                     " Steps/s Atomsteps/s Atomsteps/(proc*s)"
                 )
-                print(f"{self.comm.num_processes()} {self.system.N} |"
-                      f" {time:.6f} {force_time:.6f} {neigh_time:.6f} {comm_time:.6f} {other_time:.6f} |"
-                      f" {1.0 * nsteps / time:.6f} {1.0 * self.system.N * nsteps / time:e}"
-                      f" {1.0 * self.system.N * nsteps / time / self.comm.num_processes():e} PERFORMANCE"
-                      )
+                print(
+                    f"{self.comm.num_processes()} {self.system.N} |"
+                    f" {time:.6f} {force_time:.6f} {neigh_time:.6f} {comm_time:.6f} {other_time:.6f} |"
+                    f" {1.0 * nsteps / time:.6f} {1.0 * self.system.N * nsteps / time:e}"
+                    f" {1.0 * self.system.N * nsteps / time / self.comm.num_processes():e} PERFORMANCE"
+                )
             else:
                 print(
                     f"Loop time of {time} on {self.comm.num_processes()}"
-                    f" procs for {nsteps} with {self.system.N} atoms")
+                    f" procs for {nsteps} with {self.system.N} atoms"
+                )
 
     def dump_binary(self, step: int) -> None:
         # TODO: Unused

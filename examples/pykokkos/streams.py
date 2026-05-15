@@ -2,6 +2,7 @@ import pykokkos as pk
 
 import cupy as cp
 
+
 @pk.workunit
 def print_stream(i, x, id):
     if x == 0:
@@ -15,6 +16,7 @@ def print_stream(i, x, id):
     elif x == 4:
         pk.printf("Stream 3 GPU %d\n", id)
 
+
 def run() -> None:
     space = pk.Cuda
 
@@ -27,9 +29,24 @@ def run() -> None:
 
     for i in range(3):
         print(f"Iteration: {i}")
-        pk.parallel_for(pk.RangePolicy(space, 0, 2), print_stream, x=0, id=cp.cuda.runtime.getDevice())
-        pk.parallel_for(pk.RangePolicy(instance1, 0, 2), print_stream, x=1, id=cp.cuda.runtime.getDevice())
-        pk.parallel_for(pk.RangePolicy(instance2, 0, 2), print_stream, x=2, id=cp.cuda.runtime.getDevice())
+        pk.parallel_for(
+            pk.RangePolicy(space, 0, 2),
+            print_stream,
+            x=0,
+            id=cp.cuda.runtime.getDevice(),
+        )
+        pk.parallel_for(
+            pk.RangePolicy(instance1, 0, 2),
+            print_stream,
+            x=1,
+            id=cp.cuda.runtime.getDevice(),
+        )
+        pk.parallel_for(
+            pk.RangePolicy(instance2, 0, 2),
+            print_stream,
+            x=2,
+            id=cp.cuda.runtime.getDevice(),
+        )
 
     if cp.cuda.runtime.getDeviceCount() > 1:
         # Create a stream on GPU 1
@@ -39,13 +56,38 @@ def run() -> None:
         pk.set_device_id(1)
         instance3 = pk.ExecutionSpaceInstance(space, s3)
 
-        pk.parallel_for(pk.RangePolicy(space, 0, 2), print_stream, x=3, id=cp.cuda.runtime.getDevice())
-        pk.parallel_for(pk.RangePolicy(instance3, 0, 2), print_stream, x=4, id=cp.cuda.runtime.getDevice())
+        pk.parallel_for(
+            pk.RangePolicy(space, 0, 2),
+            print_stream,
+            x=3,
+            id=cp.cuda.runtime.getDevice(),
+        )
+        pk.parallel_for(
+            pk.RangePolicy(instance3, 0, 2),
+            print_stream,
+            x=4,
+            id=cp.cuda.runtime.getDevice(),
+        )
 
         pk.set_device_id(0)
-        pk.parallel_for(pk.RangePolicy(space, 0, 2), print_stream, x=0, id=cp.cuda.runtime.getDevice())
-        pk.parallel_for(pk.RangePolicy(instance1, 0, 2), print_stream, x=1, id=cp.cuda.runtime.getDevice())
-        pk.parallel_for(pk.RangePolicy(instance2, 0, 2), print_stream, x=2, id=cp.cuda.runtime.getDevice())
+        pk.parallel_for(
+            pk.RangePolicy(space, 0, 2),
+            print_stream,
+            x=0,
+            id=cp.cuda.runtime.getDevice(),
+        )
+        pk.parallel_for(
+            pk.RangePolicy(instance1, 0, 2),
+            print_stream,
+            x=1,
+            id=cp.cuda.runtime.getDevice(),
+        )
+        pk.parallel_for(
+            pk.RangePolicy(instance2, 0, 2),
+            print_stream,
+            x=2,
+            id=cp.cuda.runtime.getDevice(),
+        )
 
     print("Done launching kernels")
 

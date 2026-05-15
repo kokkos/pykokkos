@@ -22,8 +22,7 @@ class Workload:
     def run(self):
         pk.parallel_for(N, self.init_y)
         pk.parallel_for(M, self.init_x)
-        pk.parallel_for(pk.MDRangePolicy([0,0], [self.N, self.M]), 
-            self.init_A)
+        pk.parallel_for(pk.MDRangePolicy([0, 0], [self.N, self.M]), self.init_A)
 
         timer = pk.Timer()
 
@@ -38,10 +37,11 @@ class Workload:
         solution: float = self.N * self.M
 
         if self.result != solution:
-            pk.printf("Error: result (%lf) != solution (%lf)\n",
-                      self.result, solution)
+            pk.printf("Error: result (%lf) != solution (%lf)\n", self.result, solution)
 
-        print(f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)")
+        print(
+            f"N({self.N}) M({self.M}) nrepeat({self.nrepeat}) problem(MB) time({self.timer_result}) bandwidth(GB/s)"
+        )
 
     @pk.workunit
     def init_y(self, i: int):
@@ -77,6 +77,6 @@ if __name__ == "__main__":
         space = pk.ExecutionSpace(space)
 
     pk.set_default_space(space)
-    
+
     print(f"Total size S = {N * M} N = {N} M = {M}")
     pk.execute(pk.get_default_space(), Workload(N, M, nrepeat))

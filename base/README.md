@@ -53,7 +53,7 @@ In order to write native Kokkos in Python, see [pykokkos](https://github.com/kok
 
 ## Installation
 
-You can install this package via CMake or Python's `setup.py`. The important cmake options are:
+You can install this package via CMake or via `pip install ./`. The important CMake options are:
 
 - `ENABLE_VIEW_RANKS` (integer)
 - `ENABLE_LAYOUTS` (bool)
@@ -82,8 +82,7 @@ If the `ENABLE_INTERNAL_KOKKOS` option is not specified the first time CMake is 
 find an existing Kokkos installation. If no existing installation is found, it will build and install
 Kokkos from a submodule. When Kokkos is added as a submodule, you can configure the submodule
 as you would normally configure Kokkos. However, due to some general awkwardness configuring cmake
-from `setup.py` (especially via `pip install`), CMake tries to "automatically" configure
-reasonable default CMake settings for the Kokkos submodule.
+when configuring via pip builds, CMake tries to "automatically" configure reasonable default CMake settings for the Kokkos submodule.
 
 Here are the steps when Kokkos is added as a submodule:
 
@@ -108,28 +107,10 @@ Here are the steps when Kokkos is added as a submodule:
 cmake -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF /path/to/source
 ```
 
-### Configuring Options via `setup.py`
+### Configuring Options
 
-There are three ways to configure the options:
-
-1. Via the Python argparse options `--enable-<option>` and `--disable-<option>`
-2. Setting the `PYKOKKOS_BASE_SETUP_ARGS` environment variable to the CMake options
-3. Passing in the CMake options after a `--`
-
-All three lines below are equivalent (deprecated format):
-
-```console
-python setup.py install --enable-layouts --disable-memory-traits
-PYKOKKOS_BASE_SETUP_ARGS="-DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF" python setup.py install
-python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF
-```
-
-### Configuring Options via `pip`
-
-Pip does not handle build options well. Thus, it is recommended to use the `PYKOKKOS_BASE_SETUP_ARGS`
-environment variable noted above. 
-
-We suggest using the following line to install pykokkos-base:
+For pip installs, set `PYKOKKOS_BASE_SETUP_ARGS` to a space-delimited list of CMake `-D...`
+options, then run:
 
 ```
 PYKOKKOS_BASE_SETUP_ARGS="-DKokkos_ENABLE_THREADS=OFF \
@@ -143,8 +124,7 @@ PYKOKKOS_BASE_SETUP_ARGS="-DKokkos_ENABLE_THREADS=OFF \
 
 `--verbose` is optional, but it shows installation progress in real time.
 
-> `pip install ./` will build against the latest release in the PyPi repository.
-> In order to pip install from this repository, use `pip install --user -e .`
+> `pip install ./` installs from this checkout. For editable development, use `pip install -e .`.
 
 ## Differences vs. Kokkos C++
 

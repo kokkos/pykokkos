@@ -3,6 +3,7 @@
 import pykokkos as pk
 import numpy as np
 
+
 @pk.workunit
 def map_2D(i, out, a, size):
     for j in range(size):

@@ -6,7 +6,12 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from pykokkos.core.parsers import Parser, PyKokkosEntity
 from pykokkos.interface import ExecutionPolicy, RangePolicy, Subview, ViewType
 
-from .access_modes import AccessIndex, AccessMode, get_view_access_modes, get_view_write_indices_and_modes
+from .access_modes import (
+    AccessIndex,
+    AccessMode,
+    get_view_access_modes,
+    get_view_write_indices_and_modes,
+)
 from .future import Future
 
 
@@ -16,7 +21,7 @@ class DataDependency:
     Represents data + version
     """
 
-    name: Optional[str] # for debugging purposes
+    name: Optional[str]  # for debugging purposes
     data_id: int
     version: int
 
@@ -36,7 +41,7 @@ class TracerOperation:
     A single operation in a trace
     """
 
-    op_id: Optional[int] # None for fused operations
+    op_id: Optional[int]  # None for fused operations
     future: Optional[Future]
     name: Optional[str]
     policy: ExecutionPolicy
@@ -83,7 +88,9 @@ class Tracer:
 
         # Cache expensive operations that require traversing the AST
         self.access_modes_cache: Dict[Tuple[str, str], Dict[str, AccessMode]] = {}
-        self.safety_cache: Dict[Tuple[str, str], Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]]] = {}
+        self.safety_cache: Dict[
+            Tuple[str, str], Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]]
+        ] = {}
 
     def log_operation(
         self,
@@ -94,7 +101,7 @@ class Tracer:
         operation: str,
         parser: Parser,
         entity_name: str,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Log the workunit and its arguments in the trace
@@ -118,15 +125,33 @@ class Tracer:
         access_modes: Dict[str, AccessMode]
         dependencies, access_modes = self.get_data_dependencies(kwargs, AST, cache_key)
 
-        access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]] = self.get_safety_info(kwargs, AST, cache_key)
-        tracer_op = TracerOperation(self.op_id, future, name, policy, workunit, operation, parser, entity_name, dict(kwargs), dependencies, access_indices)
+        access_indices: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]] = (
+            self.get_safety_info(kwargs, AST, cache_key)
+        )
+        tracer_op = TracerOperation(
+            self.op_id,
+            future,
+            name,
+            policy,
+            workunit,
+            operation,
+            parser,
+            entity_name,
+            dict(kwargs),
+            dependencies,
+            access_indices,
+        )
         self.op_id += 1
 
-        self.update_output_data_operations(kwargs, access_modes, tracer_op, future, operation)
+        self.update_output_data_operations(
+            kwargs, access_modes, tracer_op, future, operation
+        )
 
         self.operations[tracer_op] = None
 
-    def get_safety_info(self, kwargs: Dict[str, Any], AST: ast.FunctionDef, cache_key: Tuple[str, str]) -> Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]]:
+    def get_safety_info(
+        self, kwargs: Dict[str, Any], AST: ast.FunctionDef, cache_key: Tuple[str, str]
+    ) -> Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]]:
         """
         Get the view access indices needed to check for safety
 
@@ -222,7 +247,9 @@ class Tracer:
 
         return operations
 
-    def fuse(self, operations: List[TracerOperation], strategy: str) -> List[TracerOperation]:
+    def fuse(
+        self, operations: List[TracerOperation], strategy: str
+    ) -> List[TracerOperation]:
         """
         Apply the specified fusion strategy to the given list of operations
 
@@ -238,7 +265,14 @@ class Tracer:
 
         raise RuntimeError(f"Unrecognized fusion strategy '{strategy}'")
 
-    def is_safe_to_fuse(self, current: List[TracerOperation], current_views: Set[ViewType], current_safety_info: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]], next: TracerOperation, next_views: Set[ViewType]) -> bool:
+    def is_safe_to_fuse(
+        self,
+        current: List[TracerOperation],
+        current_views: Set[ViewType],
+        current_safety_info: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]],
+        next: TracerOperation,
+        next_views: Set[ViewType],
+    ) -> bool:
         """
         Check whether the next operation is safe to fuse with the
         current operations
@@ -260,18 +294,32 @@ class Tracer:
                 assert key in current_safety_info
                 assert key in next_safety_info
 
-                current_access_index, current_access_mode, current_index_str = current_safety_info[key]
-                next_access_index, next_access_mode, next_index_str = next_safety_info[key]
+                current_access_index, current_access_mode, current_index_str = (
+                    current_safety_info[key]
+                )
+                next_access_index, next_access_mode, next_index_str = next_safety_info[
+                    key
+                ]
 
-                if current_access_mode == AccessMode.Read and next_access_mode == AccessMode.Read:
+                if (
+                    current_access_mode == AccessMode.Read
+                    and next_access_mode == AccessMode.Read
+                ):
                     continue
 
                 # If the same function on the thread index is used to
                 # index both views then this will not prevent fusion.
-                if current_access_index == AccessIndex.TIDFunc and next_access_index == AccessIndex.TIDFunc and current_index_str == next_index_str:
+                if (
+                    current_access_index == AccessIndex.TIDFunc
+                    and next_access_index == AccessIndex.TIDFunc
+                    and current_index_str == next_index_str
+                ):
                     continue
 
-                if current_access_index.value > AccessIndex.TID.value or next_access_index.value > AccessIndex.TID.value:
+                if (
+                    current_access_index.value > AccessIndex.TID.value
+                    or next_access_index.value > AccessIndex.TID.value
+                ):
                     return False
 
         return True
@@ -325,7 +373,9 @@ class Tracer:
             if not isinstance(op.policy, RangePolicy):
                 if len(ops_to_fuse) > 0:
                     ops_to_fuse.reverse()
-                    fused_ops.append(self.fuse_operations(ops_to_fuse, fused_safety_info))
+                    fused_ops.append(
+                        self.fuse_operations(ops_to_fuse, fused_safety_info)
+                    )
                     ops_to_fuse.clear()
                     ops_to_fuse_views.clear()
                     fused_safety_info = {}
@@ -338,7 +388,9 @@ class Tracer:
             if op.operation in {"reduce", "scan"}:
                 if len(ops_to_fuse) > 0:
                     ops_to_fuse.reverse()
-                    fused_ops.append(self.fuse_operations(ops_to_fuse, fused_safety_info))
+                    fused_ops.append(
+                        self.fuse_operations(ops_to_fuse, fused_safety_info)
+                    )
                     ops_to_fuse.clear()
                     ops_to_fuse_views.clear()
                     fused_safety_info = {}
@@ -355,7 +407,9 @@ class Tracer:
 
             # Cannot fuse the incoming op with the current ops. Fuse
             # everything in ops_to_fuse.
-            if fused_range != current_range or not self.is_safe_to_fuse(ops_to_fuse, ops_to_fuse_views, fused_safety_info, op, op_views):
+            if fused_range != current_range or not self.is_safe_to_fuse(
+                ops_to_fuse, ops_to_fuse_views, fused_safety_info, op, op_views
+            ):
                 ops_to_fuse.reverse()
                 fused_ops.append(self.fuse_operations(ops_to_fuse, fused_safety_info))
                 ops_to_fuse.clear()
@@ -370,17 +424,23 @@ class Tracer:
             if op.operation == "for":
                 ops_to_fuse.append(op)
                 ops_to_fuse_views.update(op_views)
-                fused_safety_info = self.fuse_safety_info(fused_safety_info, op.access_indices)
+                fused_safety_info = self.fuse_safety_info(
+                    fused_safety_info, op.access_indices
+                )
 
             elif op.operation == "reduce":
                 if len(ops_to_fuse) == 0:
                     ops_to_fuse.append(op)
                     ops_to_fuse_views.update(op_views)
-                    fused_safety_info = self.fuse_safety_info(fused_safety_info, op.access_indices)
+                    fused_safety_info = self.fuse_safety_info(
+                        fused_safety_info, op.access_indices
+                    )
 
                 else:
                     ops_to_fuse.reverse()
-                    fused_ops.append(self.fuse_operations(ops_to_fuse, fused_safety_info))
+                    fused_ops.append(
+                        self.fuse_operations(ops_to_fuse, fused_safety_info)
+                    )
                     ops_to_fuse.clear()
                     ops_to_fuse_views.clear()
 
@@ -408,7 +468,11 @@ class Tracer:
 
         return fused_ops
 
-    def fuse_safety_info(self, info_0: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]], info_1: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]]) -> Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]]:
+    def fuse_safety_info(
+        self,
+        info_0: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]],
+        info_1: Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]],
+    ) -> Dict[Tuple[int, int], Tuple[AccessIndex, AccessMode, str]]:
         """
         Fuse the safety info of two separate operations
 
@@ -449,7 +513,11 @@ class Tracer:
 
         return fused_info
 
-    def fuse_operations(self, operations: List[TracerOperation], fused_safety_info: Dict[Tuple[int, int], AccessIndex]) -> TracerOperation:
+    def fuse_operations(
+        self,
+        operations: List[TracerOperation],
+        fused_safety_info: Dict[Tuple[int, int], AccessIndex],
+    ) -> TracerOperation:
         """
         Fuse a list of TracerOperations into one
 
@@ -476,7 +544,11 @@ class Tracer:
         safety_info: Dict[Tuple[str, int], Tuple[AccessIndex, AccessMode, str]] = {}
 
         for index, op in enumerate(operations):
-            assert isinstance(op.policy, RangePolicy) and policy.begin == op.policy.begin and policy.end == op.policy.end
+            assert (
+                isinstance(op.policy, RangePolicy)
+                and policy.begin == op.policy.begin
+                and policy.end == op.policy.end
+            )
 
             names.append(op.name if op.name is not None else op.workunit.__name__)
             workunits.append(op.workunit)
@@ -490,11 +562,27 @@ class Tracer:
             fused_name = "_".join(names)
         else:
             # Avoid long names
-            fused_name = "_".join(names[:5]) + hashlib.md5(("".join(names)).encode()).hexdigest()
+            fused_name = (
+                "_".join(names[:5]) + hashlib.md5(("".join(names)).encode()).hexdigest()
+            )
 
-        return TracerOperation(None, future, fused_name, policy, workunits, operation, parsers, fused_name, args, dependencies, fused_safety_info)
+        return TracerOperation(
+            None,
+            future,
+            fused_name,
+            policy,
+            workunits,
+            operation,
+            parsers,
+            fused_name,
+            args,
+            dependencies,
+            fused_safety_info,
+        )
 
-    def get_data_dependencies(self, kwargs: Dict[str, Any], AST: ast.FunctionDef, cache_key: Tuple[str, str]) -> Tuple[Set[DataDependency], Dict[str, AccessMode]]:
+    def get_data_dependencies(
+        self, kwargs: Dict[str, Any], AST: ast.FunctionDef, cache_key: Tuple[str, str]
+    ) -> Tuple[Set[DataDependency], Dict[str, AccessMode]]:
         """
         Get the data dependencies of an operation from its input arguments
 
@@ -533,7 +621,10 @@ class Tracer:
             if isinstance(value, Subview):
                 value = value.base_view
 
-            if isinstance(value, ViewType) and access_modes[arg] in {AccessMode.Read, AccessMode.ReadWrite}:
+            if isinstance(value, ViewType) and access_modes[arg] in {
+                AccessMode.Read,
+                AccessMode.ReadWrite,
+            }:
                 version: int = self.data_version.get(id(value), 0)
                 dependency = DataDependency(arg, id(value), version)
 
@@ -547,7 +638,7 @@ class Tracer:
         access_modes: Dict[str, AccessMode],
         tracer_op: TracerOperation,
         future: Optional[Future],
-        operation: str
+        operation: str,
     ) -> None:
         """
         Update the data versions and operations of all data being written to
@@ -563,7 +654,10 @@ class Tracer:
             if isinstance(value, Subview):
                 value = value.base_view
 
-            if isinstance(value, ViewType) and access_modes[arg] in {AccessMode.Write, AccessMode.ReadWrite}:
+            if isinstance(value, ViewType) and access_modes[arg] in {
+                AccessMode.Write,
+                AccessMode.ReadWrite,
+            }:
                 version: int = self.data_version.get(id(value), 0)
                 self.data_version[id(value)] = version + 1
                 dependency = DataDependency(arg, id(value), version + 1)

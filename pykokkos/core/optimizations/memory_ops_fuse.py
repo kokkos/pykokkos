@@ -15,7 +15,10 @@ def partition_by_array(memory_ops: List[MemoryOpInfo]) -> List[List[MemoryOpInfo
     :returns: a list of lists of memory operations per array
     """
 
-    return [list(group) for _, group in itertools.groupby(memory_ops, key=lambda op: op.array_name)]
+    return [
+        list(group)
+        for _, group in itertools.groupby(memory_ops, key=lambda op: op.array_name)
+    ]
 
 
 def eval_index(index: Tuple[str, ...], const_values: Dict[str, Any]) -> Tuple[Any, ...]:
@@ -42,7 +45,9 @@ def eval_index(index: Tuple[str, ...], const_values: Dict[str, Any]) -> Tuple[An
     return tuple(evaluated)
 
 
-def partition_by_index(memory_ops: List[List[MemoryOpInfo]], const_values: Dict[str, Any]) -> List[List[MemoryOpInfo]]:
+def partition_by_index(
+    memory_ops: List[List[MemoryOpInfo]], const_values: Dict[str, Any]
+) -> List[List[MemoryOpInfo]]:
     """
     Partition the list of memory operations into sets that access the
     array by the same index
@@ -73,7 +78,9 @@ def partition_by_index(memory_ops: List[List[MemoryOpInfo]], const_values: Dict[
     return partitioned_ops
 
 
-def partition_by_access(memory_ops: List[List[MemoryOpInfo]]) -> List[List[MemoryOpInfo]]:
+def partition_by_access(
+    memory_ops: List[List[MemoryOpInfo]],
+) -> List[List[MemoryOpInfo]]:
     """
     Partition the list of memory operations at memory writes
 
@@ -97,7 +104,7 @@ def partition_by_access(memory_ops: List[List[MemoryOpInfo]]) -> List[List[Memor
             else:
                 if len(same_access) > 0:
                     partitioned_ops.append(same_access)
-                partitioned_ops.append([next_op]) # Put the Store in its own list
+                partitioned_ops.append([next_op])  # Put the Store in its own list
                 same_access = []
 
         if len(same_access) > 0:
@@ -106,7 +113,9 @@ def partition_by_access(memory_ops: List[List[MemoryOpInfo]]) -> List[List[Memor
     return partitioned_ops
 
 
-def identify_fusable_operations(memory_ops_in_scope: Dict[int, List[MemoryOpInfo]], const_values: Dict[str, Any]) -> List[List[MemoryOpInfo]]:
+def identify_fusable_operations(
+    memory_ops_in_scope: Dict[int, List[MemoryOpInfo]], const_values: Dict[str, Any]
+) -> List[List[MemoryOpInfo]]:
     """
     Partition the list of memory operations into sets that can be
     fused
@@ -131,7 +140,9 @@ def identify_fusable_operations(memory_ops_in_scope: Dict[int, List[MemoryOpInfo
     return fusable_memory_ops
 
 
-def find_memory_ops(AST: ast.FunctionDef) -> Tuple[Dict[int, List[MemoryOpInfo]], Dict[str, Any]]:
+def find_memory_ops(
+    AST: ast.FunctionDef,
+) -> Tuple[Dict[int, List[MemoryOpInfo]], Dict[str, Any]]:
     """
     Find all memory ops in the kernel and gather basic information on
     them.
@@ -150,7 +161,7 @@ def find_memory_ops(AST: ast.FunctionDef) -> Tuple[Dict[int, List[MemoryOpInfo]]
 def generate_fused_load(
     op_info: MemoryOpInfo,
     array_access_counts: Dict[Tuple[str, Tuple[str, ...]], int],
-    pk_import: str
+    pk_import: str,
 ) -> ast.AnnAssign:
     """
     Generate a definition of the fused memory load in a Python AST
@@ -170,8 +181,12 @@ def generate_fused_load(
     access_count: int = array_access_counts.get((array_name, index), 0)
     array_access_counts[(array_name, index)] = access_count + 1
 
-    target = ast.Name(id=f"pk_fused_{array_name}_{index}_{access_count}", ctx=ast.Store())
-    annotation = ast.Attribute(value=ast.Name(id=pk_import, ctx=ast.Load()), attr="cpp_auto", ctx=ast.Load())
+    target = ast.Name(
+        id=f"pk_fused_{array_name}_{index}_{access_count}", ctx=ast.Store()
+    )
+    annotation = ast.Attribute(
+        value=ast.Name(id=pk_import, ctx=ast.Load()), attr="cpp_auto", ctx=ast.Load()
+    )
     value: ast.Subscript = op_info.memory_op
 
     # From https://docs.python.org/3/library/ast.html, "simple is a
@@ -246,7 +261,9 @@ def fuse_memory_ops(fusable_ops: List[List[MemoryOpInfo]], pk_import: str) -> No
 
         assert isinstance(ops[0].context, ast.Load)
 
-        fused_load: ast.AnnAssign = generate_fused_load(ops[0], array_access_counts, pk_import)
+        fused_load: ast.AnnAssign = generate_fused_load(
+            ops[0], array_access_counts, pk_import
+        )
         fused_loads.append((fused_load, ops[0].parent_stmt))
         replace_with_fused_load(ops, fused_load.target.id)
 
@@ -269,5 +286,7 @@ def memory_ops_fuse(AST: ast.FunctionDef, pk_import: str) -> None:
     const_values: Dict[str, Any]
     memory_ops, const_values = find_memory_ops(AST)
 
-    fusable_ops: List[List[MemoryOpInfo]] = identify_fusable_operations(memory_ops, const_values)
+    fusable_ops: List[List[MemoryOpInfo]] = identify_fusable_operations(
+        memory_ops, const_values
+    )
     fuse_memory_ops(fusable_ops, pk_import)

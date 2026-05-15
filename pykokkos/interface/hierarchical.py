@@ -25,6 +25,7 @@ class TeamMember:
     def __index__(self) -> int:
         return self._league_rank
 
+
 class PerTeam:
     def __init__(self, value):
         # Can be either a TeamMember or a scratch size value

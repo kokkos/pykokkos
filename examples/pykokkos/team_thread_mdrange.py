@@ -1,3 +1,4 @@
+import numpy as np
 import pykokkos as pk
 
 
@@ -11,14 +12,15 @@ def kernel(team, A, B, C, N1, N2):
     pk.parallel_for(pk.TeamThreadMDRange(team, N1, N2), inner_for)
     team.team_barrier()
 
+
 def run():
     N0 = 16
     N1 = 4
     N2 = 4
 
-    A = pk.View((N0, N1, N2))
-    B = pk.View((N0, N1))
-    C = pk.View((N2,))
+    A = np.zeros((N0, N1, N2), dtype=np.float64)
+    B = np.zeros((N0, N1), dtype=np.float64)
+    C = np.zeros((N2,), dtype=np.float64)
 
     B.fill(1)
     C.fill(1)
@@ -30,6 +32,7 @@ def run():
     pk.parallel_for(policy, kernel, A=A, B=B, C=C, N1=N1, N2=N2)
 
     print(A)
+
 
 if __name__ == "__main__":
     run()

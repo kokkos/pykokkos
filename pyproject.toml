@@ -1,0 +1,28 @@
+[build-system]
+requires = [
+    "setuptools>=64.0.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pykokkos"
+version = "0.1"
+description = "Performance portable Kokkos kernels in Python"
+requires-python = ">=3.11"
+
+keywords = ["kokkos", "performance", "parallel", "gpu", "cuda", "openmp"]
+
+dependencies = [
+    "numpy>=1.19.5",
+    "pykokkos-base",
+]
+
+[project.urls]
+Homepage = "https://kokkos.org/pykokkos/index.html"
+Repository = "https://github.com/kokkos/pykokkos"
+Documentation = "https://kokkos.org/pykokkos/index.html"
+
+[tool.setuptools]
+packages = {find = {include = ["pykokkos", "pykokkos.*"]}}
+include-package-data = true

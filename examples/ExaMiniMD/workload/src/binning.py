@@ -22,8 +22,15 @@ class Binning(metaclass=ABCMeta):
 
     @abstractmethod
     def create_binning(
-            self, dx: float, dy: float, dz: float, halo_depth: int,
-            do_local: bool, do_ghost: bool, sort: bool) -> None:
+        self,
+        dx: float,
+        dy: float,
+        dz: float,
+        halo_depth: int,
+        do_local: bool,
+        do_ghost: bool,
+        sort: bool,
+    ) -> None:
         pass
 
     @abstractmethod
@@ -32,11 +39,15 @@ class Binning(metaclass=ABCMeta):
 
     # Typedefs
     class t_bincount(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, z: int = 0, data_type: type = pk.int32):
+        def __init__(
+            self, x: int = 0, y: int = 0, z: int = 0, data_type: type = pk.int32
+        ):
             super().__init__([x, y, z], data_type)
 
     class t_binoffsets(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, z: int = 0, data_type: type = pk.int32):
+        def __init__(
+            self, x: int = 0, y: int = 0, z: int = 0, data_type: type = pk.int32
+        ):
             super().__init__([x, y, z], data_type)
 
     class t_permute_vector(pk.View):

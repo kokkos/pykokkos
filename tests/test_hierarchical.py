@@ -53,7 +53,9 @@ class HierarchicalTestFunctor:
         def inner_reduce(i: int, inner_acc: pk.Acc[pk.double]):
             inner_acc += self.A[j][i] * self.x[i]
 
-        temp2: float = pk.parallel_reduce(pk.TeamThreadRange(team_member, self.M), inner_reduce)
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce
+        )
 
         if team_member.team_rank() == 0:
             acc += self.y[j] * temp2
@@ -68,7 +70,9 @@ class HierarchicalTestFunctor:
         def inner_for(i: int):
             self.yprime[j][i] += 1
 
-        temp2: float = pk.parallel_reduce(pk.TeamThreadRange(team_member, self.M), inner_reduce)
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce
+        )
         pk.parallel_for(pk.TeamThreadRange(team_member, self.N), inner_for)
 
         if team_member.team_rank() == 0:
@@ -82,7 +86,9 @@ class HierarchicalTestFunctor:
             acc += self.value
 
         if team_member.team_rank() == 0:
-            temp: float = pk.parallel_reduce(pk.TeamThreadRange(team_member, self.M), inner_reduce)
+            temp: float = pk.parallel_reduce(
+                pk.TeamThreadRange(team_member, self.M), inner_reduce
+            )
             self.for_view[j] = temp
 
     @pk.workunit
@@ -93,12 +99,15 @@ class HierarchicalTestFunctor:
             def vector_reduce(i: int, vector_acc: pk.Acc[pk.double]):
                 vector_acc += self.A_vector[e][j][i] * self.x_vector[e][i]
 
-            tempM: float = pk.parallel_reduce(pk.ThreadVectorRange(team_member, self.M), vector_reduce)
+            tempM: float = pk.parallel_reduce(
+                pk.ThreadVectorRange(team_member, self.M), vector_reduce
+            )
 
             team_acc += self.y_vector[e][j] * tempM
 
         tempN: float = pk.parallel_reduce(
-            pk.TeamThreadRange(team_member, self.N), team_reduce)
+            pk.TeamThreadRange(team_member, self.N), team_reduce
+        )
 
         def single_closure():
             nonlocal acc
@@ -154,7 +163,9 @@ class TestHierarchical(unittest.TestCase):
                 temp2 += self.A[j][i] * self.x[i]
             expected_result += self.y[j] * temp2
 
-        result: int = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx)
+        result: int = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx
+        )
 
         self.assertEqual(expected_result, result)
 
@@ -166,7 +177,9 @@ class TestHierarchical(unittest.TestCase):
                 temp2 += self.A[j][i] * self.x[i]
             expected_result += (self.y[j] + 1) * temp2
 
-        result: int = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx_plus1)
+        result: int = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx_plus1
+        )
 
         self.assertEqual(expected_result, result)
 
@@ -175,7 +188,9 @@ class TestHierarchical(unittest.TestCase):
         for i in range(self.M):
             expected_result += self.value
 
-        pk.parallel_for(pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.outer_for)
+        pk.parallel_for(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.outer_for
+        )
         for i in range(self.N):
             result: int = self.functor.for_view[i]
             self.assertEqual(expected_result, result)
@@ -195,7 +210,10 @@ class TestHierarchical(unittest.TestCase):
 
             expected_result += tempN
 
-        result: float = pk.parallel_reduce(pk.TeamPolicy(self.execution_space, self.E, pk.AUTO, 32), self.functor.yAx_vector)
+        result: float = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.E, pk.AUTO, 32),
+            self.functor.yAx_vector,
+        )
 
         self.assertEqual(expected_result, result)
 

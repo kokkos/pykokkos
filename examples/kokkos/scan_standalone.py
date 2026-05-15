@@ -1,8 +1,11 @@
+import numpy as np
 import pykokkos as pk
+
 
 @pk.workunit
 def init(i, view):
     view[i] = i
+
 
 @pk.workunit
 def scan(i, acc, last_pass, view):
@@ -10,10 +13,11 @@ def scan(i, acc, last_pass, view):
     if last_pass:
         view[i] = acc
 
+
 def run() -> None:
     N = 10
 
-    A: pk.View1D[pk.int32] = pk.View([N], pk.int32)
+    A = np.zeros([N], dtype=np.int32)
     p = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
     pk.parallel_for(p, init, view=A)
 
@@ -22,6 +26,7 @@ def run() -> None:
     timer_result = timer.seconds()
 
     print(f"{A} total={result} time({timer_result})")
+
 
 if __name__ == "__main__":
     run()

@@ -18,7 +18,9 @@ class Force:
     def compute(self, system: System, binning: Binning, neigh: Neighbor) -> None:
         pass
 
-    def compute_energy(self, system: System, binning: Binning, neigh: Neighbor) -> float:
+    def compute_energy(
+        self, system: System, binning: Binning, neigh: Neighbor
+    ) -> float:
         return 0.0
 
     def name(self) -> str:

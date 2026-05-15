@@ -1,8 +1,10 @@
 from typing import Tuple
+import numpy as np
 
 import pykokkos as pk
 
 from parse_args import parse_args
+
 
 @pk.workunit
 def yAx(team_member, acc, rows, cols, y_view, x_view, A_view):
@@ -13,12 +15,14 @@ def yAx(team_member, acc, rows, cols, y_view, x_view, A_view):
             vector_acc += A_view[e][j][i] * x_view[e][i]
 
         tempM: float = pk.parallel_reduce(
-            pk.ThreadVectorRange(team_member, cols), vector_reduce)
+            pk.ThreadVectorRange(team_member, cols), vector_reduce
+        )
 
         team_acc += y_view[e][j] * tempM
 
     tempN: float = pk.parallel_reduce(
-        pk.TeamThreadRange(team_member, rows), team_reduce)
+        pk.TeamThreadRange(team_member, rows), team_reduce
+    )
 
     def single_closure():
         nonlocal acc
@@ -36,9 +40,10 @@ def run() -> None:
     nrepeat: int = 1000
     print(f"Total size S = {N * M} N = {N} M = {M} E = {E}")
 
-    y: pk.View2D = pk.View([E, N], pk.double, layout=pk.Layout.LayoutRight)
-    x: pk.View2D = pk.View([E, M], pk.double, layout=pk.Layout.LayoutRight)
-    A: pk.View3D = pk.View([E, N, M], pk.double, layout=pk.Layout.LayoutRight)
+    # Note: layout specified via ViewTypeInfo decorator if needed
+    y = np.zeros([E, N], dtype=np.float64)
+    x = np.zeros([E, M], dtype=np.float64)
+    A = np.zeros([E, N, M], dtype=np.float64)
 
     if fill:
         y.fill(1)
@@ -61,19 +66,22 @@ def run() -> None:
     timer = pk.Timer()
 
     for i in range(nrepeat):
-        result = pk.parallel_reduce(p, yAx, rows=N, cols=M, y_view=y, x_view=x, A_view=A)
+        result = pk.parallel_reduce(
+            p, yAx, rows=N, cols=M, y_view=y, x_view=x, A_view=A
+        )
 
     timer_result = timer.seconds()
 
-    print(
-        f"Computed result for {N} x {M} x {E} is {result}")
+    print(f"Computed result for {N} x {M} x {E} is {result}")
     solution: float = N * M * E
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) E({E}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) E({E}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
+
 
 if __name__ == "__main__":
     run()

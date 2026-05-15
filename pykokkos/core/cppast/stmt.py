@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, TYPE_CHECKING
 
 from .node import Node
+
 if TYPE_CHECKING:
     from .decl import Decl
     from .expr import CallExpr, Expr
@@ -16,8 +17,7 @@ class Stmt(Node):
 class BreakStmt(Stmt):
     """Represents the break statement"""
 
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
 
 class CallStmt(Stmt):
@@ -48,8 +48,7 @@ class CompoundStmt(Stmt):
 class ContinueStmt(Stmt):
     """Represents the continue statement"""
 
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
 
 class DeclStmt(Stmt):
@@ -66,8 +65,7 @@ class DeclStmt(Stmt):
 class EmptyStmt(Stmt):
     """Represents an empty statement (a blank line)"""
 
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
 
 class ForStmt(Stmt):
@@ -99,7 +97,9 @@ class ForStmt(Stmt):
 class IfStmt(Stmt):
     """Represents an if/else statement"""
 
-    def __init__(self, condition: Expr, then_body: Stmt, else_body: Optional[Stmt] = None):
+    def __init__(
+        self, condition: Expr, then_body: Stmt, else_body: Optional[Stmt] = None
+    ):
         self._condition: Expr = condition
         self._then_body: Stmt = then_body
         self._else_body: Optional[Stmt] = else_body

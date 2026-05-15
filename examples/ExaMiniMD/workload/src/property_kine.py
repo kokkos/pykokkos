@@ -43,5 +43,8 @@ class KinE:
     @pk.workunit
     def work(self, i: int, acc: pk.Acc[pk.double]) -> None:
         index: int = self.type[i]
-        acc += (self.v[i][0] * self.v[i][0] + self.v[i][1] * self.v[i][1]
-               + self.v[i][2] * self.v[i][2]) * self.mass[index]
+        acc += (
+            self.v[i][0] * self.v[i][0]
+            + self.v[i][1] * self.v[i][1]
+            + self.v[i][2] * self.v[i][2]
+        ) * self.mass[index]

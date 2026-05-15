@@ -39,5 +39,8 @@ class Temperature:
     @pk.workunit
     def compute_workunit(self, i: int, acc: pk.Acc[pk.double]) -> None:
         mass_index: int = self.type[i]
-        acc += (self.v[i][0] * self.v[i][0] + self.v[i][1] * self.v[i]
-                [1] + self.v[i][2] * self.v[i][2]) * self.mass[mass_index]
+        acc += (
+            self.v[i][0] * self.v[i][0]
+            + self.v[i][1] * self.v[i][1]
+            + self.v[i][2] * self.v[i][2]
+        ) * self.mass[mass_index]
