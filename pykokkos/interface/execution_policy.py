@@ -20,7 +20,8 @@ class ExecutionPolicy:
             if space is not ExecutionSpace.Debug:
                 space = km.get_execution_space_instance(space)
 
-            space = ExecutionSpaceInstance(space)
+            if not isinstance(space, ExecutionSpaceInstance):
+                space = ExecutionSpaceInstance(space)
 
         if not isinstance(space, ExecutionSpaceInstance):
             raise TypeError(
