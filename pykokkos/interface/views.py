@@ -785,8 +785,10 @@ def from_numpy(
     if layout is None and array.ndim > 1:
         if array.flags["F_CONTIGUOUS"]:
             layout = Layout.LayoutLeft
-        else:
+        elif array.flags["C_CONTIGUOUS"]:
             layout = Layout.LayoutRight
+        else:
+            raise ValueError(f"numpy array is not contiguous")
 
     if space is None:
         space = MemorySpace.MemorySpaceDefault
@@ -914,8 +916,10 @@ def from_array(array) -> ViewType:
     layout: Layout
     if array.flags["F_CONTIGUOUS"]:
         layout = Layout.LayoutLeft
-    else:
+    elif array.flags["C_CONTIGUOUS"]:
         layout = Layout.LayoutRight
+    else:
+        raise ValueError("array is not contiguous")
 
     memory_space: MemorySpace
     if km.get_gpu_framework() is pk.Cuda:
