@@ -964,6 +964,9 @@ def array(
     :returns: a PyKokkos View wrapping the array
     """
 
+    if not array.flags["F_CONTIGUOUS"] and not array.flags["C_CONTIGUOUS"]:
+        raise ValueError(f"numpy array is not contiguous")
+
     # if numpy array, use from_numpy()
     if isinstance(array, np.ndarray) or np.isscalar(array):
         return from_numpy(array, space, layout)
