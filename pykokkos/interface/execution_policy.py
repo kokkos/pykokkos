@@ -77,7 +77,7 @@ class RangePolicy(ExecutionPolicy):
         if not isinstance(end, int):
             raise TypeError(f"Invalid argument {end}")
 
-        self.super().__init__(space)
+        super().__init__(space)
         self.begin: int = begin
         self.end: int = end
 
@@ -114,7 +114,7 @@ class MDRangePolicy(ExecutionPolicy):
                 f"MDRangePolicy dimension mismatch: {len(begin)} != {len(end)}"
             )
 
-        self.super().__init__(space)
+        super().__init__(space)
         self.begin: Final = begin
         self.end: Final = end
         self.tiling = tiling
@@ -191,7 +191,7 @@ class TeamPolicy(ExecutionPolicy):
         if not isinstance(vector_length, int):
             vector_length = -1
 
-        self.super().__init__(space)
+        super().__init__(space)
         self.league_size: int = league_size
         self.team_size: int = team_size
         self.vector_length: int = vector_length
