@@ -102,6 +102,8 @@ from .views import (
     ScratchView6D,
     ScratchView7D,
     ScratchView8D,
+    _array,
+    # Transitional export: deprecated, use pk.asarray for user conversions.
     array,
     asarray,
     result_type,

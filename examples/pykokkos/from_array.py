@@ -27,9 +27,9 @@ print(f"before {np_arr=}")
 print(f"before {cp_arr=}")
 print(f"before {list_arr=}")
 
-np_view = pk.array(np_arr)
-cp_view = pk.array(cp_arr)
-list_view = pk.array(list_arr)
+np_view = pk.asarray(np_arr)
+cp_view = pk._array(cp_arr)
+list_view = pk.asarray(list_arr)
 
 pk.parallel_for(pk.RangePolicy(pk.OpenMP, 0, size), addition_np, np_arr=np_view)
 pk.parallel_for(pk.RangePolicy(pk.Cuda, 0, size), addition_cp, cp_arr=cp_view)

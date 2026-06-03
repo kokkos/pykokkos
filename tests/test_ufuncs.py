@@ -265,7 +265,7 @@ def test_multi_array_1d_exposed_ufuncs_vs_numpy(
 def test_scalar_operations_vs_numpy(pk_ufunc, numpy_ufunc, numpy_dtype):
     data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
     expected = numpy_ufunc(np.array(data, dtype=numpy_dtype), 1)
-    actual = pk_ufunc(pk.array(np.array(data, dtype=numpy_dtype)), 1)
+    actual = pk_ufunc(pk.asarray(np.array(data, dtype=numpy_dtype)), 1)
     assert_allclose(actual, expected)
 
 
@@ -429,8 +429,8 @@ def test_np_matmul_2d_1d_vs_numpy(pk_ufunc, numpy_ufunc, numpy_dtype, test_dim):
     np2 = rng.random(N2).astype(numpy_dtype)
     expected = numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2)
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2)
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(actual, expected)
@@ -460,8 +460,8 @@ def test_np_matmul_1d_2d_vs_numpy(pk_ufunc, numpy_ufunc, numpy_dtype, test_dim):
     np2 = rng.random((N2, M2)).astype(numpy_dtype)
     expected = numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2)
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2)
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(actual, expected)
@@ -501,8 +501,8 @@ def test_np_matmul_fails(numpy_dtype, test_dim):
     np2 = rng.random((N2, M2)).astype(numpy_dtype)
 
     with pytest.raises(RuntimeError) as e_info:
-        view1 = pk.array(np1)
-        view2 = pk.array(np2)
+        view1 = pk.asarray(np1)
+        view2 = pk.asarray(np2)
         pk.np_matmul(view1, view2)  # Should fail with 1d x 2d
 
     err_np_matmul = (
@@ -542,8 +542,8 @@ def test_multi_array_2d_exposed_ufuncs_vs_numpy(pk_ufunc, numpy_ufunc, numpy_dty
     np2 = rng.random((N, M)).astype(numpy_dtype)
     expected = numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2)
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2)
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(actual, expected)
@@ -598,8 +598,8 @@ def test_broadcast_array_exposed_ufuncs_vs_numpy(
 
     expected = numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2) if isinstance(np2, np.ndarray) else np2
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2) if isinstance(np2, np.ndarray) else np2
     actual = pk_ufunc(view1, view2)
 
     assert_allclose(expected, actual)
@@ -649,8 +649,8 @@ def test_copyto_1d(pk_ufunc, numpy_ufunc, numpy_dtype):
     np2 = rng.random((N, M)).astype(numpy_dtype)
     numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2)
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2)
     pk_ufunc(view1, view2)
 
     assert_allclose(np1, view1)
@@ -711,8 +711,8 @@ def test_copyto_broadcast_2d(pk_ufunc, numpy_ufunc, numpy_dtype, test_dim):
 
     numpy_ufunc(np1, np2)
 
-    view1 = pk.array(np1)
-    view2 = pk.array(np2) if isinstance(np2, np.ndarray) else np2
+    view1 = pk.asarray(np1)
+    view2 = pk.asarray(np2) if isinstance(np2, np.ndarray) else np2
     pk_ufunc(view1, view2)
 
     assert_allclose(np1, view1)

@@ -61,9 +61,9 @@ if __name__ == "__main__":
             b_new = b
             c_new = c
 
-        view_a = pk.array(a_new)
-        view_b = pk.array(b_new)
-        view_c = pk.array(c_new)
+        view_a = pk.asarray(a_new)
+        view_b = pk.asarray(b_new)
+        view_c = pk.asarray(c_new)
 
         pk_dgemm_time_sec = timeit.timeit(
             "pk_dgemm(alpha, view_a, view_b, beta, view_c)",

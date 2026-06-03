@@ -97,9 +97,9 @@ class ViewsTestFunctor:
         cp_arr = cp.zeros((threads, 2)).astype(np.int32)
         list_arr = [np.array([0, 0], dtype=np.int32)] * threads
 
-        self.np_view: pk.View2D[int] = pk.array(np_arr)
-        self.cp_view: pk.View2D[int] = pk.array(cp_arr)
-        self.list_view: pk.View2D[int] = pk.array(list_arr)
+        self.np_view: pk.View2D[int] = pk.asarray(np_arr)
+        self.cp_view: pk.View2D[int] = pk._array(cp_arr)
+        self.list_view: pk.View2D[int] = pk.asarray(list_arr)
 
     @pk.workunit
     def v1d(self, tid: int) -> None:
@@ -283,9 +283,9 @@ class TestViews(unittest.TestCase):
         cp_arr = cp.zeros((self.threads, 2)).astype(np.int32)
         list_arr = [np.array([0, 0], dtype=np.int32)] * self.threads
 
-        np_view = pk.array(np_arr)
-        cp_view = pk.array(cp_arr)
-        list_view = pk.array(list_arr)
+        np_view = pk.asarray(np_arr)
+        cp_view = pk._array(cp_arr)
+        list_view = pk.asarray(list_arr)
 
         pk.parallel_for(
             pk.RangePolicy(pk.OpenMP, 0, self.threads), addition_np, np_arr=np_view
@@ -377,6 +377,41 @@ def test_asarray_consts_vs_numpy(const, np_dtype, pk_dtype):
 
 
 @pytest.mark.parametrize(
+    "arr",
+    [
+        np.array([1, 2, 3], dtype=np.int32),
+        [1, 2, 3],
+        7,
+    ],
+)
+def test_array_deprecated_alias_still_converts(arr):
+    with pytest.warns(DeprecationWarning, match="pk.array is deprecated"):
+        view = pk.array(arr)
+    assert_allclose(view, np.asarray(arr))
+
+
+@pytest.mark.parametrize(
+    "arr",
+    [
+        np.array([3, 1, 4], dtype=np.int32),
+        [3, 1, 4],
+    ],
+)
+def test_private_array_conversion_matches_asarray(arr):
+    from_private = pk._array(arr)
+    from_public = pk.asarray(arr)
+    assert type(from_private) is type(from_public)
+    assert_allclose(from_private, from_public)
+
+
+@pytest.mark.skipif(not HAS_CUDA, reason="CUDA/cupy not available")
+def test_private_array_conversion_accepts_cupy_array():
+    cp_arr = cp.array([3, 1, 4], dtype=cp.int32)
+    from_private = pk._array(cp_arr)
+    assert_allclose(from_private, cp.asnumpy(cp_arr))
+
+
+@pytest.mark.parametrize(
     "pk_dtype, np_dtype",
     [
         (pk.uint8, np.uint8),
@@ -416,7 +451,7 @@ def test_result_type_supported(pk_dtype, pk_dtype2, expected_promo):
 @pytest.mark.parametrize(
     "pk_dtype, pk_dtype2",
     [
-        (pk.array(np.array([0])), pk.uint16),
+        (pk.asarray(np.array([0])), pk.uint16),
         (pk.uint64, pk.int8),
         (pk.float32, pk.int64),
     ],

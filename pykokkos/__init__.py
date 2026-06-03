@@ -4,6 +4,7 @@ from typing import Optional
 from pykokkos.runtime import runtime_singleton
 from pykokkos.core import Runtime
 from pykokkos.interface import *
+from pykokkos.interface.views import _array
 from pykokkos.kokkos_manager import (
     initialize,
     finalize,
