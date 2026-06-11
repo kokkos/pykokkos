@@ -12,7 +12,32 @@ class ExecutionPolicy:
     The parent class for all execution policies
     """
 
-    space: ExecutionSpace
+    def __init__(self, space):
+        if isinstance(space, ExecutionSpace):
+            if space is ExecutionSpace.Default:
+                space = km.get_default_space()
+
+            if space is not ExecutionSpace.Debug:
+                space = km.get_execution_space_instance(space)
+
+            if not isinstance(space, ExecutionSpaceInstance):
+                space = ExecutionSpaceInstance(space)
+
+        if not isinstance(space, ExecutionSpaceInstance):
+            raise TypeError(
+                f"space must be an ExecutionSpaceInstance, "
+                "instead got {space} of type {type(space)}"
+            )
+
+        self._space: ExecutionSpaceInstance = space
+
+    @property
+    def space(self):
+        """
+        Execution Space Instance for a given policy.
+        Read-only.
+        """
+        return self._space
 
 
 class RangePolicy(ExecutionPolicy):
@@ -53,17 +78,7 @@ class RangePolicy(ExecutionPolicy):
         if not isinstance(end, int):
             raise TypeError(f"Invalid argument {end}")
 
-        if isinstance(space, ExecutionSpace):
-            if space is ExecutionSpace.Default:
-                space = km.get_default_space()
-
-            if space is not ExecutionSpace.Debug:
-                space = km.get_execution_space_instance(space)
-
-        elif not isinstance(space, ExecutionSpaceInstance):
-            raise TypeError(f"Invalid space argument {space}")
-
-        self.space: ExecutionSpaceInstance = space
+        super().__init__(space)
         self.begin: int = begin
         self.end: int = end
 
@@ -93,18 +108,14 @@ class MDRangePolicy(ExecutionPolicy):
         rank: Rank = None,
     ):
 
-        # # Convert ExecutionSpace to ExecutionSpaceInstance (same as RangePolicy)
-        # if isinstance(space, ExecutionSpace):
-        #     if space is ExecutionSpace.Default:
-        #         space = km.get_default_space()
+        if not isinstance(begin, list) or not isinstance(end, list):
+            raise TypeError("MDRangePolicy begin and end must be lists")
+        if len(begin) != len(end):
+            raise ValueError(
+                f"MDRangePolicy dimension mismatch: {len(begin)} != {len(end)}"
+            )
 
-        #     if space is not ExecutionSpace.Debug:
-        #         space = km.get_execution_space_instance(space)
-
-        # elif not isinstance(space, ExecutionSpaceInstance):
-        #     raise TypeError(f"Invalid space argument {space}")
-
-        self.space: Final = space
+        super().__init__(space)
         self.begin: Final = begin
         self.end: Final = end
         self.tiling = tiling
@@ -120,11 +131,6 @@ class MDRangePolicy(ExecutionPolicy):
 
         self.iter_outer: Final = iter_outer
         self.iter_inner: Final = iter_inner
-
-        if len(begin) != len(end):
-            raise ValueError(
-                f"RangePolicy dimension mismatch: {len(begin)} != {len(end)}"
-            )
 
         self.rank = len(begin)
 
@@ -186,15 +192,7 @@ class TeamPolicy(ExecutionPolicy):
         if not isinstance(vector_length, int):
             vector_length = -1
 
-        if isinstance(space, ExecutionSpace):
-            if space is ExecutionSpace.Default:
-                space = km.get_default_space()
-            space = ExecutionSpaceInstance(space)
-
-        elif not isinstance(space, ExecutionSpaceInstance):
-            raise TypeError(f"Invalid space argument {space}")
-
-        self.space: ExecutionSpaceInstance = space
+        super().__init__(space)
         self.league_size: int = league_size
         self.team_size: int = team_size
         self.vector_length: int = vector_length
@@ -223,20 +221,28 @@ class TeamPolicy(ExecutionPolicy):
         return int(kokkos.scratch_size_max(level))
 
 
-class TeamThreadRange(ExecutionPolicy):
+class TeamExecutionPolicy:
+    """
+    The parent class for all team execution policies
+    """
+
+
+class TeamThreadRange(TeamExecutionPolicy):
     def __init__(self, team_member: TeamMember, count: int):
         self.team_member = team_member
         self.count: Final = count
+        # NOTE: KennyKos (5/28/26): I'm not sure why this is set or if it makes sense
         self.space: ExecutionSpace = ExecutionSpace.Debug
 
 
-class ThreadVectorRange(ExecutionPolicy):
+class ThreadVectorRange(TeamExecutionPolicy):
     def __init__(self, team_member: TeamMember, count: int):
         self.team_member = team_member
         self.count: Final = count
+        # NOTE: KennyKos (5/28/26): I'm not sure why this is set or if it makes sense
         self.space: ExecutionSpace = ExecutionSpace.Debug
 
 
-class TeamThreadMDRange(ExecutionPolicy):
+class TeamThreadMDRange(TeamExecutionPolicy):
     def __init__(self, *args) -> None:
         pass

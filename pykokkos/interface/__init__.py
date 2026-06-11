@@ -77,6 +77,21 @@ from .parallel_dispatch import (
     parallel_reduce,
     parallel_scan,
 )
+from .reducers import (
+    BAnd,
+    BOr,
+    LAnd,
+    LOr,
+    Max,
+    MaxLoc,
+    Min,
+    MinLoc,
+    MinMax,
+    MinMaxLoc,
+    Prod,
+    Reducer,
+    Sum,
+)
 from .random import rand, RandomPool, Random_XorShift64_Pool, Random_XorShift1024_Pool
 from .timer import Timer
 from .views import (

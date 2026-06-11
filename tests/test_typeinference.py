@@ -695,6 +695,12 @@ class TestTypeInference(unittest.TestCase):
         expected = sum(sum(sum(row) for row in plane) for plane in python_3d)
         self.assertEqual(result[0], expected)
 
+    def test_numpy_noncontiguous(self):
+        contiguous = np.arange(10)
+        noncontiguous = contiguous[::2]
+        with pytest.raises(ValueError):
+            pk.parallel_for(len(noncontiguous), init_view, view=noncontiguous, init=0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,11 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
+from pykokkos.core.translators.reducer_util import (
+    NON_SCALAR_REDUCERS,
+    get_cpp_type_name,
+    get_reducer_value_type,
+)
 from pykokkos.interface import TeamMember
 
 from . import visitors_util
@@ -22,10 +27,14 @@ class WorkunitVisitor(PyKokkosVisitor):
         dependency_methods: Dict[str, List[str]],
         pk_import: str,
         restrict_views: Set[str],
+        reducer: Optional[str] = None,
+        reducer_workunit: Optional[str] = None,
         debug=False,
         path: Optional[str] = None,
     ):
         self.has_rand_call: bool = False
+        self.reducer: Optional[str] = reducer
+        self.reducer_workunit: Optional[str] = reducer_workunit
         super().__init__(
             env,
             src,
@@ -224,6 +233,17 @@ class WorkunitVisitor(PyKokkosVisitor):
 
         if operation in ("scan", "reduce"):
             acc: cppast.ParmVarDecl = self.visit_arg(acc_arg)
+            if (
+                operation == "reduce"
+                and self.reducer in NON_SCALAR_REDUCERS
+                and node.parent.name == self.reducer_workunit
+            ):
+                value_type = get_cpp_type_name(acc.decltype)
+                acc_type = cppast.ClassType(
+                    get_reducer_value_type(self.reducer, value_type)
+                )
+                acc_type.is_reference = True
+                acc = cppast.ParmVarDecl(acc_type, acc.declname)
             acc.decltype.is_reference = True
             cpp_args.append(acc)
 

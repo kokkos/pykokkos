@@ -222,6 +222,9 @@ def get_type(
         if annotation.value.id == pk_import:
             type_name: str = get_node_name(annotation)
 
+            if type_name == "bool":
+                return cppast.PrimitiveType(cppast.BuiltinType.BOOL)
+
             if type_name in view_dtypes:
                 return cppast.PrimitiveType(view_dtypes[type_name])
 

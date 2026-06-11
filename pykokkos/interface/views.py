@@ -785,8 +785,10 @@ def from_numpy(
     if layout is None and array.ndim > 1:
         if array.flags["F_CONTIGUOUS"]:
             layout = Layout.LayoutLeft
-        else:
+        elif array.flags["C_CONTIGUOUS"]:
             layout = Layout.LayoutRight
+        else:
+            raise ValueError(f"numpy array is not contiguous")
 
     if space is None:
         space = MemorySpace.MemorySpaceDefault
@@ -914,8 +916,10 @@ def from_array(array) -> ViewType:
     layout: Layout
     if array.flags["F_CONTIGUOUS"]:
         layout = Layout.LayoutLeft
-    else:
+    elif array.flags["C_CONTIGUOUS"]:
         layout = Layout.LayoutRight
+    else:
+        raise ValueError("array is not contiguous")
 
     memory_space: MemorySpace
     if km.get_gpu_framework() is pk.Cuda:
@@ -960,15 +964,27 @@ def array(
     :returns: a PyKokkos View wrapping the array
     """
 
+    # if an array is not a recognized type, try coasting it to a numpy array
+    if (
+        not isinstance(array, np.ndarray)
+        and not np.isscalar(array)
+        and not is_array(array)
+    ):
+        array = np.asarray(array)
+
+    # check that the array is contiguous
+    if not array.flags["F_CONTIGUOUS"] and not array.flags["C_CONTIGUOUS"]:
+        raise ValueError(f"numpy array is not contiguous")
+
     # if numpy array, use from_numpy()
     if isinstance(array, np.ndarray) or np.isscalar(array):
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
-    if is_array(array):
+    elif is_array(array):
         return from_array(array)
-    # try converting the input data to numpy and using that route to convert
-    return from_numpy(np.asarray(array), space, layout)
+    else:
+        raise TypeError(f"array of type {type(array)} not supported")
 
 
 # asarray is required for comformance with the array API:

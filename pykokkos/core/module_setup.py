@@ -86,6 +86,8 @@ class ModuleSetup:
         *,
         types_signature: Optional[str] = None,
         restricted_views: Optional[Set[str]] = None,
+        reducer_signature: Optional[str] = None,
+        reducer_name: Optional[str] = None,
     ):
         """
         ModuleSetup constructor
@@ -108,6 +110,8 @@ class ModuleSetup:
         self.space: ExecutionSpace = space
         self.ast_signature = ast_signature
         self.types_signature = types_signature
+        self.reducer_signature = reducer_signature
+        self.reducer_name = reducer_name
         self.restrict_signature: Optional[str] = None
         if restricted_views is not None:
             self.restrict_signature = hashlib.md5(
@@ -136,6 +140,7 @@ class ModuleSetup:
             ast_signature,
             types_signature=types_signature,
             restrict_signature=self.restrict_signature,
+            reducer_signature=reducer_signature,
         )
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
@@ -167,6 +172,7 @@ class ModuleSetup:
         *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        reducer_signature: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Get the output directory for an execution space.
@@ -203,6 +209,8 @@ class ModuleSetup:
         out_dir: Path = self.get_entity_dir(main, metadata)
         if types_signature is not None:
             out_dir = out_dir / f"types_{types_signature}"
+        if reducer_signature is not None:
+            out_dir = out_dir / f"reducer_{reducer_signature}"
         if restrict_signature is not None:
             out_dir = out_dir / f"restrict_{restrict_signature}"
         if ast_signature is not None:

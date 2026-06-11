@@ -37,11 +37,19 @@ from pykokkos.interface import (
     ViewType,
     is_host_execution_space,
 )
+from pykokkos.interface.reducers import Reducer
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
 from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
+
+
+def reducer_cache_signature(reducer: Optional[Reducer]) -> Optional[str]:
+    if reducer is None:
+        return None
+
+    return reducer.name
 
 
 def _calculate_aligned_scratch_size(
@@ -164,7 +172,10 @@ class Runtime:
             run_workload_debug(workload)
             return
 
-        module_setup: ModuleSetup = self.get_module_setup(workload, space)
+        parser = Parser(get_metadata(workload).path)
+        module_setup: ModuleSetup = self.get_module_setup(
+            workload, space, parser.signature
+        )
         members: PyKokkosMembers = self.compiler.compile_object(
             module_setup, space, km.is_uvm_enabled(), None, None, None, set()
         )
@@ -197,12 +208,16 @@ class Runtime:
         :returns: the members the functor is containing
         """
 
+        workunit_kwargs = dict(kwargs)
+        workunit_kwargs.pop("reducer", None)
+
         module_setup: ModuleSetup = self.get_module_setup(
             workunit,
             space,
             ast_signature,
             types_signature=types_signature,
             restrict_signature=restrict_signature,
+            **kwargs,
         )
         members: PyKokkosMembers = self.compiler.compile_object(
             module_setup,
@@ -212,7 +227,7 @@ class Runtime:
             updated_types,
             types_signature,
             restrict_views,
-            **kwargs,
+            **workunit_kwargs,
         )
 
         return members
@@ -256,8 +271,10 @@ class Runtime:
         if self.is_debug(policy.space):
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
+            workunit_kwargs = dict(kwargs)
+            workunit_kwargs.pop("reducer", None)
             return run_workunit_debug(
-                policy, workunit, operation, initial_value, **kwargs
+                policy, workunit, operation, initial_value, **workunit_kwargs
             )
 
         metadata: EntityMetadata
@@ -312,16 +329,19 @@ class Runtime:
         :returns: the result of the operation (None for parallel_for)
         """
 
+        workunit_kwargs = dict(kwargs)
+        workunit_kwargs.pop("reducer", None)
+
         # Apply scratch specification from decorator if present and policy is TeamPolicy
         if isinstance(policy, TeamPolicy) and not isinstance(workunit, list):
-            apply_scratch_spec(workunit, policy, **kwargs)
+            apply_scratch_spec(workunit, policy, **workunit_kwargs)
 
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
         types_signature: Optional[str]
 
         updated_types, updated_decorator, types_signature = get_type_info(
-            operation, parser, policy, workunit, kwargs
+            operation, parser, policy, workunit, workunit_kwargs
         )
         restrict_views: Set[str] = set()
         restrict_signature: Optional[str] = None
@@ -338,10 +358,10 @@ class Runtime:
                     for this_entity, this_parser in zip(workunit, parsers)
                 ]
                 restrict_kwargs, _ = fuse_workunit_kwargs_and_params(
-                    entity_trees, kwargs, f"parallel_{operation}"
+                    entity_trees, workunit_kwargs, f"parallel_{operation}"
                 )
             else:
-                restrict_kwargs = kwargs
+                restrict_kwargs = workunit_kwargs
 
             view_dict: Dict[str, ViewType] = {
                 arg: view
@@ -376,6 +396,7 @@ class Runtime:
             ast_signature,
             types_signature=types_signature,
             restrict_signature=restrict_signature,
+            **kwargs,
         )
         return self.execute(
             workunit,
@@ -385,7 +406,7 @@ class Runtime:
             policy=policy,
             name=name,
             operation=operation,
-            **kwargs,
+            **workunit_kwargs,
         )
 
     def flush_data(self, data: Union[Future, ViewType]) -> None:
@@ -836,6 +857,7 @@ class Runtime:
         *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        **kwargs,
     ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
@@ -851,6 +873,9 @@ class Runtime:
         space: ExecutionSpace = (
             km.get_default_space() if space is ExecutionSpace.Debug else space
         )
+        reducer: Optional[Reducer] = kwargs.get("reducer")
+        reducer_signature: Optional[str] = reducer_cache_signature(reducer)
+        reducer_name: Optional[str] = reducer.name if reducer is not None else None
 
         module_setup_id = self.get_module_setup_id(
             entity,
@@ -858,6 +883,7 @@ class Runtime:
             ast_signature,
             types_signature=types_signature,
             restrict_signature=restrict_signature,
+            reducer_signature=reducer_signature,
         )
 
         if module_setup_id in self.module_setups:
@@ -869,6 +895,8 @@ class Runtime:
             ast_signature,
             types_signature=types_signature,
             restricted_views=restrict_signature,
+            reducer_signature=reducer_signature,
+            reducer_name=reducer_name,
         )
         self.module_setups[module_setup_id] = module_setup
 
@@ -882,6 +910,7 @@ class Runtime:
         *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        reducer_signature: Optional[str] = None,
     ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
@@ -926,6 +955,8 @@ class Runtime:
                 module_setup_id_list.append(types_signature)
             if restrict_signature is not None:
                 module_setup_id_list.append(restrict_signature)
+            if reducer_signature is not None:
+                module_setup_id_list.append(reducer_signature)
             module_setup_id_list.append(ast_signature)
 
             module_setup_id = tuple(module_setup_id_list)
