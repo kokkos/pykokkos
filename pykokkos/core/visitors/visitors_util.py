@@ -176,6 +176,7 @@ class TranslationError(Exception):
             )
             msg += " " * self.node.col_offset + "^" * err_len
 
+        msg += "\nPyKokkos translation failed"
         return msg
 
 
