@@ -13,6 +13,10 @@ Pull requests should have a relevant description
 expanding on the name; reviewers and future contributors
 should be able to understand the goal and major changes in
 the pull request before looking at the code itself.
+If the pull request closes issue #XXX, the description
+should contain the phrase `closes #XXX`. This links the
+issue to the pull request and automatically closes the issue
+when the pull request is merged.
 
 ### content
 
