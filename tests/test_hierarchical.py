@@ -92,6 +92,43 @@ class HierarchicalTestFunctor:
             self.for_view[j] = temp
 
     @pk.workunit
+    def yAx_scaled(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_reduce(i: int, inner_acc: pk.Acc[pk.double]):
+            inner_acc += self.A[j][i] * self.x[i] * scale
+
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce, scale=2.0
+        )
+
+        if team_member.team_rank() == 0:
+            acc += self.y[j] * temp2
+
+    @pk.workunit
+    def fill_offset(self, team_member: pk.TeamMember) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_for(i: int):
+            self.A[j][i] = offset
+
+        pk.parallel_for(pk.TeamThreadRange(team_member, self.M), inner_for, offset=42)
+
+    @pk.workunit
+    def scan_scaled(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_scan(i: int, scan_acc: pk.Acc[pk.double], is_final: bool):
+            scan_acc += scale
+
+        result: float = pk.parallel_scan(
+            pk.TeamThreadRange(team_member, self.M), inner_scan, scale=3
+        )
+
+        if team_member.team_rank() == 0:
+            acc += result
+
+    @pk.workunit
     def yAx_vector(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
         e: int = team_member.league_rank()
 
@@ -194,6 +231,42 @@ class TestHierarchical(unittest.TestCase):
         for i in range(self.N):
             result: int = self.functor.for_view[i]
             self.assertEqual(expected_result, result)
+
+    def test_yAx_scaled(self):
+        # Regression test for issue #409: kwargs passed to nested parallel_reduce
+        # inside a team policy workunit were silently dropped, causing C++ compile
+        # errors ("identifier 'scale' is undefined").
+        scale: float = 2.0
+        expected_result: float = 0
+        for j in range(self.N):
+            temp2: float = 0
+            for i in range(self.M):
+                temp2 += self.A[j][i] * self.x[i] * scale
+            expected_result += self.y[j] * temp2
+
+        result: float = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx_scaled
+        )
+
+        self.assertEqual(expected_result, result)
+
+    def test_fill_offset(self):
+        # Regression test for issue #409: kwargs passed to nested parallel_for
+        pk.parallel_for(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.fill_offset
+        )
+        for j in range(self.N):
+            for i in range(self.M):
+                self.assertEqual(self.functor.A[j][i], 42)
+
+    def test_scan_scaled(self):
+        # Regression test for issue #409: kwargs passed to nested parallel_scan
+        # Each team scans M elements each contributing `scale=3`, giving total 3*M per team.
+        expected_result: float = self.N * self.M * 3
+        result: float = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.scan_scaled
+        )
+        self.assertEqual(expected_result, result)
 
     def test_yAx_vector(self):
         expected_result: float = 0

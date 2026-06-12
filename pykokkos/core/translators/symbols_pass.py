@@ -128,6 +128,19 @@ class SymbolsPass:
             elif isinstance(node, ast.FunctionDef):
                 if self.is_nested_call(node):
                     symbols.add(node.name)
+            elif isinstance(node, ast.Call):
+                # kwargs passed to a nested parallel_reduce/parallel_scan become
+                # local auto variables at the call site (captured by [&] in the
+                # inner lambda), so treat their names as locally defined symbols.
+                func_name: str = ""
+                if isinstance(node.func, ast.Attribute):
+                    func_name = node.func.attr
+                elif isinstance(node.func, ast.Name):
+                    func_name = node.func.id
+                if func_name in ("parallel_reduce", "parallel_scan", "parallel_for"):
+                    for kw in node.keywords:
+                        if kw.arg is not None:
+                            symbols.add(kw.arg)
 
         return symbols
 
