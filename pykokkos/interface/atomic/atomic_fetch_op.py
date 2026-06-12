@@ -3,7 +3,6 @@ from typing import List, Union
 import operator
 from ..views import View
 
-
 # Atomic operations from:
 # https://github.com/kokkos/kokkos/wiki/Kokkos%3A%3Aatomic_fetch_op
 

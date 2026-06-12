@@ -8,6 +8,7 @@
 *.out
 .clangd
 **/pk_cpp/
+**/.pykokkos/
 **/*.egg-info
 tmp/
 examples/**/KokkosCore_config.h

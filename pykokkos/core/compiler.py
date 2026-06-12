@@ -252,7 +252,11 @@ class Compiler:
 
         cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
         translator = StaticTranslator(
-            module_setup.name, self.functor_file, self.functor_cast_file, members
+            module_setup.name,
+            self.functor_file,
+            self.functor_cast_file,
+            members,
+            module_setup.reducer_name,
         )
         t_start: float = time.perf_counter()
         functor: List[str]
@@ -275,8 +279,10 @@ class Compiler:
             main,
             module_setup.metadata,
             space,
-            module_setup.types_signature,
-            module_setup.restrict_signature,
+            module_setup.ast_signature,
+            types_signature=module_setup.types_signature,
+            restrict_signature=module_setup.restrict_signature,
+            reducer_signature=module_setup.reducer_signature,
         )
         c_start: float = time.perf_counter()
         cpp_setup.compile(
@@ -326,7 +332,7 @@ class Compiler:
         """
         Get the compiler to use based on the machine name
 
-        :returns: g++ or nvcc
+        :returns: g++, nvcc, or hipcc
         """
 
         from pykokkos.bindings import kokkos

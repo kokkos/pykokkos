@@ -96,10 +96,16 @@ def reciprocal_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
     view[tid] = reciprocal(view[tid])
 
 
+@pk.workunit
+def rsqrt_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
+    view[tid] = rsqrt(view[tid])
+
+
 @pytest.mark.parametrize(
     "kokkos_workunit, numpy_ufunc",
     [
         (sqrt_workunit, np.sqrt),
+        (rsqrt_workunit, lambda x: np.reciprocal(np.sqrt(x))),
         (exp_workunit, np.exp),
         pytest.param(
             exp2_workunit, np.exp2, marks=pytest.mark.xfail(reason="see gh-27")

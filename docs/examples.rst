@@ -29,6 +29,9 @@ that demonstrate various features.
    * - subview
      - `PyKokkos <https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/standalone/subview.py>`__
      - `Kokkos <https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/subview/Solution/exercise_subview_solution.cpp>`__
+   * - scratch memory
+     - `PyKokkos <https://github.com/kokkos/pykokkos/blob/main/examples/kokkos/multi_scratch_team.py>`__
+     - `Kokkos <https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/team_scratch_memory/Solution/team_scratch_memory_solution.cpp>`__
    * - mdrange
      - `PyKokkos <https://github.com/kokkos/pykokkos/blob/main/examples/kokkos-tutorials/workload/mdrange.py>`__
      - `Kokkos <https://github.com/kokkos/kokkos-tutorials/blob/main/Exercises/mdrange/Solution/exercise_mdrange_solution.cpp>`__

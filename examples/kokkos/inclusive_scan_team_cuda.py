@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 import pykokkos as pk
 
 
@@ -30,19 +30,21 @@ def team_scan(team_member: pk.TeamMember, view, team_size):
 
 def main():
     N = 64
-    team_size = 8
+    team_size = 32
     num_teams = (N + team_size - 1) // team_size
 
-    view = np.zeros([N], dtype=np.int32)
-    p_init = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
-    pk.parallel_for(p_init, init_data, view=view)
+    view = cp.zeros(N, dtype=cp.int32)
+    view_pk = pk.array(view)
+    p_init = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, N)
+    pk.parallel_for(p_init, init_data, view=view_pk)
 
     print(f"Total elements: {N}, Team size: {team_size}, Number of teams: {num_teams}")
 
-    team_policy = pk.TeamPolicy(pk.ExecutionSpace.OpenMP, num_teams, team_size)
+    # Use TeamPolicy
+    team_policy = pk.TeamPolicy(pk.ExecutionSpace.Cuda, num_teams, team_size)
 
     print("Running kernel...")
-    pk.parallel_for(team_policy, team_scan, view=view, team_size=team_size)
+    pk.parallel_for(team_policy, team_scan, view=view_pk, team_size=team_size)
     print(f"View, splitted by two groups of size = {team_size}")
     print(view)
 

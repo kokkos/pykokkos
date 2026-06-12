@@ -62,8 +62,8 @@ class Serial;
 class Threads;
 class OpenMP;
 class Cuda;
-namespace Experimental {
 class HIP;
+namespace Experimental {
 class HPX;
 class OpenMPTarget;
 class SYCL;
@@ -83,12 +83,12 @@ class HostSpace;
 class CudaSpace;
 class CudaUVMSpace;
 class CudaHostPinnedSpace;
-// experimental spaces
-namespace Experimental {
-class HBWSpace;
 class HIPSpace;
 class HIPHostPinnedSpace;
 class HIPManagedSpace;
+// experimental spaces
+namespace Experimental {
+class HBWSpace;
 class OpenMPTargetSpace;
 class SYCLSharedUSMSpace;
 class SYCLDeviceUSMSpace;

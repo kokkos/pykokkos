@@ -1,24 +1,23 @@
+import numpy as np
 import pykokkos as pk
 
 
-@pk.workload
-class SquareSum:
-    def __init__(self, n):
-        self.N: int = n
-        self.total: pk.double = 0
+@pk.workunit
+def squaresum(i: int, acc, values):
+    acc += values[i]
 
-    @pk.main
-    def run(self):
-        self.total = pk.parallel_reduce(self.N, self.squaresum)
 
-    @pk.callback
-    def results(self):
-        print("Sum:", self.total)
+def main():
+    N: int = 10
+    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
-    @pk.workunit
-    def squaresum(self, i: int, acc: pk.Acc[pk.double]):
-        acc += i * i
+    # Create array with squares
+    values = np.array([i * i for i in range(N)], dtype=np.int32)
+
+    total = pk.parallel_reduce(N, squaresum, values=values)
+
+    print("Sum:", total)
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, SquareSum(10))
+    main()

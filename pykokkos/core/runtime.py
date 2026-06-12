@@ -1,9 +1,11 @@
 import importlib.util
+import inspect
 import os
 from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
 import sysconfig
+import hashlib
 
 import numpy as np
 
@@ -35,11 +37,113 @@ from pykokkos.interface import (
     ViewType,
     is_host_execution_space,
 )
+from pykokkos.interface.reducers import Reducer
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
 from .module_setup import EntityMetadata, get_metadata, ModuleSetup
 from .run_debug import run_workload_debug, run_workunit_debug
+
+
+def reducer_cache_signature(reducer: Optional[Reducer]) -> Optional[str]:
+    if reducer is None:
+        return None
+
+    return reducer.name
+
+
+def _calculate_aligned_scratch_size(
+    dtype, num_elements: int, alignment: int = 8
+) -> int:
+    """
+    Calculate aligned scratch size for a given dtype and element count
+
+    :param dtype: the data type (int, float, or numpy dtype with itemsize)
+    :param num_elements: number of elements
+    :param alignment: alignment requirement in bytes (default 8 to match Kokkos)
+    :returns: aligned size in bytes
+    """
+    if dtype == int:
+        element_size = np.dtype(np.int32).itemsize
+    elif dtype == float:
+        element_size = np.dtype(np.float64).itemsize
+    elif hasattr(dtype, "itemsize"):
+        element_size = dtype.itemsize
+    else:
+        element_size = 8
+
+    raw_size = element_size * num_elements
+    # Align to match Kokkos requirement (same as ScratchView.shmem_size)
+    aligned_size = ((raw_size + alignment - 1) // alignment) * alignment
+    return aligned_size
+
+
+def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None:
+    """
+    Apply scratch specification from the workunit decorator to the policy.
+
+    Each entry in ``workunit._pk_scratch`` is a ``(dtype, size_func)`` tuple.
+    ``size_func`` may accept one or two positional arguments:
+
+    - ``lambda p: ...``       - receives the ``TeamPolicy`` only.
+    - ``lambda p, s: ...``    - receives the ``TeamPolicy`` and the bound class
+      instance (``workunit.__self__``), enabling access to instance attributes
+      when the workunit is a bound method.
+
+    :param workunit: the workunit function with potential scratch specification
+    :param policy: the TeamPolicy to which scratch should be applied
+    :param kwargs: keyword arguments passed to the workunit (for size calculation)
+    """
+    from pykokkos.interface.hierarchical import PerTeam
+
+    if not hasattr(workunit, "_pk_scratch") or policy.scratch_size_level is not None:
+        return
+
+    scratch_specs = workunit._pk_scratch
+    if not isinstance(scratch_specs, list) or not scratch_specs:
+        return
+
+    # Temporarily add kwargs as policy attributes for lambda access
+    temp_attrs = {}
+    for key, value in kwargs.items():
+        if isinstance(value, (int, np.integer)):
+            if not hasattr(policy, key):
+                temp_attrs[key] = None
+                setattr(policy, key, int(value))
+
+    bound_self = getattr(workunit, "__self__", None)
+
+    try:
+        total_scratch_size = 0
+
+        for dtype, size_func in scratch_specs:
+            nparams = len(inspect.signature(size_func).parameters)
+            # Two args lambda -
+            if nparams >= 2 and bound_self is not None:
+                num_elements = size_func(policy, bound_self)
+            else:
+                num_elements = size_func(policy)
+            total_scratch_size += _calculate_aligned_scratch_size(dtype, num_elements)
+
+        if total_scratch_size > 0:
+            policy.scratch_size_level = 0
+            policy.scratch_size_value = PerTeam(total_scratch_size)
+            try:
+                max_scratch = TeamPolicy.scratch_size_max(0)
+                if max_scratch > 0 and total_scratch_size > max_scratch:
+                    raise ValueError(
+                        f"Requested scratch size ({total_scratch_size} bytes) "
+                        f"exceeds maximum for level 0 ({max_scratch} bytes). "
+                        "Reduce scratch allocation or use a different level."
+                    )
+            except (ImportError, AttributeError):
+                # backend may not expose scratch_size_max
+                pass
+
+    finally:
+        for key in temp_attrs:
+            if temp_attrs[key] is None:
+                delattr(policy, key)
 
 
 class Runtime:
@@ -68,7 +172,10 @@ class Runtime:
             run_workload_debug(workload)
             return
 
-        module_setup: ModuleSetup = self.get_module_setup(workload, space)
+        parser = Parser(get_metadata(workload).path)
+        module_setup: ModuleSetup = self.get_module_setup(
+            workload, space, parser.signature
+        )
         members: PyKokkosMembers = self.compiler.compile_object(
             module_setup, space, km.is_uvm_enabled(), None, None, None, set()
         )
@@ -79,6 +186,7 @@ class Runtime:
     def precompile_workunit(
         self,
         workunit: Callable[..., None],
+        ast_signature: str,
         space: ExecutionSpace,
         updated_decorator: Optional[UpdatedDecorator],
         updated_types: Optional[UpdatedTypes],
@@ -91,15 +199,25 @@ class Runtime:
         precompile the workunit
 
         :param workunit: the workunit function object
+        :param ast_signature: Hash/identifer string for workunit module against AST
         :param space: the ExecutionSpace for which the bindings are generated
         :param updated_decorator: Object for decorator specifier
         :param updated_types: Object with type inference information
+        :param types_signature: Hash/identifer string for workunit module against data types
         :param restrict_views: a set of view names that do not alias any other views
         :returns: the members the functor is containing
         """
 
+        workunit_kwargs = dict(kwargs)
+        workunit_kwargs.pop("reducer", None)
+
         module_setup: ModuleSetup = self.get_module_setup(
-            workunit, space, types_signature, restrict_signature
+            workunit,
+            space,
+            ast_signature,
+            types_signature=types_signature,
+            restrict_signature=restrict_signature,
+            **kwargs,
         )
         members: PyKokkosMembers = self.compiler.compile_object(
             module_setup,
@@ -109,7 +227,7 @@ class Runtime:
             updated_types,
             types_signature,
             restrict_views,
-            **kwargs,
+            **workunit_kwargs,
         )
 
         return members
@@ -153,8 +271,10 @@ class Runtime:
         if self.is_debug(policy.space):
             if operation is None:
                 raise RuntimeError("ERROR: operation cannot be None for Debug")
+            workunit_kwargs = dict(kwargs)
+            workunit_kwargs.pop("reducer", None)
             return run_workunit_debug(
-                policy, workunit, operation, initial_value, **kwargs
+                policy, workunit, operation, initial_value, **workunit_kwargs
             )
 
         metadata: EntityMetadata
@@ -209,12 +329,19 @@ class Runtime:
         :returns: the result of the operation (None for parallel_for)
         """
 
+        workunit_kwargs = dict(kwargs)
+        workunit_kwargs.pop("reducer", None)
+
+        # Apply scratch specification from decorator if present and policy is TeamPolicy
+        if isinstance(policy, TeamPolicy) and not isinstance(workunit, list):
+            apply_scratch_spec(workunit, policy, **workunit_kwargs)
+
         updated_types: Optional[UpdatedTypes]
         updated_decorator: Optional[UpdatedDecorator]
         types_signature: Optional[str]
 
         updated_types, updated_decorator, types_signature = get_type_info(
-            operation, parser, policy, workunit, kwargs
+            operation, parser, policy, workunit, workunit_kwargs
         )
         restrict_views: Set[str] = set()
         restrict_signature: Optional[str] = None
@@ -231,10 +358,10 @@ class Runtime:
                     for this_entity, this_parser in zip(workunit, parsers)
                 ]
                 restrict_kwargs, _ = fuse_workunit_kwargs_and_params(
-                    entity_trees, kwargs, f"parallel_{operation}"
+                    entity_trees, workunit_kwargs, f"parallel_{operation}"
                 )
             else:
-                restrict_kwargs = kwargs
+                restrict_kwargs = workunit_kwargs
 
             view_dict: Dict[str, ViewType] = {
                 arg: view
@@ -243,9 +370,17 @@ class Runtime:
             }
             restrict_views, restrict_signature = get_restrict_views(view_dict)
 
+        # Set ast signature
+        if isinstance(parser, list):
+            ast_signature = "".join([p.signature for p in parser])
+            ast_signature = hashlib.md5(ast_signature.encode()).hexdigest()
+        else:
+            ast_signature = parser.signature
+
         execution_space: ExecutionSpace = policy.space.space
         members: PyKokkosMembers = self.precompile_workunit(
             workunit,
+            ast_signature,
             execution_space,
             updated_decorator,
             updated_types,
@@ -256,7 +391,12 @@ class Runtime:
         )
 
         module_setup: ModuleSetup = self.get_module_setup(
-            workunit, execution_space, types_signature, restrict_signature
+            workunit,
+            execution_space,
+            ast_signature,
+            types_signature=types_signature,
+            restrict_signature=restrict_signature,
+            **kwargs,
         )
         return self.execute(
             workunit,
@@ -266,7 +406,7 @@ class Runtime:
             policy=policy,
             name=name,
             operation=operation,
-            **kwargs,
+            **workunit_kwargs,
         )
 
     def flush_data(self, data: Union[Future, ViewType]) -> None:
@@ -713,14 +853,18 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
+        ast_signature: str,
+        *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        **kwargs,
     ) -> ModuleSetup:
         """
         Get the compiled module setup information unique to an entity + space
 
         :param entity: the workload or workunit object
         :param space: the execution space
+        :param ast_signature: Hash/identifer string for workunit module against AST
         :param types_signature: Hash/identifer string for workunit module against data types
         :param restrict_signature: Hash/identifer string for views that do not alias any other views
         :returns: the ModuleSetup object
@@ -729,15 +873,31 @@ class Runtime:
         space: ExecutionSpace = (
             km.get_default_space() if space is ExecutionSpace.Debug else space
         )
+        reducer: Optional[Reducer] = kwargs.get("reducer")
+        reducer_signature: Optional[str] = reducer_cache_signature(reducer)
+        reducer_name: Optional[str] = reducer.name if reducer is not None else None
 
         module_setup_id = self.get_module_setup_id(
-            entity, space, types_signature, restrict_signature
+            entity,
+            space,
+            ast_signature,
+            types_signature=types_signature,
+            restrict_signature=restrict_signature,
+            reducer_signature=reducer_signature,
         )
 
         if module_setup_id in self.module_setups:
             return self.module_setups[module_setup_id]
 
-        module_setup = ModuleSetup(entity, space, types_signature, restrict_signature)
+        module_setup = ModuleSetup(
+            entity,
+            space,
+            ast_signature,
+            types_signature=types_signature,
+            restricted_views=restrict_signature,
+            reducer_signature=reducer_signature,
+            reducer_name=reducer_name,
+        )
         self.module_setups[module_setup_id] = module_setup
 
         return module_setup
@@ -746,8 +906,11 @@ class Runtime:
         self,
         entity: Union[object, Callable[..., None]],
         space: ExecutionSpace,
+        ast_signature: str,
+        *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        reducer_signature: Optional[str] = None,
     ) -> Tuple:
         """
         Get a unique module setup id for an entity + space
@@ -757,6 +920,7 @@ class Runtime:
 
         :param entity: the workload or workunit object
         :param space: the execution space
+        :param ast_signature: Hash/identifer string for workunit module against AST
         :param types_signature: optional identifier/hash string for
             types of parameters against workunit module
         :param restrict_signature: Hash/identifer string for views
@@ -791,6 +955,9 @@ class Runtime:
                 module_setup_id_list.append(types_signature)
             if restrict_signature is not None:
                 module_setup_id_list.append(restrict_signature)
+            if reducer_signature is not None:
+                module_setup_id_list.append(reducer_signature)
+            module_setup_id_list.append(ast_signature)
 
             module_setup_id = tuple(module_setup_id_list)
 

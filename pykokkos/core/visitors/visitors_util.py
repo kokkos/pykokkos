@@ -10,8 +10,8 @@ from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, MemorySpace, Trait
 
 
-def pretty_print(node):
-    print(ast.dump(node, indent=4))
+def pretty_format_ast(node: Union[ast.Attribute, ast.Name]) -> str:
+    return ast.dump(node, indent=4)
 
 
 allowed_types: Dict[str, str] = {
@@ -150,26 +150,48 @@ math_constants: Dict[str, str] = {
 }
 
 
-def error(src, debug: bool, node, message) -> None:
-    if hasattr(node, "lineno"):
-        print(f"\n\033[31m\033[01mError on line {node.lineno} \033[0m: {message}")
-    else:
-        print(f"\n\033[31m\033[01mError\033[0m: {message}")
+class TranslationError(Exception):
+    """
+    PyKokkos code is not translatable to Kokkos
+    """
 
-    if debug and node is not None:
-        print("DEBUG AST:")
-        pretty_print(node)
+    def __init__(
+        self, src, debug: bool, node, message: str, path: Optional[str] = None
+    ) -> None:
+        self.src = src
+        self.debug = debug
+        self.node = node
+        self.message = message
+        self.path = path
 
-    if hasattr(node, "lineno"):
-        print(src[0][node.lineno - src[1] - 1], end="")
-        err_len = node.end_col_offset - node.col_offset if node.end_col_offset else 1
-        print(" " * node.col_offset + "^" * err_len)
+    def __str__(self):
+        msg = ""
+        if hasattr(self.node, "lineno"):
+            if self.path:
+                msg += f"\n\033[31m\033[01mError in {self.path}:{self.node.lineno}\033[0m: {self.message}"
+            else:
+                msg += f"\n\033[31m\033[01mError:{self.node.lineno} \033[0m: {self.message}"
+        else:
+            if self.path:
+                msg += f"\n\033[31m\033[01mError in {self.path}\033[0m: {self.message}"
+            else:
+                msg += f"\n\033[31m\033[01mError\033[0m: {self.message}"
 
-    sys.exit("PyKokkos: Translation failed")
+        if self.debug and self.node is not None:
+            msg += "\nDEBUG AST:\n"
+            msg += pretty_format_ast(self.node)
 
+        if hasattr(self.node, "lineno"):
+            msg += self.src[0][self.node.lineno - self.src[1] - 1] + "\n"
+            err_len = (
+                self.node.end_col_offset - self.node.col_offset
+                if self.node.end_col_offset
+                else 1
+            )
+            msg += " " * self.node.col_offset + "^" * err_len
 
-def generic_error(src, debug: bool, node) -> None:
-    error(src, debug, node, "Not supported for translation")
+        msg += "\nPyKokkos translation failed"
+        return msg
 
 
 def get_op_str(op: ast.expr) -> str:
@@ -214,6 +236,9 @@ def get_type(
     if isinstance(annotation, ast.Attribute):
         if annotation.value.id == pk_import:
             type_name: str = get_node_name(annotation)
+
+            if type_name == "bool":
+                return cppast.PrimitiveType(cppast.BuiltinType.BOOL)
 
             if type_name in view_dtypes:
                 return cppast.PrimitiveType(view_dtypes[type_name])

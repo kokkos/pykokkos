@@ -13,6 +13,11 @@ class ExecutionSpace(Enum):
     Default = "Default"
 
 
+DeviceExecutionSpace = frozenset({ExecutionSpace.Cuda, ExecutionSpace.HIP})
+HostParallelExecutionSpace = frozenset({ExecutionSpace.OpenMP, ExecutionSpace.Threads})
+HostSerialExecutionSpace = frozenset({ExecutionSpace.Serial})
+
+
 def is_host_execution_space(space: ExecutionSpace) -> bool:
     """
     Check if the supplied execution space runs on the host
@@ -24,11 +29,7 @@ def is_host_execution_space(space: ExecutionSpace) -> bool:
     if space is ExecutionSpace.Default:
         space = km.get_default_space()
 
-    return space in {
-        ExecutionSpace.OpenMP,
-        ExecutionSpace.Threads,
-        ExecutionSpace.Serial,
-    }
+    return space in HostParallelExecutionSpace | HostSerialExecutionSpace
 
 
 class ExecutionSpaceInstance:

@@ -1,4 +1,5 @@
 import ast
+import hashlib
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -78,6 +79,10 @@ class Parser:
             self.classtypes: Dict[str, PyKokkosEntity] = {}
             self.functors: Dict[str, PyKokkosEntity] = {}
             self.workunits: Dict[str, PyKokkosEntity] = {}
+
+        # get parser signature
+        signature = ast.dump(self.tree)
+        self.signature = hashlib.md5(signature.encode()).hexdigest()
 
     def get_import(self) -> str:
         """
@@ -369,14 +374,12 @@ class Parser:
             # no change needed
             return entity_tree.decorator_list
 
-        call_obj = ast.Call()
-        call_obj.func = ast.Attribute(
+        func = ast.Attribute(
             value=ast.Name(id=self.pk_import, ctx=ast.Load()),
             attr="workunit",
             ctx=ast.Load(),
         )
-        call_obj.args = []
-        call_obj.keywords = []
+        call_obj = ast.Call(func=func, args=[], keywords=[])
 
         for view, specifier_dict in updated_decorator.inferred_decorator.items():
             call_obj.keywords.append(self.get_keyword_node(view, specifier_dict))

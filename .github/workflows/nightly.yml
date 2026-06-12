@@ -37,10 +37,9 @@ jobs:
           cmake --build . --parallel 2
           cmake --install .
       - name: Install pykokkos-base
-        working-directory: base
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=2
-          python setup.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DKokkos_DIR=/tmp/kokkos_install/lib/cmake/Kokkos/ -DENABLE_INTERNAL_KOKKOS=OFF
+          python install_base.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DKokkos_DIR=/tmp/kokkos_install/lib/cmake/Kokkos/ -DENABLE_INTERNAL_KOKKOS=OFF
       - name: Install pykokkos
         run: |
           python -m pip install .
