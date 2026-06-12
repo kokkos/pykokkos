@@ -10,12 +10,8 @@ from pykokkos.core.keywords import Keywords
 from pykokkos.interface import Layout, MemorySpace, Trait
 
 
-def pretty_format(node):
+def pretty_format_ast(node: Union[ast.Attribute, ast.Name]) -> str:
     return ast.dump(node, indent=4)
-
-
-def pretty_print(node):
-    print(pretty_format(node))
 
 
 allowed_types: Dict[str, str] = {
@@ -165,7 +161,7 @@ class TranslationError(Exception):
 
         if self.debug and self.node is not None:
             msg += "\nDEBUG AST:\n"
-            msg += pretty_format(self.node)
+            msg += pretty_format_ast(self.node)
 
         if hasattr(self.node, "lineno"):
             msg += self.src[0][self.node.lineno - self.src[1] - 1] + "\n"
