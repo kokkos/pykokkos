@@ -24,6 +24,7 @@ class AtomicsTestFunctor:
         self.view1D_rshift: pk.View1D[pk.int32] = pk.View([1], pk.int32)
         self.view1D_sub: pk.View1D[pk.double] = pk.View([1], pk.double)
         self.view1D_xor: pk.View1D[pk.int32] = pk.View([1], pk.int32)
+        self.view1D_ace: pk.View1D[pk.int32] = pk.View([1], pk.int32)
 
         self.view1D_add[0] = f_1
         self.view1D_and[0] = i_1
@@ -37,54 +38,109 @@ class AtomicsTestFunctor:
         self.view1D_rshift[0] = i_1
         self.view1D_sub[0] = f_1
         self.view1D_xor[0] = i_1
+        self.view1D_ace[0] = i_1
 
     @pk.workunit
     def atomic_add(self, tid: int) -> None:
-        pk.atomic_fetch_add(self.view1D_add, [0], self.f_2)
+        pk.atomic_add(self.view1D_add, [0], self.f_2)
 
     @pk.workunit
     def atomic_and(self, tid: int) -> None:
-        pk.atomic_fetch_and(self.view1D_and, [0], self.i_2)
+        pk.atomic_and(self.view1D_and, [0], self.i_2)
 
     @pk.workunit
     def atomic_div(self, tid: int) -> None:
-        pk.atomic_fetch_div(self.view1D_div, [0], self.f_2)
+        pk.atomic_div(self.view1D_div, [0], self.f_2)
 
     @pk.workunit
     def atomic_lshift(self, tid: int) -> None:
-        pk.atomic_fetch_lshift(self.view1D_lshift, [0], self.i_2)
+        pk.atomic_lshift(self.view1D_lshift, [0], self.i_2)
 
     @pk.workunit
     def atomic_max(self, tid: int) -> None:
-        pk.atomic_fetch_max(self.view1D_max, [0], self.f_2)
+        pk.atomic_max(self.view1D_max, [0], self.f_2)
 
     @pk.workunit
     def atomic_min(self, tid: int) -> None:
-        pk.atomic_fetch_min(self.view1D_min, [0], self.f_2)
+        pk.atomic_min(self.view1D_min, [0], self.f_2)
 
     @pk.workunit
     def atomic_mod(self, tid: int) -> None:
-        pk.atomic_fetch_mod(self.view1D_mod, [0], self.i_2)
+        pk.atomic_mod(self.view1D_mod, [0], self.i_2)
 
     @pk.workunit
     def atomic_mul(self, tid: int) -> None:
-        pk.atomic_fetch_mul(self.view1D_mul, [0], self.f_2)
+        pk.atomic_mul(self.view1D_mul, [0], self.f_2)
 
     @pk.workunit
     def atomic_or(self, tid: int) -> None:
-        pk.atomic_fetch_or(self.view1D_or, [0], self.i_2)
+        pk.atomic_or(self.view1D_or, [0], self.i_2)
 
     @pk.workunit
     def atomic_rshift(self, tid: int) -> None:
-        pk.atomic_fetch_rshift(self.view1D_rshift, [0], self.i_2)
+        pk.atomic_rshift(self.view1D_rshift, [0], self.i_2)
 
     @pk.workunit
     def atomic_sub(self, tid: int) -> None:
-        pk.atomic_fetch_sub(self.view1D_sub, [0], self.f_2)
+        pk.atomic_sub(self.view1D_sub, [0], self.f_2)
 
     @pk.workunit
     def atomic_xor(self, tid: int) -> None:
-        pk.atomic_fetch_xor(self.view1D_xor, [0], self.i_2)
+        pk.atomic_xor(self.view1D_xor, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_add(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_add(self.view1D_add, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_and(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_and(self.view1D_and, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_div(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_div(self.view1D_div, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_lshift(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_lshift(self.view1D_lshift, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_max(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_max(self.view1D_max, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_min(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_min(self.view1D_min, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_mod(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_mod(self.view1D_mod, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_mul(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_mul(self.view1D_mul, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_or(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_or(self.view1D_or, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_rshift(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_rshift(self.view1D_rshift, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_fetch_sub(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_sub(self.view1D_sub, [0], self.f_2)
+
+    @pk.workunit
+    def atomic_fetch_xor(self, tid: int) -> None:
+        old_value: pk.double = pk.atomic_fetch_xor(self.view1D_xor, [0], self.i_2)
+
+    @pk.workunit
+    def atomic_compare_exchange(self, tide: int) -> None:
+        old_value: pk.int32 = pk.atomic_compare_exchange(
+            self.view1D_ace, [0], self.i_1, self.i_2
+        )
 
 
 class TestAtomic(unittest.TestCase):
@@ -193,6 +249,110 @@ class TestAtomic(unittest.TestCase):
 
         pk.parallel_for(self.range_policy, self.functor.atomic_xor)
         result: int = self.functor.view1D_xor[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_add(self):
+        expected_result: float = self.f_1 + self.f_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_add)
+        result: float = self.functor.view1D_add[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_and(self):
+        expected_result: int = self.i_1 & self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_and)
+        result: int = self.functor.view1D_and[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_div(self):
+        expected_result: float = self.f_1 / self.f_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_div)
+        result: float = self.functor.view1D_div[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_lshift(self):
+        expected_result: int = self.i_1 << self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_lshift)
+        result: int = self.functor.view1D_lshift[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_max(self):
+        expected_result: float = max(self.f_1, self.f_2)
+
+        result: float = self.functor.view1D_max[0]
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_max)
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_min(self):
+        expected_result: float = min(self.f_1, self.f_2)
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_min)
+        result: float = self.functor.view1D_min[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_mod(self):
+        expected_result: int = self.i_1 % self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_mod)
+        result: int = self.functor.view1D_mod[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_mul(self):
+        expected_result: float = self.f_1 * self.f_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_mul)
+        result: float = self.functor.view1D_mul[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_or(self):
+        expected_result: int = self.i_1 | self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_or)
+        result: int = self.functor.view1D_or[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_rshift(self):
+        expected_result: int = self.i_1 >> self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_rshift)
+        result: int = self.functor.view1D_rshift[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_sub(self):
+        expected_result: float = self.f_1 - self.f_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_sub)
+        result: float = self.functor.view1D_sub[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_fetch_xor(self):
+        expected_result: int = self.i_1 ^ self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_fetch_xor)
+        result: int = self.functor.view1D_xor[0]
+
+        self.assertEqual(expected_result, result)
+
+    def test_atomic_compare_exchange(self):
+        expected_result: int = self.i_2
+
+        pk.parallel_for(self.range_policy, self.functor.atomic_compare_exchange)
+        result: int = self.functor.view1D_ace[0]
 
         self.assertEqual(expected_result, result)
 

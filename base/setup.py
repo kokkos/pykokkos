@@ -91,11 +91,8 @@ parser.add_argument(
     default=[],
     type=str,
     nargs="*",
-    help="{}{}{}".format(
-        "Pass arguments to cmake. Use w/ pip installations",
-        "and --install-option, e.g. --install-option=--cmake-args=",
-        '"-DENABLE_LAYOUTS=ON -DKokkos_DIR=/usr/local/lib/cmake/Kokkos"',
-    ),
+    help="Pass arguments to CMake. For pip installs, "
+    "set PYKOKKOS_BASE_SETUP_ARGS instead.",
 )
 
 args, left = parser.parse_known_args()
@@ -139,8 +136,8 @@ if platform.system() == "Darwin":
     cmake_args += [f"-DCMAKE_OSX_DEPLOYMENT_TARGET={darwin_version}"]
 
 # DO THIS LAST!
-# support PYKOKKOS_BASE_SETUP_ARGS environment variables because
-#  --install-option for pip is a pain to use
+# Support PYKOKKOS_BASE_SETUP_ARGS environment variables so pip builds don't
+# need deprecated/awkward command-line build argument plumbing.
 # PYKOKKOS_BASE_SETUP_ARGS should be space-delimited set of cmake arguments, e.g.:
 #   export PYKOKKOS_BASE_SETUP_ARGS="-DENABLE_LAYOUTS=OFF -DENABLE_MEMORY_TRAITS=ON"
 env_cmake_args = os.environ.get("PYKOKKOS_BASE_SETUP_ARGS", None)

@@ -444,7 +444,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
             self.error(
                 node.func, "Function not supported, did you mean pykokkos.printf()?"
             )
-        elif name in ["PerTeam", "PerThread", "fence"]:
+        elif name in ["PerTeam", "PerThread", "fence", "rsqrt"]:
             name = "Kokkos::" + name
         elif name in {"complex32", "complex64"}:
             name = "Kokkos::complex"
@@ -462,6 +462,7 @@ class PyKokkosVisitor(ast.NodeVisitor):
             "Kokkos::PerTeam",
             "Kokkos::PerThread",
             "Kokkos::fence",
+            "Kokkos::rsqrt",
             "Kokkos::complex<float>",
             "Kokkos::complex<double>",
         ]:
@@ -741,7 +742,9 @@ class PyKokkosVisitor(ast.NodeVisitor):
         return cpp_view_type
 
     def error(self, node, message):
-        visitors_util.error(self.src, self.debug, node, message, self.path)
+        raise visitors_util.TranslationError(
+            self.src, self.debug, node, message, self.path
+        )
 
     def generic_error(self, node):
         self.error(node, "Not supported for translation")

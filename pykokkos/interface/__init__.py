@@ -44,6 +44,7 @@ from .decorators import (
     function,
     functor,
     main,
+    workload,
     workunit,
 )
 from .execution_policy import (
@@ -60,6 +61,9 @@ from .execution_policy import (
 from .execution_space import (
     ExecutionSpace,
     ExecutionSpaceInstance,
+    DeviceExecutionSpace,
+    HostParallelExecutionSpace,
+    HostSerialExecutionSpace,
     is_host_execution_space,
 )
 from .layout import Layout, get_default_layout
@@ -72,6 +76,21 @@ from .parallel_dispatch import (
     parallel_for,
     parallel_reduce,
     parallel_scan,
+)
+from .reducers import (
+    BAnd,
+    BOr,
+    LAnd,
+    LOr,
+    Max,
+    MaxLoc,
+    Min,
+    MinLoc,
+    MinMax,
+    MinMaxLoc,
+    Prod,
+    Reducer,
+    Sum,
 )
 from .random import rand, RandomPool, Random_XorShift64_Pool, Random_XorShift1024_Pool
 from .timer import Timer

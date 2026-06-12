@@ -38,7 +38,12 @@ class StaticTranslator:
     """
 
     def __init__(
-        self, module: str, functor: str, functor_cast: str, pk_members: PyKokkosMembers
+        self,
+        module: str,
+        functor: str,
+        functor_cast: str,
+        pk_members: PyKokkosMembers,
+        reducer: Optional[str] = None,
     ):
         """
         StaticTranslator Constructor
@@ -49,11 +54,13 @@ class StaticTranslator:
         """
 
         self.pk_import: str
+        self._current_entity_name: Optional[str] = None
 
         self.module_file: str = module
         self.functor_file: str = functor
         self.functor_cast: str = functor_cast
         self.pk_members: PyKokkosMembers = pk_members
+        self.reducer: Optional[str] = reducer
 
     def translate(
         self,
@@ -70,6 +77,7 @@ class StaticTranslator:
         """
 
         self.pk_import = entity.pk_import
+        self._current_entity_name = entity.name
         self._current_entity_path: Optional[str] = entity.path
         # Create parser instance to reuse its methods
         # For fused workunits, path is None, so we pass pk_import explicitly
@@ -419,6 +427,8 @@ class StaticTranslator:
             self.pk_members.classtype_methods,
             self.pk_import,
             restrict_views,
+            self.reducer,
+            self._current_entity_name,
             debug=True,
             path=self._current_entity_path,
         )
@@ -517,7 +527,12 @@ class StaticTranslator:
             )
         else:
             bindings = bind_workunits(
-                functor_name, self.pk_members, workunits, self.module_file
+                functor_name,
+                self.pk_members,
+                workunits,
+                self.module_file,
+                self.reducer,
+                entity.name,
             )
 
         return bindings

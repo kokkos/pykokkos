@@ -3,6 +3,7 @@ from functools import partial
 
 
 class Decorator(Enum):
+    Workload = "workload"
     Functor = "functor"
     WorkUnit = "workunit"
     KokkosClasstype = "classtype"
@@ -43,6 +44,10 @@ class Decorator(Enum):
     def is_functor(decorator: str) -> bool:
         return decorator == Decorator.Functor.value
 
+    @staticmethod
+    def is_workload(decorator: str) -> bool:
+        return decorator == Decorator.Workload.value
+
 
 def functor(func=None, **kwargs):
     if func is None:
@@ -64,6 +69,13 @@ def workunit(func=None, *, scratch=None, **kwargs):
     # Store scratch specification as function attribute
     if scratch is not None:
         func._pk_scratch = scratch
+
+    return func
+
+
+def workload(func=None, **kwargs):
+    if func is None:
+        return partial(functor)
 
     return func
 

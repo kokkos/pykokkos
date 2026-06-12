@@ -12,7 +12,7 @@ import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
 
-BASE_DIR: str = "pk_cpp"
+BASE_DIR: str = ".pykokkos"
 
 
 @dataclass
@@ -82,13 +82,18 @@ class ModuleSetup:
         self,
         entity: Union[Callable[..., None], type, List[Callable[..., None]]],
         space: ExecutionSpace,
+        ast_signature: str,
+        *,
         types_signature: Optional[str] = None,
         restricted_views: Optional[Set[str]] = None,
+        reducer_signature: Optional[str] = None,
+        reducer_name: Optional[str] = None,
     ):
         """
         ModuleSetup constructor
 
         :param entity: the functor/workunit/workload or list of workunits for fusion
+        :param ast_signature: hash/string to identify workunit signature against AST
         :param types_signature: hash/string to identify workunit signature against types
         :param restricted_views: a set of view names that do not alias any other views
         """
@@ -103,7 +108,10 @@ class ModuleSetup:
             self.metadata = [get_metadata(entity)]
 
         self.space: ExecutionSpace = space
+        self.ast_signature = ast_signature
         self.types_signature = types_signature
+        self.reducer_signature = reducer_signature
+        self.reducer_name = reducer_name
         self.restrict_signature: Optional[str] = None
         if restricted_views is not None:
             self.restrict_signature = hashlib.md5(
@@ -126,7 +134,13 @@ class ModuleSetup:
             self.main: Path = self.get_main_path()
 
         self.output_dir: Optional[Path] = self.get_output_dir(
-            self.main, self.metadata, space, types_signature, self.restrict_signature
+            self.main,
+            self.metadata,
+            space,
+            ast_signature,
+            types_signature=types_signature,
+            restrict_signature=self.restrict_signature,
+            reducer_signature=reducer_signature,
         )
         self.gpu_module_files: List[str] = []
         if km.is_multi_gpu_enabled():
@@ -154,15 +168,32 @@ class ModuleSetup:
         main: Path,
         metadata: List[EntityMetadata],
         space: ExecutionSpace,
+        ast_signature,
+        *,
         types_signature: Optional[str] = None,
         restrict_signature: Optional[str] = None,
+        reducer_signature: Optional[str] = None,
     ) -> Optional[Path]:
         """
-        Get the output directory for an execution space
+        Get the output directory for an execution space.
+
+        The directory structure is hierarchical to allow for efficient caching.
+        The AST signature is given highest priority as it defines the
+        core logic of the kernel; a change in the AST necessitates a new
+        compilation regardless of other parameters. The type signature
+        and restrict signature are used to avoid excessive recompilation;
+        e.g., if a script requires multiple-precision executions of a workunit,
+        both builds are cached using different type signatures, and logic for
+        both builds is ensured to be current by the AST signature.
+
+        Directory structure:
+        [BASE_DIR] / (optional) [TYPE_SIGNATURE] / (optional) [RESTRICT_SIGNATURE] / [AST_SIGNATURE]
+
 
         :param main: the path to the main file in the current PyKokkos application
         :param metadata: the metadata of the entity or fused entities being compiled
         :param space: the execution space to compile for
+        :param ast_signature: hash/string to identify workunit signature against AST
         :param types_signature: optional identifier/hash string for types of parameters
         :param restrict_signature: optional identifier/hash string from the views that do not alias any other views
         :returns: the path to the output directory for a specific execution space
@@ -178,8 +209,12 @@ class ModuleSetup:
         out_dir: Path = self.get_entity_dir(main, metadata)
         if types_signature is not None:
             out_dir = out_dir / f"types_{types_signature}"
+        if reducer_signature is not None:
+            out_dir = out_dir / f"reducer_{reducer_signature}"
         if restrict_signature is not None:
             out_dir = out_dir / f"restrict_{restrict_signature}"
+        if ast_signature is not None:
+            out_dir = out_dir / f"AST_{ast_signature}"
 
         out_dir = out_dir / space.value
 
@@ -258,7 +293,8 @@ class ModuleSetup:
                 self.main,
                 self.metadata,
                 self.space,
-                self.types_signature,
-                self.restrict_signature,
+                self.ast_signature,
+                types_signature=self.types_signature,
+                restrict_signature=self.restrict_signature,
             )
         )
