@@ -82,7 +82,7 @@ def special_function_workunit(tid, out, arr, flag):
         (14, partial(spsp.hankel2, v=1)),
     ],
 )
-@pytest.mark.parametrize("dtype", [np.complex128]) # TODO: add more types
+@pytest.mark.parametrize("dtype", [np.complex128])  # TODO: add more types
 def test_kokkos_special_functions(flag, sp_func, dtype):
     # generate random numpy data
     N = 400
