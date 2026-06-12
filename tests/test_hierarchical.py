@@ -242,14 +242,16 @@ class TestHierarchical(unittest.TestCase):
             expected_result += self.y[j] * temp2
 
         result: float = pk.parallel_reduce(
-            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.yAx_scaled
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.yAx_scaled,
         )
 
         self.assertEqual(expected_result, result)
 
     def test_fill_offset(self):
         pk.parallel_for(
-            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.fill_offset
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.fill_offset,
         )
         for j in range(self.N):
             for i in range(self.M):
@@ -258,7 +260,8 @@ class TestHierarchical(unittest.TestCase):
     def test_scan_scaled(self):
         expected_result: float = self.N * self.M * 3
         result: float = pk.parallel_reduce(
-            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.scan_scaled
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.scan_scaled,
         )
         self.assertEqual(expected_result, result)
 
