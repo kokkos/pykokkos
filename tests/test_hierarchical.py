@@ -233,9 +233,6 @@ class TestHierarchical(unittest.TestCase):
             self.assertEqual(expected_result, result)
 
     def test_yAx_scaled(self):
-        # Regression test for issue #409: kwargs passed to nested parallel_reduce
-        # inside a team policy workunit were silently dropped, causing C++ compile
-        # errors ("identifier 'scale' is undefined").
         scale: float = 2.0
         expected_result: float = 0
         for j in range(self.N):
@@ -251,7 +248,6 @@ class TestHierarchical(unittest.TestCase):
         self.assertEqual(expected_result, result)
 
     def test_fill_offset(self):
-        # Regression test for issue #409: kwargs passed to nested parallel_for
         pk.parallel_for(
             pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.fill_offset
         )
@@ -260,8 +256,6 @@ class TestHierarchical(unittest.TestCase):
                 self.assertEqual(self.functor.A[j][i], 42)
 
     def test_scan_scaled(self):
-        # Regression test for issue #409: kwargs passed to nested parallel_scan
-        # Each team scans M elements each contributing `scale=3`, giving total 3*M per team.
         expected_result: float = self.N * self.M * 3
         result: float = pk.parallel_reduce(
             pk.TeamPolicy(self.execution_space, self.N, pk.AUTO), self.functor.scan_scaled
