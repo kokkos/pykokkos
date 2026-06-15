@@ -1,5 +1,16 @@
+import ctypes
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import numpy as np
 
@@ -7,6 +18,7 @@ from pykokkos.runtime import runtime_singleton
 import pykokkos.kokkos_manager as km
 from pykokkos.core.cppast import BuiltinType
 
+from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
@@ -36,6 +48,70 @@ BUILTIN_TO_NUMPY: Dict[str, np.dtype] = {
     BuiltinType.DOUBLE.value: np.float64,
     BuiltinType.BOOL.value: np.bool_,
 }
+
+
+def c_float_dtype_name() -> str:
+    c_float_size = ctypes.sizeof(ctypes.c_float)
+    if c_float_size == np.dtype(np.float32).itemsize:
+        return "float32"
+    if c_float_size == np.dtype(np.float64).itemsize:
+        return "float64"
+
+    raise TypeError(f"Unsupported C float size: {c_float_size} bytes")
+
+
+def normalize_dtype_name(dtype) -> Optional[str]:
+    if dtype is int:
+        return "int32"
+    if dtype is float:
+        return "float64"
+    if dtype is bool:
+        return "uint8"
+
+    if isinstance(dtype, DataType):
+        dtype_name = dtype.name
+    elif isinstance(dtype, type) and issubclass(dtype, DataTypeClass):
+        dtype_name = dtype.__name__
+    else:
+        return None
+
+    aliases = {
+        "bool": "uint8",
+        "float": c_float_dtype_name(),
+        "double": "float64",
+    }
+    return aliases.get(dtype_name, dtype_name)
+
+
+def get_view_annotation_dtype(annotation) -> Optional[str]:
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if origin is None or len(args) == 0:
+        return None
+
+    origin_name = getattr(origin, "__name__", "")
+    if not origin_name.startswith("View"):
+        return None
+
+    return normalize_dtype_name(args[0])
+
+
+def check_view_dtype_matches_annotation(
+    arg_name: str, annotation, view: ViewType
+) -> None:
+    expected = get_view_annotation_dtype(annotation)
+    if expected is None:
+        return
+
+    actual = normalize_dtype_name(view.dtype)
+    if expected == actual:
+        return
+
+    raise TypeError(
+        f"Argument '{arg_name}' expects a View with dtype {expected}, "
+        f"but received dtype {actual}."
+    )
 
 
 def parse_list_annotation(annotation) -> Tuple[int, np.dtype]:
@@ -284,6 +360,10 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
             lineno = get_lineno(caller_frame)
             msg = f"Type {type(v)} is not supported. Only numpy arrays, cupy arrays, and torch tensors are supported."
             generic_error(filename, lineno, msg, "Conversion failed")
+
+    for k, v in kwargs.items():
+        if isinstance(v, ViewType) and k in type_hints:
+            check_view_dtype_matches_annotation(k, type_hints[k], v)
 
 
 def parallel_for(*args, **kwargs) -> None:
