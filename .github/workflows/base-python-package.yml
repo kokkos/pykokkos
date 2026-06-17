@@ -16,8 +16,8 @@ jobs:
   linting:
     strategy:
       matrix:
-        python-version: [3.13]
-        os: [ubuntu-latest]
+        python-version: [3.11, 3.12, 3.13]
+        os: [ubuntu-latest, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
     defaults:
@@ -49,7 +49,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.13]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
     defaults:

@@ -468,6 +468,10 @@ class PyKokkosVisitor(ast.NodeVisitor):
         ]:
             return cppast.CallExpr(function, args)
 
+        if name in visitors_util.math_special_functions:
+            function = cppast.DeclRefExpr("Kokkos::Experimental::" + name)
+            return cppast.CallExpr(function, args)
+
         if function in self.kokkos_functions:
             if "PK_RESTRICT" in os.environ:
                 return adjust_kokkos_function_call(
