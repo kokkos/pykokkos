@@ -61,7 +61,9 @@ class Benchmark:
 
     @pk.callback
     def results(self):
-        print(f"GUP/s Random: {1e-9 * self.repeats * self.indicesCount / self.gupsTime}")
+        print(
+            f"GUP/s Random: {1e-9 * self.repeats * self.indicesCount / self.gupsTime}"
+        )
         print(self.data)
 
     @pk.workunit
@@ -90,10 +92,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.indices:
         indices = args.indices
-        indices = 2 ** indices
+        indices = 2**indices
     if args.data:
         data = args.data
-        data = 2 ** data
+        data = 2**data
     if args.repeats:
         repeats = args.repeats
     use_atomics = args.atomics

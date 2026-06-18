@@ -7,16 +7,19 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from pykokkos.core.fusion import fuse_workunits
+from pykokkos.core.optimizations import loop_fuse, memory_ops_fuse
 from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
 from pykokkos.core.translators import PyKokkosMembers, StaticTranslator
-from pykokkos.interface import ExecutionSpace, UpdatedTypes, UpdatedDecorator
+from pykokkos.core.type_inference import UpdatedTypes, UpdatedDecorator
+from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
 from .module_setup import EntityMetadata, ModuleSetup
+
 
 @dataclass
 class CompilationDefaults:
@@ -26,6 +29,7 @@ class CompilationDefaults:
 
     space: str
     force_uvm: bool
+
 
 class Compiler:
     """
@@ -50,7 +54,9 @@ class Compiler:
         logging.basicConfig(stream=sys.stdout, level=numeric_level)
         self.logger = logging.getLogger()
 
-    def fuse_objects(self, metadata: List[EntityMetadata], fuse_ASTs: bool) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
+    def fuse_objects(
+        self, metadata: List[EntityMetadata], fuse_ASTs: bool, **kwargs
+    ) -> Tuple[PyKokkosEntity, List[PyKokkosEntity]]:
         """
         Fuse two or more workunits into one
 
@@ -79,7 +85,9 @@ class Compiler:
             for c in parser.get_classtypes():
                 if c.name in pyk_classtype_ids:
                     if c.path != pyk_classtype_ids[c.name]:
-                        raise RuntimeError(f"Ambiguous usage of classtype {c.name} in {c.path} and {pyk_classtype_ids[c.name]}")
+                        raise RuntimeError(
+                            f"Ambiguous usage of classtype {c.name} in {c.path} and {pyk_classtype_ids[c.name]}"
+                        )
                 else:
                     pyk_classtype_ids[c.name] = c.path
                     pyk_classtypes.append(c)
@@ -94,29 +102,40 @@ class Compiler:
             sources.append(entity.source)
 
         if not all(pk_import == pk_imports[0] for pk_import in pk_imports):
-            raise ValueError("Must use same pykokkos import alias for all fused workunits")
+            raise ValueError(
+                "Must use same pykokkos import alias for all fused workunits"
+            )
 
         fused_name: str = "_".join(names)
         if fuse_ASTs:
-            AST, source = fuse_workunits(fused_name, ASTs, sources)
+            AST, source = fuse_workunits(fused_name, ASTs, sources, **kwargs)
         else:
             AST = None
             source = None
 
-        entity = PyKokkosEntity(PyKokkosStyles.fused, fused_name, AST, full_ASTs[0], source, None, pk_imports[0])
+        entity = PyKokkosEntity(
+            PyKokkosStyles.fused,
+            fused_name,
+            AST,
+            full_ASTs[0],
+            source,
+            None,
+            pk_imports[0],
+        )
 
         return entity, pyk_classtypes
-
 
     def compile_object(
         self,
         module_setup: ModuleSetup,
         space: ExecutionSpace,
         force_uvm: bool,
-        updated_decorator: UpdatedDecorator,
-        updated_types: Optional[UpdatedTypes] = None,
-        types_signature: Optional[str] = None
-    ) -> Optional[PyKokkosMembers]:
+        updated_decorator: Optional[UpdatedDecorator],
+        updated_types: Optional[UpdatedTypes],
+        types_signature: Optional[str],
+        restrict_views: Set[str],
+        **kwargs,
+    ) -> PyKokkosMembers:
         """
         Compile an entity object for a single execution space
 
@@ -125,6 +144,7 @@ class Compiler:
         :param force_uvm: whether CudaUVMSpace is enabled
         :param updated_decorator: Object for decorator specifiers
         :param updated_types: Object with with inferred types
+        :param restrict_views: a set of view names that do not alias any other views
         :returns: the PyKokkos members obtained during translation
         """
 
@@ -139,20 +159,25 @@ class Compiler:
             classtypes = parser.get_classtypes()
         else:
             # Avoid fusing the ASTs before checking if it was already compiled
-            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False)
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False, **kwargs)
 
         hash: str = self.members_hash(entity.path, entity.name, types_signature)
 
         types_inferred: bool = updated_types is not None
         decorator_inferred: bool = updated_decorator is not None
 
-        if types_inferred and entity.style not in {PyKokkosStyles.workunit, PyKokkosStyles.fused}:
+        if types_inferred and entity.style not in {
+            PyKokkosStyles.workunit,
+            PyKokkosStyles.fused,
+        }:
             raise Exception(f"Types are required for style: {entity.style}")
 
         if self.is_compiled(module_setup.output_dir):
-            if hash not in self.members: # True if pre-compiled
+            if hash not in self.members:  # True if pre-compiled
                 if len(metadata) > 1:
-                    entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
+                    entity, classtypes = self.fuse_objects(
+                        metadata, fuse_ASTs=True, **kwargs
+                    )
 
                 if types_inferred:
                     entity.AST = parser.fix_types(entity, updated_types)
@@ -163,7 +188,7 @@ class Compiler:
             return self.members[hash]
 
         if len(metadata) > 1:
-            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True)
+            entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=True, **kwargs)
 
         self.is_compiled_cache[module_setup.output_dir] = True
 
@@ -174,13 +199,22 @@ class Compiler:
         if decorator_inferred:
             entity.AST = parser.fix_decorator(entity, updated_decorator)
 
-        if hash in self.members: # True if compiled with another execution space
+        if hash in self.members:  # True if compiled with another execution space
             members = self.members[hash]
         else:
             members = self.extract_members(entity, classtypes)
             self.members[hash] = members
 
-        self.compile_entity(module_setup.main, module_setup, entity, classtypes, space, force_uvm, members)
+        self.compile_entity(
+            module_setup.main,
+            module_setup,
+            entity,
+            classtypes,
+            space,
+            force_uvm,
+            members,
+            restrict_views,
+        )
         return members
 
     def compile_entity(
@@ -191,7 +225,8 @@ class Compiler:
         classtypes: List[PyKokkosEntity],
         space: ExecutionSpace,
         force_uvm: bool,
-        members: PyKokkosMembers
+        members: PyKokkosMembers,
+        restrict_views: Set[str],
     ) -> None:
         """
         Compile the entity
@@ -203,6 +238,7 @@ class Compiler:
         :param space: the execution space to compile for
         :param force_uvm: whether CudaUVMSpace is enabled
         :param members: the PyKokkos related members of the entity
+        :param restrict_views: a set of view names that do not alias any other views
         """
 
         if space is ExecutionSpace.Default:
@@ -215,20 +251,52 @@ class Compiler:
             return
 
         cpp_setup = CppSetup(module_setup.module_file, module_setup.gpu_module_files)
-        translator = StaticTranslator(module_setup.name, self.functor_file,self.functor_cast_file, members)
+        translator = StaticTranslator(
+            module_setup.name,
+            self.functor_file,
+            self.functor_cast_file,
+            members,
+            module_setup.reducer_name,
+        )
         t_start: float = time.perf_counter()
         functor: List[str]
         bindings: List[str]
         cast: List[str]
 
-        functor, bindings, cast = translator.translate(entity, classtypes)
+        if entity.style in {PyKokkosStyles.workunit, PyKokkosStyles.fused}:
+            if "PK_LOOP_FUSE" in os.environ:
+                loop_fuse(entity.AST)
+            if "PK_MEM_FUSE" in os.environ:
+                memory_ops_fuse(entity.AST, entity.pk_import)
+        functor, bindings, cast = translator.translate(
+            entity, classtypes, restrict_views
+        )
 
         t_end: float = time.perf_counter() - t_start
         self.logger.info(f"translation {t_end}")
 
-        output_dir: Path = module_setup.get_output_dir(main, module_setup.metadata, space, module_setup.types_signature)
+        output_dir: Path = module_setup.get_output_dir(
+            main,
+            module_setup.metadata,
+            space,
+            module_setup.ast_signature,
+            types_signature=module_setup.types_signature,
+            restrict_signature=module_setup.restrict_signature,
+            reducer_signature=module_setup.reducer_signature,
+        )
         c_start: float = time.perf_counter()
-        cpp_setup.compile(output_dir, functor, self.functor_file, cast, self.functor_cast_file, bindings, self.bindings_file, space, force_uvm, self.get_compiler())
+        cpp_setup.compile(
+            output_dir,
+            functor,
+            self.functor_file,
+            cast,
+            self.functor_cast_file,
+            bindings,
+            self.bindings_file,
+            space,
+            force_uvm,
+            self.get_compiler(),
+        )
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
 
@@ -239,8 +307,8 @@ class Compiler:
         filename: str,
         module_file: str,
         space: ExecutionSpace,
-        force_uvm: bool
-        ) -> None:
+        force_uvm: bool,
+    ) -> None:
         """
         Compile the entity
 
@@ -254,7 +322,9 @@ class Compiler:
 
         cpp_setup = CppSetup(module_file, [])
         c_start: float = time.perf_counter()
-        cpp_setup.compile_raw_source(output_dir, source, filename, space, force_uvm, self.get_compiler())
+        cpp_setup.compile_raw_source(
+            output_dir, source, filename, space, force_uvm, self.get_compiler()
+        )
         c_end: float = time.perf_counter() - c_start
         self.logger.info(f"compilation {c_end}")
 
@@ -262,7 +332,7 @@ class Compiler:
         """
         Get the compiler to use based on the machine name
 
-        :returns: g++ or nvcc
+        :returns: g++, nvcc, or hipcc
         """
 
         from pykokkos.bindings import kokkos
@@ -322,7 +392,9 @@ class Compiler:
 
         return defaults
 
-    def members_hash(self, path: List[str], name: str, types_signature: Optional[str]) -> str:
+    def members_hash(
+        self, path: List[str], name: str, types_signature: Optional[str]
+    ) -> str:
         """
         Map from entity path and name to a string to index members
 
@@ -332,9 +404,15 @@ class Compiler:
         :returns: the hash of the entity
         """
 
-        return f"{path}_{name}" if types_signature is None else f"{path}_{name}_{types_signature}"
+        return (
+            f"{path}_{name}"
+            if types_signature is None
+            else f"{path}_{name}_{types_signature}"
+        )
 
-    def extract_members(self, entity: PyKokkosEntity, classtypes: List[PyKokkosEntity]) -> PyKokkosMembers:
+    def extract_members(
+        self, entity: PyKokkosEntity, classtypes: List[PyKokkosEntity]
+    ) -> PyKokkosMembers:
         """
         Extract the PyKokkos members from an entity
 

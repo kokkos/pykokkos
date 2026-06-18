@@ -2,6 +2,7 @@ from enum import Enum
 
 import pykokkos.kokkos_manager as km
 
+
 class ExecutionSpace(Enum):
     Cuda = "Cuda"
     HIP = "HIP"
@@ -10,6 +11,12 @@ class ExecutionSpace(Enum):
     Serial = "Serial"
     Debug = "Debug"
     Default = "Default"
+
+
+DeviceExecutionSpace = frozenset({ExecutionSpace.Cuda, ExecutionSpace.HIP})
+HostParallelExecutionSpace = frozenset({ExecutionSpace.OpenMP, ExecutionSpace.Threads})
+HostSerialExecutionSpace = frozenset({ExecutionSpace.Serial})
+
 
 def is_host_execution_space(space: ExecutionSpace) -> bool:
     """
@@ -22,7 +29,8 @@ def is_host_execution_space(space: ExecutionSpace) -> bool:
     if space is ExecutionSpace.Default:
         space = km.get_default_space()
 
-    return space in {ExecutionSpace.OpenMP, ExecutionSpace.Threads, ExecutionSpace.Serial}
+    return space in HostParallelExecutionSpace | HostSerialExecutionSpace
+
 
 class ExecutionSpaceInstance:
     """
@@ -30,7 +38,7 @@ class ExecutionSpaceInstance:
     streams
     """
 
-    def __init__(self, space: ExecutionSpace, stream = None):
+    def __init__(self, space: ExecutionSpace, stream=None):
         """
         ExecutionSpaceInstance constructor
 
@@ -43,7 +51,10 @@ class ExecutionSpaceInstance:
 
         self.space: ExecutionSpace = space
 
-        instance_constructor = getattr(km.get_kokkos_module(is_host_execution_space(space)), f"KokkosExecutionSpace_{space.value}")
+        instance_constructor = getattr(
+            km.get_kokkos_module(is_host_execution_space(space)),
+            f"KokkosExecutionSpace_{space.value}",
+        )
 
         if stream is not None:
             if space.value not in {"Cuda", "HIP"}:
@@ -52,7 +63,9 @@ class ExecutionSpaceInstance:
             import cupy as cp
 
             if not isinstance(stream, cp.cuda.Stream):
-                raise TypeError(f"Type {type(stream)} unsupported; Only CuPy streams allowed")
+                raise TypeError(
+                    f"Type {type(stream)} unsupported; Only CuPy streams allowed"
+                )
 
             self.instance = instance_constructor(stream.ptr, False)
         else:

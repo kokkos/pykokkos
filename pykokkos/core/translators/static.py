@@ -1,13 +1,18 @@
 import ast
 import copy
+import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pykokkos.core import cppast
 from pykokkos.core.keywords import Keywords
-from pykokkos.core.parsers import PyKokkosEntity, PyKokkosStyles
+from pykokkos.core.optimizations import add_restrict_views
+from pykokkos.core.parsers import Parser, PyKokkosEntity, PyKokkosStyles
+from pykokkos.core.type_inference.args_type_inference import _infer_type_from_value
 from pykokkos.core.visitors import (
-    ClasstypeVisitor, KokkosFunctionVisitor, WorkunitVisitor
+    ClasstypeVisitor,
+    KokkosFunctionVisitor,
+    WorkunitVisitor,
 )
 
 from .bindings import bind_main, bind_workunits
@@ -16,20 +21,30 @@ from .functor_cast import generate_cast
 from .members import PyKokkosMembers
 from .symbols_pass import SymbolsPass
 
+
 def generate_include_guard_start(symbol_name: str):
     include_guard: str = f"#ifndef {symbol_name}\n"
     include_guard += f"#define {symbol_name}\n"
     return include_guard
 
+
 def generate_include_guard_end() -> str:
     return "\n#endif"
+
 
 class StaticTranslator:
     """
     Translates a PyKokkos workload to C++ using static analysis only
     """
 
-    def __init__(self, module: str, functor: str,functor_cast: str, pk_members: PyKokkosMembers):
+    def __init__(
+        self,
+        module: str,
+        functor: str,
+        functor_cast: str,
+        pk_members: PyKokkosMembers,
+        reducer: Optional[str] = None,
+    ):
         """
         StaticTranslator Constructor
 
@@ -39,16 +54,19 @@ class StaticTranslator:
         """
 
         self.pk_import: str
+        self._current_entity_name: Optional[str] = None
 
         self.module_file: str = module
         self.functor_file: str = functor
         self.functor_cast: str = functor_cast
         self.pk_members: PyKokkosMembers = pk_members
+        self.reducer: Optional[str] = reducer
 
     def translate(
         self,
         entity: PyKokkosEntity,
         classtypes: List[PyKokkosEntity],
+        restrict_views: Set[str],
     ) -> Tuple[List[str], List[str]]:
         """
         Translate an entity into C++ code
@@ -59,6 +77,14 @@ class StaticTranslator:
         """
 
         self.pk_import = entity.pk_import
+        self._current_entity_name = entity.name
+        self._current_entity_path: Optional[str] = entity.path
+        # Create parser instance to reuse its methods
+        # For fused workunits, path is None, so we pass pk_import explicitly
+        if entity.path is not None:
+            self.parser = Parser(entity.path)
+        else:
+            self.parser = Parser(None, pk_import=entity.pk_import)
 
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:
@@ -72,24 +98,41 @@ class StaticTranslator:
 
         source: Tuple[List[str], int] = entity.source
         functor_name: str = f"pk_functor_{entity.name}"
-        classtypes: List[cppast.RecordDecl] = self.translate_classtypes(classtypes)
-        functions: List[cppast.MethodDecl] = self.translate_functions(source)
+        classtypes: List[cppast.RecordDecl] = self.translate_classtypes(
+            classtypes, restrict_views
+        )
+        functions: List[cppast.MethodDecl] = self.translate_functions(
+            source, restrict_views
+        )
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
         has_rand_call: bool
-        workunits, has_rand_call = self.translate_workunits(source)
+        workunits, has_rand_call = self.translate_workunits(source, restrict_views)
 
-        struct: cppast.RecordDecl = generate_functor(functor_name, self.pk_members, workunits, functions, has_rand_call)
+        struct: cppast.RecordDecl = generate_functor(
+            functor_name, self.pk_members, workunits, functions, has_rand_call
+        )
+        if "PK_RESTRICT" in os.environ:
+            for operation, workunit in workunits.values():
+                add_restrict_views(struct, operation, workunit, restrict_views)
 
-        cast: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_CAST_"+"_HPP")]
+        cast: List[str] = [
+            self.generate_header(),
+            generate_include_guard_start(functor_name.upper() + "_CAST_" + "_HPP"),
+        ]
         cast.append(self.generate_cast_includes())
-        cast.extend(generate_cast(functor_name,self.pk_members))
+        cast.extend(generate_cast(functor_name, self.pk_members))
         cast.append(generate_include_guard_end())
 
-        bindings: List[str] = self.generate_bindings(entity, functor_name, source, workunits)
+        bindings: List[str] = self.generate_bindings(
+            entity, functor_name, source, workunits
+        )
 
         s = cppast.Serializer()
-        functor: List[str] = [self.generate_header(), generate_include_guard_start(functor_name.upper()+"_HPP")]
+        functor: List[str] = [
+            self.generate_header(),
+            generate_include_guard_start(functor_name.upper() + "_HPP"),
+        ]
         functor.extend([s.serialize(c) for c in classtypes])
         functor.append(s.serialize(struct))
         functor.append(generate_include_guard_end())
@@ -111,6 +154,16 @@ class StaticTranslator:
         for node in ast.walk(classdef):
             for child in ast.iter_child_nodes(node):
                 child.parent = node
+
+            for field_name, child in ast.iter_fields(node):
+                if isinstance(child, ast.AST):
+                    child.parent_accessor = field_name
+                elif isinstance(child, list):
+                    for idx, grand_child in enumerate(child):
+                        if isinstance(grand_child, str):
+                            continue
+                        grand_child.parent_accessor = field_name
+                        grand_child.idx_in_parent = idx
 
         return classdef
 
@@ -142,12 +195,14 @@ class StaticTranslator:
 
             sys.exit()
 
-
-    def translate_classtypes(self, classtypes: List[PyKokkosEntity]) -> List[cppast.RecordDecl]:
+    def translate_classtypes(
+        self, classtypes: List[PyKokkosEntity], restrict_views: Set[str]
+    ) -> List[cppast.RecordDecl]:
         """
         Translate all classtypes, i.e. classes that the workload uses internally
 
         :param classtypes: the list of classtypes needed by the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a list of strings of translated source code
         """
 
@@ -160,9 +215,16 @@ class StaticTranslator:
 
             node_visitor = ClasstypeVisitor(
                 {},
-                source, self.pk_members.views, self.pk_members.pk_workunits,
-                self.pk_members.fields, self.pk_members.pk_functions,
-                self.pk_members.classtype_methods, self.pk_import, debug=True
+                source,
+                self.pk_members.views,
+                self.pk_members.pk_workunits,
+                self.pk_members.fields,
+                self.pk_members.pk_functions,
+                self.pk_members.classtype_methods,
+                self.pk_import,
+                restrict_views,
+                debug=True,
+                path=getattr(c, "path", self._current_entity_path),
             )
 
             definition: cppast.RecordDecl = node_visitor.visit(classdef)
@@ -174,22 +236,166 @@ class StaticTranslator:
 
         return declarations + definitions
 
-    def translate_functions(self, source: Tuple[List[str], int]) -> List[cppast.MethodDecl]:
+    def _extract_type_from_annotation(
+        self, annotation: Union[ast.Name, ast.Attribute]
+    ) -> Optional[str]:
+        """Extract type string from an annotation AST node."""
+        if isinstance(annotation, ast.Name):
+            return annotation.id
+        if (
+            isinstance(annotation, ast.Attribute)
+            and isinstance(annotation.value, ast.Name)
+            and annotation.value.id == self.pk_import
+        ):
+            return annotation.attr
+        return None
+
+    def _find_type_in_workunits(self, arg_name: str) -> Optional[str]:
+        """Find type of an argument by searching workunit parameters."""
+        for workunit in self.pk_members.pk_workunits.values():
+            for workunit_arg in workunit.args.args:
+                if workunit_arg.arg == arg_name and workunit_arg.annotation:
+                    return self._extract_type_from_annotation(workunit_arg.annotation)
+        return None
+
+    def _find_type_in_functions(self, arg_name: str) -> Optional[str]:
+        """Find type of an argument by searching other function parameters."""
+        for function in self.pk_members.pk_functions.values():
+            for func_arg in function.args.args:
+                if func_arg.arg == arg_name and func_arg.annotation:
+                    return self._extract_type_from_annotation(func_arg.annotation)
+        return None
+
+    def _infer_type_from_argument(self, arg_node: ast.expr) -> Optional[str]:
+        """Infer type from a single argument node."""
+        if isinstance(arg_node, ast.Constant):
+            return _infer_type_from_value(arg_node.value)
+
+        if isinstance(arg_node, ast.Name):
+            type_str = self._find_type_in_workunits(arg_node.id)
+            if type_str:
+                return type_str
+            return self._find_type_in_functions(arg_node.id)
+
+        return None
+
+    def _infer_function_parameter_types(
+        self, functiondef: ast.FunctionDef, call_sites: List[ast.Call]
+    ) -> Dict[str, str]:
+        """Infer types for function parameters from call sites."""
+        inferred_types: Dict[str, str] = {}
+        all_params = functiondef.args.args
+
+        for call_site in call_sites:
+            for arg_idx, arg_node in enumerate(call_site.args):
+                # Map call argument index to parameter index
+                param_idx = arg_idx
+                if all_params and all_params[0].arg == "self":
+                    param_idx = arg_idx + 1
+
+                if param_idx >= len(all_params):
+                    continue
+                param = all_params[param_idx]
+
+                # already infered
+                if param.annotation is not None:
+                    continue
+
+                inferred_type = self._infer_type_from_argument(arg_node)
+                if inferred_type:
+                    inferred_types[param.arg] = inferred_type
+
+        return inferred_types
+
+    def _find_all_call_sites(self, function_name: str) -> List[ast.Call]:
+        """Find all call sites for a given function."""
+
+        class CallSiteFinder(ast.NodeVisitor):
+            def __init__(self, target_name: str, pk_import: str):
+                self.target_name = target_name
+                self.pk_import = pk_import
+                self.call_sites: List[ast.Call] = []
+
+            def visit_Call(self, node: ast.Call):
+                # Direct function call: function_name()
+                if isinstance(node.func, ast.Name) and node.func.id == self.target_name:
+                    self.call_sites.append(node)
+                # Method call: self.function_name() or pk.function_name()
+                elif (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == self.target_name
+                ):
+                    if isinstance(node.func.value, ast.Name):
+                        # Accept both self.function_name and pk.function_name
+                        if node.func.value.id in ("self", self.pk_import):
+                            self.call_sites.append(node)
+
+                self.generic_visit(node)
+
+        finder = CallSiteFinder(function_name, self.pk_import)
+
+        # Search in workunits
+        for workunit in self.pk_members.pk_workunits.values():
+            finder.visit(workunit)
+
+        # Search in other functions for nested calls
+        for other_func in self.pk_members.pk_functions.values():
+            finder.visit(other_func)
+
+        return finder.call_sites
+
+    def _infer_function_types_iteratively(self) -> None:
+        """Iteratively infer types for all functions until convergence."""
+        max_iterations = 20
+
+        for _ in range(max_iterations):
+            types_changed = False
+
+            for functiondef in self.pk_members.pk_functions.values():
+                call_sites = self._find_all_call_sites(functiondef.name)
+                inferred_types = self._infer_function_parameter_types(
+                    functiondef, call_sites
+                )
+
+                if inferred_types:
+                    self.parser.fix_function_types(functiondef, inferred_types)
+                    types_changed = True
+            if not types_changed:
+                break
+        else:
+            print(
+                f"Warning: Type inference did not converge after {max_iterations} iterations"
+            )
+
+    def translate_functions(
+        self, source: Tuple[List[str], int], restrict_views: Set[str]
+    ) -> List[cppast.MethodDecl]:
         """
         Translate all PyKokkos functions
 
         :param source: the python source code of the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a list of method declarations
         """
+
+        self._infer_function_types_iteratively()
 
         # The visitor might add views declared as parameters
         views = copy.deepcopy(self.pk_members.views)
 
         node_visitor = KokkosFunctionVisitor(
             {},
-            source, views, self.pk_members.pk_workunits,
-            self.pk_members.fields, self.pk_members.pk_functions,
-            self.pk_members.classtype_methods, self.pk_import, debug=True)
+            source,
+            views,
+            self.pk_members.pk_workunits,
+            self.pk_members.fields,
+            self.pk_members.pk_functions,
+            self.pk_members.classtype_methods,
+            self.pk_import,
+            restrict_views,
+            debug=True,
+            path=self._current_entity_path,
+        )
 
         translation: List[cppast.MethodDecl] = []
 
@@ -198,20 +404,34 @@ class StaticTranslator:
 
         return translation
 
-    def translate_workunits(self, source: Tuple[List[str], int]) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
+    def translate_workunits(
+        self, source: Tuple[List[str], int], restrict_views: Set[str]
+    ) -> Tuple[Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]], bool]:
         """
         Translate the workunits
 
         :param source: the python source code of the workload
+        :param restrict_views: the views with the restrict keyword
         :returns: a tuple of a dictionary mapping from workload name
             to a tuple of operation name and source, and a boolean
             indicating whether the workunit has a call to pk.rand()
         """
 
         node_visitor = WorkunitVisitor(
-            {}, source, self.pk_members.views, self.pk_members.pk_workunits,
-            self.pk_members.fields, self.pk_members.pk_functions,
-            self.pk_members.classtype_methods, self.pk_import, debug=True)
+            {},
+            source,
+            self.pk_members.views,
+            self.pk_members.pk_workunits,
+            self.pk_members.fields,
+            self.pk_members.pk_functions,
+            self.pk_members.classtype_methods,
+            self.pk_import,
+            restrict_views,
+            self.reducer,
+            self._current_entity_name,
+            debug=True,
+            path=self._current_entity_path,
+        )
 
         workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]] = {}
 
@@ -251,11 +471,12 @@ class StaticTranslator:
             "Kokkos_Core.hpp",
             "Kokkos_Random.hpp",
             "Kokkos_Sort.hpp",
+            "Kokkos_StdAlgorithms.hpp",
             "fstream",
             "iostream",
             "cmath",
             self.functor_file,
-            self.functor_cast
+            self.functor_cast,
         ]
         headers = [f"#include <{h}>\n" for h in headers]
 
@@ -273,10 +494,11 @@ class StaticTranslator:
             "Kokkos_Core.hpp",
             "Kokkos_Random.hpp",
             "Kokkos_Sort.hpp",
+            "Kokkos_StdAlgorithms.hpp",
             "fstream",
             "iostream",
             "cmath",
-            self.functor_file
+            self.functor_file,
         ]
         headers = [f"#include <{h}>\n" for h in headers]
 
@@ -287,7 +509,7 @@ class StaticTranslator:
         entity: PyKokkosEntity,
         functor_name: str,
         source: Tuple[List[str], int],
-        workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]]
+        workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
     ) -> List[str]:
         """
         Generate the pybind bindings for a single real precision
@@ -300,9 +522,18 @@ class StaticTranslator:
 
         bindings: List[str]
         if entity.style is PyKokkosStyles.workload:
-            bindings = bind_main(functor_name, self.pk_members, source, self.pk_import, self.module_file)
+            bindings = bind_main(
+                functor_name, self.pk_members, source, self.pk_import, self.module_file
+            )
         else:
-            bindings = bind_workunits(functor_name, self.pk_members, workunits, self.module_file)
+            bindings = bind_workunits(
+                functor_name,
+                self.pk_members,
+                workunits,
+                self.module_file,
+                self.reducer,
+                entity.name,
+            )
 
         return bindings
 
@@ -314,7 +545,9 @@ class StaticTranslator:
         :param workunit: the workunit containing a call to pk.rand()
         """
 
-        random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = self.pk_members.random_pool
+        random_pool: Optional[Tuple[cppast.DeclRefExpr, cppast.ClassType]] = (
+            self.pk_members.random_pool
+        )
 
         pool_type: str = random_pool[1].typename
         generator_type = cppast.ClassType(f"Kokkos::{pool_type}<>::generator_type")
@@ -322,11 +555,19 @@ class StaticTranslator:
         pool_state_name = cppast.DeclRefExpr(Keywords.RandPoolState.value)
 
         rand_pool_name: cppast.DeclRefExpr = random_pool[0]
-        pool_value = cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("get_state"), [])
+        pool_value = cppast.MemberCallExpr(
+            rand_pool_name, cppast.DeclRefExpr("get_state"), []
+        )
 
-        init_pool = cppast.DeclStmt(cppast.VarDecl(generator_type, pool_state_name, pool_value))
+        init_pool = cppast.DeclStmt(
+            cppast.VarDecl(generator_type, pool_state_name, pool_value)
+        )
 
-        free_pool = cppast.CallStmt(cppast.MemberCallExpr(rand_pool_name, cppast.DeclRefExpr("free_state"), [pool_state_name]))
+        free_pool = cppast.CallStmt(
+            cppast.MemberCallExpr(
+                rand_pool_name, cppast.DeclRefExpr("free_state"), [pool_state_name]
+            )
+        )
 
         body: cppast.CompoundStmt = workunit.body
         body.statements.insert(0, init_pool)

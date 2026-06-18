@@ -1,0 +1,88 @@
+name: Dev Container CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "dev-container/**"
+      - ".github/workflows/dev-container-ci.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "dev-container/**"
+      - ".github/workflows/dev-container-ci.yml"
+
+jobs:
+  # Dockerfile linting
+  dockerfile-lint:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: dev-container/Dockerfile
+          failure-threshold: warning
+          ignore: DL3002
+
+  # Shell scripts check
+  shellcheck:
+    name: ShellCheck Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck on build-container.sh
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "./dev-container"
+          severity: warning
+          ignore_paths: secrets.yaml secrets-template.yaml
+
+      - name: Run ShellCheck on scripts directory
+        uses: ludeeus/action-shellcheck@master
+        env:
+          SHELLCHECK_OPTS: -e SC1090
+        with:
+          scandir: "./dev-container/scripts"
+          severity: warning
+
+  # Dockerfile building 
+  dockerfile-build-test:
+    name: Test Dockerfile Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create dummy secrets for build test
+        run: |
+          mkdir -p dev-container/secrets
+          echo "testuser" > dev-container/secrets/username
+          echo "testpass" > dev-container/secrets/password
+          echo "" > dev-container/secrets/ssh_key
+
+      - name: Build Docker image (test only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dev-container/Dockerfile
+          push: false
+          tags: pykokkos-dev:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secret-files: |
+            username=dev-container/secrets/username
+            password=dev-container/secrets/password
+            ssh_key=dev-container/secrets/ssh_key
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -rf dev-container/secrets

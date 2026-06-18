@@ -6,7 +6,9 @@ import pykokkos as pk
 # Tests for translation of each operation to C++
 @pk.functor
 class OpsTestReduceFunctor:
-    def __init__(self, threads: int, value_1: int, value_2: int, bool_1: bool, bool_2: bool):
+    def __init__(
+        self, threads: int, value_1: int, value_2: int, bool_1: bool, bool_2: bool
+    ):
         self.threads: int = threads
         self.value_1: int = value_1
         self.value_2: int = value_2
@@ -39,7 +41,7 @@ class OpsTestReduceFunctor:
 
     @pk.workunit
     def pow_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
-        acc += self.value_1 ** self.value_2
+        acc += self.value_1**self.value_2
 
     @pk.workunit
     def lshift_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -63,11 +65,11 @@ class OpsTestReduceFunctor:
 
     @pk.workunit
     def uadd_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
-        acc += + self.value_1
+        acc += +self.value_1
 
     @pk.workunit
     def usub_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
-        acc += - self.value_1
+        acc += -self.value_1
 
     @pk.workunit
     def not_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -78,7 +80,7 @@ class OpsTestReduceFunctor:
 
     @pk.workunit
     def invert_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
-        acc += ~ self.value_1
+        acc += ~self.value_1
 
     @pk.workunit
     def and_op(self, tid: int, acc: pk.Acc[pk.double]) -> None:
@@ -145,9 +147,9 @@ class TestOpsTranslator(unittest.TestCase):
         self.bool_1: bool = True
         self.bool_2: bool = False
 
-        self.functor = OpsTestReduceFunctor(self.threads,
-                                           self.value_1, self.value_2,
-                                           self.bool_1, self.bool_2)
+        self.functor = OpsTestReduceFunctor(
+            self.threads, self.value_1, self.value_2, self.bool_1, self.bool_2
+        )
 
         self.range_policy = pk.RangePolicy(pk.ExecutionSpace.Default, 0, self.threads)
 
@@ -188,7 +190,7 @@ class TestOpsTranslator(unittest.TestCase):
         self.assertEqual(expected_result, result)
 
     def test_pow_op(self):
-        expected_result: int = self.threads * (self.value_1 ** self.value_2)
+        expected_result: int = self.threads * (self.value_1**self.value_2)
         result: int = pk.parallel_reduce(self.range_policy, self.functor.pow_op)
 
         self.assertEqual(expected_result, result)
@@ -224,13 +226,13 @@ class TestOpsTranslator(unittest.TestCase):
         self.assertEqual(expected_result, result)
 
     def test_uadd_op(self):
-        expected_result: int = self.threads * (+ self.value_1)
+        expected_result: int = self.threads * (+self.value_1)
         result: int = pk.parallel_reduce(self.range_policy, self.functor.uadd_op)
 
         self.assertEqual(expected_result, result)
 
     def test_usub_op(self):
-        expected_result: int = self.threads * (- self.value_1)
+        expected_result: int = self.threads * (-self.value_1)
         result: int = pk.parallel_reduce(self.range_policy, self.functor.usub_op)
 
         self.assertEqual(expected_result, result)
@@ -245,7 +247,7 @@ class TestOpsTranslator(unittest.TestCase):
         self.assertEqual(expected_result, result)
 
     def test_invert_op(self):
-        expected_result: int = self.threads * (~ self.value_1)
+        expected_result: int = self.threads * (~self.value_1)
         result: int = pk.parallel_reduce(self.range_policy, self.functor.invert_op)
 
         self.assertEqual(expected_result, result)

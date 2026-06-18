@@ -3,9 +3,10 @@ import pykokkos as pk
 import argparse
 import sys
 
+
 @pk.workload(
-    A=pk.ViewTypeInfo(layout=pk.LayoutRight),
-    B=pk.ViewTypeInfo(layout=pk.LayoutRight))
+    A=pk.ViewTypeInfo(layout=pk.LayoutRight), B=pk.ViewTypeInfo(layout=pk.LayoutRight)
+)
 class main:
     def __init__(self, iterations, order, tile_size, permute):
         self.iterations: int = iterations
@@ -13,8 +14,12 @@ class main:
         self.tile_size: int = tile_size
         self.permute: int = permute
 
-        self.A: pk.View2D[pk.double] = pk.View([self.order, self.order], pk.double, layout=pk.LayoutRight)
-        self.B: pk.View2D[pk.double] = pk.View([self.order, self.order], pk.double, layout=pk.LayoutRight)
+        self.A: pk.View2D[pk.double] = pk.View(
+            [self.order, self.order], pk.double, layout=pk.LayoutRight
+        )
+        self.B: pk.View2D[pk.double] = pk.View(
+            [self.order, self.order], pk.double, layout=pk.LayoutRight
+        )
 
         self.abserr: float = 0
         self.transpose_time: float = 0
@@ -23,29 +28,54 @@ class main:
     @pk.main
     def run(self):
         pk.parallel_for(
-            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]), self.init)
+            pk.MDRangePolicy(
+                [0, 0], [self.order, self.order], [self.tile_size, self.tile_size]
+            ),
+            self.init,
+        )
         pk.fence()
 
         timer = pk.Timer()
 
         for i in range(self.iterations):
             if self.permute:
-                pk.parallel_for("transpose", pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size],
-                    rank=pk.Rank(2, pk.Iterate.Left, pk.Iterate.Right)), self.tranpose)
+                pk.parallel_for(
+                    "transpose",
+                    pk.MDRangePolicy(
+                        [0, 0],
+                        [self.order, self.order],
+                        [self.tile_size, self.tile_size],
+                        rank=pk.Rank(2, pk.Iterate.Left, pk.Iterate.Right),
+                    ),
+                    self.tranpose,
+                )
             else:
-                pk.parallel_for("transpose", pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size],
-                    rank=pk.Rank(2, pk.Iterate.Right, pk.Iterate.Left)), self.tranpose)
+                pk.parallel_for(
+                    "transpose",
+                    pk.MDRangePolicy(
+                        [0, 0],
+                        [self.order, self.order],
+                        [self.tile_size, self.tile_size],
+                        rank=pk.Rank(2, pk.Iterate.Right, pk.Iterate.Left),
+                    ),
+                    self.tranpose,
+                )
 
         self.transpose_time = timer.seconds()
 
         self.abserr = pk.parallel_reduce(
-            pk.MDRangePolicy([0,0], [self.order, self.order], [self.tile_size, self.tile_size]),
-            self.abserr_reduce)
+            pk.MDRangePolicy(
+                [0, 0], [self.order, self.order], [self.tile_size, self.tile_size]
+            ),
+            self.abserr_reduce,
+        )
 
         pk.printf("%f\n", self.abserr)
         episilon: float = 1.0e-8
-        if (self.abserr > episilon):
-            pk.printf("ERROR: aggregated squared error exceeds threshold %.2f\n", self.abserr)
+        if self.abserr > episilon:
+            pk.printf(
+                "ERROR: aggregated squared error exceeds threshold %.2f\n", self.abserr
+            )
         else:
             pk.printf("Solution validates %2.f\n", self.abserr)
 
@@ -56,7 +86,7 @@ class main:
 
     @pk.workunit
     def init(self, i: int, j: int):
-        self.A[i][j] = i*self.order+j
+        self.A[i][j] = i * self.order + j
         self.B[i][j] = 0
 
     @pk.workunit
@@ -73,15 +103,15 @@ class main:
 
 def run() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('iterations', type=int)
-    parser.add_argument('order', type=int)
-    parser.add_argument('tile_size', nargs='?', type=int, default=32)
-    parser.add_argument('permute', nargs='?', type=int, default=0)
+    parser.add_argument("iterations", type=int)
+    parser.add_argument("order", type=int)
+    parser.add_argument("tile_size", nargs="?", type=int, default=32)
+    parser.add_argument("permute", nargs="?", type=int, default=0)
     parser.add_argument("-space", "--execution_space", type=str)
 
     args = parser.parse_args()
     iterations = args.iterations
-    order= args.order
+    order = args.order
     tile_size = args.tile_size
     permute = args.permute
 
@@ -94,7 +124,7 @@ def run() -> None:
         sys.exit("ERROR: matrix dimension too large - overflow risk")
 
     # a negative tile size means no tiling of the local transpose
-    if (tile_size <= 0):
+    if tile_size <= 0:
         tile_size = order
 
     if permute != 0 and permute != 1:
@@ -106,12 +136,13 @@ def run() -> None:
 
     # pk.enable_uvm()
 
-    order = 2 ** order
-    print("Number of iterations = " , iterations)
-    print("Matrix order         = " , order)
-    print("Tile size            = " , tile_size)
-    print("Permute loops        = " , "yes" if permute else "no")
+    order = 2**order
+    print("Number of iterations = ", iterations)
+    print("Matrix order         = ", order)
+    print("Tile size            = ", tile_size)
+    print("Permute loops        = ", "yes" if permute else "no")
     pk.execute(pk.ExecutionSpace.Default, main(iterations, order, tile_size, permute))
+
 
 if __name__ == "__main__":
     run()

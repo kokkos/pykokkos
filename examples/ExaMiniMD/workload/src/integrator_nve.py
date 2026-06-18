@@ -8,10 +8,17 @@ from types_h import t_x, t_v, t_f, t_type, t_mass, t_id
 @pk.workload(x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
 class InitialIntegrateFunctor:
     def __init__(
-            self, x: t_x, v: t_v, f: t_f, t: t_type,
-            mass: t_mass, i: t_id,
-            dtf: float, dtv: float, step: int,
-            N_local: int
+        self,
+        x: t_x,
+        v: t_v,
+        f: t_f,
+        t: t_type,
+        mass: t_mass,
+        i: t_id,
+        dtf: float,
+        dtv: float,
+        step: int,
+        N_local: int,
     ):
         self.x: pk.View2D[pk.double] = x
         self.v: pk.View2D[pk.double] = v
@@ -28,7 +35,9 @@ class InitialIntegrateFunctor:
 
     @pk.main
     def run(self) -> None:
-        pk.parallel_for("IntegratorNVE::initial_integrate", self.N_local, self.integrate)
+        pk.parallel_for(
+            "IntegratorNVE::initial_integrate", self.N_local, self.integrate
+        )
 
     @pk.workunit
     def integrate(self, i: int) -> None:
@@ -41,13 +50,21 @@ class InitialIntegrateFunctor:
         self.x[i][1] += self.dtv * self.v[i][1]
         self.x[i][2] += self.dtv * self.v[i][2]
 
+
 @pk.workload(x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
 class FinalIntegrateFunctor:
     def __init__(
-            self, v: t_v, f: t_f, t: t_type,
-            mass: t_mass, dtf: float, dtv: float,
-            i: t_id, step: int, x: t_x,
-            N_local: int
+        self,
+        v: t_v,
+        f: t_f,
+        t: t_type,
+        mass: t_mass,
+        dtf: float,
+        dtv: float,
+        i: t_id,
+        step: int,
+        x: t_x,
+        N_local: int,
     ):
         self.x: pk.View2D[pk.double] = x
         self.v: pk.View2D[pk.double] = v
@@ -85,18 +102,34 @@ class IntegratorNVE(Integrator):
 
     def initial_integrate(self) -> None:
         workload = InitialIntegrateFunctor(
-            self.system.x, self.system.v, self.system.f,
-            self.system.type, self.system.mass, self.system.id,
-            self.dtf, self.dtv, self.step, self.system.N_local)
+            self.system.x,
+            self.system.v,
+            self.system.f,
+            self.system.type,
+            self.system.mass,
+            self.system.id,
+            self.dtf,
+            self.dtv,
+            self.step,
+            self.system.N_local,
+        )
 
         pk.execute(pk.ExecutionSpace.Default, workload)
         self.step += 1
 
     def final_integrate(self) -> None:
         workload = FinalIntegrateFunctor(
-            self.system.v, self.system.f, self.system.type,
-            self.system.mass, self.dtf, self.dtv, self.system.id,
-            self.step, self.system.x, self.system.N_local)
+            self.system.v,
+            self.system.f,
+            self.system.type,
+            self.system.mass,
+            self.dtf,
+            self.dtv,
+            self.system.id,
+            self.step,
+            self.system.x,
+            self.system.N_local,
+        )
 
         pk.execute(pk.ExecutionSpace.Default, workload)
         self.step += 1

@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from pathlib import Path
 import shutil
@@ -7,8 +8,10 @@ from types import ModuleType
 from typing import List, Tuple
 
 from pykokkos.interface import (
-    ExecutionSpace, get_default_layout, get_default_memory_space,
-    is_host_execution_space
+    ExecutionSpace,
+    get_default_layout,
+    get_default_memory_space,
+    is_host_execution_space,
 )
 import pykokkos.kokkos_manager as km
 
@@ -29,12 +32,14 @@ class CppSetup:
         self.module_file: str = module_file
         self.gpu_module_files: List[str] = gpu_module_files
 
-        self.script: str = "compile.sh"
-        self.script_path: Path = Path(__file__).resolve().parent / self.script
+        self.cmake_template: str = "CMakeLists.txt"
+        self.cmake_template_path: Path = (
+            Path(__file__).resolve().parent / self.cmake_template
+        )
 
         self.lib_path_env: str = "PK_KOKKOS_LIB_PATH"
 
-        self.format: bool = False
+        self.format: bool = os.getenv("PK_FORMAT") is not None
 
     def compile_raw_source(
         self,
@@ -43,7 +48,7 @@ class CppSetup:
         filename: str,
         space: ExecutionSpace,
         enable_uvm: bool,
-        compiler: str
+        compiler: str,
     ) -> None:
         """
         Compiles the generated C++ code
@@ -58,8 +63,10 @@ class CppSetup:
 
         self.initialize_directory(output_dir)
         self.write_raw_source(output_dir, source, filename)
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
+        self.invoke_cmake(output_dir, cmake_args, module_name)
 
     def compile(
         self,
@@ -72,7 +79,7 @@ class CppSetup:
         bindings_filename: str,
         space: ExecutionSpace,
         enable_uvm: bool,
-        compiler: str
+        compiler: str,
     ) -> None:
         """
         Compiles the generated C++ code
@@ -89,31 +96,69 @@ class CppSetup:
         """
 
         self.initialize_directory(output_dir)
-        self.write_source(output_dir, functor,functor_filename, functor_cast, functor_cast_filename, bindings, bindings_filename)
-        self.copy_script(output_dir)
-        self.invoke_script(output_dir, space, enable_uvm, compiler)
-        if space in {ExecutionSpace.Cuda, ExecutionSpace.HIP} and km.is_multi_gpu_enabled():
+        self.write_source(
+            output_dir,
+            functor,
+            functor_filename,
+            functor_cast,
+            functor_cast_filename,
+            bindings,
+            bindings_filename,
+        )
+        cmake_args, module_name = self.generate_cmake(
+            output_dir, space, enable_uvm, compiler
+        )
+        self.invoke_cmake(output_dir, cmake_args, module_name)
+        if (
+            space in {ExecutionSpace.Cuda, ExecutionSpace.HIP}
+            and km.is_multi_gpu_enabled()
+        ):
             self.copy_multi_gpu_kernel(output_dir)
-
 
     def initialize_directory(self, name: Path) -> None:
         """
-        Creates an output directory, overwriting an existing directory with the same name
+        Checks if an older AST directory exists;
+        if so, copies over the relevant information,
+        otherwise, creates an output directory,
+        overwriting an existing directory with the same name.
 
         :param name: the name of the directory
         """
 
-        try:
-            shutil.rmtree(name)
-        except OSError:
-            pass
+        # make the parent directory if necessary
+        os.makedirs(name.parent, exist_ok=True)
 
-        try:
-            os.makedirs(name, exist_ok=True)
-        except FileExistsError:
-            pass
+        # check if an older AST hash exists
+        old_dir = [
+            f for f in name.parent.parent.iterdir() if f.is_dir() and f != name.parent
+        ]  # this is expected to be 0 or 1 entries
+        if old_dir:
+            # if an older AST directory exists, change the name to the new AST directory
+            old_dir = old_dir[0]
+            old_dir.rename(name.parent)
+            # CMakeCache.txt has hardcoded absolute paths to the old AST directory.
+            # Delete only the cache files so CMake reconfigures with correct paths
+            # while keeping object files in build/ for incremental recompilation.
+            stale_cache = name / "build" / "CMakeCache.txt"
+            if stale_cache.is_file():
+                stale_cache.unlink()
+            stale_cache_check = name / "build" / "CMakeFiles" / "cmake.check_cache"
+            if stale_cache_check.is_file():
+                stale_cache_check.unlink()
 
-    def write_source(self, output_dir: Path, functor: List[str], functor_filename: str ,functor_cast: List[str], functor_cast_filename: str, bindings: List[str],bindings_filename: str) -> None:
+        # make the name directory if necessary
+        os.makedirs(name, exist_ok=True)
+
+    def write_source(
+        self,
+        output_dir: Path,
+        functor: List[str],
+        functor_filename: str,
+        functor_cast: List[str],
+        functor_cast_filename: str,
+        bindings: List[str],
+        bindings_filename: str,
+    ) -> None:
         """
         Writes the generated C++ source code to a file
 
@@ -126,12 +171,13 @@ class CppSetup:
         :param bindings_filename: the generated bindings_filename
         """
 
-        self.write_raw_source(output_dir.parent,functor,functor_filename)
-        self.write_raw_source(output_dir.parent,functor_cast,functor_cast_filename)
-        self.write_raw_source(output_dir,bindings,bindings_filename)
+        self.write_raw_source(output_dir.parent, functor, functor_filename)
+        self.write_raw_source(output_dir.parent, functor_cast, functor_cast_filename)
+        self.write_raw_source(output_dir, bindings, bindings_filename)
 
-
-    def write_raw_source(self, output_dir: Path, source: List[str], filename: str) -> None:
+    def write_raw_source(
+        self, output_dir: Path, source: List[str], filename: str
+    ) -> None:
         """
         Writes the generated C++ source code to a file
 
@@ -151,101 +197,17 @@ class CppSetup:
             except Exception as ex:
                 print(f"Exception while formatting cpp: {ex}")
 
-    def copy_script(self, output_dir: Path) -> None:
+    def generate_cmake(
+        self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str
+    ) -> Tuple[List[str], str]:
         """
-        Copy the compilation script to the output directory
-
-        :param output_dir: the base directory
-        """
-
-        file_path: Path = output_dir / "compile.sh"
-        try:
-            shutil.copy(self.script_path, file_path)
-        except Exception as ex:
-            print(f"Exception while copying views and makefile: {ex}")
-            sys.exit(1)
-
-    def get_kokkos_paths(self, space: ExecutionSpace, compiler: str) -> Tuple[Path, Path, Path]:
-        """
-        Get the paths of the Kokkos instal lib and include
-        directories. If the environment variable is set, use that
-        Kokkos install. If not, fall back to the installed
-        pykokkos-base package.
-
-        :param space: the execution space to compile for
-        :param compiler: what compiler to use
-        :returns: a tuple of paths to the Kokkos lib/, include/,
-            and compiler to be used
-        """
-
-        lib_path: Path
-        include_path: Path
-        if self.lib_path_env in os.environ:
-            lib_path = Path(os.environ.get(self.lib_path_env))
-            if not lib_path.is_dir():
-                raise RuntimeError(f"lib/ directory path {str(lib_path)} does not exist")
-
-            include_path = lib_path.parent / "include"
-            if not include_path.is_dir():
-                raise RuntimeError(f"install/ directory path {str(include_path)} does not exist")
-
-            compiler_path: Path
-            if compiler != "nvcc":
-                compiler_path = Path("g++")
-            else:
-                compiler_path = lib_path.parent / "bin/nvcc_wrapper"
-
-            return lib_path, include_path, compiler_path
-
-        is_cpu: bool = is_host_execution_space(space)
-        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
-        install_path = Path(kokkos_lib.__path__[0])
-        lib_parent_path: Path
-        if km.is_multi_gpu_enabled():
-            lib_parent_path = install_path
-        else:
-            lib_parent_path = install_path.parent
-
-        if (lib_parent_path / "lib").is_dir():
-            lib_path = lib_parent_path / "lib"
-        elif (lib_parent_path / "lib64").is_dir():
-            lib_path = lib_parent_path / "lib64"
-        else:
-            raise RuntimeError("lib/ or lib64/ directories not found in installed pykokkos-base package."
-                               f" Try setting {self.lib_path_env} instead.")
-
-        include_path = install_path.parent / "include/kokkos"
-
-        compiler_path: Path
-        if compiler != "nvcc":
-            compiler_path = Path(compiler)
-        else:
-            compiler_path = install_path.parent / "bin/nvcc_wrapper"
-
-        return lib_path, include_path, compiler_path
-
-    def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
-        """
-        Get the suffix of the libkokkoscore and libkokkoscontainers
-        libraries corresponding to the enabled device
-
-        :param space: the execution space to compile for
-        :returns: the suffix as a string
-        """
-
-        if is_host_execution_space(space) or not km.is_multi_gpu_enabled():
-            return ""
-
-        return f"_{km.get_device_id()}"
-
-    def invoke_script(self, output_dir: Path, space: ExecutionSpace, enable_uvm: bool, compiler: str) -> None:
-        """
-        Invoke the compilation script
+        Copy CMakeLists.txt template and prepare CMake configuration variables
 
         :param output_dir: the base directory
         :param space: the execution space of the workload
         :param enable_uvm: whether to enable CudaUVMSpace
         :param compiler: what compiler to use
+        :returns: tuple of (cmake_args, module_name)
         """
 
         view_space: str = "Kokkos::HostSpace"
@@ -268,40 +230,200 @@ class CppSetup:
 
         precision: str = km.get_default_precision().__name__.split(".")[-1]
         lib_path: Path
-        include_path: Path
         compiler_path: Path
-        lib_path, include_path, compiler_path = self.get_kokkos_paths(space, compiler)
+        lib_path, compiler_path = self.get_kokkos_paths(space, compiler)
         compute_capability: str = self.get_cuda_compute_capability(compiler)
         lib_suffix: str = self.get_kokkos_lib_suffix(space)
 
-        command: List[str] = [f"./{self.script}",
-                              compiler,             # What compiler to use
-                              self.module_file,     # Compilation target
-                              space_value,          # Execution space
-                              view_space,           # Argument views memory space
-                              view_layout,          # Argument views memory layout
-                              precision,            # Default real precision
-                              str(lib_path),        # Path to Kokkos install lib/ directory
-                              str(include_path),    # Path to Kokkos install include/ directory
-                              compute_capability,   # Device compute capability
-                              lib_suffix,           # The libkokkos* suffix identifying the gpu
-                              str(compiler_path)]   # The path to the compiler to use
-        compile_result = subprocess.run(command, cwd=output_dir, capture_output=True, check=False)
-
-        if compile_result.returncode != 0:
-            print(compile_result.stderr.decode("utf-8"))
-            print(f"C++ compilation in {output_dir} failed")
+        cmake_file: Path = output_dir / "CMakeLists.txt"
+        try:
+            shutil.copy(self.cmake_template_path, cmake_file)
+        except Exception as ex:
+            print(f"Exception while copying CMakeLists.txt template: {ex}")
             sys.exit(1)
 
-        patchelf: List[str] = ["patchelf",
-                               "--set-rpath",
-                               str(lib_path),
-                               self.module_file]
+        # Remove the .so extension from module file name for CMake target
+        module_name = self.module_file.replace(".so", "").replace(".pyd", "")
 
-        patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
-        if patchelf_result.returncode != 0:
-            print(patchelf_result.stderr.decode("utf-8"))
-            print(f"patchelf failed")
+        try:
+            import pybind11
+
+            pybind11_dir = pybind11.get_cmake_dir()
+        except ImportError:
+            print(f"Can not get pybind11 except dir: {ex}")
+            sys.exit(1)
+
+        cmake_args = [
+            f"-DMODULE_NAME={module_name}",
+            f"-DKokkos_ROOT={lib_path.parent.resolve()}",
+            f"-DPK_EXEC_SPACE={space_value}",
+            f"-DPK_ARG_MEMSPACE={view_space}",
+            f"-DPK_ARG_LAYOUT={view_layout}",
+            f"-DPK_REAL={precision}",
+            f"-DLIB_SUFFIX={lib_suffix}",
+            f"-DPython3_EXECUTABLE={sys.executable}",
+        ]
+        if pybind11_dir is not None:
+            cmake_args.append(f"-Dpybind11_DIR={pybind11_dir}")
+
+        return cmake_args, module_name
+
+    def get_kokkos_paths(
+        self, space: ExecutionSpace, compiler: str
+    ) -> Tuple[Path, Path]:
+        """
+        Get the paths of the Kokkos install lib directory.
+        If the environment variable is set, use that
+        Kokkos install. If not, fall back to the installed
+        pykokkos-base package.
+
+        :param space: the execution space to compile for
+        :param compiler: what compiler to use
+        :returns: a tuple of paths to the Kokkos lib/
+            and compiler to be used
+        """
+
+        lib_path: Path
+        if self.lib_path_env in os.environ:
+            lib_path = Path(os.environ.get(self.lib_path_env))
+            if not lib_path.is_dir():
+                raise RuntimeError(
+                    f"lib/ directory path {str(lib_path)} does not exist"
+                )
+
+            compiler_path: Path
+            if compiler != "nvcc":
+                compiler_path = Path("g++")
+            else:
+                compiler_path = lib_path.parent / "bin/nvcc_wrapper"
+
+            return lib_path, compiler_path
+
+        import sys
+
+        is_cpu: bool = is_host_execution_space(space)
+        kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
+        install_path = Path(kokkos_lib.__path__[0])
+        lib_parent_path: Path
+        if km.is_multi_gpu_enabled():
+            lib_parent_path = install_path
+        else:
+            lib_parent_path = install_path.parent
+
+        lib_path = None
+        if (lib_parent_path / "lib").is_dir():
+            lib_path = lib_parent_path / "lib"
+        elif (lib_parent_path / "lib64").is_dir():
+            lib_path = lib_parent_path / "lib64"
+        else:
+            # Try checking sys.prefix/lib and sys.prefix/lib64
+            sys_prefix = Path(sys.prefix)
+            if (sys_prefix / "lib").is_dir():
+                # Verify that kokkos libraries actually exist here
+                kokkos_lib_files = list((sys_prefix / "lib").glob("libkokkoscore.*"))
+                if kokkos_lib_files:
+                    lib_path = sys_prefix / "lib"
+            if lib_path is None and (sys_prefix / "lib64").is_dir():
+                kokkos_lib_files = list((sys_prefix / "lib64").glob("libkokkoscore.*"))
+                if kokkos_lib_files:
+                    lib_path = sys_prefix / "lib64"
+
+        if lib_path is None:
+            raise RuntimeError(
+                "lib/ or lib64/ directories not found in installed pykokkos-base package."
+                f" Try setting {self.lib_path_env} instead."
+            )
+
+        compiler_path: Path
+        if compiler != "nvcc":
+            compiler_path = Path(compiler)
+        else:
+            # Try traditional location first, then sys.prefix
+            compiler_path = install_path.parent / "bin/nvcc_wrapper"
+            if not compiler_path.exists():
+                sys_prefix = Path(sys.prefix)
+                alt_compiler_path = sys_prefix / "bin/nvcc_wrapper"
+                if alt_compiler_path.exists():
+                    compiler_path = alt_compiler_path
+
+        return lib_path, compiler_path
+
+    def get_kokkos_lib_suffix(self, space: ExecutionSpace) -> str:
+        """
+        Get the suffix of the libkokkoscore and libkokkoscontainers
+        libraries corresponding to the enabled device
+
+        :param space: the execution space to compile for
+        :returns: the suffix as a string
+        """
+
+        if is_host_execution_space(space) or not km.is_multi_gpu_enabled():
+            return ""
+
+        return f"_{km.get_device_id()}"
+
+    def invoke_cmake(
+        self, output_dir: Path, cmake_args: List[str], module_name: str
+    ) -> None:
+        """
+        Invoke CMake to configure and build the project
+
+        :param output_dir: the base directory containing CMakeLists.txt
+        :param cmake_args: list of CMake configuration arguments
+        :param module_name: the name of the module being built
+        """
+
+        build_dir = output_dir / "build"
+
+        # Run CMake configuration with arguments
+        cmake_config_cmd = [
+            "cmake",
+            "-B",
+            str(build_dir),
+            "-S",
+            str(output_dir),
+        ] + cmake_args
+        config_result = subprocess.run(
+            cmake_config_cmd, capture_output=True, check=False
+        )
+
+        if config_result.returncode != 0:
+            print(config_result.stderr.decode("utf-8"))
+            print(f"CMake configuration in {output_dir} failed")
+            sys.exit(1)
+
+        # Run CMake build with parallel jobs
+        num_jobs = multiprocessing.cpu_count()
+        cmake_build_cmd = [
+            "cmake",
+            "--build",
+            str(build_dir),
+            "--config",
+            "Release",
+            "-j",
+            str(num_jobs),
+        ]
+        build_result = subprocess.run(cmake_build_cmd, capture_output=True, check=False)
+
+        if build_result.returncode != 0:
+            print(build_result.stderr.decode("utf-8"))
+            print(f"CMake build in {output_dir} failed")
+            sys.exit(1)
+
+        cmake_install_cmd = [
+            "cmake",
+            "--install",
+            str(build_dir),
+            "--prefix",
+            str(output_dir.resolve()),
+        ]
+        install_result = subprocess.run(
+            cmake_install_cmd, capture_output=True, check=False
+        )
+
+        if install_result.returncode != 0:
+            print(install_result.stderr.decode("utf-8"))
+            print(f"CMake install in {output_dir} failed")
             sys.exit(1)
 
     def copy_multi_gpu_kernel(self, output_dir: Path) -> None:
@@ -313,7 +435,9 @@ class CppSetup:
         """
 
         original_module: Path = output_dir / self.module_file
-        for id, (kernel_filename, kokkos_gpu_module) in enumerate(zip(self.gpu_module_files, km.get_kokkos_gpu_modules())):
+        for id, (kernel_filename, kokkos_gpu_module) in enumerate(
+            zip(self.gpu_module_files, km.get_kokkos_gpu_modules())
+        ):
             kernel_path: Path = output_dir / kernel_filename
 
             try:
@@ -323,19 +447,28 @@ class CppSetup:
                 sys.exit(1)
 
             lib_path: Path = Path(kokkos_gpu_module.__path__[0]) / "lib"
-            patchelf: List[str] = ["patchelf",
-                                "--set-rpath",
-                                str(lib_path),
-                                kernel_filename]
+            patchelf: List[str] = [
+                "patchelf",
+                "--set-rpath",
+                str(lib_path),
+                kernel_filename,
+            ]
 
-            patchelf_result = subprocess.run(patchelf, cwd=output_dir, capture_output=True, check=False)
+            patchelf_result = subprocess.run(
+                patchelf, cwd=output_dir, capture_output=True, check=False
+            )
             if patchelf_result.returncode != 0:
                 print(patchelf_result.stderr.decode("utf-8"))
                 print(f"patchelf failed")
                 sys.exit(1)
 
             # Now replace the needed libkokkos* libraries with the correct version
-            needed_libraries: str = subprocess.run(["patchelf", "--print-needed", kernel_filename], cwd=output_dir, capture_output=True, check=False).stdout.decode("utf-8")
+            needed_libraries: str = subprocess.run(
+                ["patchelf", "--print-needed", kernel_filename],
+                cwd=output_dir,
+                capture_output=True,
+                check=False,
+            ).stdout.decode("utf-8")
 
             for line in needed_libraries.splitlines():
                 if "libkokkoscore" in line or "libkokkoscontainers" in line:
@@ -345,14 +478,25 @@ class CppSetup:
                     to_remove: str = line
                     to_add: str = line.replace(f"_{current_id}", f"_{id}")
 
-                    subprocess.run(["patchelf", "--replace-needed", to_remove, to_add, kernel_filename], cwd=output_dir, capture_output=True, check=False)
+                    subprocess.run(
+                        [
+                            "patchelf",
+                            "--replace-needed",
+                            to_remove,
+                            to_add,
+                            kernel_filename,
+                        ],
+                        cwd=output_dir,
+                        capture_output=True,
+                        check=False,
+                    )
 
     def get_cuda_compute_capability(self, compiler: str) -> str:
         """
         Get the compute capability of an Nvidia GPU
 
         :param compiler: the compiler being used (nvcc or g++)
-        :returns: the compute capability as a string or the empty
+        :returns: the compute capability as a string (e.g., "89") or the empty
             string if g++ is the compiler
         """
 
@@ -361,7 +505,7 @@ class CppSetup:
         else:
             import cupy
 
-        return f"sm_{cupy.cuda.Device().compute_capability}"
+        return str(cupy.cuda.Device().compute_capability)
 
     @staticmethod
     def is_compiled(output_dir: Path) -> bool:

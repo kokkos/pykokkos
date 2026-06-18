@@ -1,28 +1,26 @@
 import pykokkos as pk
 
 
-@pk.workload
-class SimpleSpaces:
-    def __init__(self, n):
-        self.N: int = n
-        self.sum: int = 0
-        self.a: pk.View2D[pk.int32] = pk.View([n, 3], pk.int32)
-        for i in range(n):
-            for j in range(3):
-                self.a[i][j] = i * n + j
+@pk.workunit
+def reduction(i: int, acc: pk.Acc[pk.double], a: pk.View2D[pk.int32]):
+    acc += a[i][0] - a[i][1] + a[i][2]
 
-    @pk.main
-    def run(self):
-        self.sum = pk.parallel_reduce(self.N, self.reduction)
 
-    @pk.callback
-    def use_results(self):
-        print(self.sum)
+def main():
+    N: int = 10
+    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
-    @pk.workunit
-    def reduction(self, i: int, acc: pk.Acc[pk.double]):
-        acc += self.a[i][0] - self.a[i][1] + self.a[i][2]
+    a: pk.View2D[pk.int32] = pk.View([N, 3], pk.int32)
+
+    # Initialize the view
+    for i in range(N):
+        for j in range(3):
+            a[i][j] = i * N + j
+
+    sum_result: int = pk.parallel_reduce(N, reduction, a=a)
+
+    print(sum_result)
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.OpenMP, SimpleSpaces(10))
+    main()

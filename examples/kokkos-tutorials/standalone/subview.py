@@ -1,4 +1,5 @@
 from typing import Tuple
+import numpy as np
 
 import pykokkos as pk
 
@@ -8,7 +9,7 @@ from parse_args import parse_args
 @pk.workunit
 def yAx(j, acc, cols, y_view, x_view, A_view):
     temp2: float = 0
-    A_row_j = A_view[j,:];
+    A_row_j = A_view[j, :]
     for i in range(cols):
         temp2 += A_row_j[i] * x_view[i]
 
@@ -31,9 +32,9 @@ def run() -> None:
     pk.set_default_space(space)
 
     print(f"Total size S = {N * M} N = {N} M = {M}")
-    y: pk.View1D[pk.double] = pk.View([N], pk.double)
-    x: pk.View1D[pk.double] = pk.View([M], pk.double)
-    A: pk.View2D[pk.double] = pk.View([N, M], pk.double)
+    y = np.zeros([N], dtype=np.float64)
+    x = np.zeros([M], dtype=np.float64)
+    A = np.zeros([N, M], dtype=np.float64)
 
     if fill:
         y.fill(1)
@@ -63,10 +64,11 @@ def run() -> None:
     solution: float = N * M
 
     if result != solution:
-        pk.printf("Error: result (%lf) != solution (%lf)\n",
-                  result, solution)
+        pk.printf("Error: result (%lf) != solution (%lf)\n", result, solution)
 
-    print(f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)")
+    print(
+        f"N({N}) M({M}) nrepeat({nrepeat}) problem(MB) time({timer_result}) bandwidth(GB/s)"
+    )
 
 
 if __name__ == "__main__":

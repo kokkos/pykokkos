@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Final, List, Tuple, Union
+from typing import Final, List, Optional, Tuple
 
 import pykokkos.kokkos_manager as km
 
@@ -12,7 +12,32 @@ class ExecutionPolicy:
     The parent class for all execution policies
     """
 
-    space: ExecutionSpace
+    def __init__(self, space):
+        if isinstance(space, ExecutionSpace):
+            if space is ExecutionSpace.Default:
+                space = km.get_default_space()
+
+            if space is not ExecutionSpace.Debug:
+                space = km.get_execution_space_instance(space)
+
+            if not isinstance(space, ExecutionSpaceInstance):
+                space = ExecutionSpaceInstance(space)
+
+        if not isinstance(space, ExecutionSpaceInstance):
+            raise TypeError(
+                f"space must be an ExecutionSpaceInstance, "
+                "instead got {space} of type {type(space)}"
+            )
+
+        self._space: ExecutionSpaceInstance = space
+
+    @property
+    def space(self):
+        """
+        Execution Space Instance for a given policy.
+        Read-only.
+        """
+        return self._space
 
 
 class RangePolicy(ExecutionPolicy):
@@ -53,15 +78,7 @@ class RangePolicy(ExecutionPolicy):
         if not isinstance(end, int):
             raise TypeError(f"Invalid argument {end}")
 
-        if isinstance(space, ExecutionSpace):
-            if space is ExecutionSpace.Default:
-                space = km.get_default_space()
-            space = km.get_execution_space_instance(space)
-
-        elif not isinstance(space, ExecutionSpaceInstance):
-            raise TypeError(f"Invalid space argument {space}")
-
-        self.space: ExecutionSpaceInstance = space
+        super().__init__(space)
         self.begin: int = begin
         self.end: int = end
 
@@ -81,30 +98,39 @@ class Rank:
 
 class MDRangePolicy(ExecutionPolicy):
     def __init__(
-        self, begin: List[int], end: List[int], tiling: List[int] = None,
+        self,
+        begin: List[int],
+        end: List[int],
+        tiling: List[int] = None,
         space: ExecutionSpace = ExecutionSpace.Default,
         iter_outer: Iterate = Iterate.Default,
         iter_inner: Iterate = Iterate.Default,
-        rank: Rank = None
+        rank: Rank = None,
     ):
 
-        self.space: Final = space
-        self.begin: Final = begin 
-        self.end : Final = end
+        if not isinstance(begin, list) or not isinstance(end, list):
+            raise TypeError("MDRangePolicy begin and end must be lists")
+        if len(begin) != len(end):
+            raise ValueError(
+                f"MDRangePolicy dimension mismatch: {len(begin)} != {len(end)}"
+            )
+
+        super().__init__(space)
+        self.begin: Final = begin
+        self.end: Final = end
         self.tiling = tiling
 
         if rank is not None:
             if rank.n != len(begin):
-                raise ValueError(f"RangePolicy dimension mismatch: {rank.n} != {len(begin)}")
+                raise ValueError(
+                    f"RangePolicy dimension mismatch: {rank.n} != {len(begin)}"
+                )
 
             iter_outer = rank.iter_outer
             iter_inner = rank.iter_inner
 
         self.iter_outer: Final = iter_outer
         self.iter_inner: Final = iter_inner
-
-        if len(begin) != len(end):
-            raise ValueError(f"RangePolicy dimension mismatch: {len(begin)} != {len(end)}")
 
         self.rank = len(begin)
 
@@ -118,8 +144,8 @@ class TeamPolicy(ExecutionPolicy):
             :param space: (optional) a string or
                 ExecutionSpaceInstance object. If not specified, default
                 is used
-            :param begin: the tid of the first thread
-            :param end: the total number of threads
+            :param league_size: the total number of teams
+            :param team_size: the number of threads per team
         """
 
         unpacked: Tuple = tuple(args)
@@ -135,7 +161,9 @@ class TeamPolicy(ExecutionPolicy):
             second = unpacked[1]
             third = unpacked[2]
 
-            if isinstance(first, ExecutionSpace) or isinstance(first, ExecutionSpaceInstance):
+            if isinstance(first, ExecutionSpace) or isinstance(
+                first, ExecutionSpaceInstance
+            ):
                 space = first
                 league_size = second
                 team_size = third
@@ -164,32 +192,57 @@ class TeamPolicy(ExecutionPolicy):
         if not isinstance(vector_length, int):
             vector_length = -1
 
-        if isinstance(space, ExecutionSpace):
-            if space is ExecutionSpace.Default:
-                space = km.get_default_space()
-            space = ExecutionSpaceInstance(space)
-
-        elif not isinstance(space, ExecutionSpaceInstance):
-            raise TypeError(f"Invalid space argument {space}")
-
-        self.space: ExecutionSpaceInstance = space
+        super().__init__(space)
         self.league_size: int = league_size
         self.team_size: int = team_size
         self.vector_length: int = vector_length
+        self.scratch_size_level: Optional[int] = None
+        self.scratch_size_value = None
 
-    def set_scratch_size(self, level: int, per_team_or_thread): # -> TeamPolicy:
+    @staticmethod
+    def scratch_size_max(level: int = 0) -> int:
+        """
+        Return the maximum total scratch size in bytes for the given level.
+
+        Calls into the Kokkos backend (precompiled at PyKokkos build time).
+
+        :param level: scratch level (0 or 1)
+        :returns: maximum scratch size in bytes for that level
+        """
+        from pykokkos.bindings import kokkos
+
+        if not hasattr(kokkos, "scratch_size_max"):
+            raise RuntimeError(
+                "scratch_size_max is not available in the loaded Kokkos bindings. "
+                "Rebuild and reinstall PyKokkos so that libpykokkos exports "
+                "TeamPolicy::scratch_size_max."
+            )
+
+        return int(kokkos.scratch_size_max(level))
+
+
+class TeamExecutionPolicy:
+    """
+    The parent class for all team execution policies
+    """
+
+
+class TeamThreadRange(TeamExecutionPolicy):
+    def __init__(self, team_member: TeamMember, count: int):
+        self.team_member = team_member
+        self.count: Final = count
+        # NOTE: KennyKos (5/28/26): I'm not sure why this is set or if it makes sense
+        self.space: ExecutionSpace = ExecutionSpace.Debug
+
+
+class ThreadVectorRange(TeamExecutionPolicy):
+    def __init__(self, team_member: TeamMember, count: int):
+        self.team_member = team_member
+        self.count: Final = count
+        # NOTE: KennyKos (5/28/26): I'm not sure why this is set or if it makes sense
+        self.space: ExecutionSpace = ExecutionSpace.Debug
+
+
+class TeamThreadMDRange(TeamExecutionPolicy):
+    def __init__(self, *args) -> None:
         pass
-
-
-class TeamThreadRange(ExecutionPolicy):
-    def __init__(self, team_member: TeamMember, count: int):
-        self.team_member = team_member
-        self.count: Final = count
-        self.space: ExecutionSpace = ExecutionSpace.Debug
-
-
-class ThreadVectorRange(ExecutionPolicy):
-    def __init__(self, team_member: TeamMember, count: int):
-        self.team_member = team_member
-        self.count: Final = count
-        self.space: ExecutionSpace = ExecutionSpace.Debug
