@@ -61,7 +61,13 @@ MAX_TYPES_STACKPARAMS: int = 12
 
 
 class t_x(pk.View):
-    def __init__(self, x: int = 0, y: int = 3, data_type: type = pk.double, layout: pk.Layout = pk.Layout.LayoutRight):
+    def __init__(
+        self,
+        x: int = 0,
+        y: int = 3,
+        data_type: type = pk.double,
+        layout: pk.Layout = pk.Layout.LayoutRight,
+    ):
         super().__init__([x, y], data_type, layout=layout)
 
 

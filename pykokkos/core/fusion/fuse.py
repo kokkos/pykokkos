@@ -1,82 +1,51 @@
 import ast
-import inspect
 import os
-from typing import Any, Callable, Dict, List, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
-def get_node_name(node: Union[ast.Attribute, ast.Name]) -> str:
-    """
-    Copied from visitors_util.py due to circular import
-    """
-
-    name: str
-    if isinstance(node, ast.Attribute):
-        name = node.attr
-    else:
-        name = node.id
-
-    return name
-
-
-class DeclarationsVisitor(ast.NodeVisitor):
-    """
-    Get all variable declarations
-    """
-
-    def __init__(self) -> None:
-        self.declarations: Set[str] = set()
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> Any:
-        self.declarations.add(get_node_name(node.target))
-
-
-class VariableRenamer(ast.NodeTransformer):
-    """
-    Renames variables in a fused ast according to a map
-    """
-
-    def __init__(self, name_map: Dict[Tuple[str, int], str], workunit_idx: int):
-        self.name_map = name_map
-        self.workunit_idx = workunit_idx
-
-    def visit_Name(self, node: ast.Name) -> Any:
-        key = (node.id, self.workunit_idx)
-        # If the name is not mapped, keep the original name
-        node.id = self.name_map.get(key, node.id)
-        return node
-
-    def visit_keyword(self, node: ast.keyword) -> Any:
-        key = (node.id, self.workunit_idx)
-        # If the name is not mapped, keep the original name
-        node.arg = self.name_map.get(key, node.arg)
-        return node
+from .util import DeclarationsVisitor, VariableRenamer
 
 
 def fuse_workunit_kwargs_and_params(
-    workunit_trees: List[ast.AST],
-    kwargs: Dict[str, Any]
+    workunit_trees: List[ast.AST], kwargs: Dict[str, Any], operation: str
 ) -> Tuple[Dict[str, Any], List[ast.arg]]:
     """
     Fuse the parameters and runtime arguments of a list of workunits and rename them as necessary
 
     :param workunits_trees: the list of workunit trees (ASTs) being merged
     :param kwargs: the keyword arguments passed to the call
+    :param operation: they type of parallel operation ("parallel_for", "parallel_reduce", or "parallel_scan")
     :returns: a tuple of the fused kwargs and the combined inspected parameters
     """
+
+    if operation == "parallel_scan":
+        raise RuntimeError("parallel_scan not supported for fusion")
 
     fused_kwargs: Dict[str, Any] = {}
     fused_params: List[ast.arg] = []
     fused_params.append(ast.arg(arg="fused_tid", annotation=int))
+
+    if operation == "parallel_reduce":
+        fused_params.append(ast.arg(arg="pk_fused_acc"))
 
     view_ids: Set[int] = set()
 
     for workunit_idx, tree in enumerate(workunit_trees):
         key: str = f"args_{workunit_idx}"
         if key not in kwargs:
-            raise RuntimeError(f"kwargs not specified for workunit {workunit_idx} with key {key}")
+            raise RuntimeError(
+                f"kwargs not specified for workunit {workunit_idx} with key {key}"
+            )
         current_kwargs: Dict[str, Any] = kwargs[key]
 
         current_params: List[ast.arg] = [p for p in tree.args.args]
-        for p in current_params[1:]: # Skip the thread ID
+        if operation == "parallel_reduce" and workunit_idx == len(workunit_trees) - 1:
+            # Skip the thread ID and the accumulator
+            current_params = current_params[2:]
+        else:
+            # Skip the thread ID
+            current_params = current_params[1:]
+
+        for p in current_params:
             current_arg = current_kwargs[p.arg]
             if "PK_FUSE_ARGS" in os.environ and id(current_arg) in view_ids:
                 continue
@@ -110,7 +79,9 @@ def fuse_workunit_kwargs_and_params(
 #     return fused_kwargs, fused_params
 
 
-def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.arguments, Dict[Tuple[str, int], str]]:
+def fuse_arguments(
+    all_args: List[ast.arguments], **kwargs
+) -> Tuple[ast.arguments, Dict[Tuple[str, int], str]]:
     """
     Fuse the ast argument object into one
 
@@ -118,11 +89,17 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
     :returns: a tuple of the new ast.arguments and a map from the old names to the new ones
     """
 
-    name_map: Dict[Tuple[str, int], str] = {} # Maps from a tuple of old arg name and workunit idx to the new one
+    name_map: Dict[Tuple[str, int], str] = (
+        {}
+    )  # Maps from a tuple of old arg name and workunit idx to the new one
 
     # The fused args are initialized contain the thread id
     new_tid: str = "fused_tid"
-    fused_args = ast.arguments(args=[ast.arg(arg=new_tid, annotation=ast.Name(id='int', ctx=ast.Load()))])
+    fused_args = ast.arguments(
+        args=[ast.arg(arg=new_tid, annotation=ast.Name(id="int", ctx=ast.Load()))]
+    )
+
+    new_acc: str = "pk_fused_acc"
 
     # Map from view ID to fused name
     fused_view_names: Dict[int, str] = {}
@@ -130,7 +107,9 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
     for workunit_idx, args in enumerate(all_args):
         key: str = f"args_{workunit_idx}"
         if key not in kwargs:
-            raise RuntimeError(f"kwargs not specified for workunit {workunit_idx} with key {key}")
+            raise RuntimeError(
+                f"kwargs not specified for workunit {workunit_idx} with key {key}"
+            )
         current_kwargs: Dict[str, Any] = kwargs[key]
 
         for arg_idx, arg in enumerate(args.args):
@@ -141,6 +120,14 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
             # Record what the thread id was but do not add it again
             if arg_idx == 0:
                 name_map[key] = new_tid
+                continue
+
+            # Account for accumulator
+            if old_name not in current_kwargs and arg_idx == 1:
+                name_map[key] = new_acc
+                fused_args.args.insert(
+                    1, ast.arg(arg=new_acc, annotation=arg.annotation)
+                )
                 continue
 
             current_arg = current_kwargs[old_name]
@@ -156,7 +143,9 @@ def fuse_arguments(all_args: List[ast.arguments], **kwargs) -> Tuple[ast.argumen
     return fused_args, name_map
 
 
-def fuse_bodies(bodies: List[List[ast.stmt]], name_map: Dict[Tuple[str, int], str]) -> List[ast.stmt]:
+def fuse_bodies(
+    bodies: List[List[ast.stmt]], name_map: Dict[Tuple[str, int], str]
+) -> List[ast.stmt]:
     """
     Fuse the bodies of the workunits and rename all declared variables
 
@@ -182,7 +171,10 @@ def fuse_bodies(bodies: List[List[ast.stmt]], name_map: Dict[Tuple[str, int], st
     return fused_body
 
 
-def fuse_decorators(decorators: List[Union[ast.Attribute, ast.Call]], name_map: Dict[Tuple[str, int], str]) -> List[ast.Call]:
+def fuse_decorators(
+    decorators: List[Union[ast.Attribute, ast.Call]],
+    name_map: Dict[Tuple[str, int], str],
+) -> List[ast.Call]:
     """
     Fuse the decorators of the workunits
 
@@ -214,7 +206,9 @@ def fuse_ASTs(ASTs: List[ast.FunctionDef], name: str, **kwargs) -> ast.FunctionD
     body: List[ast.stmt] = fuse_bodies([AST.body for AST in ASTs], name_map)
 
     # return ast.FunctionDef(name=name, args=args, decorator_list=[decorator], body=body)
-    return ast.FunctionDef(name=name, args=args, decorator_list=ASTs[0].decorator_list, body=body)
+    return ast.FunctionDef(
+        name=name, args=args, decorator_list=ASTs[0].decorator_list, body=body
+    )
 
 
 def fuse_sources(sources: List[Tuple[List[str], int]]):
@@ -225,7 +219,7 @@ def fuse_workunits(
     fused_name: str,
     ASTs: List[ast.FunctionDef],
     sources: List[Tuple[List[str], int]],
-    **kwargs
+    **kwargs,
 ) -> Tuple[ast.FunctionDef, Tuple[List[str], int]]:
     """
     Merge a list of workunits into a single object

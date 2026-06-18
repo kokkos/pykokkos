@@ -57,7 +57,9 @@ class Neighbor2D(Neighbor):
 
         self.neigh_list = NeighList2D()
 
-    def create_neigh_list(self, system: System, binning: Binning, half_neigh: bool, b: bool, fill: bool) -> None:
+    def create_neigh_list(
+        self, system: System, binning: Binning, half_neigh: bool, b: bool, fill: bool
+    ) -> None:
         self.N_local = system.N_local
         self.x = system.x
         self.type = system.type
@@ -82,8 +84,13 @@ class Neighbor2D(Neighbor):
         condition: bool = True
 
         while condition:
-            if self.neigh_list.neighs.extent(0) < self.N_local + 1 or self.neigh_list.neighs.extent(1) < self.neigh_list.maxneighs:
-                self.neigh_list.neighs = pk.View([self.N_local + 1, self.neigh_list.maxneighs], pk.int32)
+            if (
+                self.neigh_list.neighs.extent(0) < self.N_local + 1
+                or self.neigh_list.neighs.extent(1) < self.neigh_list.maxneighs
+            ):
+                self.neigh_list.neighs = pk.View(
+                    [self.N_local + 1, self.neigh_list.maxneighs], pk.int32
+                )
 
             if fill:
                 self.neigh_list.num_neighs.fill(0)
@@ -120,11 +127,17 @@ class Neighbor2D(Neighbor):
     @pk.main
     def run(self) -> None:
         if self.half_neigh:
-            pk.parallel_for("Neighbor2D::fill_neigh_list_half",
-                pk.TeamPolicy(self.nbins, "auto", 8), self.fill_neigh_list_half)
+            pk.parallel_for(
+                "Neighbor2D::fill_neigh_list_half",
+                pk.TeamPolicy(self.nbins, "auto", 8),
+                self.fill_neigh_list_half,
+            )
         else:
-            pk.parallel_for("Neighbor2D::fill_neigh_list_full",
-                pk.TeamPolicy(self.nbins, "auto", 8), self.fill_neigh_list_full)
+            pk.parallel_for(
+                "Neighbor2D::fill_neigh_list_full",
+                pk.TeamPolicy(self.nbins, "auto", 8),
+                self.fill_neigh_list_full,
+            )
 
     @pk.workunit
     def fill_neigh_list_full(self, team: pk.TeamMember) -> None:
@@ -160,14 +173,15 @@ class Neighbor2D(Neighbor):
                             rsq: float = dx * dx + dy * dy + dz * dz
 
                             if rsq <= (self.neigh_cut * self.neigh_cut) and i != j:
-                                n: int = pk.atomic_fetch_add(
-                                    self.num_neighs, [i], 1)
+                                n: int = pk.atomic_fetch_add(self.num_neighs, [i], 1)
                                 if n < self.maxneighs:
                                     self.neighs[i][n] = j
 
                         thread_vector_count: int = self.bin_count[bx_j][by_j][bz_j]
-                        pk.parallel_for(pk.ThreadVectorRange(
-                            team, thread_vector_count), second_for_full)
+                        pk.parallel_for(
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            second_for_full,
+                        )
 
             def single_full():
                 num_neighs_i: int = self.num_neighs[i]
@@ -178,8 +192,7 @@ class Neighbor2D(Neighbor):
             pk.single(pk.PerThread(team), single_full)
 
         team_thread_count: int = self.bin_count[bx][by][bz]
-        pk.parallel_for(pk.TeamThreadRange(
-            team, team_thread_count), first_for_full)
+        pk.parallel_for(pk.TeamThreadRange(team, team_thread_count), first_for_full)
 
     @pk.workunit
     def fill_neigh_list_half(self, team: pk.TeamMember) -> None:
@@ -188,6 +201,7 @@ class Neighbor2D(Neighbor):
         bz: int = team.league_rank() % self.nbinz + self.nhalo
 
         i_offset: int = self.bin_offsets[bx][by][bz]
+
         def first_for_half(bi: int):
             i: int = self.permute_vector[i_offset + bi]
             if i >= self.N_local:
@@ -211,11 +225,13 @@ class Neighbor2D(Neighbor):
                             y_j: float = self.x[j][1]
                             z_j: float = self.x[j][2]
                             if (
-                                (j == i or j < self.N_local or self.comm_newton)
-                                and not (x_j > x_i or
-                                         (x_j == x_i and
-                                          (y_j > y_i or
-                                           (y_j == y_i and z_j == z_i))))
+                                j == i or j < self.N_local or self.comm_newton
+                            ) and not (
+                                x_j > x_i
+                                or (
+                                    x_j == x_i
+                                    and (y_j > y_i or (y_j == y_i and z_j == z_i))
+                                )
                             ):
                                 return
 
@@ -227,14 +243,15 @@ class Neighbor2D(Neighbor):
                             rsq: float = dx * dx + dy * dy + dz * dz
 
                             if rsq <= (self.neigh_cut * self.neigh_cut):
-                                n: int = pk.atomic_fetch_add(
-                                    self.num_neighs, [i], 1)
+                                n: int = pk.atomic_fetch_add(self.num_neighs, [i], 1)
                                 if n < self.maxneighs:
                                     self.neighs[i][n] = j
 
                         thread_vector_count: int = self.bin_count[bx_j][by_j][bz_j]
-                        pk.parallel_for(pk.ThreadVectorRange(
-                            team, thread_vector_count), second_for_half)
+                        pk.parallel_for(
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            second_for_half,
+                        )
 
             def single_half():
                 num_neighs_i: int = self.num_neighs[i]
@@ -245,5 +262,4 @@ class Neighbor2D(Neighbor):
             pk.single(pk.PerThread(team), single_half)
 
         team_thread_count: int = self.bin_count[bx][by][bz]
-        pk.parallel_for(pk.TeamThreadRange(
-            team, team_thread_count), first_for_half)
+        pk.parallel_for(pk.TeamThreadRange(team, team_thread_count), first_for_half)

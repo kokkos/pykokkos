@@ -8,6 +8,7 @@
 *.out
 .clangd
 **/pk_cpp/
+**/.pykokkos/
 **/*.egg-info
 tmp/
 examples/**/KokkosCore_config.h
@@ -45,3 +46,10 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+
+# Docker files and secrets
+dev-container/secrets.yaml
+
+# Output files and directories
+build/
+dev-container/secrets.yaml

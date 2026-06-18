@@ -3,28 +3,51 @@ import random
 from typing import Tuple
 
 import pykokkos as pk
+import numpy as np
+
+try:
+    import cupy as cp
+
+    cupy_available = True
+except ImportError:
+    cupy_available = False
+
+
+def get_array_module(space: pk.ExecutionSpace):
+    """Return numpy or cupy module based on execution space"""
+    if cupy_available and space in (pk.ExecutionSpace.Cuda, pk.ExecutionSpace.HIP):
+        return cp
+    return np
 
 
 @pk.functor
 # use double type and unroll=8
 class Benchmark_double_8:
-    def __init__(self, N: int, K: int, R: int, D: int, F: int, T: int, S: int):
+    def __init__(
+        self,
+        N: int,
+        K: int,
+        R: int,
+        D: int,
+        F: int,
+        T: int,
+        S: int,
+        space: pk.ExecutionSpace,
+    ):
         self.K: int = K
         self.R: int = R
         self.F: int = F
 
-        self.A: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-        self.B: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-        self.C: pk.View3D[pk.double] = pk.View([N, K, D], pk.double)
-
-        self.A.fill(1.5)
-        self.B.fill(2.5)
-        self.C.fill(3.5)
+        xp = get_array_module(space)
+        self.A = xp.full((N, K, D), 1.5, dtype=np.float64)
+        self.B = xp.full((N, K, D), 2.5, dtype=np.float64)
+        self.C = xp.full((N, K, D), 3.5, dtype=np.float64)
 
     @pk.workunit
     def benchmark(self, team: pk.TeamMember):
         n: int = team.league_rank()
         for r in range(self.R):
+
             def team_for(i: int):
                 a1: pk.double = self.A[n][i][0]
                 b: pk.double = self.B[n][i][0]
@@ -48,8 +71,8 @@ class Benchmark_double_8:
 
                 self.C[n][i][0] = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8
 
-
             pk.parallel_for(pk.TeamThreadRange(team, self.K), team_for)
+
 
 def run() -> None:
     # example args
@@ -63,13 +86,21 @@ def run() -> None:
     parser.add_argument("P", type=int, help="Precision (1==float, 2==double)")
     parser.add_argument("N", type=int, help="N dimensions of the 2D array to allocate")
     parser.add_argument("K", type=int, help="K dimension of the 2D array to allocate")
-    parser.add_argument("R", type=int, help="how often to loop through the K dimension with each team")
+    parser.add_argument(
+        "R", type=int, help="how often to loop through the K dimension with each team"
+    )
     parser.add_argument("D", type=int, help="distance between loaded elements (stride)")
     parser.add_argument("U", type=int, help="how many independent flops to do per load")
-    parser.add_argument("F", type=int, help="how many times to repeat the U unrolled operations before reading next element")
+    parser.add_argument(
+        "F",
+        type=int,
+        help="how many times to repeat the U unrolled operations before reading next element",
+    )
     parser.add_argument("T", type=int, help="team size")
     # NOTE: S ignored
-    parser.add_argument("S", type=int, help="shared memory per team (used to control occupancy on GPUs)")
+    parser.add_argument(
+        "S", type=int, help="shared memory per team (used to control occupancy on GPUs)"
+    )
     parser.add_argument("--execution_space", type=str)
     args = parser.parse_args()
 
@@ -102,7 +133,7 @@ def run() -> None:
     pk.set_default_space(space)
 
     r = pk.TeamPolicy(N, T)
-    w = Benchmark_double_8(N, K, R, args.D, F, T, S)
+    w = Benchmark_double_8(N, K, R, args.D, F, T, S, space)
 
     timer = pk.Timer()
     pk.parallel_for(r, w.benchmark)
@@ -110,8 +141,10 @@ def run() -> None:
 
     num_bytes = 1.0 * N * K * R * 3 * scalar_size
     flops = 1.0 * N * K * R * (F * 2 * U + 2 * (U - 1))
-    print(f"NKRUFTS: {N} {K} {R} {U} {F} {T} {S} Time: {seconds} " +
-            f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds}")
+    print(
+        f"NKRUFTS: {N} {K} {R} {U} {F} {T} {S} Time: {seconds} "
+        + f"Bandwidth: {1.0 * num_bytes / seconds / (1024**3)} GiB/s GFlop/s: {1e-9 * flops / seconds}"
+    )
     print(w.C)
 
 

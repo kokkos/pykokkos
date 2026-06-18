@@ -4,21 +4,26 @@ from typing import Tuple
 
 import pykokkos as pk
 
+
 @pk.workunit
 def init_data(i, data):
     data[i] = 10101010101
+
 
 @pk.workunit
 def init_indices(i, indices):
     indices[i] = 0
 
+
 @pk.workunit
 def run_gups_atomic(i, data, indices, datum):
     pk.atomic_fetch_xor(data, [indices[i]], datum)
 
+
 @pk.workunit
 def run_gups(i, data, indices, datum):
     data[indices[i]] ^= datum
+
 
 if __name__ == "__main__":
     random.seed(1010101)
@@ -74,13 +79,21 @@ if __name__ == "__main__":
             indices_view[i] = random.randrange(data)
 
         if use_atomics:
-            pk.parallel_for(range_indices, run_gups_atomic, data=data_view, 
-                    indices=indices_view, datum=datum)
+            pk.parallel_for(
+                range_indices,
+                run_gups_atomic,
+                data=data_view,
+                indices=indices_view,
+                datum=datum,
+            )
         else:
-            pk.parallel_for(range_indices, run_gups, data=data_view, 
-                    indices=indices_view, datum=datum)
+            pk.parallel_for(
+                range_indices,
+                run_gups,
+                data=data_view,
+                indices=indices_view,
+                datum=datum,
+            )
 
     gupsTime = timer.seconds()
     print(f"GUP/s Random: {1e-9 * repeats * indices / gupsTime}")
-
-

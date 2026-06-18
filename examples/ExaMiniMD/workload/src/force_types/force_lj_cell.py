@@ -80,14 +80,16 @@ class ForceLJCell(Force):
         sigma: float = float(args[4])
         cut: float = float(args[5])
 
-        self.lj1[t1][t2] = 48.0 * eps * (sigma ** 12.0)
-        self.lj2[t1][t2] = 24.0 * eps * (sigma ** 6.0)
+        self.lj1[t1][t2] = 48.0 * eps * (sigma**12.0)
+        self.lj2[t1][t2] = 24.0 * eps * (sigma**6.0)
         self.lj1[t2][t1] = self.lj1[t1][t2]
         self.lj2[t2][t1] = self.lj2[t1][t2]
         self.cutsq[t1][t2] = cut * cut
         self.cutsq[t2][t1] = cut * cut
 
-    def compute(self, system: System, binning: Binning, neighbor: Neighbor, fill: bool) -> None:
+    def compute(
+        self, system: System, binning: Binning, neighbor: Neighbor, fill: bool
+    ) -> None:
         self.x = system.x
         self.f = system.f
         self.id = system.id
@@ -121,7 +123,9 @@ class ForceLJCell(Force):
         self.type = t_type()
         self.f = t_f()
 
-    def compute_energy(self, system: System, binning: Binning, neighbor: Neighbor) -> float:
+    def compute_energy(
+        self, system: System, binning: Binning, neighbor: Neighbor
+    ) -> float:
         self.x = system.x
         self.id = system.id
         self.type = system.type
@@ -152,8 +156,7 @@ class ForceLJCell(Force):
         if self.parallel_for:
             pk.parallel_for(pk.TeamPolicy(self.nbins, 1, 8), self.pfor)
         else:
-            self.PE = pk.parallel_reduce(
-                pk.TeamPolicy(self.nbins, 1, 8), self.preduce)
+            self.PE = pk.parallel_reduce(pk.TeamPolicy(self.nbins, 1, 8), self.preduce)
 
     @pk.workunit
     def pfor(self, team: pk.TeamMember) -> None:
@@ -220,7 +223,12 @@ class ForceLJCell(Force):
                                 r2inv: float = 1.0 / rsq
                                 r6inv: float = r2inv * r2inv * r2inv
                                 fpair: float = (
-                                    r6inv * (self.lj1[type_i][type_j] * r6inv - self.lj2[type_i][type_j])) * r2inv
+                                    r6inv
+                                    * (
+                                        self.lj1[type_i][type_j] * r6inv
+                                        - self.lj2[type_i][type_j]
+                                    )
+                                ) * r2inv
 
                                 lf_i += dx * fpair
 
@@ -238,7 +246,12 @@ class ForceLJCell(Force):
                                 r2inv: float = 1.0 / rsq
                                 r6inv: float = r2inv * r2inv * r2inv
                                 fpair: float = (
-                                    r6inv * (self.lj1[type_i][type_j] * r6inv - self.lj2[type_i][type_j])) * r2inv
+                                    r6inv
+                                    * (
+                                        self.lj1[type_i][type_j] * r6inv
+                                        - self.lj2[type_i][type_j]
+                                    )
+                                ) * r2inv
 
                                 lf_i += dy * fpair
 
@@ -256,17 +269,28 @@ class ForceLJCell(Force):
                                 r2inv: float = 1.0 / rsq
                                 r6inv: float = r2inv * r2inv * r2inv
                                 fpair: float = (
-                                    r6inv * (self.lj1[type_i][type_j] * r6inv - self.lj2[type_i][type_j])) * r2inv
+                                    r6inv
+                                    * (
+                                        self.lj1[type_i][type_j] * r6inv
+                                        - self.lj2[type_i][type_j]
+                                    )
+                                ) * r2inv
 
                                 lf_i += dz * fpair
 
                         thread_vector_count: int = self.bin_count[bx_j][by_j][bz_j]
                         f_i_tmp_x: float = pk.parallel_reduce(
-                            pk.ThreadVectorRange(team, thread_vector_count), thread_vector_reduce_x)
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            thread_vector_reduce_x,
+                        )
                         f_i_tmp_y: float = pk.parallel_reduce(
-                            pk.ThreadVectorRange(team, thread_vector_count), thread_vector_reduce_y)
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            thread_vector_reduce_y,
+                        )
                         f_i_tmp_z: float = pk.parallel_reduce(
-                            pk.ThreadVectorRange(team, thread_vector_count), thread_vector_reduce_z)
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            thread_vector_reduce_z,
+                        )
 
                         f_i.x += f_i_tmp_x
                         f_i.y += f_i_tmp_y
@@ -277,8 +301,7 @@ class ForceLJCell(Force):
             self.f[i][2] = f_i.z
 
         team_thread_count: int = self.bin_count[bx][by][bz]
-        pk.parallel_for(pk.TeamThreadRange(
-            team, team_thread_count), team_thread_for)
+        pk.parallel_for(pk.TeamThreadRange(team, team_thread_count), team_thread_for)
 
     @pk.workunit
     def preduce(self, team: pk.TeamMember, PE_bi: pk.Acc[pk.double]) -> None:
@@ -342,24 +365,38 @@ class ForceLJCell(Force):
                                 r2inv: float = 1.0 / rsq
                                 r6inv: float = r2inv * r2inv * r2inv
 
-                                PE_ibj += 0.5 * r6inv * \
-                                    (0.5 * self.lj1[type_i][type_j] *
-                                     r6inv - self.lj2[type_i][type_j]) / 6.0
+                                PE_ibj += (
+                                    0.5
+                                    * r6inv
+                                    * (
+                                        0.5 * self.lj1[type_i][type_j] * r6inv
+                                        - self.lj2[type_i][type_j]
+                                    )
+                                    / 6.0
+                                )
 
                                 if shift_flag:
-                                    r2invc: float = 1.0 / \
-                                        self.cutsq[type_i][type_j]
+                                    r2invc: float = 1.0 / self.cutsq[type_i][type_j]
                                     r6invc: float = r2inv * r2inv * r2inv
 
-                                    PE_ibj -= 0.5 * r6invc * \
-                                        (0.5 * self.lj1[type_i][type_j] *
-                                         r6invc - self.lj2[type_i][type_j]) / 6.0
+                                    PE_ibj -= (
+                                        0.5
+                                        * r6invc
+                                        * (
+                                            0.5 * self.lj1[type_i][type_j] * r6invc
+                                            - self.lj2[type_i][type_j]
+                                        )
+                                        / 6.0
+                                    )
 
                         thread_vector_count: int = self.bin_count[bx_j][by_j][bz_j]
-                        PE_ibj: float = pk.parallel_reduce(pk.ThreadVectorRange(
-                            team, thread_vector_count), thread_vector_reduce)
+                        PE_ibj: float = pk.parallel_reduce(
+                            pk.ThreadVectorRange(team, thread_vector_count),
+                            thread_vector_reduce,
+                        )
                         PE_i += PE_ibj
 
         team_thread_count: int = self.bin_count[bx][by][bz]
-        PE_i: float = pk.parallel_reduce(pk.TeamThreadRange(
-            team, team_thread_count), team_thread_reduce)
+        PE_i: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team, team_thread_count), team_thread_reduce
+        )

@@ -13,11 +13,15 @@ from types_h import MAX_TYPES_STACKPARAMS, t_f
 @pk.workload(x=pk.ViewTypeInfo(layout=pk.Layout.LayoutRight))
 class ForceLJNeigh(Force):
     class t_fparams(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        def __init__(
+            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
+        ):
             super().__init__([x, y], data_type)
 
     class t_fparams_rnd(pk.View):
-        def __init__(self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double):
+        def __init__(
+            self, x: int = 0, y: int = 0, data_type: pk.DataTypeClass = pk.double
+        ):
             super().__init__([x, y], data_type)
 
     def __init__(self, args: List[str], system: System, half_neigh: bool):
@@ -50,12 +54,18 @@ class ForceLJNeigh(Force):
         self.nhalo: int = 0
         self.step: int = 0
 
-        self.stack_lj1: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
-        self.stack_lj2: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
-        self.stack_cutsq: List[List[float]] = [[0 for i in range(
-            MAX_TYPES_STACKPARAMS + 1)] for j in range(MAX_TYPES_STACKPARAMS + 1)]
+        self.stack_lj1: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
+        self.stack_lj2: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
+        self.stack_cutsq: List[List[float]] = [
+            [0 for i in range(MAX_TYPES_STACKPARAMS + 1)]
+            for j in range(MAX_TYPES_STACKPARAMS + 1)
+        ]
 
         self.energy: float = 0.0
 
@@ -73,7 +83,7 @@ class ForceLJNeigh(Force):
         self.f: pk.View2D[pk.double] = system.f
         # TODO: this should be atomic. Disabled since it is
         # overwriting f
-        #self.f_a: pk.View2D[pk.double] = system.f
+        # self.f_a: pk.View2D[pk.double] = system.f
         self.id: pk.View1D[pk.int32] = system.id
         self.type: pk.View1D[pk.int32] = system.type
 
@@ -90,13 +100,13 @@ class ForceLJNeigh(Force):
         if self.use_stackparams:
             for i in range(self.ntypes):
                 for j in range(self.ntypes):
-                    self.stack_lj1[i][j] = 48.0 * eps * (sigma ** 12.0)
-                    self.stack_lj2[i][j] = 24.0 * eps * (sigma ** 6.0)
-                    self.stack_cutsq[i][j] = cut*cut
+                    self.stack_lj1[i][j] = 48.0 * eps * (sigma**12.0)
+                    self.stack_lj2[i][j] = 24.0 * eps * (sigma**6.0)
+                    self.stack_cutsq[i][j] = cut * cut
 
         else:
-            self.lj1[t1][t2] = 48.0 * eps * (sigma ** 12.0)
-            self.lj2[t1][t2] = 24.0 * eps * (sigma ** 6.0)
+            self.lj1[t1][t2] = 48.0 * eps * (sigma**12.0)
+            self.lj2[t1][t2] = 24.0 * eps * (sigma**6.0)
             self.lj1[t2][t1] = self.lj1[t1][t2]
             self.lj2[t2][t1] = self.lj2[t1][t2]
             self.cutsq[t1][t2] = cut * cut
@@ -123,7 +133,9 @@ class ForceLJNeigh(Force):
 
         self.step += 1
 
-    def compute_energy(self, system: System, binning: Binning, neighbor: Neighbor) -> float:
+    def compute_energy(
+        self, system: System, binning: Binning, neighbor: Neighbor
+    ) -> float:
         neigh_list: NeighList2D = neighbor.get_neigh_list()
         self.num_neighs_view: pk.View1D = neigh_list.num_neighs
         self.neighs_view: pk.View2D = neigh_list.neighs
@@ -151,14 +163,22 @@ class ForceLJNeigh(Force):
     def run(self) -> None:
         if self.parallel_for:
             if self.half_neigh:
-                pk.parallel_for("ForceLJNeigh::compute", self.N_local, self.halfneigh_for)
+                pk.parallel_for(
+                    "ForceLJNeigh::compute", self.N_local, self.halfneigh_for
+                )
             else:
-                pk.parallel_for("ForceLJNeigh::compute", self.N_local, self.fullneigh_for)
+                pk.parallel_for(
+                    "ForceLJNeigh::compute", self.N_local, self.fullneigh_for
+                )
         else:
             if self.half_neigh:
-                self.energy = pk.parallel_reduce("ForceLJNeigh::compute_energy", self.N_local, self.halfneigh_reduce)
+                self.energy = pk.parallel_reduce(
+                    "ForceLJNeigh::compute_energy", self.N_local, self.halfneigh_reduce
+                )
             else:
-                self.energy = pk.parallel_reduce("ForceLJNeigh::compute_energy", self.N_local, self.fullneigh_reduce)
+                self.energy = pk.parallel_reduce(
+                    "ForceLJNeigh::compute_energy", self.N_local, self.fullneigh_reduce
+                )
 
     @pk.workunit
     def fullneigh_for(self, i: int) -> None:
