@@ -180,6 +180,7 @@ def assert_minmaxloc(
     assert_allclose(max_value, expected_max)
     assert max_loc == expected_max_loc
 
+
 @pk.workload
 class SquareSumUInt32:
     def __init__(self, n):
@@ -193,6 +194,7 @@ class SquareSumUInt32:
     @pk.workunit
     def squaresum(self, i: pk.int32, acc: pk.Acc[pk.uint32]):
         acc += i * i
+
 
 @pk.workload
 class SquareSumInt16:
@@ -208,6 +210,7 @@ class SquareSumInt16:
     def squaresum(self, i: pk.int16, acc: pk.Acc[pk.int16]):
         acc += i * i
 
+
 @pk.workload
 class SquareSumUInt8:
     def __init__(self, n):
@@ -221,6 +224,7 @@ class SquareSumUInt8:
     @pk.workunit
     def squaresum(self, i: pk.uint8, acc: pk.Acc[pk.int32]):
         acc += i * i
+
 
 @pytest.mark.parametrize("series_max", [10, 5000, 90000])
 @pytest.mark.parametrize("dtype", [np.float64, np.int64, np.uint32])
