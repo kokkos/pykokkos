@@ -1,5 +1,6 @@
 import unittest
 
+import pytest
 import pykokkos as pk
 
 
@@ -153,6 +154,38 @@ class HierarchicalTestFunctor:
         pk.single(pk.PerTeam(team_member), single_closure)
 
 
+@pk.functor
+class ShadowTestFunctor:
+    def __init__(self, N: int, M: int, value: int):
+        self.N: int = N
+        self.M: int = M
+        self.y: pk.View1D[pk.int32] = pk.View([N], pk.int32)
+        self.x: pk.View1D[pk.int32] = pk.View([M], pk.int32)
+        self.A: pk.View2D[pk.int32] = pk.View([N, M], pk.int32)
+        for i in range(N):
+            self.y[i] = value
+        for i in range(M):
+            self.x[i] = value
+        for j in range(N):
+            for i in range(M):
+                self.A[j][i] = value
+
+    @pk.workunit
+    def yAx_shadow(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+        scale: float = 1.0
+
+        def inner_reduce(i: int, inner_acc: pk.Acc[pk.double]):
+            inner_acc += self.A[j][i] * self.x[i] * scale
+
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce, scale=2.0
+        )
+
+        if team_member.team_rank() == 0:
+            acc += self.y[j] * temp2
+
+
 class TestHierarchical(unittest.TestCase):
     def setUp(self):
         self.N: int = 64
@@ -247,6 +280,20 @@ class TestHierarchical(unittest.TestCase):
         )
 
         self.assertEqual(expected_result, result)
+
+    @pytest.mark.xfail(
+        reason="kwarg name shadowing an existing local variable emits a C++ "
+        "redefinition in the same scope; variable shadowing is not yet handled"
+    )
+    def test_yAx_shadow(self):
+        # A kwarg whose name matches an existing local variable ('scale') should
+        # A kwarg whose name matches an existing local variable ('scale') should
+        # eventually be handled via scoping, but currently produces a C++ compile error.
+        shadow_functor = ShadowTestFunctor(self.N, self.M, self.value)
+        pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            shadow_functor.yAx_shadow,
+        )
 
     def test_fill_offset(self):
         pk.parallel_for(
