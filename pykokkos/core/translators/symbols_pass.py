@@ -187,8 +187,9 @@ class SymbolsPass:
             if symbol is None:
                 sys.exit("Internal Error")
 
+            lineno = getattr(node, "lineno", "unknown")
             message: str = (
-                f'File "{self.path}", line {node.lineno}:\n {error.value} symbol {symbol} used'
+                f'File "{self.path}", line {lineno}:\n {error.value} symbol {symbol} used'
             )
             messages.append(message)
 
