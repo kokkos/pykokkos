@@ -47,6 +47,10 @@ Titles must follow the `module: description` format, where `module` is the part 
 | `views: add support for rank-3 layouts` | `Updates to the views module` |
 | `ci: pin black version to 25.12.0` | `black` |
 
+[!TIP]
+If you are not sure what module name to choose, just add the name of the Lowest Common Ancestor (LCA) directory of the changed file (for example, you changed `pykokkos/core/compiler` and `pykokkos/core/visitor/visitor_util.py`. The LCA here is `core`---use it as a module name.
+Avoid changes that involve multiple directories under `pykokkos/` (e.g., `pykokkos/interface` and `pykokkos/core`) in one PR.
+
 ### Description
 
 Every pull request must include a description that gives reviewers and future contributors enough context to understand the goal and major changes **before** reading the code. A good description covers:
@@ -73,13 +77,7 @@ PRs that fail the formatting check will not be reviewed until the check passes.
 Most changes should be accompanied by unit tests. Please follow these guidelines:
 
 - **Extend existing test files** in the `test` directory wherever possible. Adding a new test file should be a last resort.
-- **Run the full test suite locally** before pushing:
-
-  ```bash
-  python3 runtests.py
-  ```
-
-- Make sure all existing tests continue to pass.
+- **If you have access to a GPU, we recommend running all tests locally, as our CI does not have GPU runners. This helps us identify existing issues and support more GPU models. The command to run the suite locally is `python runtests.py`
 
 ### Examples
 
@@ -89,4 +87,4 @@ Pull requests that introduce significant new functionality should include a work
 
 ## Questions?
 
-If you are unsure about any of the above or need guidance on where to start, feel free to ask a question in the [Kokkos slack](https://kokkos.org/community/chat) **#pykokkos** channel.
+If you are unsure about any of the above or need guidance on where to start, feel free to ask a question in the [Kokkos slack](https://kokkosteam.slack.com/archives/C035BTCFPSS) **#pykokkos** channel.
