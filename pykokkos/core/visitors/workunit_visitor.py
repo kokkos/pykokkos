@@ -168,7 +168,17 @@ class WorkunitVisitor(PyKokkosVisitor):
 
                 callstmt = cppast.CallStmt(call)
 
-                return cppast.CompoundStmt([declstmt, callstmt])
+                # Declare kwargs as local auto variables so the inner lambda's
+                # [&] capture can pick them up.
+                kwarg_stmts: List[cppast.DeclStmt] = []
+                for kw in node.value.keywords:
+                    kw_type = cppast.PrimitiveType("auto")
+                    kw_name = cppast.DeclRefExpr(kw.arg)
+                    kw_value = self.visit(kw.value)
+                    kw_decl = cppast.VarDecl(kw_type, kw_name, kw_value)
+                    kwarg_stmts.append(cppast.DeclStmt(kw_decl))
+
+                return cppast.CompoundStmt(kwarg_stmts + [declstmt, callstmt])
 
             if function_name.startswith("ScratchView"):
                 cpp_view_type: str = self.get_scratch_view_type(node.annotation)
@@ -185,6 +195,21 @@ class WorkunitVisitor(PyKokkosVisitor):
                 return cppast.DeclStmt(view_decl)
 
         return super().visit_AnnAssign(node)
+
+    def visit_Expr(self, node: ast.Expr) -> cppast.Stmt:
+        if isinstance(node.value, ast.Call) and node.value.keywords:
+            func_name: str = visitors_util.get_node_name(node.value.func)
+            if func_name in ("parallel_for", "parallel_scan"):
+                kwarg_stmts: List[cppast.DeclStmt] = []
+                for kw in node.value.keywords:
+                    kw_type = cppast.PrimitiveType("auto")
+                    kw_name = cppast.DeclRefExpr(kw.arg)
+                    kw_value = self.visit(kw.value)
+                    kw_decl = cppast.VarDecl(kw_type, kw_name, kw_value)
+                    kwarg_stmts.append(cppast.DeclStmt(kw_decl))
+                call = self.visit(node.value)
+                return cppast.CompoundStmt(kwarg_stmts + [cppast.CallStmt(call)])
+        return super().visit_Expr(node)
 
     def visit_arguments(self, node: ast.arguments) -> List[cppast.ParmVarDecl]:
         args: List[ast.arg] = node.args

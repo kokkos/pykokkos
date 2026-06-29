@@ -1,5 +1,6 @@
 import unittest
 
+import pytest
 import pykokkos as pk
 
 
@@ -92,6 +93,43 @@ class HierarchicalTestFunctor:
             self.for_view[j] = temp
 
     @pk.workunit
+    def yAx_scaled(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_reduce(i: int, inner_acc: pk.Acc[pk.double]):
+            inner_acc += self.A[j][i] * self.x[i] * scale
+
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce, scale=2.0
+        )
+
+        if team_member.team_rank() == 0:
+            acc += self.y[j] * temp2
+
+    @pk.workunit
+    def fill_offset(self, team_member: pk.TeamMember) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_for(i: int):
+            self.A[j][i] = offset
+
+        pk.parallel_for(pk.TeamThreadRange(team_member, self.M), inner_for, offset=42)
+
+    @pk.workunit
+    def scan_scaled(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+
+        def inner_scan(i: int, scan_acc: pk.Acc[pk.double], is_final: bool):
+            scan_acc += scale
+
+        result: float = pk.parallel_scan(
+            pk.TeamThreadRange(team_member, self.M), inner_scan, scale=3
+        )
+
+        if team_member.team_rank() == 0:
+            acc += result
+
+    @pk.workunit
     def yAx_vector(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
         e: int = team_member.league_rank()
 
@@ -114,6 +152,38 @@ class HierarchicalTestFunctor:
             acc += tempN
 
         pk.single(pk.PerTeam(team_member), single_closure)
+
+
+@pk.functor
+class ShadowTestFunctor:
+    def __init__(self, N: int, M: int, value: int):
+        self.N: int = N
+        self.M: int = M
+        self.y: pk.View1D[pk.int32] = pk.View([N], pk.int32)
+        self.x: pk.View1D[pk.int32] = pk.View([M], pk.int32)
+        self.A: pk.View2D[pk.int32] = pk.View([N, M], pk.int32)
+        for i in range(N):
+            self.y[i] = value
+        for i in range(M):
+            self.x[i] = value
+        for j in range(N):
+            for i in range(M):
+                self.A[j][i] = value
+
+    @pk.workunit
+    def yAx_shadow(self, team_member: pk.TeamMember, acc: pk.Acc[pk.double]) -> None:
+        j: int = team_member.league_rank()
+        scale: float = 1.0
+
+        def inner_reduce(i: int, inner_acc: pk.Acc[pk.double]):
+            inner_acc += self.A[j][i] * self.x[i] * scale
+
+        temp2: float = pk.parallel_reduce(
+            pk.TeamThreadRange(team_member, self.M), inner_reduce, scale=2.0
+        )
+
+        if team_member.team_rank() == 0:
+            acc += self.y[j] * temp2
 
 
 class TestHierarchical(unittest.TestCase):
@@ -194,6 +264,53 @@ class TestHierarchical(unittest.TestCase):
         for i in range(self.N):
             result: int = self.functor.for_view[i]
             self.assertEqual(expected_result, result)
+
+    def test_yAx_scaled(self):
+        scale: float = 2.0
+        expected_result: float = 0
+        for j in range(self.N):
+            temp2: float = 0
+            for i in range(self.M):
+                temp2 += self.A[j][i] * self.x[i] * scale
+            expected_result += self.y[j] * temp2
+
+        result: float = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.yAx_scaled,
+        )
+
+        self.assertEqual(expected_result, result)
+
+    @pytest.mark.xfail(
+        reason="kwarg name shadowing an existing local variable emits a C++ "
+        "redefinition in the same scope; variable shadowing is not yet handled"
+    )
+    def test_yAx_shadow(self):
+        # A kwarg whose name matches an existing local variable ('scale') should
+        # A kwarg whose name matches an existing local variable ('scale') should
+        # eventually be handled via scoping, but currently produces a C++ compile error.
+        shadow_functor = ShadowTestFunctor(self.N, self.M, self.value)
+        pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            shadow_functor.yAx_shadow,
+        )
+
+    def test_fill_offset(self):
+        pk.parallel_for(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.fill_offset,
+        )
+        for j in range(self.N):
+            for i in range(self.M):
+                self.assertEqual(self.functor.A[j][i], 42)
+
+    def test_scan_scaled(self):
+        expected_result: float = self.N * self.M * 3
+        result: float = pk.parallel_reduce(
+            pk.TeamPolicy(self.execution_space, self.N, pk.AUTO),
+            self.functor.scan_scaled,
+        )
+        self.assertEqual(expected_result, result)
 
     def test_yAx_vector(self):
         expected_result: float = 0
