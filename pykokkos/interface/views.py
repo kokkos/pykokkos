@@ -406,7 +406,7 @@ class View(ViewType):
 
         # only allow CudaSpace/HIPSpace view for cupy arrays
         if (
-            space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}
+            (space is MemorySpace.CudaSpace or space is MemorySpace.HIPSpace)
         ) and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
@@ -417,9 +417,9 @@ class View(ViewType):
         is_cpu: bool = self.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
-        if self.dtype in {DataType.float, pk_float}:
+        if self.dtype is DataType.float or self.dtype is pk_float:
             self.dtype = float32
-        elif self.dtype in {DataType.double, double}:
+        elif self.dtype is DataType.double or self.dtype is double:
             self.dtype = float64
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
