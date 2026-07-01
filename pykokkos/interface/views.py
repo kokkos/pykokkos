@@ -964,13 +964,13 @@ def array(
     :returns: a PyKokkos View wrapping the array
     """
 
-    # if an array is not a recognized type, try coasting it to a numpy array
+    # reused type flags
     is_array_flag: bool = is_array(array)
-    if (
-        not isinstance(array, np.ndarray)
-        and not np.isscalar(array)
-        and not is_array_flag
-    ):
+    is_scalar_flag: bool = np.isscalar(array)
+    is_numpy_instance: bool = isinstance(array, np.ndarray)
+
+    # if an array is not a recognized type, try coasting it to a numpy array
+    if not is_numpy_instance and not is_scalar_flag and not is_array_flag:
         array = np.asarray(array)
 
     # check that the array is contiguous
@@ -978,7 +978,7 @@ def array(
         raise ValueError(f"numpy array is not contiguous")
 
     # if numpy array, use from_numpy()
-    if isinstance(array, np.ndarray) or np.isscalar(array):
+    if is_numpy_instance or is_scalar_flag:
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
