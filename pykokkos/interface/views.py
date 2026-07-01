@@ -965,10 +965,11 @@ def array(
     """
 
     # if an array is not a recognized type, try coasting it to a numpy array
+    is_array_flag: bool = is_array(array)
     if (
         not isinstance(array, np.ndarray)
         and not np.isscalar(array)
-        and not is_array(array)
+        and not is_array_flag
     ):
         array = np.asarray(array)
 
@@ -981,7 +982,7 @@ def array(
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
-    elif is_array(array):
+    elif is_array_flag:
         return from_array(array)
     else:
         raise TypeError(f"array of type {type(array)} not supported")
