@@ -30,6 +30,25 @@ from .memory_space import get_default_memory_space
 
 import inspect
 
+# check backend availability
+cp_available: bool
+torch_available: bool
+
+try:
+    import cupy as cp
+
+    cp_available = True
+except ImportError:
+    cp_available = False
+
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
+
+
 workunit_cache: Dict[int, Callable] = {}
 
 # Map PyKokkos BuiltinType to numpy dtypes
@@ -282,24 +301,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
         (used to convert arrays to the correct memory space)
     """
 
-    cp_available: bool
-    torch_available: bool
-
     memory_space = get_default_memory_space(execution_space)
-
-    try:
-        import cupy as cp
-
-        cp_available = True
-    except ImportError:
-        cp_available = False
-
-    try:
-        import torch
-
-        torch_available = True
-    except ImportError:
-        torch_available = False
 
     # Get type hints from workunit if available
     type_hints = {}
