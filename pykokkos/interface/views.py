@@ -953,7 +953,10 @@ def is_array(array) -> bool:
 
 
 def array(
-    array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
+    array,
+    space: Optional[MemorySpace] = None,
+    layout: Optional[Layout] = None,
+    is_array_flag: Optional[bool] = None,
 ) -> ViewType:
     """
     Create a PyKokkos View from a generic array
@@ -961,11 +964,14 @@ def array(
     :param array: the data (array?) of unknown type
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
+    :param is_array_flag: an optional flag to determine if array conforms to
+        the python array API. If not passed, the flag is set by the `is_array` function.
     :returns: a PyKokkos View wrapping the array
     """
 
     # reused type flags
-    is_array_flag: bool = is_array(array)
+    if is_array_flag is None:
+        is_array_flag: bool = is_array(array)
     is_scalar_flag: bool = np.isscalar(array)
     is_numpy_instance: bool = isinstance(array, np.ndarray)
 

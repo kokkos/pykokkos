@@ -340,7 +340,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} execution space. "
                     f"Use a pk.View (e.g. pk.View([...], dtype)) or a CuPy array instead."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
@@ -348,9 +348,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} (host) execution space. "
                     f"Convert it to a numpy array or pk.View in host memory first."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif torch_available and torch.is_tensor(v):
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif (
             hasattr(v, "__array__")
             or hasattr(v, "__cuda_array_interface__")
