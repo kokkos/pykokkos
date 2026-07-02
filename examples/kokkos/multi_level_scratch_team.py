@@ -7,13 +7,13 @@ def init_data(i: int, view):
     view[i] = i + 1
 
 
-# Two scratch regions:
-#   scratch_idx - n_ints int32 elements  (passed as kwarg, variable size)
-#   scratch_val - N      float64 elements (passed as kwarg)
+# Two scratch regions on different scratch levels:
+#   scratch_idx - n_ints int32 elements on level 0
+#   scratch_val - N      float64 elements on level 1
 @pk.workunit(
     scratch=[
-        (int, lambda p: p.n_ints),
-        (float, lambda p: p.N),
+        (int, lambda p: p.n_ints, 0),
+        (float, lambda p: p.N, 1),
     ]
 )
 def scale_kernel(
@@ -22,26 +22,19 @@ def scale_kernel(
     offset: int = team_member.league_rank() * team_size
     rank: int = team_member.team_rank()
 
-    # declare scratch view for allocation (int, lambda p: p.n_ints)
     scratch_idx: pk.ScratchView1D[int] = pk.ScratchView1D(
         team_member.team_scratch(0), n_ints
     )
-    # declare scratch view for allocation (float, lambda p: p.N)
     scratch_val: pk.ScratchView1D[float] = pk.ScratchView1D(
-        team_member.team_scratch(0), N
+        team_member.team_scratch(1), N
     )
 
-    # write from global memory to scratch memory,
-    #   using barriers so each thread in a block
-    #   sees the same value.
     scratch_idx[rank] = input_view[offset + rank]
     team_member.team_barrier()
 
-    # ditto
     scratch_val[rank] = float(scratch_idx[rank]) * scale
     team_member.team_barrier()
 
-    # write from scratch memory to global memory
     output_view[offset + rank] = scratch_val[rank]
 
 

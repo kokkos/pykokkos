@@ -30,6 +30,8 @@ from pykokkos.interface import (
     ExecutionPolicy,
     ExecutionSpace,
     MemorySpace,
+    PerTeam,
+    PerThread,
     RandomPool,
     RangePolicy,
     TeamPolicy,
@@ -125,8 +127,6 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
     :param policy: the TeamPolicy to which scratch should be applied
     :param kwargs: keyword arguments passed to the workunit (for size calculation)
     """
-    from pykokkos.interface.hierarchical import PerTeam
-
     if (
         not hasattr(workunit, "_pk_scratch")
         or policy.scratch_size_level is not None
@@ -169,7 +169,7 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
 
             policy.scratch_sizes[level] = PerTeam(total_scratch_size)
             try:
-                max_scratch = TeamPolicy.scratch_size_max(level)
+                max_scratch = policy.scratch_size_max(level)
                 if max_scratch > 0 and total_scratch_size > max_scratch:
                     raise ValueError(
                         f"Requested scratch size ({total_scratch_size} bytes) "
@@ -759,8 +759,6 @@ class Runtime:
             scratch_sizes = dict(policy.scratch_sizes)
             if policy.scratch_size_level is not None and not scratch_sizes:
                 scratch_sizes[policy.scratch_size_level] = policy.scratch_size_value
-
-            from pykokkos.interface.hierarchical import PerTeam, PerThread
 
             for level in (0, 1):
                 scratch_size = scratch_sizes.get(level)
