@@ -1197,9 +1197,12 @@ def _calculate_scratch_size(type_size: int, *dims: int, alignment: int = 8) -> i
 
 class ScratchView:
     def __class_getitem__(cls, item):
-        generic_alias = super().__class_getitem__(item)
-        generic_alias.type_param = item
-        return generic_alias
+        type_name = getattr(item, "__name__", str(item))
+        return type(
+            f"{cls.__name__}[{type_name}]",
+            (cls,),
+            {"__module__": cls.__module__, "type_param": item},
+        )
 
     @staticmethod
     def shmem_size(i: int) -> int:
