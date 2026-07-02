@@ -78,11 +78,42 @@ def _calculate_aligned_scratch_size(
     return aligned_size
 
 
+def _normalize_scratch_spec(entry: Tuple) -> Tuple[Any, Callable, int]:
+    """
+    Normalize scratch entries to ``(dtype, size_func, level)``.
+    Existing two-element entries default to scratch level 0.
+    """
+    if not isinstance(entry, tuple) or len(entry) not in (2, 3):
+        raise TypeError(
+            "scratch entries must be tuples of "
+            "(dtype, size_func) or (dtype, size_func, level)"
+        )
+
+    if len(entry) == 2:
+        dtype, size_func = entry
+        level = 0
+    else:
+        dtype, size_func, level = entry
+
+    if not callable(size_func):
+        raise TypeError("scratch entry size_func must be callable")
+
+    if not isinstance(level, (int, np.integer)):
+        raise TypeError("scratch entry level must be an integer")
+
+    level = int(level)
+    if level not in (0, 1):
+        raise ValueError("PyKokkos supports scratch levels 0 and 1")
+
+    return dtype, size_func, level
+
+
 def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None:
     """
     Apply scratch specification from the workunit decorator to the policy.
 
-    Each entry in ``workunit._pk_scratch`` is a ``(dtype, size_func)`` tuple.
+    Each entry in ``workunit._pk_scratch`` is a ``(dtype, size_func)`` or
+    ``(dtype, size_func, level)`` tuple.
     ``size_func`` may accept one or two positional arguments:
 
     - ``lambda p: ...``       - receives the ``TeamPolicy`` only.
@@ -96,7 +127,11 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
     """
     from pykokkos.interface.hierarchical import PerTeam
 
-    if not hasattr(workunit, "_pk_scratch") or policy.scratch_size_level is not None:
+    if (
+        not hasattr(workunit, "_pk_scratch")
+        or policy.scratch_size_level is not None
+        or policy.scratch_sizes
+    ):
         return
 
     scratch_specs = workunit._pk_scratch
@@ -114,31 +149,41 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
     bound_self = getattr(workunit, "__self__", None)
 
     try:
-        total_scratch_size = 0
+        scratch_sizes_by_level: Dict[int, int] = {}
 
-        for dtype, size_func in scratch_specs:
+        for entry in scratch_specs:
+            dtype, size_func, level = _normalize_scratch_spec(entry)
             nparams = len(inspect.signature(size_func).parameters)
             # Two args lambda -
             if nparams >= 2 and bound_self is not None:
                 num_elements = size_func(policy, bound_self)
             else:
                 num_elements = size_func(policy)
-            total_scratch_size += _calculate_aligned_scratch_size(dtype, num_elements)
+            scratch_sizes_by_level[level] = scratch_sizes_by_level.get(
+                level, 0
+            ) + _calculate_aligned_scratch_size(dtype, num_elements)
 
-        if total_scratch_size > 0:
-            policy.scratch_size_level = 0
-            policy.scratch_size_value = PerTeam(total_scratch_size)
+        for level, total_scratch_size in scratch_sizes_by_level.items():
+            if total_scratch_size <= 0:
+                continue
+
+            policy.scratch_sizes[level] = PerTeam(total_scratch_size)
             try:
-                max_scratch = TeamPolicy.scratch_size_max(0)
+                max_scratch = TeamPolicy.scratch_size_max(level)
                 if max_scratch > 0 and total_scratch_size > max_scratch:
                     raise ValueError(
                         f"Requested scratch size ({total_scratch_size} bytes) "
-                        f"exceeds maximum for level 0 ({max_scratch} bytes). "
+                        f"exceeds maximum for level {level} ({max_scratch} bytes). "
                         "Reduce scratch allocation or use a different level."
                     )
-            except (ImportError, AttributeError):
+            except (ImportError, AttributeError, RuntimeError):
                 # backend may not expose scratch_size_max
                 pass
+
+        if len(policy.scratch_sizes) == 1:
+            level, scratch_size = next(iter(policy.scratch_sizes.items()))
+            policy.scratch_size_level = level
+            policy.scratch_size_value = scratch_size
 
     finally:
         for key in temp_attrs:
@@ -711,35 +756,34 @@ class Runtime:
             args["pk_team_size"] = policy.team_size
             args["pk_vector_length"] = policy.vector_length
 
-            # Add scratch size information if it was set, otherwise use -1 to indicate not set
-            if policy.scratch_size_level is not None:
-                args["pk_scratch_size_level"] = policy.scratch_size_level
-                # Extract the actual size value from PerTeam/PerThread wrapper if present
-                from pykokkos.interface.hierarchical import PerTeam, PerThread
+            scratch_sizes = dict(policy.scratch_sizes)
+            if policy.scratch_size_level is not None and not scratch_sizes:
+                scratch_sizes[policy.scratch_size_level] = policy.scratch_size_value
 
-                if isinstance(policy.scratch_size_value, PerTeam):
-                    # PerTeam wrapper - extract the value and set flag
-                    args["pk_scratch_size_is_per_team"] = True
-                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
-                elif isinstance(policy.scratch_size_value, PerThread):
-                    # PerThread wrapper - extract the value and set flag
-                    args["pk_scratch_size_is_per_team"] = False
-                    args["pk_scratch_size_value"] = policy.scratch_size_value.value
-                elif isinstance(policy.scratch_size_value, (int, np.integer)):
-                    # Direct size value (workunit case without wrapper)
-                    args["pk_scratch_size_is_per_team"] = (
-                        True  # Default to PerTeam for simple int
-                    )
-                    args["pk_scratch_size_value"] = int(policy.scratch_size_value)
+            from pykokkos.interface.hierarchical import PerTeam, PerThread
+
+            for level in (0, 1):
+                scratch_size = scratch_sizes.get(level)
+                value_key = f"pk_scratch_size_level_{level}_value"
+                is_per_team_key = f"pk_scratch_size_level_{level}_is_per_team"
+                enabled_key = f"pk_scratch_size_level_{level}_enabled"
+
+                args[enabled_key] = scratch_size is not None
+                if isinstance(scratch_size, PerTeam):
+                    args[is_per_team_key] = True
+                    args[value_key] = scratch_size.value
+                elif isinstance(scratch_size, PerThread):
+                    args[is_per_team_key] = False
+                    args[value_key] = scratch_size.value
+                elif isinstance(scratch_size, (int, np.integer)):
+                    args[is_per_team_key] = True
+                    args[value_key] = int(scratch_size)
+                elif scratch_size is not None:
+                    args[is_per_team_key] = True
+                    args[value_key] = scratch_size
                 else:
-                    # Unknown type, treat as PerTeam with value from variable
-                    args["pk_scratch_size_is_per_team"] = True
-                    args["pk_scratch_size_value"] = policy.scratch_size_value
-            else:
-                # No scratch size set, use -1 as indicator
-                args["pk_scratch_size_level"] = -1
-                args["pk_scratch_size_value"] = 0
-                args["pk_scratch_size_is_per_team"] = True
+                    args[is_per_team_key] = True
+                    args[value_key] = 0
 
         return args
 

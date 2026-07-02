@@ -12,8 +12,8 @@ def init_data(i: int, view):
 #   scratch_val - N      float64 elements (passed as kwarg)
 @pk.workunit(
     scratch=[
-        (int, lambda p: p.n_ints),
-        (float, lambda p: p.N),
+        (int, lambda p: p.n_ints, 0),
+        (float, lambda p: p.N, 1),
     ]
 )
 def scale_kernel(
@@ -28,7 +28,7 @@ def scale_kernel(
     )
     # declare scratch view for allocation (float, lambda p: p.N)
     scratch_val: pk.ScratchView1D[float] = pk.ScratchView1D(
-        team_member.team_scratch(0), N
+        team_member.team_scratch(1), N
     )
 
     # write from global memory to scratch memory,

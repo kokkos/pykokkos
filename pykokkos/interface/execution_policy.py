@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Final, List, Optional, Tuple
+from typing import Any, Dict, Final, List, Optional, Tuple
 
 import pykokkos.kokkos_manager as km
 
@@ -198,6 +198,7 @@ class TeamPolicy(ExecutionPolicy):
         self.vector_length: int = vector_length
         self.scratch_size_level: Optional[int] = None
         self.scratch_size_value = None
+        self.scratch_sizes: Dict[int, Any] = {}
 
     @staticmethod
     def scratch_size_max(level: int = 0) -> int:
