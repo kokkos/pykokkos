@@ -978,6 +978,9 @@ def array(
     # if an array is not a recognized type, try coasting it to a numpy array
     if not is_numpy_instance and not is_scalar_flag and not is_array_flag:
         array = np.asarray(array)
+        is_array_flag = True
+        is_numpy_instance = True
+        is_scalar_flag: bool = np.isscalar(array)
 
     # check that the array is contiguous
     if not array.flags["F_CONTIGUOUS"] and not array.flags["C_CONTIGUOUS"]:
