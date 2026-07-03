@@ -3,6 +3,7 @@ import inspect
 import os
 from pathlib import Path
 import sys
+import warnings
 from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
 import sysconfig
 import hashlib
@@ -176,9 +177,12 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
                         f"exceeds maximum for level {level} ({max_scratch} bytes). "
                         "Reduce scratch allocation or use a different level."
                     )
-            except (ImportError, AttributeError, RuntimeError):
-                # backend may not expose scratch_size_max
-                pass
+            except (ImportError, AttributeError, RuntimeError) as exc:
+                warnings.warn(
+                    f"Unable to query scratch_size_max for scratch level {level}: "
+                    f"{exc}. Skipping scratch size validation.",
+                    RuntimeWarning,
+                )
 
         if len(policy.scratch_sizes) == 1:
             level, scratch_size = next(iter(policy.scratch_sizes.items()))
