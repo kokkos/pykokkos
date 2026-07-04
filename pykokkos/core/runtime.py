@@ -3,7 +3,6 @@ import inspect
 import os
 from pathlib import Path
 import sys
-import warnings
 from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
 import sysconfig
 import hashlib
@@ -35,6 +34,7 @@ from pykokkos.interface import (
     PerThread,
     RandomPool,
     RangePolicy,
+    ScratchSize,
     TeamPolicy,
     View,
     ViewType,
@@ -111,6 +111,19 @@ def _normalize_scratch_spec(entry: Tuple) -> Tuple[Any, Callable, int]:
     return dtype, size_func, level
 
 
+def _normalize_scratch_size_value(value: Any) -> ScratchSize:
+    if isinstance(value, ScratchSize):
+        return value
+    if isinstance(value, PerTeam):
+        return ScratchSize(int(value.value), True)
+    if isinstance(value, PerThread):
+        return ScratchSize(int(value.value), False)
+    if isinstance(value, (int, np.integer)):
+        return ScratchSize(int(value), True)
+
+    raise TypeError(f"Unsupported scratch size value {value}")
+
+
 def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None:
     """
     Apply scratch specification from the workunit decorator to the policy.
@@ -168,7 +181,7 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
             if total_scratch_size <= 0:
                 continue
 
-            policy.scratch_sizes[level] = PerTeam(total_scratch_size)
+            policy.scratch_sizes[level] = ScratchSize(total_scratch_size, True)
             try:
                 max_scratch = policy.scratch_size_max(level)
                 if max_scratch > 0 and total_scratch_size > max_scratch:
@@ -178,16 +191,16 @@ def apply_scratch_spec(workunit: Callable, policy: TeamPolicy, **kwargs) -> None
                         "Reduce scratch allocation or use a different level."
                     )
             except (ImportError, AttributeError, RuntimeError) as exc:
-                warnings.warn(
-                    f"Unable to query scratch_size_max for scratch level {level}: "
-                    f"{exc}. Skipping scratch size validation.",
-                    RuntimeWarning,
-                )
+                raise RuntimeError(
+                    f"Unable to query scratch_size_max for scratch level {level}. "
+                    "The loaded PyKokkos Kokkos bindings may be incomplete or "
+                    "out of date."
+                ) from exc
 
         if len(policy.scratch_sizes) == 1:
             level, scratch_size = next(iter(policy.scratch_sizes.items()))
             policy.scratch_size_level = level
-            policy.scratch_size_value = scratch_size
+            policy.scratch_size_value = PerTeam(scratch_size.value)
 
     finally:
         for key in temp_attrs:
@@ -760,9 +773,14 @@ class Runtime:
             args["pk_team_size"] = policy.team_size
             args["pk_vector_length"] = policy.vector_length
 
-            scratch_sizes = dict(policy.scratch_sizes)
+            scratch_sizes = {
+                level: _normalize_scratch_size_value(value)
+                for level, value in policy.scratch_sizes.items()
+            }
             if policy.scratch_size_level is not None and not scratch_sizes:
-                scratch_sizes[policy.scratch_size_level] = policy.scratch_size_value
+                scratch_sizes[policy.scratch_size_level] = (
+                    _normalize_scratch_size_value(policy.scratch_size_value)
+                )
 
             for level in (0, 1):
                 scratch_size = scratch_sizes.get(level)
@@ -771,18 +789,9 @@ class Runtime:
                 enabled_key = f"pk_scratch_size_level_{level}_enabled"
 
                 args[enabled_key] = scratch_size is not None
-                if isinstance(scratch_size, PerTeam):
-                    args[is_per_team_key] = True
+                if scratch_size is not None:
+                    args[is_per_team_key] = scratch_size.is_per_team
                     args[value_key] = scratch_size.value
-                elif isinstance(scratch_size, PerThread):
-                    args[is_per_team_key] = False
-                    args[value_key] = scratch_size.value
-                elif isinstance(scratch_size, (int, np.integer)):
-                    args[is_per_team_key] = True
-                    args[value_key] = int(scratch_size)
-                elif scratch_size is not None:
-                    args[is_per_team_key] = True
-                    args[value_key] = scratch_size
                 else:
                     args[is_per_team_key] = True
                     args[value_key] = 0

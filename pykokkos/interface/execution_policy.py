@@ -1,10 +1,17 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Final, List, Optional, Tuple
+from typing import Dict, Final, List, Optional, Tuple
 
 import pykokkos.kokkos_manager as km
 
 from .execution_space import ExecutionSpace, ExecutionSpaceInstance
 from .hierarchical import TeamMember
+
+
+@dataclass
+class ScratchSize:
+    value: int
+    is_per_team: bool = True
 
 
 class ExecutionPolicy:
@@ -198,7 +205,7 @@ class TeamPolicy(ExecutionPolicy):
         self.vector_length: int = vector_length
         self.scratch_size_level: Optional[int] = None
         self.scratch_size_value = None
-        self.scratch_sizes: Dict[int, Any] = {}
+        self.scratch_sizes: Dict[int, ScratchSize] = {}
 
     @staticmethod
     def scratch_size_max(level: int = 0) -> int:
