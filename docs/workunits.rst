@@ -59,7 +59,7 @@ execution, the arguments have to be given as keyword arguments.
 Scratch Memory
 --------------
 
-Work units can request team scratch memory with the ``scratch`` argument to
+`Workunits` can request team scratch memory with the ``scratch`` argument to
 ``@pk.workunit``. Each scratch entry specifies an element type and a function
 that computes the number of elements from the execution policy.
 
