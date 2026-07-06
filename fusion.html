@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kernel Fusion &mdash; pykokkos  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Environment Variables" href="environment_variables.html" />
+    <link rel="prev" title="N-dimensional Arrays" href="ndarrays.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pykokkos
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patterns.html">Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="policies.html">Policies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workunits.html">Work Units</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jit_compilation.html">JIT Compilation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ndarrays.html">N-dimensional Arrays</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Kernel Fusion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#enabling-fusion">Enabling Fusion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-example">Performance Example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#performance-comparison">Performance Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#machine-specification">Machine Specification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#when-to-use-fusion">When to Use Fusion</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="environment_variables.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pykokkos</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Kernel Fusion</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fusion.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="kernel-fusion">
+<h1>Kernel Fusion<a class="headerlink" href="#kernel-fusion" title="Link to this heading"></a></h1>
+<p>PyKokkos includes an automatic kernel fusion feature that can significantly
+improve performance when executing many kernel calls. Kernel fusion dynamically
+traces and combines multiple kernel launches into a single fused kernel,
+reducing launch overhead and improving execution efficiency through better data
+reuse and improved compiler optimizations.</p>
+<p>Fusion process uses lazy evaluation to record kernel calls in traces and fuses
+them when the result is requested by the application. This happens
+automatically and transparently without requiring any changes to your
+PyKokkos code.</p>
+<section id="enabling-fusion">
+<h2>Enabling Fusion<a class="headerlink" href="#enabling-fusion" title="Link to this heading"></a></h2>
+<p>Kernel fusion is controlled by the <code class="docutils literal notranslate"><span class="pre">PK_FUSION</span></code> environment variable.
+To enable fusion, set this variable before running your PyKokkos application:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">PK_FUSION</span><span class="o">=</span><span class="s2">&quot;naive&quot;</span>
+</pre></div>
+</div>
+<p>To disable fusion (default behavior):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">unset</span><span class="w"> </span>PK_FUSION
+</pre></div>
+</div>
+</section>
+<section id="performance-example">
+<h2>Performance Example<a class="headerlink" href="#performance-example" title="Link to this heading"></a></h2>
+<p>The following example demonstrates the performance benefit of kernel fusion
+when executing many small kernel calls in a loop:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pykokkos</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pk</span>
+
+<span class="nd">@pk</span><span class="o">.</span><span class="n">workunit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">work</span><span class="p">(</span><span class="n">wid</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">wid</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="mi">100000</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+    <span class="n">pk</span><span class="o">.</span><span class="n">set_default_space</span><span class="p">(</span><span class="n">pk</span><span class="o">.</span><span class="n">Cuda</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">B</span><span class="p">):</span>
+        <span class="n">pk</span><span class="o">.</span><span class="n">parallel_for</span><span class="p">(</span><span class="s2">&quot;work&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">[</span><span class="n">batch</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<section id="performance-comparison">
+<h3>Performance Comparison<a class="headerlink" href="#performance-comparison" title="Link to this heading"></a></h3>
+<p>Running the above example with and without fusion shows significant speedup:</p>
+</section>
+<section id="machine-specification">
+<h3>Machine Specification<a class="headerlink" href="#machine-specification" title="Link to this heading"></a></h3>
+<p>The following hardware was used for the performance measurements:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>CPU:  Intel(R) Xeon(R) w5-3433, 32 (16 cores, 2 threads per core)
+GPU:  NVIDIA RTX 5000 Ada Generation 32 GB (2x)
+CUDA: 12.4
+OS:   Ubuntu 24.04 (Linux)
+</pre></div>
+</div>
+<p><strong>Without fusion</strong> (<code class="docutils literal notranslate"><span class="pre">unset</span> <span class="pre">PK_FUSION</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>real    0m27.213s
+user    0m35.134s
+sys     0m0.990s
+</pre></div>
+</div>
+<p><strong>With fusion</strong> (<code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PK_FUSION=&quot;naive&quot;</span></code>):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>real    0m14.840s
+user    0m22.729s
+sys     0m1.136s
+</pre></div>
+</div>
+<p>In this example, kernel fusion provides approximately <strong>1.8x speedup</strong> by fusing
+100,000 kernel calls into fewer fused kernels, reducing kernel launch overhead
+and enabling better data reuse and compiler optimizations.</p>
+</section>
+</section>
+<section id="when-to-use-fusion">
+<h2>When to Use Fusion<a class="headerlink" href="#when-to-use-fusion" title="Link to this heading"></a></h2>
+<p>Kernel fusion is most beneficial when:</p>
+<ul class="simple">
+<li><p>Executing many kernel calls consecutively</p></li>
+<li><p>Kernel launch overhead dominates execution time</p></li>
+<li><p>Multiple kernels operate on shared data</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Fusion is currently most effective on GPU execution spaces where
+kernel launch overhead is more significant. Fusion can achieve
+speedups on NVIDIA and AMD GPUs as well as Intel and AMD CPUs.</p>
+</div>
+<p>For more details on the kernel fusion implementation, see the fuser
+paper: <a class="reference external" href="https://users.ece.utexas.edu/~gligoric/papers/AlAwarETAL25Fuser.pdf">Dynamically Fusing Python HPC Kernels</a>.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ndarrays.html" class="btn btn-neutral float-left" title="N-dimensional Arrays" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="environment_variables.html" class="btn btn-neutral float-right" title="Environment Variables" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, PyKokkos Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
