@@ -56,6 +56,35 @@ Each work unit function can accept an arbitrary number of arguments
 after those required in the signature.  At the time of a pattern
 execution, the arguments have to be given as keyword arguments.
 
+Scratch Memory
+--------------
+
+`Workunits` can request team scratch memory with the ``scratch`` argument to
+``@pk.workunit``. Each scratch entry specifies an element type and a function
+that computes the number of elements from the execution policy.
+
+.. code-block:: python
+
+   @pk.workunit(
+       scratch=[
+           (float, lambda p: p.N),
+       ]
+   )
+
+By default, scratch entries use scratch level 0. To request scratch memory from
+a specific level, add the level as the third tuple value:
+
+.. code-block:: python
+
+   @pk.workunit(
+       scratch=[
+           (int, lambda p: p.n_ints, 0),
+           (float, lambda p: p.N, 1),
+       ]
+   )
+
+The tuple format is ``(dtype, size_func)`` or ``(dtype, size_func, level)``.
+
 Type Annotations
 ----------------
 
