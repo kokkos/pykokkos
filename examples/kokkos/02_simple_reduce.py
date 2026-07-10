@@ -9,7 +9,6 @@ def squaresum(i: int, acc, values):
 
 def main():
     N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     # Create array with squares
     values = np.array([i * i for i in range(N)], dtype=np.int32)

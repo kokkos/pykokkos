@@ -29,7 +29,6 @@ def findprimes(
 
 def simple_atomics():
     N: int = 100
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     data: pk.View1D[pk.int32] = pk.View([N], pk.int32)
     result: pk.View1D[pk.int32] = pk.View([N], pk.int32)

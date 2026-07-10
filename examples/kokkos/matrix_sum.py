@@ -15,7 +15,6 @@ def final_sum(i: int, accumulator: pk.Acc[pk.double], mat: pk.View2D[pk.int32]):
 def main():
     r: int = 5
     c: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     mat: pk.View2D[pk.int32] = pk.View([r, c], pk.int32)
 
