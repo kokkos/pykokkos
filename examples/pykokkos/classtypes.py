@@ -10,28 +10,18 @@ class TestClass:
         return self.x * 2
 
 
-@pk.workload
-class Workload:
-    def __init__(self, total_threads: int):
-        self.total_threads: int = total_threads
+@pk.workunit
+def work(tid: int, acc: pk.Acc[pk.double]) -> None:
+    tc: TestClass = TestClass(float(tid))
+    acc += tc.test()
 
-    @pk.main
-    def run(self) -> None:
-        pk.parallel_for(self.total_threads, self.work)
 
-    @pk.workunit
-    def work(self, tid: int) -> None:
-        pk.printf("%d\n", tid)
-
-    @pk.function
-    def fun(self, f: TestClass) -> None:
-        f.x = 3
-        x: float = f.x + 5
-
-    @pk.function
-    def test(self) -> TestClass:
-        return TestClass(3.5)
+def main():
+    total_threads: int = 10
+    result: float = pk.parallel_reduce(total_threads, work)
+    expected: float = sum(2.0 * float(i) for i in range(total_threads))
+    print(f"parallel_reduce: {result} (expected {expected})")
 
 
 if __name__ == "__main__":
-    pk.execute(pk.ExecutionSpace.Default, Workload(10))
+    main()

@@ -1,122 +1,174 @@
-from typing import Tuple
+import argparse
+from collections import deque
+
+import numpy as np_cpu
 
 import pykokkos as pk
 
-import argparse
+if pk.get_default_space() in pk.DeviceExecutionSpace:
+    import cupy as np
+else:
+    import numpy as np
 
 
-@pk.workload
-class Workload:
-    def __init__(self, N: int, M: int):
-        self.N: int = N
-        self.M: int = M
+def _view_to_numpy_host(x):
+    """Host NumPy array for comparisons (handles Cupy-backed views)."""
+    if hasattr(x, "get"):
+        return np_cpu.asarray(x.get())
+    return np_cpu.asarray(x)
 
-        self.val: pk.View1D[pk.double] = pk.View([N * M], pk.double)
-        self.visited: pk.View1D[int] = pk.View([N * M], int)
-        self.mat: pk.View2D[pk.double] = pk.View([N, M], pk.double)
-        self.max_arr: pk.View1D[pk.double] = pk.View([N], pk.double)
-        self.max_arr2D: pk.View2D[pk.double] = pk.View([N, N], pk.double)
 
-        self.element: float = N * M
+def reference_grid_bfs_distances(N: int, M: int, mat) -> np_cpu.ndarray:
+    """
+    Shortest hop count (4-neighbor grid) from every cell to any cell with mat==0.
+    Same graph as the PyKokkos workunits: vertices are grid cells, edges to N/E/S/W
+    neighbors. Multi-source BFS using a queue, following the standard pattern in
+    https://www.geeksforgeeks.org/python/python-program-for-breadth-first-search-or-bfs-for-a-graph/
+    """
+    mat_h = _view_to_numpy_host(mat)
+    dist = np_cpu.full(N * M, -1, dtype=np_cpu.int32)
+    q = deque()
+    for r in range(N):
+        for c in range(M):
+            if mat_h[r, c] == 0:
+                idx = r * M + c
+                dist[idx] = 0
+                q.append((r, c))
+    while q:
+        r, c = q.popleft()
+        d = int(dist[r * M + c])
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < N and 0 <= nc < M:
+                ni = nr * M + nc
+                if dist[ni] == -1:
+                    dist[ni] = d + 1
+                    q.append((nr, nc))
+    return dist.astype(np_cpu.float64)
 
-        self.val.fill(N + M)
 
-        self.visited.fill(0)
+def assert_bfs_matches_pykokkos(N: int, M: int, mat, val, max_arr) -> None:
+    ref = reference_grid_bfs_distances(N, M, mat)
+    val_h = _view_to_numpy_host(val)
+    max_h = float(_view_to_numpy_host(max_arr)[0])
+    if not np_cpu.allclose(val_h, ref, rtol=0.0, atol=1e-9):
+        bad = np_cpu.where(np_cpu.abs(val_h - ref) > 1e-9)[0][:16]
+        raise AssertionError(
+            f"distance mismatch at linear indices (first few): {bad.tolist()}"
+        )
+    ref_max = float(np_cpu.max(ref))
+    if not np_cpu.isclose(max_h, ref_max, rtol=0.0, atol=1e-9):
+        raise AssertionError(f"max distance mismatch: got {max_h}, expected {ref_max}")
+    print("BFS correctness check: OK (matches queue-based NumPy reference)")
 
-        # Initialize the input matrix, can be design to be any binary matrix
-        # In this example, mat[0][1] & mat[0][3] will be 0, others will be 1
-        self.mat.fill(1)
-        self.mat[0][1] = 0
-        self.mat[0][3] = 0
 
-    @pk.main
-    def run(self):
-        # do the bfs
-        for i in range(self.N + self.M):
-            pk.parallel_for("bfs_bottomup", self.element, self.check_vis)
+def main(N: int, M: int):
+    element: int = N * M
 
-        # after bfs, find maximum value in each row
-        pk.parallel_for("bfs_bottomup", self.N, self.findmax)
+    val = np.full(N * M, float(N + M), dtype=np.double)
+    visited = np.zeros(N * M, dtype=np.int32)
 
-        # find the maximum value of all cell
-        pk.parallel_for("bfs_bottomup", self.N, self.extend2D)
-        pk.parallel_for("bfs_bottomup", self.N, self.reduce1D)
+    mat = np.ones((N, M), dtype=np.double)
+    mat[0][1] = 0
+    mat[0][3] = 0
 
-    @pk.callback
-    def results(self):
-        print(f"\ndistance of every cell:\n")
-        for i in range(self.element):
-            print(f"val ({self.val[i]})  ", end="")
-            if (i + 1) % self.M == 0:
-                print(f"\n")
-        print(f"The farthest distance is {self.max_arr[0]}")
+    max_arr = np.zeros(N, dtype=np.double)
+    max_arr2D = np.zeros((N, N), dtype=np.double)
+
+    for i in range(N + M):
+        pk.parallel_for(element, check_vis, N=N, M=M, mat=mat, val=val, visited=visited)
+
+    pk.parallel_for(N, findmax, M=M, val=val, max_arr=max_arr)
+
+    pk.parallel_for(N, extend2D, N=N, max_arr=max_arr, max_arr2D=max_arr2D)
+    pk.parallel_for(N, reduce1D, N=N, max_arr=max_arr, max_arr2D=max_arr2D)
+
+    assert_bfs_matches_pykokkos(N, M, mat, val, max_arr)
+
+    print(f"\ndistance of every cell:\n")
+    for i in range(element):
+        print(f"val ({val[i]})  ", end="")
+        if (i + 1) % M == 0:
+            print(f"\n")
+    print(f"The farthest distance is {max_arr[0]}")
 
     ################################
     # check_vis will operate breadth-first search
     # self.visited[i] will be 1 if self.val[i] = 0 or if self.visited[j] = 1
     # where j is one of the neighbor of i
     ################################
-    @pk.workunit
-    def check_vis(self, i: int):
-        var_row: int = i // self.M
-        var_col: int = i % self.M
-        min_val: float = self.val[i]
 
-        flag: int = 0
 
-        # if the value of the current index is 0, then the distance is 0,
-        # and the node is marked as visited
-        # otherwise, check whether the neighbors were visited,
-        # if visited, the value of the current index can be decided
-        if self.mat[var_row][var_col] == 0 and self.visited[i] == 0:
-            self.visited[i] = 1
-            self.val[i] = 0
-        else:
-            # check the neighbor on the previous row
-            if i >= self.M:
-                if self.visited[i - self.M] == 1:
-                    flag = 1
-                    if min_val > self.val[i - self.M]:
-                        min_val = self.val[i - self.M]
+@pk.workunit
+def check_vis(
+    i: int,
+    N: int,
+    M: int,
+    mat: pk.View2D[pk.double],
+    val: pk.View1D[pk.double],
+    visited: pk.View1D[int],
+):
+    var_row: int = i // M
+    var_col: int = i % M
+    min_val: float = val[i]
 
-            # check the neighbor on the next row
-            if i // self.M < (self.N - 1):
-                if self.visited[i + self.M] == 1:
-                    flag = 1
-                    if min_val > self.val[i + self.M]:
-                        min_val = self.val[i + self.M]
+    flag: int = 0
 
-            # check the neighbor on the left
-            if i % self.M > 0:
-                if self.visited[i - 1] == 1:
-                    flag = 1
-                    if min_val > self.val[i - 1]:
-                        min_val = self.val[i - 1]
+    # if the value of the current index is 0, then the distance is 0,
+    # and the node is marked as visited
+    # otherwise, check whether the neighbors were visited,
+    # if visited, the value of the current index can be decided
+    if mat[var_row][var_col] == 0 and visited[i] == 0:
+        visited[i] = 1
+        val[i] = 0
+    else:
+        # check the neighbor on the previous row
+        if i >= M:
+            if visited[i - M] == 1:
+                flag = 1
+                if min_val > val[i - M]:
+                    min_val = val[i - M]
 
-            # check the neighbor on the right
-            if i % self.M < (self.M - 1):
-                if self.visited[i + 1] == 1:
-                    flag = 1
-                    if min_val > self.val[i + 1]:
-                        min_val = self.val[i + 1]
+        # check the neighbor on the next row
+        if i // M < (N - 1):
+            if visited[i + M] == 1:
+                flag = 1
+                if min_val > val[i + M]:
+                    min_val = val[i + M]
+
+        # check the neighbor on the left
+        if i % M > 0:
+            if visited[i - 1] == 1:
+                flag = 1
+                if min_val > val[i - 1]:
+                    min_val = val[i - 1]
+
+        # check the neighbor on the right
+        if i % M < (M - 1):
+            if visited[i + 1] == 1:
+                flag = 1
+                if min_val > val[i + 1]:
+                    min_val = val[i + 1]
 
         # if there is at least one neighbor visited, the value of
         # the current index can be updated and should be marked as visited
         if flag == 1:
-            if self.val[i] > min_val:
-                self.val[i] = min_val + 1
-            self.visited[i] = 1
+            if val[i] > min_val:
+                val[i] = min_val + 1
+            visited[i] = 1
 
     ################################
     # findmax will find the maximum value of cell in each row
     ################################
-    @pk.workunit
-    def findmax(self, j: int):
-        tmp_max: float = 0
-        for i in range(self.M):
-            if tmp_max < self.val[j * self.M + i]:
-                tmp_max = self.val[j * self.M + i]
-        self.max_arr[j] = tmp_max
+
+
+@pk.workunit
+def findmax(j: int, M: int, val: pk.View1D[pk.double], max_arr: pk.View1D[pk.double]):
+    tmp_max: float = 0
+    for i in range(M):
+        if tmp_max < val[j * M + i]:
+            tmp_max = val[j * M + i]
+    max_arr[j] = tmp_max
 
     ################################
     # extend2D and reduce1D are for finding the maximum value of all cell
@@ -134,51 +186,40 @@ class Workload:
     # [5, 5, 5]
     # then self.max_arr[0] will be the maximum distance
     ################################
-    @pk.workunit
-    def extend2D(self, j: int):
-        for i in range(self.N):
-            self.max_arr2D[i][j] = self.max_arr[j]
 
-    @pk.workunit
-    def reduce1D(self, j: int):
-        tmp_max: float = 0
-        for i in range(self.N):
-            if tmp_max < self.max_arr2D[j][i]:
-                tmp_max = self.max_arr2D[j][i]
-        self.max_arr[j] = tmp_max
+
+@pk.workunit
+def extend2D(
+    j: int, N: int, max_arr: pk.View1D[pk.double], max_arr2D: pk.View2D[pk.double]
+):
+    for i in range(N):
+        max_arr2D[i][j] = max_arr[j]
+
+
+@pk.workunit
+def reduce1D(
+    j: int, N: int, max_arr: pk.View1D[pk.double], max_arr2D: pk.View2D[pk.double]
+):
+    tmp_max: float = 0
+    for i in range(N):
+        if tmp_max < max_arr2D[j][i]:
+            tmp_max = max_arr2D[j][i]
+    max_arr[j] = tmp_max
 
 
 if __name__ == "__main__":
     N: int = -1
     M: int = -1
-    space: str = ""
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-N", "--rows", type=int)
     parser.add_argument("-M", "--columns", type=int)
-    parser.add_argument("-space", "--execution_space", type=str)
 
     args = parser.parse_args()
 
-    if args.rows:
-        N = 2**args.rows
-    else:
-        N = 2**3
-
-    if args.columns:
-        M = 2**args.columns
-    else:
-        M = 2**3
-
-    if args.execution_space:
-        space = args.execution_space
-
-    if space == "":
-        space = pk.ExecutionSpace.OpenMP
-    else:
-        space = pk.ExecutionSpace(space)
+    N = 2**args.rows if args.rows else 2**3
+    M = 2**args.columns if args.columns else 2**3
 
     print(f"Total size: {N*M}, N={N}, M={M}")
 
-    pk.set_default_space(space)
-    pk.execute(pk.get_default_space(), Workload(N, M))
+    main(N, M)
