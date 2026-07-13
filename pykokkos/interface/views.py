@@ -196,9 +196,13 @@ class ViewType:
             self.data[key] = value
 
     def __bool__(self):
-        # TODO: more complete implementation
-        if self.shape == (1,) or self.shape == ():
-            return bool(self.data)
+        if self.shape == () or self.size == 1:
+            return bool(self.data.flat[0])
+        # todo: add complete implementation later
+        raise ValueError(
+            "The truth value of a View with more than one element is ambiguous. "
+            "Use a.any() or a.all()"
+        )
 
     def __len__(self) -> int:
         """
@@ -542,11 +546,7 @@ class View(ViewType):
         return equal(self, new_other)
 
     def __hash__(self):
-        try:
-            hash_value = hash(self.array)
-        except TypeError:
-            hash_value = hash(self.array.data.tobytes())
-        return hash_value
+        return id(self)
 
     def __index__(self) -> int:
         return int(self.data[0])
@@ -723,8 +723,7 @@ class Subview(ViewType):
                 return result
 
     def __hash__(self):
-        hash_value = hash(self.array)
-        return hash_value
+        return id(self)
 
 
 def from_numpy(
