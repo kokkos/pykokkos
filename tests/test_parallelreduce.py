@@ -181,8 +181,53 @@ def assert_minmaxloc(
     assert max_loc == expected_max_loc
 
 
+@pk.workload
+class SquareSumUInt32:
+    def __init__(self, n):
+        self.N: int = n
+        self.total: pk.uint32 = 0
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.squaresum)
+
+    @pk.workunit
+    def squaresum(self, i: pk.int32, acc: pk.Acc[pk.uint32]):
+        acc += i * i
+
+
+@pk.workload
+class SquareSumInt16:
+    def __init__(self, n):
+        self.N: int = n
+        self.total: pk.int16 = 0
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.squaresum)
+
+    @pk.workunit
+    def squaresum(self, i: pk.int16, acc: pk.Acc[pk.int16]):
+        acc += i * i
+
+
+@pk.workload
+class SquareSumUInt8:
+    def __init__(self, n):
+        self.N: int = n
+        self.total: pk.uint32 = 0
+
+    @pk.main
+    def run(self):
+        self.total = pk.parallel_reduce(self.N, self.squaresum)
+
+    @pk.workunit
+    def squaresum(self, i: pk.uint8, acc: pk.Acc[pk.int32]):
+        acc += i * i
+
+
 @pytest.mark.parametrize("series_max", [10, 5000, 90000])
-@pytest.mark.parametrize("dtype", [np.float64, np.int64])
+@pytest.mark.parametrize("dtype", [np.float64, np.int64, np.uint32])
 def test_squaresum_types(series_max, dtype):
     # check for the ability to match NumPy in
     # sum of squares reductions with various types
