@@ -72,6 +72,7 @@ from pykokkos.lib.ufuncs import (
     ceil,
     floor,
     broadcast_view,
+    cumsum,
 )
 from pykokkos.lib.info import iinfo, finfo
 from pykokkos.lib.create import zeros, zeros_like, ones, ones_like, full, full_like

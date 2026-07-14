@@ -63,9 +63,9 @@ def main():
                 except TypeError:
                     try:
                         func_obj(v)
-                    except (NotImplementedError, RuntimeError, KeyError):
+                    except (NotImplementedError, RuntimeError, KeyError, ImportError):
                         pass
-                except RuntimeError:
+                except (RuntimeError, ImportError):
                     # some cases like matmul have stricter
                     # signature requirements
                     if "matmul" in func[0]:
@@ -74,7 +74,7 @@ def main():
                         v2 = pk.View(new_shape, dtype=dtype)
                         try:
                             func_obj(v, v2)
-                        except RuntimeError:
+                        except (RuntimeError, ImportError):
                             pass
                     else:
                         pass
