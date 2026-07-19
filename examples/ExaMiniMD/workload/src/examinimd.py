@@ -26,8 +26,6 @@ class ExaMiniMD:
         space: Optional[str] = os.environ.get("PK_EXA_SPACE")
         if space is not None:
             pk.set_default_space(pk.ExecutionSpace(space))
-            if space in {"Cuda", "HIP"}:
-                pk.enable_uvm()
 
         self.system = System()
         self.system.init()
