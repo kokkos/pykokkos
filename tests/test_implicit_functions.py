@@ -18,9 +18,18 @@ def unrelated_host_function() -> None:
     raise RuntimeError("This function must not be translated")
 
 
+def log(value):
+    raise RuntimeError("This host wrapper must not shadow the math intrinsic")
+
+
 @pk.workunit
 def implicit_workunit(i: int, acc: pk.Acc[pk.int64]) -> None:
     acc += implicit_helper(i)
+
+
+@pk.workunit
+def intrinsic_workunit(i: int, view: pk.View1D[pk.double]) -> None:
+    view[i] = log(view[i])
 
 
 class TestImplicitFunctions(unittest.TestCase):
@@ -33,6 +42,16 @@ class TestImplicitFunctions(unittest.TestCase):
 
         names = {function.declname for function in members.pk_functions}
         self.assertEqual({"implicit_helper", "implicit_leaf"}, names)
+
+    def test_math_intrinsic_takes_precedence_over_same_name_function(self):
+        parser = Parser(__file__)
+        entity = parser.get_entity("intrinsic_workunit")
+        members = PyKokkosMembers()
+
+        members.extract(entity, [])
+
+        names = {function.declname for function in members.pk_functions}
+        self.assertNotIn("log", names)
 
     def test_executes_implicit_functions(self):
         result = pk.parallel_reduce(10, implicit_workunit)

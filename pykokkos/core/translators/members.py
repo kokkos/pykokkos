@@ -319,6 +319,8 @@ class PyKokkosMembers:
                     continue
 
                 name = call.func.id
+                if visitors_util.is_math_function(name):
+                    continue
                 dependency = module_functions.get(name)
                 reference = cppast.DeclRefExpr(name)
                 if dependency is None or reference in self.pk_workunits:
