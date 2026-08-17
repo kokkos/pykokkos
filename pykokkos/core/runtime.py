@@ -443,7 +443,7 @@ class Runtime:
         if isinstance(parser, list):
             signatures = [
                 (
-                    get_callable_ast_signature(entity)
+                    get_callable_ast_signature(entity) or this_parser.signature
                     if not hasattr(entity, "__self__")
                     else this_parser.signature
                 )
@@ -452,11 +452,9 @@ class Runtime:
             ast_signature = "".join(signatures)
             ast_signature = hashlib.md5(ast_signature.encode()).hexdigest()
         else:
-            ast_signature = (
-                get_callable_ast_signature(workunit)
-                if not hasattr(workunit, "__self__")
-                else parser.signature
-            )
+            ast_signature = parser.signature
+            if not hasattr(workunit, "__self__"):
+                ast_signature = get_callable_ast_signature(workunit) or ast_signature
 
         execution_space: ExecutionSpace = policy.space.space
         members: PyKokkosMembers = self.precompile_workunit(

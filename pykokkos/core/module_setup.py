@@ -17,12 +17,13 @@ from .cpp_setup import CppSetup
 BASE_DIR: str = ".pykokkos"
 
 
-def get_callable_ast_signature(entity: Callable) -> str:
-    """Hash a callable and the @pk.function dependencies it actually calls."""
+def get_callable_ast_signature(entity: Callable) -> Optional[str]:
+    """Hash a nested workunit or one with resolved @pk.function dependencies."""
 
     pending = [entity]
     visited = set()
     trees = []
+    has_dependencies = False
 
     while pending:
         function = pending.pop()
@@ -39,7 +40,11 @@ def get_callable_ast_signature(entity: Callable) -> str:
                 continue
             target = bindings.get(call.func.id)
             if callable(target) and getattr(target, "_pk_function", False):
+                has_dependencies = True
                 pending.append(target)
+
+    if not has_dependencies and "<locals>" not in entity.__qualname__:
+        return None
 
     return hashlib.md5("".join(trees).encode()).hexdigest()
 
