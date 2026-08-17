@@ -494,9 +494,7 @@ def get_type_info(
             if get_callable_ast_signature(this_metadata.entity) is not None
             else None
         )
-        this_tree = this_parser.get_entity(
-            this_metadata.name, runtime_entity
-        ).AST
+        this_tree = this_parser.get_entity(this_metadata.name, runtime_entity).AST
         workunit_str = str(this_workunit)
 
         if not isinstance(this_tree, ast.FunctionDef):

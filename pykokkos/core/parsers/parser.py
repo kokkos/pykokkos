@@ -34,7 +34,6 @@ class PyKokkosEntity:
     source: Tuple[List[str], int]
     path: Optional[str]  # Will be none for fused workunits
     pk_import: str
-    runtime_entity: Optional[Callable] = None
 
 
 class Parser:
@@ -128,15 +127,18 @@ class Parser:
 
         if name in self.workloads:
             entity = self.workloads[name]
-            entity.runtime_entity = runtime_entity
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
             return entity
         if name in self.functors:
             entity = self.functors[name]
-            entity.runtime_entity = runtime_entity
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
             return entity
         if name in self.workunits:
             entity = self.workunits[name]
-            entity.runtime_entity = runtime_entity
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
             return entity
 
         if runtime_entity is not None:
@@ -153,7 +155,7 @@ class Parser:
 
         start = function_def.lineno - 1
         stop = function_def.end_lineno or function_def.lineno
-        return PyKokkosEntity(
+        entity = PyKokkosEntity(
             PyKokkosStyles.workunit,
             function_def.name,
             function_def,
@@ -161,8 +163,9 @@ class Parser:
             (self.lines[start:stop], start),
             self.path,
             self.pk_import,
-            function,
         )
+        setattr(entity, "runtime_entity", function)
+        return entity
 
     def get_function_def(self, function: Callable) -> ast.FunctionDef:
         """Find the AST node corresponding to a runtime function."""

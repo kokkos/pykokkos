@@ -87,7 +87,8 @@ class StaticTranslator:
         else:
             self.parser = Parser(None, pk_import=entity.pk_import)
 
-        self.resolve_functions(entity)
+        if getattr(entity, "runtime_entity", None) is not None:
+            self.resolve_functions(entity)
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
@@ -147,10 +148,11 @@ class StaticTranslator:
     def resolve_functions(self, entity: PyKokkosEntity) -> None:
         """Resolve called @pk.function objects from the callable's context."""
 
-        if entity.runtime_entity is None or not isinstance(entity.AST, ast.FunctionDef):
+        runtime_entity = getattr(entity, "runtime_entity", None)
+        if runtime_entity is None or not isinstance(entity.AST, ast.FunctionDef):
             return
 
-        pending = [(entity.AST, entity.runtime_entity)]
+        pending = [(entity.AST, runtime_entity)]
         visited: Set[Tuple[str, int]] = set()
 
         while pending:
