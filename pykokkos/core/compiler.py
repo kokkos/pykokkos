@@ -86,7 +86,11 @@ class Compiler:
                 and get_callable_ast_signature(m.entity) is not None
                 else None
             )
-            entity: PyKokkosEntity = parser.get_entity(m.name, runtime_entity)
+            entity: PyKokkosEntity = (
+                parser.get_entity(m.name)
+                if runtime_entity is None
+                else parser.get_entity(m.name, runtime_entity)
+            )
 
             for c in parser.get_classtypes():
                 if c.name in pyk_classtype_ids:
@@ -167,7 +171,11 @@ class Compiler:
                 and get_callable_ast_signature(metadata[0].entity) is not None
                 else None
             )
-            entity = parser.get_entity(metadata[0].name, runtime_entity)
+            entity = (
+                parser.get_entity(metadata[0].name)
+                if runtime_entity is None
+                else parser.get_entity(metadata[0].name, runtime_entity)
+            )
             classtypes = parser.get_classtypes()
         else:
             # Avoid fusing the ASTs before checking if it was already compiled

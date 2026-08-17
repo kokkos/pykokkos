@@ -420,17 +420,20 @@ class Runtime:
                 parsers = [
                     self.compiler.get_parser(get_metadata(e).path) for e in workunit
                 ]
-                entity_trees = [
-                    this_parser.get_entity(
-                        get_metadata(this_entity).name,
-                        (
-                            this_entity
-                            if get_callable_ast_signature(this_entity) is not None
-                            else None
-                        ),
-                    ).AST
-                    for this_entity, this_parser in zip(workunit, parsers)
-                ]
+                entity_trees = []
+                for this_entity, this_parser in zip(workunit, parsers):
+                    metadata = get_metadata(this_entity)
+                    runtime_entity = (
+                        this_entity
+                        if get_callable_ast_signature(this_entity) is not None
+                        else None
+                    )
+                    parsed_entity = (
+                        this_parser.get_entity(metadata.name)
+                        if runtime_entity is None
+                        else this_parser.get_entity(metadata.name, runtime_entity)
+                    )
+                    entity_trees.append(parsed_entity.AST)
                 restrict_kwargs, _ = fuse_workunit_kwargs_and_params(
                     entity_trees, workunit_kwargs, f"parallel_{operation}"
                 )
@@ -668,17 +671,20 @@ class Runtime:
                     parsers = [
                         self.compiler.get_parser(get_metadata(e).path) for e in entity
                     ]
-                    entity_trees = [
-                        this_parser.get_entity(
-                            get_metadata(this_entity).name,
-                            (
-                                this_entity
-                                if get_callable_ast_signature(this_entity) is not None
-                                else None
-                            ),
-                        ).AST
-                        for this_entity, this_parser in zip(entity, parsers)
-                    ]
+                    entity_trees = []
+                    for this_entity, this_parser in zip(entity, parsers):
+                        metadata = get_metadata(this_entity)
+                        runtime_entity = (
+                            this_entity
+                            if get_callable_ast_signature(this_entity) is not None
+                            else None
+                        )
+                        parsed_entity = (
+                            this_parser.get_entity(metadata.name)
+                            if runtime_entity is None
+                            else this_parser.get_entity(metadata.name, runtime_entity)
+                        )
+                        entity_trees.append(parsed_entity.AST)
 
                     kwargs, _ = fuse_workunit_kwargs_and_params(
                         entity_trees, kwargs, f"parallel_{operation}"
