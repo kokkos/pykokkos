@@ -422,7 +422,12 @@ class Runtime:
                 ]
                 entity_trees = [
                     this_parser.get_entity(
-                        get_metadata(this_entity).name, this_entity
+                        get_metadata(this_entity).name,
+                        (
+                            this_entity
+                            if get_callable_ast_signature(this_entity) is not None
+                            else None
+                        ),
                     ).AST
                     for this_entity, this_parser in zip(workunit, parsers)
                 ]
@@ -665,7 +670,12 @@ class Runtime:
                     ]
                     entity_trees = [
                         this_parser.get_entity(
-                            get_metadata(this_entity).name, this_entity
+                            get_metadata(this_entity).name,
+                            (
+                                this_entity
+                                if get_callable_ast_signature(this_entity) is not None
+                                else None
+                            ),
                         ).AST
                         for this_entity, this_parser in zip(entity, parsers)
                     ]

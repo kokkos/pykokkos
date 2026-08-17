@@ -114,7 +114,13 @@ class PyKokkosMembers:
             )
         else:
             self.pk_workunits[cppast.DeclRefExpr(AST.name)] = AST
-            self.pk_functions = {}
+            self.pk_functions = (
+                {}
+                if entity.runtime_entity is not None
+                else self.get_decorated_functions(
+                    entity.full_AST, Decorator.KokkosFunction
+                )
+            )
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
 
