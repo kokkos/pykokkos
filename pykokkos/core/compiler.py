@@ -80,7 +80,7 @@ class Compiler:
         pk_imports: List[str] = []
         for m in metadata:
             parser = self.get_parser(m.path)
-            entity: PyKokkosEntity = parser.get_entity(m.name)
+            entity: PyKokkosEntity = parser.get_entity(m.name, m.entity)
 
             for c in parser.get_classtypes():
                 if c.name in pyk_classtype_ids:
@@ -155,7 +155,7 @@ class Compiler:
         parser = self.get_parser(metadata[0].path)
 
         if len(metadata) == 1:
-            entity = parser.get_entity(metadata[0].name)
+            entity = parser.get_entity(metadata[0].name, metadata[0].entity)
             classtypes = parser.get_classtypes()
         else:
             # Avoid fusing the ASTs before checking if it was already compiled
@@ -406,7 +406,7 @@ class Compiler:
 
         :param path: the path to the file containing the entity
         :param name: the name of the entity
-        :param ast_signature: signature of the parsed module AST
+        :param ast_signature: signature of the workunit and resolved dependencies
         :param types_signature: string signature of inferred parameter types
         :returns: the hash of the entity
         """

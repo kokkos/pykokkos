@@ -114,10 +114,7 @@ class PyKokkosMembers:
             )
         else:
             self.pk_workunits[cppast.DeclRefExpr(AST.name)] = AST
-            self.pk_functions = self.get_decorated_functions(
-                entity.full_AST, Decorator.KokkosFunction
-            )
-            self.add_called_functions(AST, entity.full_AST)
+            self.pk_functions = {}
 
         self.classtype_methods = self.get_classtype_methods(classtypes)
 
@@ -297,37 +294,6 @@ class PyKokkosMembers:
             visitor.visit(method)
 
         return functions
-
-    def add_called_functions(self, root: ast.FunctionDef, module: ast.Module) -> None:
-        """Add undecorated module-level functions reachable from a workunit."""
-
-        module_functions = {
-            node.name: node for node in module.body if isinstance(node, ast.FunctionDef)
-        }
-        pending = [root, *self.pk_functions.values()]
-        visited: Set[str] = set()
-
-        while pending:
-            function = pending.pop()
-            if function.name in visited:
-                continue
-            visited.add(function.name)
-
-            calls = (node for node in ast.walk(function) if isinstance(node, ast.Call))
-            for call in calls:
-                if not isinstance(call.func, ast.Name):
-                    continue
-
-                name = call.func.id
-                if visitors_util.is_math_function(name):
-                    continue
-                dependency = module_functions.get(name)
-                reference = cppast.DeclRefExpr(name)
-                if dependency is None or reference in self.pk_workunits:
-                    continue
-                if reference not in self.pk_functions:
-                    self.pk_functions[reference] = dependency
-                pending.append(dependency)
 
     def get_classtype_methods(
         self, classtypes: List[PyKokkosEntity]

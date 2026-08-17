@@ -70,6 +70,8 @@ def workunit(func=None, *, scratch=None, **kwargs):
     if scratch is not None:
         func._pk_scratch = scratch
 
+    func._pk_workunit = True
+
     return func
 
 
@@ -85,6 +87,7 @@ def classtype(func):
 
 
 def function(func):
+    func._pk_function = True
     return func
 
 

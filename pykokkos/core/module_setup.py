@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+import ast
 import hashlib
 import inspect
 import os
 from pathlib import Path
 import sys
 import sysconfig
+import textwrap
 from typing import Callable, List, Optional, Set, Union
 
 from pykokkos.interface import ExecutionSpace
@@ -13,6 +15,33 @@ import pykokkos.kokkos_manager as km
 from .cpp_setup import CppSetup
 
 BASE_DIR: str = ".pykokkos"
+
+
+def get_callable_ast_signature(entity: Callable) -> str:
+    """Hash a callable and the @pk.function dependencies it actually calls."""
+
+    pending = [entity]
+    visited = set()
+    trees = []
+
+    while pending:
+        function = pending.pop()
+        if id(function) in visited:
+            continue
+        visited.add(id(function))
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+        trees.append(ast.dump(tree))
+        context = inspect.getclosurevars(function)
+        bindings = {**context.globals, **context.nonlocals}
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name):
+                continue
+            target = bindings.get(call.func.id)
+            if callable(target) and getattr(target, "_pk_function", False):
+                pending.append(target)
+
+    return hashlib.md5("".join(trees).encode()).hexdigest()
 
 
 @dataclass

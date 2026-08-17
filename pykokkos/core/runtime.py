@@ -44,7 +44,12 @@ from pykokkos.interface.reducers import Reducer
 import pykokkos.kokkos_manager as km
 
 from .compiler import Compiler
-from .module_setup import EntityMetadata, get_metadata, ModuleSetup
+from .module_setup import (
+    EntityMetadata,
+    ModuleSetup,
+    get_callable_ast_signature,
+    get_metadata,
+)
 from .run_debug import run_workload_debug, run_workunit_debug
 
 
@@ -416,7 +421,9 @@ class Runtime:
                     self.compiler.get_parser(get_metadata(e).path) for e in workunit
                 ]
                 entity_trees = [
-                    this_parser.get_entity(get_metadata(this_entity).name).AST
+                    this_parser.get_entity(
+                        get_metadata(this_entity).name, this_entity
+                    ).AST
                     for this_entity, this_parser in zip(workunit, parsers)
                 ]
                 restrict_kwargs, _ = fuse_workunit_kwargs_and_params(
@@ -434,10 +441,22 @@ class Runtime:
 
         # Set ast signature
         if isinstance(parser, list):
-            ast_signature = "".join([p.signature for p in parser])
+            signatures = [
+                (
+                    get_callable_ast_signature(entity)
+                    if not hasattr(entity, "__self__")
+                    else this_parser.signature
+                )
+                for entity, this_parser in zip(workunit, parser)
+            ]
+            ast_signature = "".join(signatures)
             ast_signature = hashlib.md5(ast_signature.encode()).hexdigest()
         else:
-            ast_signature = parser.signature
+            ast_signature = (
+                get_callable_ast_signature(workunit)
+                if not hasattr(workunit, "__self__")
+                else parser.signature
+            )
 
         execution_space: ExecutionSpace = policy.space.space
         members: PyKokkosMembers = self.precompile_workunit(
@@ -647,7 +666,9 @@ class Runtime:
                         self.compiler.get_parser(get_metadata(e).path) for e in entity
                     ]
                     entity_trees = [
-                        this_parser.get_entity(get_metadata(this_entity).name).AST
+                        this_parser.get_entity(
+                            get_metadata(this_entity).name, this_entity
+                        ).AST
                         for this_entity, this_parser in zip(entity, parsers)
                     ]
 

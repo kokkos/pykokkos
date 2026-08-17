@@ -1,5 +1,6 @@
 import ast
 import copy
+import inspect
 import os
 import sys
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -86,6 +87,7 @@ class StaticTranslator:
         else:
             self.parser = Parser(None, pk_import=entity.pk_import)
 
+        self.resolve_functions(entity)
         entity.AST = self.add_parent_refs(entity.AST)
         for c in classtypes:
             c.AST = self.add_parent_refs(c.AST)
@@ -141,6 +143,43 @@ class StaticTranslator:
         bindings.insert(0, self.generate_header())
 
         return functor, bindings, cast
+
+    def resolve_functions(self, entity: PyKokkosEntity) -> None:
+        """Resolve called @pk.function objects from the callable's context."""
+
+        if entity.runtime_entity is None or not isinstance(entity.AST, ast.FunctionDef):
+            return
+
+        pending = [(entity.AST, entity.runtime_entity)]
+        visited: Set[Tuple[str, int]] = set()
+
+        while pending:
+            function_ast, function = pending.pop()
+            context = inspect.getclosurevars(function)
+            bindings = {**context.globals, **context.nonlocals}
+
+            for call in ast.walk(function_ast):
+                if not isinstance(call, ast.Call) or not isinstance(
+                    call.func, ast.Name
+                ):
+                    continue
+
+                name = call.func.id
+                target = bindings.get(name)
+                if not callable(target) or not getattr(target, "_pk_function", False):
+                    continue
+
+                key = (name, id(target))
+                if key in visited:
+                    continue
+                visited.add(key)
+
+                parser = Parser(inspect.getfile(target))
+                target_ast = copy.deepcopy(parser.get_function_def(target))
+                target_ast.name = name
+                reference = cppast.DeclRefExpr(name)
+                self.pk_members.pk_functions[reference] = target_ast
+                pending.append((target_ast, target))
 
     @staticmethod
     def add_parent_refs(classdef: ast.ClassDef) -> ast.ClassDef:
