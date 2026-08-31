@@ -494,11 +494,14 @@ def get_type_info(
             if get_callable_ast_signature(this_metadata.entity) is not None
             else None
         )
+        print(f"Temp print (this_entity): {runtime_entity}")
         this_entity = (
             this_parser.get_entity(this_metadata.name)
             if runtime_entity is None
             else this_parser.get_entity(this_metadata.name, runtime_entity)
         )
+        print(f"Temp print (this_entity): {this_entity}")
+
         this_tree = this_entity.AST
         workunit_str = str(this_workunit)
 
