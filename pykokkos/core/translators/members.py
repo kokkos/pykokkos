@@ -82,7 +82,7 @@ class PyKokkosMembers:
                     param_begin = i + 1
                     # handle last_pass param for parallel_scan
                     if (
-                        i + 1 <= len(args)
+                        i + 1 < len(args)
                         and isinstance(args[i + 1].annotation, ast.Name)
                         and args[i + 1].annotation.id == "bool"
                     ):
@@ -114,8 +114,12 @@ class PyKokkosMembers:
             )
         else:
             self.pk_workunits[cppast.DeclRefExpr(AST.name)] = AST
-            self.pk_functions = self.get_decorated_functions(
-                entity.full_AST, Decorator.KokkosFunction
+            self.pk_functions = (
+                {}
+                if getattr(entity, "runtime_entity", None) is not None
+                else self.get_decorated_functions(
+                    entity.full_AST, Decorator.KokkosFunction
+                )
             )
 
         self.classtype_methods = self.get_classtype_methods(classtypes)

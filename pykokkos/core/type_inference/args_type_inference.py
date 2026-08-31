@@ -6,7 +6,7 @@ import pickle
 from typing import Callable, Dict, Optional, Tuple, Union, List
 
 from pykokkos.core.fusion import fuse_workunit_kwargs_and_params
-from pykokkos.core.module_setup import get_metadata
+from pykokkos.core.module_setup import get_callable_ast_signature, get_metadata
 from pykokkos.interface import (
     MDRangePolicy,
     TeamPolicy,
@@ -489,7 +489,20 @@ def get_type_info(
 
     for this_workunit, this_parser in zip(workunit, parser):
         this_metadata = get_metadata(this_workunit)
-        this_tree = this_parser.get_entity(this_metadata.name).AST
+        runtime_entity = (
+            this_metadata.entity
+            if get_callable_ast_signature(this_metadata.entity) is not None
+            else None
+        )
+        print(f"Temp print (this_entity): {runtime_entity}")
+        this_entity = (
+            this_parser.get_entity(this_metadata.name)
+            if runtime_entity is None
+            else this_parser.get_entity(this_metadata.name, runtime_entity)
+        )
+        print(f"Temp print (this_entity): {this_entity}")
+
+        this_tree = this_entity.AST
         workunit_str = str(this_workunit)
 
         if not isinstance(this_tree, ast.FunctionDef):

@@ -109,7 +109,9 @@ class Parser:
 
         return list(self.classtypes.values())
 
-    def get_entity(self, name: str) -> PyKokkosEntity:
+    def get_entity(
+        self, name: str, runtime_entity: Optional[Callable] = None
+    ) -> PyKokkosEntity:
         """
         Get the parsed entity
 
@@ -117,14 +119,70 @@ class Parser:
         :returns: the PyKokkosEntity representation of the entity
         """
 
+        is_nested = runtime_entity is not None and "<locals>" in getattr(
+            runtime_entity, "__qualname__", ""
+        )
+        if is_nested:
+            return self.get_runtime_workunit(runtime_entity)
+
         if name in self.workloads:
-            return self.workloads[name]
+            entity = self.workloads[name]
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
+            return entity
         if name in self.functors:
-            return self.functors[name]
+            entity = self.functors[name]
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
+            return entity
         if name in self.workunits:
-            return self.workunits[name]
+            entity = self.workunits[name]
+            if runtime_entity is not None:
+                setattr(entity, "runtime_entity", runtime_entity)
+            return entity
+
+        if runtime_entity is not None:
+            return self.get_runtime_workunit(runtime_entity)
 
         raise RuntimeError(f"Entity '{name}' not found by parser")
+
+    def get_runtime_workunit(self, function: Callable) -> PyKokkosEntity:
+        """Create an entity for a workunit represented by a runtime callable."""
+
+        function_def = self.get_function_def(function)
+        if not self.is_workunit(function_def, self.pk_import):
+            raise RuntimeError(f"Function '{function.__qualname__}' is not a workunit")
+
+        start = function_def.lineno - 1
+        stop = function_def.end_lineno or function_def.lineno
+        entity = PyKokkosEntity(
+            PyKokkosStyles.workunit,
+            function_def.name,
+            function_def,
+            self.tree,
+            (self.lines[start:stop], start),
+            self.path,
+            self.pk_import,
+        )
+        setattr(entity, "runtime_entity", function)
+        return entity
+
+    def get_function_def(self, function: Callable) -> ast.FunctionDef:
+        """Find the AST node corresponding to a runtime function."""
+
+        first_line = function.__code__.co_firstlineno
+        candidates = [
+            node
+            for node in ast.walk(self.tree)
+            if isinstance(node, ast.FunctionDef) and node.name == function.__name__
+        ]
+        for node in candidates:
+            decorator_lines = [decorator.lineno for decorator in node.decorator_list]
+            start = min(decorator_lines, default=node.lineno)
+            if start <= first_line <= node.lineno:
+                return node
+
+        raise RuntimeError(f"Function '{function.__qualname__}' not found by parser")
 
     def get_entities(self, style: PyKokkosStyles) -> Dict[str, PyKokkosEntity]:
         """
