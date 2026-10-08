@@ -8,6 +8,7 @@ on:
     paths:
       - 'base/**'
       - '.github/workflows/base-linux-ci.yml'
+      - '.github/actions/setup-tools/**'
 
 env:
   BUILD_TYPE: Release
@@ -18,28 +19,17 @@ jobs:
       matrix:
         python-version: [3.11, 3.12, 3.13]
         kokkos-branch: ['4.7.01']
-        os: [ubuntu-latest, ubuntu-22.04-arm]
+        os: [ubuntu-24.04, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
-    defaults:
-      run:
-        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up Python and CI tools
+      uses: ./.github/actions/setup-tools
       with:
         python-version: ${{ matrix.python-version }}
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate: false
-        miniforge-version: "latest"
-        architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
-        conda-remove-defaults: true
-
-    - name: Install pytest and ninja
-      run: conda install -c conda-forge pytest ninja
+        tools: build ninja
 
     - name: Install Kokkos
       run:
@@ -89,29 +79,20 @@ jobs:
       matrix:
         python-version: [3.11, 3.12, 3.13]
         kokkos-branch: ['4.7.01']
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
 
     runs-on: ${{matrix.os}}
     defaults:
       run:
-        shell: bash -l {0}
         working-directory: base
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up Python and CI tools
+      uses: ./.github/actions/setup-tools
       with:
         python-version: ${{ matrix.python-version }}
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate: false
-        miniforge-version: "latest"
-        architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
-        conda-remove-defaults: true
-
-    - name: Install pytest and ninja
-      run: conda install -c conda-forge pytest ninja
+        tools: build ninja
 
     - name: Install Kokkos
       run:
@@ -144,28 +125,17 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
 
     runs-on: ${{matrix.os}}
-    defaults:
-      run:
-        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up conda environment
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up Python and CI tools
+      uses: ./.github/actions/setup-tools
       with:
         python-version: ${{ matrix.python-version }}
-        environment-file: base/environment.yml
-        activate-environment: pyk
-        auto-activate: false
-        miniforge-version: "latest"
-        architecture: ${{ contains(matrix.os, 'arm') && 'arm64' || 'x64' }}
-        conda-remove-defaults: true
-
-    - name: Install pytest and ninja
-      run: conda install -c conda-forge pytest ninja
+        tools: build ninja
 
     - name: Generate CMakeLists.txt
       run: |

@@ -10,21 +10,19 @@ jobs:
   test_vs_kokkos_develop:
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04-arm]
+        os: [ubuntu-24.04, ubuntu-22.04-arm]
         python-version: ["3.13"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - run: git checkout develop
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+      # Set up before switching branches so the pinned setup comes from this branch
+      - name: Set up Python ${{ matrix.python-version }} and CI tools
+        uses: ./.github/actions/setup-tools
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade numpy mypy==1.20 cmake pytest pybind11 scikit-build patchelf ninja
+          tools: build ninja
+      - run: git checkout develop
+
       - name: Build Kokkos develop branch
         run: |
           cd /tmp

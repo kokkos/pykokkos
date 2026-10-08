@@ -5,4 +5,6 @@ dependencies:
   - cmake>=3.16
   - scikit-build
   - numpy
+  - pybind11=3.1.0
+  - patchelf=0.19.1
   

@@ -13,13 +13,13 @@ permissions:
 
 jobs:
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-      - name: Install dependencies
-        run: |
-          pip install sphinx sphinx_rtd_theme myst_parser
+      - name: Set up Python and CI tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: docs
       - name: Sphinx build
         run: |
           sphinx-build docs _build

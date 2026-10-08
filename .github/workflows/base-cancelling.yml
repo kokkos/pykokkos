@@ -9,11 +9,11 @@ jobs:
     name: "Cancel duplicate workflow runs"
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04-arm]
+        os: [ubuntu-24.04, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
     steps:
-      - uses: potiuk/cancel-workflow-runs@master
+      - uses: potiuk/cancel-workflow-runs@v4_9
         name: "Cancel duplicate workflow runs"
         with:
           cancelMode: duplicates
