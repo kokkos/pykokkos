@@ -27,12 +27,13 @@ if [ -f /tmp/conda_path ]; then
     if ! conda env list | grep -q "^pyk "; then
         echo "[PyKokkos Init] Creating conda environment..."
         cd pykokkos || exit
-        if conda create --name pyk --file base/requirements.txt python=3.11 -y > /tmp/pyk-install.log 2>&1; then
+        if conda create --name pyk python=3.13 -y > /tmp/pyk-install.log 2>&1 &&
+            conda env update --name pyk --file base/environment.yml >> /tmp/pyk-install.log 2>&1; then
             echo "[PyKokkos Init] Installing PyKokkos with CUDA support..." > /tmp/pyk-install.log
             conda activate pyk
             echo "[PyKokkos Init] PYK env activated..." > /tmp/pyk-install.log
             python install_base.py install -- -DENABLE_LAYOUTS=ON -DENABLE_MEMORY_TRAITS=OFF -DENABLE_VIEW_RANKS=3 -DENABLE_CUDA=ON -DENABLE_THREADS=OFF -DENABLE_OPENMP=ON >> /tmp/pyk-install.log 2>&1
-            conda install -c conda-forge pybind11 cupy patchelf -y
+            conda install -c conda-forge cupy=14.2.0 -y
             pip install -e ./
 
             if [ $? -eq 0 ]; then
