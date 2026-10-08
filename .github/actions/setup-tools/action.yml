@@ -35,10 +35,10 @@ runs:
         mypy==1.20.0
         "numpy==2.4.6; python_version < '3.12'"
         "numpy==2.5.3; python_version >= '3.12'"
-        patchelf==0.19.1.0
+        patchelf==0.19.1
         pybind11==3.1.0
         pytest==9.1.1
-        scikit-build==0.19.1
+        scikit-build==0.19.0
 
     - name: Install ninja
       if: contains(inputs.tools, 'ninja')
@@ -58,4 +58,4 @@ runs:
     - name: Install documentation tools
       if: contains(inputs.tools, 'docs')
       shell: bash
-      run: python -m pip install sphinx==9.1.0 sphinx-rtd-theme==3.1.0 myst-parser==5.1.0
+      run: python -m pip install sphinx==9.1.0 sphinx-rtd-theme==3.1.0
