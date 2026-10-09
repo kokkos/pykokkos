@@ -1,0 +1,61 @@
+name: Set up CI tools
+description: Set up Python and install the tools used in CI at pinned versions.
+
+inputs:
+  python-version:
+    description: Python version to set up
+    required: false
+    default: "3.13"
+  tools:
+    description: >
+      Space-separated tool groups to install: build (building and testing
+      pykokkos and pykokkos-base), ninja, format, lint, docs
+    required: false
+    default: build
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install pip, setuptools and wheel
+      shell: bash
+      run: python -m pip install pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+
+    # Pinned versions
+    - name: Install build tools
+      if: contains(inputs.tools, 'build')
+      shell: bash
+      run: >-
+        python -m pip install
+        cmake==4.4.4
+        mypy==1.20.0
+        "numpy==2.4.6; python_version < '3.12'"
+        "numpy==2.5.3; python_version >= '3.12'"
+        patchelf==0.19.1
+        pybind11==3.1.0
+        pytest==9.1.1
+        scikit-build==0.19.0
+
+    - name: Install ninja
+      if: contains(inputs.tools, 'ninja')
+      shell: bash
+      run: python -m pip install ninja==1.13.2
+
+    - name: Install formatting tools
+      if: contains(inputs.tools, 'format')
+      shell: bash
+      run: python -m pip install black==25.12.0
+
+    - name: Install linting tools
+      if: contains(inputs.tools, 'lint')
+      shell: bash
+      run: python -m pip install flake8==7.3.0
+
+    - name: Install documentation tools
+      if: contains(inputs.tools, 'docs')
+      shell: bash
+      run: python -m pip install sphinx==9.1.0 sphinx-rtd-theme==3.1.0

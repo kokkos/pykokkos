@@ -16,7 +16,7 @@ jobs:
   # Dockerfile linting
   dockerfile-lint:
     name: Lint Dockerfile
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,20 +31,20 @@ jobs:
   # Shell scripts check
   shellcheck:
     name: ShellCheck Scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Run ShellCheck on build-container.sh
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: "./dev-container"
           severity: warning
           ignore_paths: secrets.yaml secrets-template.yaml
 
       - name: Run ShellCheck on scripts directory
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@2.0.0
         env:
           SHELLCHECK_OPTS: -e SC1090
         with:
@@ -54,7 +54,7 @@ jobs:
   # Dockerfile building 
   dockerfile-build-test:
     name: Test Dockerfile Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

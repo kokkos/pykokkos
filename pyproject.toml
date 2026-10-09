@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "setuptools>=64.0.0",
-    "wheel",
+    "setuptools==84.0.0",
+    "wheel==0.48.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,12 +9,14 @@ build-backend = "setuptools.build_meta"
 name = "pykokkos"
 version = "0.1"
 description = "Performance portable Kokkos kernels in Python"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 
 keywords = ["kokkos", "performance", "parallel", "gpu", "cuda", "openmp"]
 
 dependencies = [
-    "numpy>=1.19.5",
+    "numpy==2.4.6; python_version < '3.12'",
+    "numpy==2.5.3; python_version >= '3.12'",
+    "pybind11==3.1.0",
     "pykokkos-base",
 ]
 

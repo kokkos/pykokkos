@@ -10,11 +10,12 @@ source:
 
 requirements:
   run:
-    - python
-    - pybind11
-    - numpy
-    - cupy
-    - patchelf
+    - python >=3.11,<3.14
+    - pybind11 ==3.1.0
+    - numpy ==2.4.6  # [py<312]
+    - numpy ==2.5.3  # [py>=312]
+    - cupy ==14.2.0
+    - patchelf ==0.19.1
 
 about:
   home: https://github.com/kokkos/pykokkos/
