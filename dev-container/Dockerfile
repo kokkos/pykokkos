@@ -8,14 +8,17 @@ ENV username="${USERNAME}"
 ARG PORT="2222"
 ENV SSH_PORT="${PORT}"
 
+ARG UBUNTU_SNAPSHOT="20261008T000000Z"
+
 # Dependencies installation
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+RUN sed -i -E "s#http://(archive|security)\.ubuntu\.com/ubuntu/?#https://snapshot.ubuntu.com/ubuntu/${UBUNTU_SNAPSHOT}/#" /etc/apt/sources.list \
+    && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
     build-essential=12.9ubuntu3 \
     micro=2.0.9-1ubuntu0.22.04.3 \
-    nano=6.2-1ubuntu0.1 \
-    git=1:2.34.1-1ubuntu1.15 \
-    openssh-server=1:8.9p1-3ubuntu0.13 \
-    wget=1.21.2-2ubuntu1.1 \
+    nano=6.2-1ubuntu0.2 \
+    git=1:2.34.1-1ubuntu1.17 \
+    openssh-server=1:8.9p1-3ubuntu0.17 \
+    wget=1.21.2-2ubuntu1.5 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd \
     && ssh-keygen -A
