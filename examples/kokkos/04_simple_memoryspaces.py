@@ -8,7 +8,6 @@ def reduction(i: int, acc: pk.Acc[pk.double], a: pk.View2D[pk.int32]):
 
 def main():
     N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     a: pk.View2D[pk.int32] = pk.View([N, 3], pk.int32)
 

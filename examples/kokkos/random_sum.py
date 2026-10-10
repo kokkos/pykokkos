@@ -10,7 +10,6 @@ def my_reduction(i: int, accumulator: pk.Acc[pk.int32], a: pk.View1D[pk.int32]):
 def main():
     n: int = 10
     N: int = n
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     a: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 

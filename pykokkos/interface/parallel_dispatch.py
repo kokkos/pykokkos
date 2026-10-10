@@ -245,6 +245,19 @@ def handle_args(is_for: bool, *args) -> HandledArgs:
             f"ERROR: workunit expected to be type 'Callable' or 'List[Callable]', got '{workunit}' of type '{type(workunit)}'"
         )
 
+    # check that workunit is not a lambda
+    if isinstance(workunit, list):
+        for wu in workunit:
+            if wu.__name__ == "<lambda>":
+                raise TypeError(
+                    f"ERROR: lambda functions are not currently supported for translation, see issue https://github.com/kokkos/pykokkos/issues/346"
+                )
+    else:
+        if workunit.__name__ == "<lambda>":
+            raise TypeError(
+                f"ERROR: lambda functions are not currently supported for translation, see issue https://github.com/kokkos/pykokkos/issues/346"
+            )
+
     return HandledArgs(name, policy, workunit, view, initial_value)
 
 

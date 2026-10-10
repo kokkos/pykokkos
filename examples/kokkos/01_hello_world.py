@@ -8,7 +8,6 @@ def hello(i: int):
 
 def main():
     N: int = 10
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
     pk.parallel_for(N, hello)
 
 
