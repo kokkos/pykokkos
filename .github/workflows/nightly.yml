@@ -1,4 +1,4 @@
-name: Nightly_Testing_vs_Kokkos_develop
+name: Nightly Build w/ Kokkos develop
 
 on:
   schedule:
@@ -14,8 +14,6 @@ jobs:
         python-version: ["3.13"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - run: git checkout develop
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
@@ -26,6 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade numpy mypy==1.20 cmake pytest pybind11 scikit-build patchelf ninja
       - name: Build Kokkos develop branch
+        uses: actions/checkout@v3
         run: |
           cd /tmp
           mkdir kokkos_install
