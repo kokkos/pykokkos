@@ -82,7 +82,7 @@ class PyKokkosMembers:
                     param_begin = i + 1
                     # handle last_pass param for parallel_scan
                     if (
-                        i + 1 <= len(args)
+                        i + 1 < len(args)
                         and isinstance(args[i + 1].annotation, ast.Name)
                         and args[i + 1].annotation.id == "bool"
                     ):

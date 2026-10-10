@@ -1,60 +1,64 @@
-from typing import List
-
 import pykokkos as pk
 
-
-class MyView(pk.View):
-    def __init__(self, x: int, data_type: pk.DataTypeClass = pk.int32):
-        super().__init__([x], data_type)
-
-
-@pk.workload
-class Workload:
-    def __init__(self, total_threads: int):
-        self.total_threads: int = total_threads
-        self.view: pk.View1D[pk.int32] = MyView(total_threads, data_type=pk.int32)
-
-        self.x_0: int = 4
-        self.permute_vector: pk.View1D[pk.int32] = pk.View([total_threads], pk.int32)
-        self.bin_offsets: pk.View1D[pk.int32] = pk.View([6], pk.int32)
-        self.bin_count: pk.View1D[pk.int32] = pk.View([6], pk.int32)
-
-    @pk.main
-    def run(self) -> None:
-        x: List[int] = [self.x_0, 2, 3]
-        pk.parallel_for(self.total_threads, self.work)
-        bin_op = pk.BinOp1D(
-            self.view,
-            (self.total_threads // 2),
-            self.total_threads,
-            self.total_threads * 2 - 1,
-        )
-        bin_sort = pk.BinSort(self.view, bin_op)
-        bin_sort.create_permute_vector()
-        self.permute_vector = bin_sort.get_permute_vector()
-        self.bin_offsets = bin_sort.get_bin_offsets()
-        self.bin_count = bin_sort.get_bin_count()
-
-        bin_sort.sort(self.view)
-
-    @pk.workunit
-    def work(self, i: int) -> None:
-        self.view[i] = 2 * i + self.total_threads - i
-
-    @pk.callback
-    def results(self) -> None:
-        for i in range(self.total_threads):
-            print(f"{self.view[i]} ")
+if pk.get_default_space() in pk.DeviceExecutionSpace:
+    import cupy as np
+else:
+    import numpy as np
 
 
-def run() -> None:
-    workload = Workload(10)
-    pk.execute(pk.ExecutionSpace.Default, workload)
-    print(workload.view)
-    print(workload.permute_vector)
-    print(workload.bin_offsets)
-    print(workload.bin_count)
+def main():
+    total_threads: int = 10
+
+    view = np.zeros(total_threads, dtype=np.int32)
+
+    pk.parallel_for(total_threads, work, total_threads=total_threads, view=view)
+    max_bins = total_threads // 2
+    min_key = total_threads
+    max_key = total_threads * 2 - 1
+    bin_op = pk.BinOp1D(
+        view,
+        max_bins,
+        min_key,
+        max_key,
+    )
+    bin_sort = pk.BinSort(view, bin_op)
+    bin_sort.create_permute_vector()
+    permute_vector = bin_sort.get_permute_vector()
+    bin_offsets = bin_sort.get_bin_offsets()
+    bin_count = bin_sort.get_bin_count()
+    bin_sort.sort(view)
+
+    print(
+        "PyKokkos BinSort demo: fill a 1D key view on the device, bucket keys into "
+        f"{max_bins} bins over [{min_key}, {max_key}], then sort.\n"
+        f"  Initial keys: view[i] = i + {total_threads} (see work unit).\n"
+    )
+    print(
+        "Sorted keys (same 1D view, after bin_sort.sort(view) — in-place reorder):\n",
+        view,
+        "\n",
+    )
+    print(
+        "Permute vector from create_permute_vector / get_permute_vector — "
+        "indices describing how elements were reordered:\n",
+        permute_vector,
+        "\n",
+    )
+    print(
+        "Bin offsets (get_bin_offsets) — start index of each bin in the sorted layout:\n",
+        bin_offsets,
+        "\n",
+    )
+    print(
+        "Bin counts (get_bin_count) — number of keys in each bin:\n",
+        bin_count,
+    )
+
+
+@pk.workunit
+def work(i: int, total_threads: int, view: pk.View1D[pk.int32]):
+    view[i] = 2 * i + total_threads - i
 
 
 if __name__ == "__main__":
-    run()
+    main()

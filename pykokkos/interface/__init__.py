@@ -61,6 +61,9 @@ from .execution_policy import (
 )
 from .execution_space import (
     ExecutionSpace,
+    DeviceExecutionSpace,
+    HostParallelExecutionSpace,
+    HostSerialExecutionSpace,
     ExecutionSpaceInstance,
     DeviceExecutionSpace,
     HostParallelExecutionSpace,

@@ -28,7 +28,7 @@ def run():
     print(N0)
     print(N1 * N2)
 
-    policy = pk.TeamPolicy(N0, N1 * N2)
+    policy = pk.TeamPolicy(N0, pk.AUTO)
     pk.parallel_for(policy, kernel, A=A, B=B, C=C, N1=N1, N2=N2)
 
     print(A)
