@@ -101,6 +101,18 @@ def rsqrt_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
     view[tid] = rsqrt(view[tid])
 
 
+@pk.workunit
+def fmin_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
+    nan: pk.double = 1 / 0 - 1 / 0
+    view[tid] = fmin(nan, view[tid])
+
+
+@pk.workunit
+def fmax_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
+    nan: pk.double = 1 / 0 - 1 / 0
+    view[tid] = fmax(nan, view[tid])
+
+
 @pytest.mark.parametrize(
     "kokkos_workunit, numpy_ufunc",
     [
@@ -145,6 +157,8 @@ def rsqrt_workunit(tid: int, view: pk.View1D[pk.double]) -> None:
             np.reciprocal,
             marks=pytest.mark.xfail(reason="see gh-27"),
         ),
+        (fmin_workunit, lambda x: np.fmin(np.nan, x)),
+        (fmax_workunit, lambda x: np.fmax(np.nan, x)),
     ],
 )
 def test_1d_unary_ufunc_vs_numpy(kokkos_workunit, numpy_ufunc):
