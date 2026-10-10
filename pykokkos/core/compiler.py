@@ -18,7 +18,7 @@ from pykokkos.interface import ExecutionSpace
 import pykokkos.kokkos_manager as km
 
 from .cpp_setup import CppSetup
-from .module_setup import EntityMetadata, ModuleSetup
+from .module_setup import EntityMetadata, ModuleSetup, get_callable_ast_signature
 
 
 @dataclass
@@ -80,7 +80,17 @@ class Compiler:
         pk_imports: List[str] = []
         for m in metadata:
             parser = self.get_parser(m.path)
-            entity: PyKokkosEntity = parser.get_entity(m.name)
+            runtime_entity = (
+                m.entity
+                if callable(m.entity)
+                and get_callable_ast_signature(m.entity) is not None
+                else None
+            )
+            entity: PyKokkosEntity = (
+                parser.get_entity(m.name)
+                if runtime_entity is None
+                else parser.get_entity(m.name, runtime_entity)
+            )
 
             for c in parser.get_classtypes():
                 if c.name in pyk_classtype_ids:
@@ -155,13 +165,25 @@ class Compiler:
         parser = self.get_parser(metadata[0].path)
 
         if len(metadata) == 1:
-            entity = parser.get_entity(metadata[0].name)
+            runtime_entity = (
+                metadata[0].entity
+                if callable(metadata[0].entity)
+                and get_callable_ast_signature(metadata[0].entity) is not None
+                else None
+            )
+            entity = (
+                parser.get_entity(metadata[0].name)
+                if runtime_entity is None
+                else parser.get_entity(metadata[0].name, runtime_entity)
+            )
             classtypes = parser.get_classtypes()
         else:
             # Avoid fusing the ASTs before checking if it was already compiled
             entity, classtypes = self.fuse_objects(metadata, fuse_ASTs=False, **kwargs)
 
-        hash: str = self.members_hash(entity.path, entity.name, types_signature)
+        hash: str = self.members_hash(
+            entity.path, entity.name, module_setup.ast_signature, types_signature
+        )
 
         types_inferred: bool = updated_types is not None
         decorator_inferred: bool = updated_decorator is not None
@@ -393,21 +415,26 @@ class Compiler:
         return defaults
 
     def members_hash(
-        self, path: List[str], name: str, types_signature: Optional[str]
+        self,
+        path: List[str],
+        name: str,
+        ast_signature: str,
+        types_signature: Optional[str],
     ) -> str:
         """
         Map from entity path and name to a string to index members
 
         :param path: the path to the file containing the entity
         :param name: the name of the entity
+        :param ast_signature: signature of the translated AST and dependencies
         :param types_signature: string signature of inferred parameter types
         :returns: the hash of the entity
         """
 
         return (
-            f"{path}_{name}"
+            f"{path}_{name}_{ast_signature}"
             if types_signature is None
-            else f"{path}_{name}_{types_signature}"
+            else f"{path}_{name}_{ast_signature}_{types_signature}"
         )
 
     def extract_members(

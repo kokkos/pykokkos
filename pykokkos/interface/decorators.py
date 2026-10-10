@@ -85,6 +85,7 @@ def classtype(func):
 
 
 def function(func):
+    func._pk_function = True
     return func
 
 
