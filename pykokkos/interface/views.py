@@ -406,7 +406,7 @@ class View(ViewType):
 
         # only allow CudaSpace/HIPSpace view for cupy arrays
         if (
-            space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}
+            (space is MemorySpace.CudaSpace or space is MemorySpace.HIPSpace)
         ) and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
@@ -417,9 +417,9 @@ class View(ViewType):
         is_cpu: bool = self.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
-        if self.dtype in {DataType.float, pk_float}:
+        if self.dtype is DataType.float or self.dtype is pk_float:
             self.dtype = float32
-        elif self.dtype in {DataType.double, double}:
+        elif self.dtype is DataType.double or self.dtype is double:
             self.dtype = float64
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
@@ -953,7 +953,10 @@ def is_array(array) -> bool:
 
 
 def array(
-    array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
+    array,
+    space: Optional[MemorySpace] = None,
+    layout: Optional[Layout] = None,
+    is_array_flag: Optional[bool] = None,
 ) -> ViewType:
     """
     Create a PyKokkos View from a generic array
@@ -961,27 +964,34 @@ def array(
     :param array: the data (array?) of unknown type
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
+    :param is_array_flag: an optional flag to determine if array conforms to
+        the python array API. If not passed, the flag is set by the `is_array` function.
     :returns: a PyKokkos View wrapping the array
     """
 
+    # reused type flags
+    if is_array_flag is None:
+        is_array_flag: bool = is_array(array)
+    is_scalar_flag: bool = np.isscalar(array)
+    is_numpy_instance: bool = isinstance(array, np.ndarray)
+
     # if an array is not a recognized type, try coasting it to a numpy array
-    if (
-        not isinstance(array, np.ndarray)
-        and not np.isscalar(array)
-        and not is_array(array)
-    ):
+    if not is_numpy_instance and not is_scalar_flag and not is_array_flag:
         array = np.asarray(array)
+        is_array_flag = True
+        is_numpy_instance = True
+        is_scalar_flag: bool = np.isscalar(array)
 
     # check that the array is contiguous
     if not array.flags["F_CONTIGUOUS"] and not array.flags["C_CONTIGUOUS"]:
         raise ValueError(f"numpy array is not contiguous")
 
     # if numpy array, use from_numpy()
-    if isinstance(array, np.ndarray) or np.isscalar(array):
+    if is_numpy_instance or is_scalar_flag:
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
-    elif is_array(array):
+    elif is_array_flag:
         return from_array(array)
     else:
         raise TypeError(f"array of type {type(array)} not supported")

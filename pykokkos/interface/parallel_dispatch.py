@@ -30,6 +30,25 @@ from .memory_space import get_default_memory_space
 
 import inspect
 
+# check backend availability
+cp_available: bool
+torch_available: bool
+
+try:
+    import cupy as cp
+
+    cp_available = True
+except ImportError:
+    cp_available = False
+
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
+
+
 workunit_cache: Dict[int, Callable] = {}
 
 # Map PyKokkos BuiltinType to numpy dtypes
@@ -272,6 +291,37 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
+_type_hints_cache: Dict[int, Tuple[Callable, Dict[str, Any]]] = {}
+
+
+def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
+    """
+    Extract and cache a workunit's parameter type hints.
+
+    Cache by id(workunit). Also keeps a strong reference
+    to the workunit alongside the cached hints to prevent a stale hit if its
+    id gets reused after garbage collection.
+    """
+    key = id(workunit)
+    cached = _type_hints_cache.get(key)
+    if cached is not None and cached[0] is workunit:
+        return cached[1]
+
+    type_hints: Dict[str, Any] = {}
+    try:
+        sig = inspect.signature(workunit)
+        type_hints = {
+            name: param.annotation
+            for name, param in sig.parameters.items()
+            if param.annotation != inspect.Parameter.empty
+        }
+    except (ValueError, TypeError):
+        pass
+
+    _type_hints_cache[key] = (workunit, type_hints)
+    return type_hints
+
+
 def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) -> None:
     """
     Convert all numpy, cupy and pytorch ndarray objects into pk Views
@@ -282,39 +332,12 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
         (used to convert arrays to the correct memory space)
     """
 
-    cp_available: bool
-    torch_available: bool
-
     memory_space = get_default_memory_space(execution_space)
-
-    try:
-        import cupy as cp
-
-        cp_available = True
-    except ImportError:
-        cp_available = False
-
-    try:
-        import torch
-
-        torch_available = True
-    except ImportError:
-        torch_available = False
 
     # Get type hints from workunit if available
     type_hints = {}
     if workunit is not None and callable(workunit):
-        import inspect as insp
-
-        try:
-            sig = insp.signature(workunit)
-            type_hints = {
-                name: param.annotation
-                for name, param in sig.parameters.items()
-                if param.annotation != insp.Parameter.empty
-            }
-        except (ValueError, TypeError):
-            pass
+        type_hints = _get_type_hints(workunit)
 
     for k, v in kwargs.items():
         if isinstance(v, ViewType) or isinstance(v, np.generic):
@@ -338,7 +361,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} execution space. "
                     f"Use a pk.View (e.g. pk.View([...], dtype)) or a CuPy array instead."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
@@ -346,9 +369,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} (host) execution space. "
                     f"Convert it to a numpy array or pk.View in host memory first."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif torch_available and torch.is_tensor(v):
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif (
             hasattr(v, "__array__")
             or hasattr(v, "__cuda_array_interface__")
