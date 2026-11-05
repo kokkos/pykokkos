@@ -12,8 +12,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --no-instal
     build-essential=12.9ubuntu3 \
     micro=2.0.9-1ubuntu0.22.04.3 \
     nano=6.2-1ubuntu0.2 \
-    git=1:2.34.1-1ubuntu1.17 \
-    openssh-server=1:8.9p1-3ubuntu0.17 \
+    git=1:2.34.1-1ubuntu1.18 \
+    openssh-server=1:8.9p1-3ubuntu0.18 \
     wget=1.21.2-2ubuntu1.5 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd \
