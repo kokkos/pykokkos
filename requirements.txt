@@ -1,5 +1,8 @@
-pybind11==3.1.0
-cupy==14.2.0
+cmake==4.4.4
+mypy==1.20.0
+numpy==2.4.6; python_version < '3.12'
+numpy==2.5.3; python_version >= '3.12'
 patchelf==0.19.1
+pybind11==3.1.0
 pytest==9.1.1
-python>=3.11,<3.14
+scikit-build==0.19.0

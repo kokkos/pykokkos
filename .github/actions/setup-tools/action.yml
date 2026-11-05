@@ -29,16 +29,7 @@ runs:
     - name: Install build tools
       if: contains(inputs.tools, 'build')
       shell: bash
-      run: >-
-        python -m pip install
-        cmake==4.4.4
-        mypy==1.20.0
-        "numpy==2.4.6; python_version < '3.12'"
-        "numpy==2.5.3; python_version >= '3.12'"
-        patchelf==0.19.1
-        pybind11==3.1.0
-        pytest==9.1.1
-        scikit-build==0.19.0
+      run: python -m pip install -r "${{ github.workspace }}/requirements.txt"
 
     - name: Install ninja
       if: contains(inputs.tools, 'ninja')

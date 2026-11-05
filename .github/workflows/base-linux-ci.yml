@@ -9,6 +9,7 @@ on:
       - 'base/**'
       - '.github/workflows/base-linux-ci.yml'
       - '.github/actions/setup-tools/**'
+      - 'requirements.txt'
 
 env:
   BUILD_TYPE: Release

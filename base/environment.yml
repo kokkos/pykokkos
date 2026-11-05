@@ -2,8 +2,7 @@ name: pyk
 channels:
   - conda-forge
 dependencies:
-  - cmake=4.4.4
-  - scikit-build=0.19.0
-  - numpy=2.5.3
-  - pybind11=3.1.0
-  - patchelf=0.19.1
+  - numpy=2.5.3 # also exists in `requirements.txt`
+  - pip
+  - pip:
+      - -r ../requirements.txt
