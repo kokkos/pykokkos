@@ -2,7 +2,7 @@ name: pyk
 channels:
   - conda-forge
 dependencies:
-  - cmake>=3.16
-  - scikit-build
-  - numpy
-  
+  - numpy=2.5.3 # also exists in `requirements.txt`
+  - pip
+  - pip:
+      - -r ../requirements.txt

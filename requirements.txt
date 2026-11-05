@@ -1,5 +1,8 @@
-pybind11>=2.11.1
-cupy>=12.2.0
-patchelf>=0.17.2
-pytest>=7.4.3
-python>=3.11,<=3.13
+cmake==4.4.4
+mypy==1.20.0
+numpy==2.4.6; python_version < '3.12'
+numpy==2.5.3; python_version >= '3.12'
+patchelf==0.19.1
+pybind11==3.1.0
+pytest==9.1.1
+scikit-build==0.19.0
