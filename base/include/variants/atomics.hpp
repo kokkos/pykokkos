@@ -88,7 +88,11 @@ void generate_atomic_variant(py::module &_mod) {
   using Sp            = typename space_spec_t::type;
   using Lp            = typename layout_spec_t::type;
   using Mp            = typename trait_spec_t::type;
+#if KOKKOS_VERSION_MAJOR < 5
   using ViewT         = view_type_t<Kokkos::View<Vp>, Lp, Sp, Mp>;
+#else
+  using ViewT         = view_type_t<Kokkos::View<Vp>, Lp, Sp, Mp, Kokkos::MemoryTraits<Kokkos::Atomic>>;
+#endif
   using atomic_type   = typename ViewT::reference_type;
   using value_type    = typename atomic_type::value_type;
 
@@ -109,7 +113,11 @@ void generate_atomic_variant(py::module &_mod) {
   // class decl
   py::class_<atomic_type> _atomic{_mod, name.c_str()};
   _atomic.def(py::init([](value_type *_v) {
+#if KOKKOS_VERSION_MAJOR < 5
     return new atomic_type{_v, Kokkos::Impl::AtomicViewConstTag{}};
+#else
+    return new atomic_type{_v};
+#endif
   }));
 
   _atomic.def(
