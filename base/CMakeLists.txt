@@ -28,17 +28,20 @@ IF("${CMAKE_BUILD_TYPE}" STREQUAL "")
     SET(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 ENDIF()
 
+# Pinned pybind11 version
+SET(PYKOKKOS_PYBIND11_VERSION 3.1.0)
+
 # Check if pybind11 target already exists (e.g., when used as a subproject)
 if(NOT TARGET pybind11::module)
-    FIND_PACKAGE(pybind11 CONFIG)
+    FIND_PACKAGE(pybind11 ${PYKOKKOS_PYBIND11_VERSION} EXACT CONFIG)
     if (pybind11_FOUND)
         MESSAGE(STATUS "Found pybind11: ${pybind11_DIR} (version \"${pybind11_VERSION}\")")
     else()
-        MESSAGE(STATUS "Fetching pybind11")
+        MESSAGE(STATUS "Fetching pybind11 ${PYKOKKOS_PYBIND11_VERSION}")
         FETCHCONTENT_DECLARE(
           pybind11
-          URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.0.zip
-          URL_HASH SHA256=dfe152af2f454a9d8cd771206c014aecb8c3977822b5756123f29fd488648334
+          URL https://github.com/pybind/pybind11/archive/refs/tags/v${PYKOKKOS_PYBIND11_VERSION}.zip
+          URL_HASH SHA256=affea1ada7b39fe1d835559fcb78800c7927d514bd480ed01b71b88205a5e536
         )
         FETCHCONTENT_MAKEAVAILABLE(pybind11)
     endif()
