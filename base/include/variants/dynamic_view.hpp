@@ -90,7 +90,11 @@ void generate_dynamic_view_variant(
       std::make_index_sequence<nIdx>{});
 
 #if !defined(ENABLE_LAYOUTS)
+#if KOKKOS_VERSION_MAJOR < 5
   using MirrorT = kokkos_python_view_type_t<typename UniformT::HostMirror>;
+#else
+  using MirrorT = kokkos_python_view_type_t<typename UniformT::host_mirror_type>;
+#endif
 
   IF_CONSTEXPR(!std::is_same<UniformT, MirrorT>::value) {
     Common::generate_view<MirrorT, Sp, Tp, Lp, Mp, nIdx>(
