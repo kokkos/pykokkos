@@ -70,7 +70,7 @@ parser.add_argument(
     "--cxx-standard",
     default=20,
     type=int,
-    choices=[20,23],
+    choices=[20, 23],
     help="Set C++ language standard",
 )
 parser.add_argument(
