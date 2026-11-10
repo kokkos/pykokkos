@@ -37,7 +37,9 @@ if isinstance(installed_kokkos_version, int) and installed_kokkos_version > 0:
         f"{installed_kokkos_version // 10000}.{installed_kokkos_version // 100 % 100}"
     )
 else:
-    raise RuntimeError(f"Can not deduce Kokkos version! Got {installed_kokkos_version}, expected int > 0")
+    raise RuntimeError(
+        f"Can not deduce Kokkos version! Got {installed_kokkos_version}, expected int > 0"
+    )
 
 pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
 if pk_kokkos_version is not None:
