@@ -203,6 +203,10 @@ def finalize() -> None:
     """
 
     if CONSTANTS["IS_INITIALIZED"] == True:
+        # Kokkos 5.1+ aborts if an execution space instance is destroyed
+        # after finalize(), so release the default instances created at import
+        CONSTANTS["AVAILABLE_EXECUTION_SPACES"].clear()
+        CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"].clear()
         kokkos.finalize()
         CONSTANTS["IS_INITIALIZED"] = False
 
