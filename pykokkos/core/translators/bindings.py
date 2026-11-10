@@ -383,11 +383,24 @@ def generate_call(
     tag_name: str = tag.declname + "_tag"
     if is_hierarchical:
         tag_name_str = f"{functor}::{tag_name}"
-        base_policy_auto = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})"
-        base_policy_custom = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{Keywords.TeamSize.value},{Keywords.VectorLength.value})"
-
         policy_var = "pk_policy"
-        policy_decl = f"auto {policy_var} = ({Keywords.TeamSize.value} == -1) ? {base_policy_auto} : {base_policy_custom};"
+        policy_type = (
+            f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>"
+        )
+        team_size: str = Keywords.TeamSize.value
+        vector_length: str = Keywords.VectorLength.value
+
+        def set_policy(team: str, vector: str) -> str:
+            return f"{{ {policy_var} = {policy_type}({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{team},{vector}); }}"
+
+        # Kokkos 5.x does not accept -1 as a team size nor vector length
+        policy_decl = (
+            f"{policy_type} {policy_var}; "
+            f"if ({team_size} == -1 && {vector_length} == -1) {set_policy('Kokkos::AUTO', 'Kokkos::AUTO')} "
+            f"else if ({team_size} == -1) {set_policy('Kokkos::AUTO', vector_length)} "
+            f"else if ({vector_length} == -1) {set_policy(team_size, 'Kokkos::AUTO')} "
+            f"else {set_policy(team_size, vector_length)} "
+        )
 
         def add_scratch_size(level, value, is_per_team, enabled):
             return (
