@@ -269,11 +269,11 @@ void generate_atomic_variant(py::module &_mod,
   FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
       _mod, std::make_index_sequence<ViewDataMaxDimensions>{}));
   // ensure atomic type for DynRankView is created
-#if ENABLE_VIEW_RANKS < 6
+#  if ENABLE_VIEW_RANKS < 6
   FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
       _mod, std::index_sequence<6>{}));
-#endif  // ENABLE_VIEW_RANKS < 6
-#else // KOKKOS_VERSION_MAJOR < 6
+#  endif  // ENABLE_VIEW_RANKS < 6
+#else     // KOKKOS_VERSION_MAJOR < 6
   // In Kokkos 5.x every atomic returns
   // desul::AtomicRef<T, MemoryOrderRelaxed, MemoryScopeDevice>
   // which is compatible with all memory spaces, ranks and layouts, so we need
