@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        kokkos-branch: ['release-candidate-5.3.0']
+        kokkos-branch: ['5.3.0']
         os: [ubuntu-24.04, ubuntu-22.04-arm]
 
     runs-on: ${{matrix.os}}
@@ -79,7 +79,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11, 3.12, 3.13]
-        kokkos-branch: ['release-candidate-5.3.0']
+        kokkos-branch: ['5.3.0']
         os: [ubuntu-24.04]
 
     runs-on: ${{matrix.os}}
