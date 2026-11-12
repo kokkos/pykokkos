@@ -694,7 +694,10 @@ class Runtime:
 
         func = getattr(module, wrapper)
 
-        return func(**args)
+        try:
+            return func(**args)
+        except KeyError as e:
+            raise KeyError(f"workunit '{entity.__name__}' missing keyword argument {e}")
 
     def get_precision(self, members: PyKokkosMembers, args: Dict[str, Any]) -> str:
         """
