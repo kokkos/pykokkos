@@ -255,6 +255,7 @@ class CppSetup:
 
         cmake_args = [
             f"-DMODULE_NAME={module_name}",
+            f"-DCMAKE_CXX_COMPILER={compiler_path}",
             f"-DKokkos_ROOT={lib_path.parent.resolve()}",
             f"-DPK_EXEC_SPACE={space_value}",
             f"-DPK_ARG_MEMSPACE={view_space}",
