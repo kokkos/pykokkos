@@ -79,11 +79,7 @@ struct is_complex<Kokkos::complex<T>> : std::true_type {};
 // binary operators (+ - * /)
 template <typename AtomicT>
 typename AtomicT::value_type load_value(const AtomicT &_obj) {
-#if KOKKOS_VERSION_MAJOR < 5
-  return _obj;
-#else
   return _obj.load();
-#endif
 }
 
 // this function creates bindings for the atomic type returned to python from
@@ -120,26 +116,15 @@ void generate_atomic_variant(py::module &_mod) {
   // class decl
   py::class_<atomic_type> _atomic{_mod, name.c_str()};
   _atomic.def(py::init([](value_type *_v) {
-#if KOKKOS_VERSION_MAJOR < 5
-    return new atomic_type{_v, Kokkos::Impl::AtomicViewConstTag{}};
-#else
     return new atomic_type{*_v};
-#endif
   }));
 
-#if KOKKOS_VERSION_MAJOR < 5
-  _atomic.def(
-      "inc", [](atomic_type &_obj) { _obj.inc(); }, "Increment the atomic");
-  _atomic.def(
-      "dec", [](atomic_type &_obj) { _obj.dec(); }, "Decrement the atomic");
-#else
   _atomic.def(
       "inc", [](atomic_type &_obj) { _obj.inc_fetch(); },
       "Increment the atomic");
   _atomic.def(
       "dec", [](atomic_type &_obj) { _obj.dec_fetch(); },
       "Decrement the atomic");
-#endif
   _atomic.def(
       "__str__",
       [](atomic_type &_obj) {
@@ -265,22 +250,12 @@ namespace variants {
 template <size_t LayoutIdx, size_t DataIdx, size_t... SpaceIdx>
 void generate_atomic_variant(py::module &_mod,
                              std::index_sequence<SpaceIdx...>) {
-#if KOKKOS_VERSION_MAJOR < 5
-  FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
-      _mod, std::make_index_sequence<ViewDataMaxDimensions>{}));
-  // ensure atomic type for DynRankView is created
-#  if ENABLE_VIEW_RANKS < 6
-  FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
-      _mod, std::index_sequence<6>{}));
-#  endif  // ENABLE_VIEW_RANKS < 6
-#else     // KOKKOS_VERSION_MAJOR < 6
   // In Kokkos 5.x every atomic returns
   // desul::AtomicRef<T, MemoryOrderRelaxed, MemoryScopeDevice>
   // which is compatible with all memory spaces, ranks and layouts, so we need
   // to register it just once.
   Space::SpaceDim::generate_atomic_variant<DataIdx, HostSpace, 0, LayoutIdx>(
       _mod);
-#endif
 }
 
 }  // namespace variants

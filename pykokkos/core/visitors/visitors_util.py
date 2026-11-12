@@ -445,8 +445,6 @@ def cpp_view_type(
         params_ordered.append(params["layout"])
     if "space" in params:
         params_ordered.append(params["space"])
-    if 3.7 <= km.get_kokkos_version() < 5.0:
-        params_ordered.append("Kokkos::Experimental::DefaultViewHooks")
     if "trait" in params:
         params_ordered.append(params["trait"])
 

@@ -48,10 +48,6 @@ void generate_atomic_variants(py::module &kokkos) {
 #if defined(ENABLE_MEMORY_TRAITS)
   generate_atomic_variant<Right>(kokkos,
                                  std::make_index_sequence<ViewDataTypesEnd>{});
-#  if defined(ENABLE_LAYOUTS) && KOKKOS_VERSION_MAJOR < 5
-  generate_atomic_variant<Left>(kokkos,
-                                std::make_index_sequence<ViewDataTypesEnd>{});
-#  endif
 #else
   consume_parameters(kokkos);
 #endif
