@@ -115,9 +115,7 @@ void generate_atomic_variant(py::module &_mod) {
 
   // class decl
   py::class_<atomic_type> _atomic{_mod, name.c_str()};
-  _atomic.def(py::init([](value_type *_v) {
-    return new atomic_type{*_v};
-  }));
+  _atomic.def(py::init([](value_type *_v) { return new atomic_type{*_v}; }));
 
   _atomic.def(
       "inc", [](atomic_type &_obj) { _obj.inc_fetch(); },
