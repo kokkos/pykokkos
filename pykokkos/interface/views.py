@@ -744,6 +744,8 @@ def from_numpy(
     space: Optional[MemorySpace] = None,
     layout: Optional[Layout] = None,
     cp_array=None,
+    *,
+    dtype: Optional[Union[DataTypeClass, DataType]] = None,
 ) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
@@ -752,10 +754,10 @@ def from_numpy(
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
     :param cp_array: the original cupy array (used by from_array)
+    :param dtype: an optional already-resolved PyKokkos dtype (used by from_array)
     :returns: a PyKokkos View wrapping the array
     """
 
-    dtype: DataTypeClass
     np_dtype = array.dtype.type
 
     if np_dtype is np.void and cp_array is not None:
@@ -765,34 +767,35 @@ def from_numpy(
         # should therefore retreive the data type from cp_array.
         np_dtype = cp_array.dtype.type
 
-    if np_dtype is np.int8:
-        dtype = int8
-    elif np_dtype is np.int16:
-        dtype = int16
-    elif np_dtype is np.int32:
-        dtype = int32
-    elif np_dtype is np.int64:
-        dtype = int64
-    elif np_dtype is np.uint8:
-        dtype = uint8
-    elif np_dtype is np.uint16:
-        dtype = uint16
-    elif np_dtype is np.uint32:
-        dtype = uint32
-    elif np_dtype is np.uint64:
-        dtype = uint64
-    elif np_dtype is np.float32:
-        dtype = DataType.float  # PyKokkos float
-    elif np_dtype is np.float64:
-        dtype = float64
-    elif np_dtype is np.bool_:
-        dtype = uint8
-    elif np_dtype is np.complex64:
-        dtype = complex64
-    elif np_dtype is np.complex128:
-        dtype = complex128
-    else:
-        raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
+    if dtype is None:
+        if np_dtype is np.int8:
+            dtype = int8
+        elif np_dtype is np.int16:
+            dtype = int16
+        elif np_dtype is np.int32:
+            dtype = int32
+        elif np_dtype is np.int64:
+            dtype = int64
+        elif np_dtype is np.uint8:
+            dtype = uint8
+        elif np_dtype is np.uint16:
+            dtype = uint16
+        elif np_dtype is np.uint32:
+            dtype = uint32
+        elif np_dtype is np.uint64:
+            dtype = uint64
+        elif np_dtype is np.float32:
+            dtype = DataType.float  # PyKokkos float
+        elif np_dtype is np.float64:
+            dtype = float64
+        elif np_dtype is np.bool_:
+            dtype = uint8
+        elif np_dtype is np.complex64:
+            dtype = complex64
+        elif np_dtype is np.complex128:
+            dtype = complex128
+        else:
+            raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
     if layout is None and array.ndim > 1:
         if array.flags["F_CONTIGUOUS"]:
@@ -937,30 +940,43 @@ def from_array(array, *, execution_space: Optional[ExecutionSpace] = None) -> Vi
 
     if np_dtype is np.int8:
         ctype = ctypes.c_int8
-    if np_dtype is np.int16:
+        dtype = int8
+    elif np_dtype is np.int16:
         ctype = ctypes.c_int16
+        dtype = int16
     elif np_dtype is np.int32:
         ctype = ctypes.c_int32
+        dtype = int32
     elif np_dtype is np.int64:
         ctype = ctypes.c_int64
+        dtype = int64
     elif np_dtype is np.uint8:
         ctype = ctypes.c_uint8
+        dtype = uint8
     elif np_dtype is np.uint16:
         ctype = ctypes.c_uint16
+        dtype = uint16
     elif np_dtype is np.uint32:
         ctype = ctypes.c_uint32
+        dtype = uint32
     elif np_dtype is np.uint64:
         ctype = ctypes.c_uint64
+        dtype = uint64
     elif np_dtype is np.float32:
         ctype = ctypes.c_float
+        dtype = DataType.float
     elif np_dtype is np.float64:
         ctype = ctypes.c_double
+        dtype = float64
     elif np_dtype is np.bool_:
         ctype = ctypes.c_uint8
+        dtype = uint8
     elif np_dtype is np.complex64:
         ctype = ctypes_complex64
+        dtype = complex64
     elif np_dtype is np.complex128:
         ctype = ctypes_complex128
+        dtype = complex128
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -992,7 +1008,7 @@ def from_array(array, *, execution_space: Optional[ExecutionSpace] = None) -> Vi
     elif km.get_gpu_framework() is pk.HIP:
         memory_space = MemorySpace.HIPSpace
 
-    return from_numpy(np_array, memory_space, layout, array)
+    return from_numpy(np_array, memory_space, layout, array, dtype=dtype)
 
 
 def is_array(array) -> bool:
