@@ -698,8 +698,43 @@ class TestTypeInference(unittest.TestCase):
     def test_numpy_noncontiguous(self):
         contiguous = np.arange(10)
         noncontiguous = contiguous[::2]
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not contiguous"):
             pk.parallel_for(len(noncontiguous), init_view, view=noncontiguous, init=0)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "cupy"])
+@pytest.mark.parametrize("shape", [(10,), (4, 6), (4, 6, 8)], ids=["1d", "2d", "3d"])
+@pytest.mark.parametrize("step", [2, -1], ids=["stepped", "reversed"])
+@pytest.mark.parametrize("entrypoint", ["array", "parallel_for"])
+def test_noncontiguous_array_rejected(backend, shape, step, entrypoint):
+    if backend == "cupy":
+        xp = pytest.importorskip("cupy")
+        from pykokkos.kokkos_manager import get_available_execution_spaces
+
+        if "Cuda" not in get_available_execution_spaces():
+            pytest.skip("Kokkos CUDA execution space not available")
+        try:
+            device_count = xp.cuda.runtime.getDeviceCount()
+        except xp.cuda.runtime.CUDARuntimeError as exc:
+            pytest.skip(f"CUDA runtime not available: {exc}")
+        if device_count == 0:
+            pytest.skip("No CUDA devices available")
+        space = pk.ExecutionSpace.Cuda
+    else:
+        xp = np
+        space = pk.ExecutionSpace.OpenMP
+
+    contiguous = xp.arange(int(np.prod(shape)), dtype=xp.int32).reshape(shape)
+    noncontiguous = contiguous[..., ::step]
+    assert not noncontiguous.flags["C_CONTIGUOUS"]
+    assert not noncontiguous.flags["F_CONTIGUOUS"]
+
+    with pytest.raises(ValueError, match="not contiguous"):
+        if entrypoint == "array":
+            pk.array(noncontiguous)
+        else:
+            policy = pk.RangePolicy(space, 0, len(noncontiguous))
+            pk.parallel_for(policy, init_view, view=noncontiguous, init=0)
 
 
 if __name__ == "__main__":
