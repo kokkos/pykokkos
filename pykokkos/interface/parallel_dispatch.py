@@ -22,7 +22,7 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
-from .views import ViewType, array
+from .views import ViewType, array, from_array
 
 from .interface_util import generic_error, get_filename, get_lineno
 
@@ -361,7 +361,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} execution space. "
                     f"Use a pk.View (e.g. pk.View([...], dtype)) or a CuPy array instead."
                 )
-            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
+            if not v.flags["F_CONTIGUOUS"] and not v.flags["C_CONTIGUOUS"]:
+                raise ValueError("numpy array is not contiguous")
+            kwargs[k] = from_numpy(v, space=memory_space)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
@@ -369,7 +371,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} (host) execution space. "
                     f"Convert it to a numpy array or pk.View in host memory first."
                 )
-            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
+            kwargs[k] = from_array(v)
         elif torch_available and torch.is_tensor(v):
             kwargs[k] = array(v, space=memory_space, is_array_flag=True)
         elif (
