@@ -1,4 +1,4 @@
-name: Nightly Build w/ Kokkos develop
+name: Nightly_Testing_vs_Kokkos_develop
 
 on:
   schedule:
@@ -24,7 +24,6 @@ jobs:
       - run: git checkout develop
 
       - name: Build Kokkos develop branch
-        uses: actions/checkout@v3
         run: |
           cd /tmp
           mkdir kokkos_install
