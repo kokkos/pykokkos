@@ -21,7 +21,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           tools: build ninja
-      - run: git checkout develop
 
       - name: Build Kokkos develop branch
         run: |
