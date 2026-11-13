@@ -22,11 +22,15 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
+<<<<<<< HEAD
 from .views import ViewType, array, from_array, from_numpy, torch, torch_available
+=======
+from .views import ViewType, array, from_array, from_numpy
+>>>>>>> e9067dc28cb354693df9c4f29d0e176d0784f355
 
 from .interface_util import generic_error, get_filename, get_lineno
 
-from .memory_space import get_default_memory_space
+from .memory_space import get_default_memory_space, MemorySpace
 
 import inspect
 
@@ -326,8 +330,6 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
         (used to convert arrays to the correct memory space)
     """
 
-    memory_space = get_default_memory_space(execution_space)
-
     # Get type hints from workunit if available
     type_hints = {}
     if workunit is not None and callable(workunit):
@@ -347,6 +349,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     depth, dtype = parse_list_annotation(annotation)
 
             # Convert Python list to numpy array, then to View
+            memory_space = get_default_memory_space(execution_space)
             kwargs[k] = array(np.array(v, dtype=dtype), space=memory_space)
         elif isinstance(v, np.ndarray):
             if execution_space in DeviceExecutionSpace:
@@ -357,7 +360,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                 )
             if not v.flags["F_CONTIGUOUS"] and not v.flags["C_CONTIGUOUS"]:
                 raise ValueError("numpy array is not contiguous")
-            kwargs[k] = from_numpy(v, space=memory_space)
+            kwargs[k] = from_numpy(v, space=MemorySpace.HostSpace)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
