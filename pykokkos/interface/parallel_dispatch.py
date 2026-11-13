@@ -22,11 +22,7 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
-<<<<<<< HEAD
 from .views import ViewType, array, from_array, from_numpy, torch, torch_available
-=======
-from .views import ViewType, array, from_array, from_numpy
->>>>>>> e9067dc28cb354693df9c4f29d0e176d0784f355
 
 from .interface_util import generic_error, get_filename, get_lineno
 
