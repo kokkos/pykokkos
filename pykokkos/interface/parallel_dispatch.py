@@ -29,6 +29,7 @@ from .interface_util import generic_error, get_filename, get_lineno
 from .memory_space import get_default_memory_space, MemorySpace
 
 import inspect
+import weakref
 
 # check backend availability
 cp_available: bool
@@ -282,21 +283,28 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
-_type_hints_cache: Dict[int, Tuple[Callable, Dict[str, Any]]] = {}
+_type_hints_cache: weakref.WeakKeyDictionary[
+    Callable, Dict[bool, Dict[str, Any]]
+] = weakref.WeakKeyDictionary()
 
 
 def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
     """
     Extract and cache a workunit's parameter type hints.
 
-    Cache by id(workunit). Also keeps a strong reference
-    to the workunit alongside the cached hints to prevent a stale hit if its
-    id gets reused after garbage collection.
+    Cache Python functions weakly, using the underlying function for bound
+    methods so the cache never retains their owning functor or its Views.
+    Keep bound and unbound signatures separate because inspect.signature
+    omits the receiver for bound methods. Other callable objects are inspected
+    without caching to avoid retaining instances or requiring hashability.
     """
-    key = id(workunit)
-    cached = _type_hints_cache.get(key)
-    if cached is not None and cached[0] is workunit:
-        return cached[1]
+    is_bound = inspect.ismethod(workunit)
+    function = workunit.__func__ if is_bound else workunit
+    cacheable = inspect.isfunction(function)
+    if cacheable:
+        cached = _type_hints_cache.get(function)
+        if cached is not None and is_bound in cached:
+            return cached[is_bound]
 
     type_hints: Dict[str, Any] = {}
     try:
@@ -309,7 +317,8 @@ def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
     except (ValueError, TypeError):
         pass
 
-    _type_hints_cache[key] = (workunit, type_hints)
+    if cacheable:
+        _type_hints_cache.setdefault(function, {})[is_bound] = type_hints
     return type_hints
 
 
