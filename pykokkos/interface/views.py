@@ -15,6 +15,8 @@ from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 from pykokkos.runtime import runtime_singleton
 
+from .execution_space import ExecutionSpace, DeviceExecutionSpace
+
 from .data_types import (
     DataType,
     DataTypeClass,
@@ -37,6 +39,16 @@ from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
 from .hierarchical import TeamMember
+
+torch_available: bool
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
+    torch = None
+
 
 ARRAY_REQ_ATTR = ["dtype", "data", "shape", "flags"]
 
@@ -845,12 +857,65 @@ class ctypes_complex128(ctypes.Structure):
     _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
 
 
-def from_array(array) -> ViewType:
+def from_array(array, *, execution_space: Optional[ExecutionSpace] = None) -> ViewType:
     """
-    Create a PyKokkos View from a cupy (or other numpy-like) array
+    Create a PyKokkos View from a CuPy array or PyTorch tensor.
 
-    :param array: the numpy-like array
+    Non-scalar Torch tensors share storage with the resulting View. Conversion
+    detaches tensors from autograd; workunit operations are not tracked by PyTorch.
+
+    :param array: the array or tensor
+    :param execution_space: optional workunit execution space used to validate
+        Torch tensor device compatibility; omitted for device-inferred conversion
     """
+
+    if torch_available and torch.is_tensor(array):
+        if array.layout != torch.strided or array.device.type not in ("cpu", "cuda"):
+            raise TypeError(
+                f"unsupported Torch tensor with layout {array.layout} on device "
+                f"{array.device}. Only dense CPU and CUDA/HIP tensors are supported."
+            )
+
+        is_cpu = array.device.type == "cpu"
+        device_space = (
+            ExecutionSpace.HIP if torch.version.hip is not None else ExecutionSpace.Cuda
+        )
+        if execution_space is ExecutionSpace.Default:
+            execution_space = km.get_default_space()
+        if execution_space is not None and (
+            (is_cpu and execution_space in DeviceExecutionSpace)
+            or (not is_cpu and execution_space is not device_space)
+        ):
+            raise TypeError(
+                f"Torch tensor on {array.device} cannot be accessed from the "
+                f"{execution_space.value} execution space."
+            )
+
+        tensor = array.detach()
+        if is_cpu:
+            tensor_array = tensor.numpy()
+        else:
+            try:
+                import cupy as cp
+            except ImportError as exc:
+                raise ImportError(
+                    "CuPy is required to convert CUDA/HIP Torch tensors"
+                ) from exc
+            tensor_array = cp.from_dlpack(tensor)
+
+        if (
+            not tensor_array.flags["F_CONTIGUOUS"]
+            and not tensor_array.flags["C_CONTIGUOUS"]
+        ):
+            raise ValueError("Torch tensor is not contiguous")
+
+        # Kokkos represents bool as uint8. Reinterpret rather than copy storage.
+        if array.dtype is torch.bool:
+            tensor_array = tensor_array.view("uint8")
+
+        if is_cpu:
+            return from_numpy(tensor_array, space=MemorySpace.HostSpace)
+        array = tensor_array
 
     # Handle 0-D arrays separately to avoid ctypes issues
     if array.ndim == 0:

@@ -22,7 +22,7 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
-from .views import ViewType, array, from_array
+from .views import ViewType, array, from_array, from_numpy, torch, torch_available
 
 from .interface_util import generic_error, get_filename, get_lineno
 
@@ -32,7 +32,6 @@ import inspect
 
 # check backend availability
 cp_available: bool
-torch_available: bool
 
 try:
     import cupy as cp
@@ -40,14 +39,6 @@ try:
     cp_available = True
 except ImportError:
     cp_available = False
-
-try:
-    import torch
-
-    torch_available = True
-except ImportError:
-    torch_available = False
-
 
 workunit_cache: Dict[int, Callable] = {}
 
@@ -324,7 +315,10 @@ def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
 
 def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) -> None:
     """
-    Convert all numpy, cupy and pytorch ndarray objects into pk Views
+    Convert NumPy arrays, CuPy arrays, and PyTorch tensors into pk Views.
+
+    Non-scalar Torch tensors share storage with the resulting Views. Conversion
+    detaches tensors from autograd; workunit operations are not tracked by PyTorch.
 
     :param kwargs: the list of keyword arguments passed to the workunit
     :param workunit: the workunit function (used to infer types for Python lists)
@@ -373,7 +367,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                 )
             kwargs[k] = from_array(v)
         elif torch_available and torch.is_tensor(v):
-            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
+            kwargs[k] = from_array(v, execution_space=execution_space)
         elif (
             hasattr(v, "__array__")
             or hasattr(v, "__cuda_array_interface__")
