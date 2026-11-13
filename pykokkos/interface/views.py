@@ -15,6 +15,8 @@ from pykokkos.bindings import kokkos
 import pykokkos.kokkos_manager as km
 from pykokkos.runtime import runtime_singleton
 
+from .execution_space import ExecutionSpace, DeviceExecutionSpace
+
 from .data_types import (
     DataType,
     DataTypeClass,
@@ -37,6 +39,16 @@ from .data_types import float as pk_float
 from .layout import get_default_layout, Layout
 from .memory_space import get_default_memory_space, MemorySpace
 from .hierarchical import TeamMember
+
+torch_available: bool
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
+    torch = None
+
 
 ARRAY_REQ_ATTR = ["dtype", "data", "shape", "flags"]
 
@@ -406,7 +418,7 @@ class View(ViewType):
 
         # only allow CudaSpace/HIPSpace view for cupy arrays
         if (
-            space in {MemorySpace.CudaSpace, MemorySpace.HIPSpace}
+            (space is MemorySpace.CudaSpace or space is MemorySpace.HIPSpace)
         ) and trait is not trait.Unmanaged:
             space = MemorySpace.HostSpace
 
@@ -417,9 +429,9 @@ class View(ViewType):
         is_cpu: bool = self.space is MemorySpace.HostSpace
         kokkos_lib: ModuleType = km.get_kokkos_module(is_cpu)
 
-        if self.dtype in {DataType.float, pk_float}:
+        if self.dtype is DataType.float or self.dtype is pk_float:
             self.dtype = float32
-        elif self.dtype in {DataType.double, double}:
+        elif self.dtype is DataType.double or self.dtype is double:
             self.dtype = float64
         if trait is trait.Unmanaged:
             if array is not None and array.ndim == 0:
@@ -732,6 +744,8 @@ def from_numpy(
     space: Optional[MemorySpace] = None,
     layout: Optional[Layout] = None,
     cp_array=None,
+    *,
+    dtype: Optional[Union[DataTypeClass, DataType]] = None,
 ) -> ViewType:
     """
     Create a PyKokkos View from a numpy array
@@ -740,10 +754,10 @@ def from_numpy(
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
     :param cp_array: the original cupy array (used by from_array)
+    :param dtype: an optional already-resolved PyKokkos dtype (used by from_array)
     :returns: a PyKokkos View wrapping the array
     """
 
-    dtype: DataTypeClass
     np_dtype = array.dtype.type
 
     if np_dtype is np.void and cp_array is not None:
@@ -753,34 +767,35 @@ def from_numpy(
         # should therefore retreive the data type from cp_array.
         np_dtype = cp_array.dtype.type
 
-    if np_dtype is np.int8:
-        dtype = int8
-    elif np_dtype is np.int16:
-        dtype = int16
-    elif np_dtype is np.int32:
-        dtype = int32
-    elif np_dtype is np.int64:
-        dtype = int64
-    elif np_dtype is np.uint8:
-        dtype = uint8
-    elif np_dtype is np.uint16:
-        dtype = uint16
-    elif np_dtype is np.uint32:
-        dtype = uint32
-    elif np_dtype is np.uint64:
-        dtype = uint64
-    elif np_dtype is np.float32:
-        dtype = DataType.float  # PyKokkos float
-    elif np_dtype is np.float64:
-        dtype = float64
-    elif np_dtype is np.bool_:
-        dtype = uint8
-    elif np_dtype is np.complex64:
-        dtype = complex64
-    elif np_dtype is np.complex128:
-        dtype = complex128
-    else:
-        raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
+    if dtype is None:
+        if np_dtype is np.int8:
+            dtype = int8
+        elif np_dtype is np.int16:
+            dtype = int16
+        elif np_dtype is np.int32:
+            dtype = int32
+        elif np_dtype is np.int64:
+            dtype = int64
+        elif np_dtype is np.uint8:
+            dtype = uint8
+        elif np_dtype is np.uint16:
+            dtype = uint16
+        elif np_dtype is np.uint32:
+            dtype = uint32
+        elif np_dtype is np.uint64:
+            dtype = uint64
+        elif np_dtype is np.float32:
+            dtype = DataType.float  # PyKokkos float
+        elif np_dtype is np.float64:
+            dtype = float64
+        elif np_dtype is np.bool_:
+            dtype = uint8
+        elif np_dtype is np.complex64:
+            dtype = complex64
+        elif np_dtype is np.complex128:
+            dtype = complex128
+        else:
+            raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
     if layout is None and array.ndim > 1:
         if array.flags["F_CONTIGUOUS"]:
@@ -845,12 +860,65 @@ class ctypes_complex128(ctypes.Structure):
     _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
 
 
-def from_array(array) -> ViewType:
+def from_array(array, *, execution_space: Optional[ExecutionSpace] = None) -> ViewType:
     """
-    Create a PyKokkos View from a cupy (or other numpy-like) array
+    Create a PyKokkos View from a CuPy array or PyTorch tensor.
 
-    :param array: the numpy-like array
+    Non-scalar Torch tensors share storage with the resulting View. Conversion
+    detaches tensors from autograd; workunit operations are not tracked by PyTorch.
+
+    :param array: the array or tensor
+    :param execution_space: optional workunit execution space used to validate
+        Torch tensor device compatibility; omitted for device-inferred conversion
     """
+
+    if torch_available and torch.is_tensor(array):
+        if array.layout != torch.strided or array.device.type not in ("cpu", "cuda"):
+            raise TypeError(
+                f"unsupported Torch tensor with layout {array.layout} on device "
+                f"{array.device}. Only dense CPU and CUDA/HIP tensors are supported."
+            )
+
+        is_cpu = array.device.type == "cpu"
+        device_space = (
+            ExecutionSpace.HIP if torch.version.hip is not None else ExecutionSpace.Cuda
+        )
+        if execution_space is ExecutionSpace.Default:
+            execution_space = km.get_default_space()
+        if execution_space is not None and (
+            (is_cpu and execution_space in DeviceExecutionSpace)
+            or (not is_cpu and execution_space is not device_space)
+        ):
+            raise TypeError(
+                f"Torch tensor on {array.device} cannot be accessed from the "
+                f"{execution_space.value} execution space."
+            )
+
+        tensor = array.detach()
+        if is_cpu:
+            tensor_array = tensor.numpy()
+        else:
+            try:
+                import cupy as cp
+            except ImportError as exc:
+                raise ImportError(
+                    "CuPy is required to convert CUDA/HIP Torch tensors"
+                ) from exc
+            tensor_array = cp.from_dlpack(tensor)
+
+        if (
+            not tensor_array.flags["F_CONTIGUOUS"]
+            and not tensor_array.flags["C_CONTIGUOUS"]
+        ):
+            raise ValueError("Torch tensor is not contiguous")
+
+        # Kokkos represents bool as uint8. Reinterpret rather than copy storage.
+        if array.dtype is torch.bool:
+            tensor_array = tensor_array.view("uint8")
+
+        if is_cpu:
+            return from_numpy(tensor_array, space=MemorySpace.HostSpace)
+        array = tensor_array
 
     # Handle 0-D arrays separately to avoid ctypes issues
     if array.ndim == 0:
@@ -872,30 +940,43 @@ def from_array(array) -> ViewType:
 
     if np_dtype is np.int8:
         ctype = ctypes.c_int8
-    if np_dtype is np.int16:
+        dtype = int8
+    elif np_dtype is np.int16:
         ctype = ctypes.c_int16
+        dtype = int16
     elif np_dtype is np.int32:
         ctype = ctypes.c_int32
+        dtype = int32
     elif np_dtype is np.int64:
         ctype = ctypes.c_int64
+        dtype = int64
     elif np_dtype is np.uint8:
         ctype = ctypes.c_uint8
+        dtype = uint8
     elif np_dtype is np.uint16:
         ctype = ctypes.c_uint16
+        dtype = uint16
     elif np_dtype is np.uint32:
         ctype = ctypes.c_uint32
+        dtype = uint32
     elif np_dtype is np.uint64:
         ctype = ctypes.c_uint64
+        dtype = uint64
     elif np_dtype is np.float32:
         ctype = ctypes.c_float
+        dtype = DataType.float
     elif np_dtype is np.float64:
         ctype = ctypes.c_double
+        dtype = float64
     elif np_dtype is np.bool_:
         ctype = ctypes.c_uint8
+        dtype = uint8
     elif np_dtype is np.complex64:
         ctype = ctypes_complex64
+        dtype = complex64
     elif np_dtype is np.complex128:
         ctype = ctypes_complex128
+        dtype = complex128
     else:
         raise RuntimeError(f"ERROR: unsupported numpy datatype {np_dtype}")
 
@@ -927,7 +1008,7 @@ def from_array(array) -> ViewType:
     elif km.get_gpu_framework() is pk.HIP:
         memory_space = MemorySpace.HIPSpace
 
-    return from_numpy(np_array, memory_space, layout, array)
+    return from_numpy(np_array, memory_space, layout, array, dtype=dtype)
 
 
 def is_array(array) -> bool:
@@ -953,7 +1034,10 @@ def is_array(array) -> bool:
 
 
 def array(
-    array, space: Optional[MemorySpace] = None, layout: Optional[Layout] = None
+    array,
+    space: Optional[MemorySpace] = None,
+    layout: Optional[Layout] = None,
+    is_array_flag: Optional[bool] = None,
 ) -> ViewType:
     """
     Create a PyKokkos View from a generic array
@@ -961,27 +1045,34 @@ def array(
     :param array: the data (array?) of unknown type
     :param space: an optional argument for memory space (used by from_array)
     :param layout: an optional argument for layout (used by from_array)
+    :param is_array_flag: an optional flag to determine if array conforms to
+        the python array API. If not passed, the flag is set by the `is_array` function.
     :returns: a PyKokkos View wrapping the array
     """
 
+    # reused type flags
+    if is_array_flag is None:
+        is_array_flag: bool = is_array(array)
+    is_scalar_flag: bool = np.isscalar(array)
+    is_numpy_instance: bool = isinstance(array, np.ndarray)
+
     # if an array is not a recognized type, try coasting it to a numpy array
-    if (
-        not isinstance(array, np.ndarray)
-        and not np.isscalar(array)
-        and not is_array(array)
-    ):
+    if not is_numpy_instance and not is_scalar_flag and not is_array_flag:
         array = np.asarray(array)
+        is_array_flag = True
+        is_numpy_instance = True
+        is_scalar_flag: bool = np.isscalar(array)
 
     # check that the array is contiguous
     if not array.flags["F_CONTIGUOUS"] and not array.flags["C_CONTIGUOUS"]:
         raise ValueError(f"numpy array is not contiguous")
 
     # if numpy array, use from_numpy()
-    if isinstance(array, np.ndarray) or np.isscalar(array):
+    if is_numpy_instance or is_scalar_flag:
         return from_numpy(array, space, layout)
     # test if the input array can duck-type to a numpy-like array
     # and run from_array to preprocess the array to numpy
-    elif is_array(array):
+    elif is_array_flag:
         return from_array(array)
     else:
         raise TypeError(f"array of type {type(array)} not supported")

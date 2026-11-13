@@ -3,6 +3,11 @@ import numpy as np
 import pykokkos as pk
 import pytest
 from typing import List
+from itertools import product
+
+from pykokkos.interface.parallel_dispatch import convert_arrays
+from pykokkos.interface.views import from_array
+from pykokkos.kokkos_manager import get_available_execution_spaces
 
 try:
     import cupy as cp
@@ -20,6 +25,11 @@ def init_view(i, view, init):
 
 @pk.workunit
 def init_view_annotated(i: int, view: pk.View1D[pk.int32], init: pk.int32):
+    view[i] = init
+
+
+@pk.workunit
+def init_view_float32(i: int, view: pk.View1D[pk.float32], init: pk.float32):
     view[i] = init
 
 
@@ -698,8 +708,230 @@ class TestTypeInference(unittest.TestCase):
     def test_numpy_noncontiguous(self):
         contiguous = np.arange(10)
         noncontiguous = contiguous[::2]
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not contiguous"):
             pk.parallel_for(len(noncontiguous), init_view, view=noncontiguous, init=0)
+
+    def _convert_tensor(
+        self, tensor, space=pk.ExecutionSpace.OpenMP, workunit=init_view
+    ):
+        kwargs = {"view": tensor}
+        convert_arrays(kwargs, workunit, space)
+        return kwargs["view"]
+
+    def _cuda_tensor(self):
+        torch = pytest.importorskip("torch")
+        pytest.importorskip("cupy")
+        if not torch.cuda.is_available():
+            pytest.skip("Torch CUDA not available")
+        if "Cuda" not in get_available_execution_spaces():
+            pytest.skip("Kokkos CUDA execution space not available")
+        return torch.arange(48, dtype=torch.int32, device="cuda")
+
+    def test_torch_cpu_conversion_preserves_metadata_and_shares_storage(self):
+        torch = pytest.importorskip("torch")
+        shapes = [(8,), (4, 6), (2, 4, 6)]
+        dtypes = ["int32", "int64", "float32", "float64"]
+        for shape, dtype_name, convert in product(
+            shapes, dtypes, (self._convert_tensor, from_array)
+        ):
+            tensor = torch.arange(
+                int(np.prod(shape)), dtype=getattr(torch, dtype_name)
+            ).reshape(shape)
+
+            view = convert(tensor)
+
+            self.assertIsInstance(view, pk.View)
+            self.assertEqual(view.shape, shape)
+            self.assertIs(view.dtype, getattr(pk, dtype_name))
+            self.assertIs(view.space, pk.HostSpace)
+            np.testing.assert_array_equal(view.data, tensor.numpy())
+            tensor.reshape(-1)[0] = 17
+            self.assertEqual(view.data.flat[0], 17)
+            view.data.flat[1] = 23
+            self.assertEqual(tensor.reshape(-1)[1].item(), 23)
+
+    def test_torch_cpu_matching_annotation_accepted(self):
+        torch = pytest.importorskip("torch")
+        for dtype, workunit, expected_dtype in (
+            (torch.int32, init_view_annotated, pk.int32),
+            (torch.float32, init_view_float32, pk.float32),
+        ):
+            tensor = torch.ones(8, dtype=dtype)
+            view = self._convert_tensor(tensor, workunit=workunit)
+            self.assertIs(view.dtype, expected_dtype)
+
+    def test_torch_cpu_parallel_for(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.zeros(self.threads, dtype=torch.int32)
+        policy = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, self.threads)
+
+        pk.parallel_for(policy, init_view_annotated, view=tensor, init=17)
+
+        self.assertTrue(torch.all(tensor == 17).item())
+
+    def test_torch_cpu_parallel_reduce(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.arange(self.threads, dtype=torch.float64)
+        policy = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, self.threads)
+
+        result = pk.parallel_reduce(policy, reduce, view=tensor)
+
+        self.assertEqual(result, tensor.sum().item())
+
+    def test_torch_cpu_column_major_tensor(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.arange(24, dtype=torch.int32).reshape(4, 6).t()
+
+        view = self._convert_tensor(tensor)
+
+        self.assertIs(view.layout, pk.LayoutLeft)
+        np.testing.assert_array_equal(view.data, tensor.numpy())
+        view.data[0, 1] = 17
+        self.assertEqual(tensor[0, 1].item(), 17)
+
+    def test_torch_cpu_bool_shares_storage(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.tensor([False, True, False])
+
+        view = self._convert_tensor(tensor)
+
+        self.assertIs(view.dtype, pk.uint8)
+        tensor[0] = True
+        self.assertEqual(view.data[0], 1)
+        view.data[1] = 0
+        self.assertFalse(tensor[1].item())
+
+    def test_torch_cpu_requires_grad_shares_storage(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.ones(8, requires_grad=True)
+
+        view = self._convert_tensor(tensor)
+
+        self.assertTrue(tensor.requires_grad)
+        self.assertIsNone(tensor.grad)
+        view.data[0] = 17
+        self.assertEqual(tensor[0].item(), 17)
+
+    def test_torch_cpu_view_retains_storage(self):
+        torch = pytest.importorskip("torch")
+        # The tensor (and its original storage owner) go out of scope here.
+        view = self._convert_tensor(torch.arange(12, dtype=torch.int32)[4:])
+
+        np.testing.assert_array_equal(view.data, np.arange(4, 12, dtype=np.int32))
+        view.data[0] = 17
+        self.assertEqual(view[0], 17)
+
+    def test_torch_unsupported_device_rejected(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.empty(8, device="meta")
+        with pytest.raises(TypeError, match="unsupported Torch tensor"):
+            self._convert_tensor(tensor)
+
+    def test_torch_sparse_tensor_rejected(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.sparse_coo_tensor([[0, 2]], [1.0, 2.0], (8,))
+        with pytest.raises(TypeError, match="unsupported Torch tensor"):
+            self._convert_tensor(tensor)
+
+    def test_torch_cpu_mismatched_annotation_rejected(self):
+        torch = pytest.importorskip("torch")
+        for dtype, workunit, expected_dtype in (
+            (torch.int64, init_view_annotated, "int32"),
+            (torch.float64, init_view_float32, "float32"),
+        ):
+            tensor = torch.ones(8, dtype=dtype)
+            with pytest.raises(
+                TypeError, match=f"expects a View with dtype {expected_dtype}"
+            ):
+                self._convert_tensor(tensor, workunit=workunit)
+
+    def test_torch_cpu_noncontiguous(self):
+        torch = pytest.importorskip("torch")
+        for shape, convert in product(
+            [(8,), (4, 6), (2, 4, 6)], (self._convert_tensor, from_array)
+        ):
+            tensor = torch.arange(int(np.prod(shape)), dtype=torch.int32).reshape(
+                shape
+            )[..., ::2]
+            self.assertFalse(tensor.is_contiguous())
+            with pytest.raises(ValueError, match="not contiguous"):
+                convert(tensor)
+
+    def test_torch_cpu_rejected_for_device_execution(self):
+        torch = pytest.importorskip("torch")
+        tensor = torch.ones(8, dtype=torch.int32)
+        for space in (pk.ExecutionSpace.Cuda, pk.ExecutionSpace.HIP):
+            with pytest.raises(TypeError, match="cannot be accessed"):
+                self._convert_tensor(tensor, space)
+            with pytest.raises(TypeError, match="cannot be accessed"):
+                from_array(tensor, execution_space=space)
+
+    def test_torch_cuda_conversion_shares_storage(self):
+        tensor = self._cuda_tensor()
+        view = self._convert_tensor(tensor, pk.ExecutionSpace.Cuda)
+        self.assertIsInstance(view, pk.View)
+        self.assertEqual(view.shape, tuple(tensor.shape))
+        self.assertIs(view.dtype, pk.int32)
+        self.assertIs(view.space, pk.CudaSpace)
+        self.assertEqual(view.xp_array.data.ptr, tensor.data_ptr())
+
+    def test_torch_cuda_rejected_for_host_execution(self):
+        tensor = self._cuda_tensor()
+        with pytest.raises(TypeError, match="cannot be accessed"):
+            self._convert_tensor(tensor)
+
+    def test_torch_cuda_parallel_for(self):
+        torch = pytest.importorskip("torch")
+        tensor = self._cuda_tensor()
+        policy = pk.RangePolicy(pk.ExecutionSpace.Cuda, 0, len(tensor))
+
+        pk.parallel_for(policy, init_view_annotated, view=tensor, init=17)
+        torch.cuda.synchronize()
+
+        self.assertTrue(torch.all(tensor == 17).item())
+
+    def test_torch_cuda_noncontiguous(self):
+        contiguous = self._cuda_tensor()
+        for shape in [(48,), (6, 8), (2, 4, 6)]:
+            tensor = contiguous.reshape(shape)[..., ::2]
+            self.assertFalse(tensor.is_contiguous())
+            with pytest.raises(ValueError, match="not contiguous"):
+                self._convert_tensor(tensor, pk.ExecutionSpace.Cuda)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "cupy"])
+@pytest.mark.parametrize("shape", [(10,), (4, 6), (4, 6, 8)], ids=["1d", "2d", "3d"])
+@pytest.mark.parametrize("step", [2, -1], ids=["stepped", "reversed"])
+@pytest.mark.parametrize("entrypoint", ["array", "parallel_for"])
+def test_noncontiguous_array_rejected(backend, shape, step, entrypoint):
+    if backend == "cupy":
+        xp = pytest.importorskip("cupy")
+        from pykokkos.kokkos_manager import get_available_execution_spaces
+
+        if "Cuda" not in get_available_execution_spaces():
+            pytest.skip("Kokkos CUDA execution space not available")
+        try:
+            device_count = xp.cuda.runtime.getDeviceCount()
+        except xp.cuda.runtime.CUDARuntimeError as exc:
+            pytest.skip(f"CUDA runtime not available: {exc}")
+        if device_count == 0:
+            pytest.skip("No CUDA devices available")
+        space = pk.ExecutionSpace.Cuda
+    else:
+        xp = np
+        space = pk.ExecutionSpace.OpenMP
+
+    contiguous = xp.arange(int(np.prod(shape)), dtype=xp.int32).reshape(shape)
+    noncontiguous = contiguous[..., ::step]
+    assert not noncontiguous.flags["C_CONTIGUOUS"]
+    assert not noncontiguous.flags["F_CONTIGUOUS"]
+
+    with pytest.raises(ValueError, match="not contiguous"):
+        if entrypoint == "array":
+            pk.array(noncontiguous)
+        else:
+            policy = pk.RangePolicy(space, 0, len(noncontiguous))
+            pk.parallel_for(policy, init_view, view=noncontiguous, init=0)
 
 
 if __name__ == "__main__":

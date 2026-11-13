@@ -22,13 +22,24 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
-from .views import ViewType, array
+from .views import ViewType, array, from_array, from_numpy, torch, torch_available
 
 from .interface_util import generic_error, get_filename, get_lineno
 
-from .memory_space import get_default_memory_space
+from .memory_space import get_default_memory_space, MemorySpace
 
 import inspect
+import weakref
+
+# check backend availability
+cp_available: bool
+
+try:
+    import cupy as cp
+
+    cp_available = True
+except ImportError:
+    cp_available = False
 
 workunit_cache: Dict[int, Callable] = {}
 
@@ -272,9 +283,51 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
+_type_hints_cache: weakref.WeakKeyDictionary[Callable, Dict[bool, Dict[str, Any]]] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
+    """
+    Extract and cache a workunit's parameter type hints.
+
+    Cache Python functions weakly, using the underlying function for bound
+    methods so the cache never retains their owning functor or its Views.
+    Keep bound and unbound signatures separate because inspect.signature
+    omits the receiver for bound methods. Other callable objects are inspected
+    without caching to avoid retaining instances or requiring hashability.
+    """
+    is_bound = inspect.ismethod(workunit)
+    function = workunit.__func__ if is_bound else workunit
+    cacheable = inspect.isfunction(function)
+    if cacheable:
+        cached = _type_hints_cache.get(function)
+        if cached is not None and is_bound in cached:
+            return cached[is_bound]
+
+    type_hints: Dict[str, Any] = {}
+    try:
+        sig = inspect.signature(workunit)
+        type_hints = {
+            name: param.annotation
+            for name, param in sig.parameters.items()
+            if param.annotation != inspect.Parameter.empty
+        }
+    except (ValueError, TypeError):
+        pass
+
+    if cacheable:
+        _type_hints_cache.setdefault(function, {})[is_bound] = type_hints
+    return type_hints
+
+
 def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) -> None:
     """
-    Convert all numpy, cupy and pytorch ndarray objects into pk Views
+    Convert NumPy arrays, CuPy arrays, and PyTorch tensors into pk Views.
+
+    Non-scalar Torch tensors share storage with the resulting Views. Conversion
+    detaches tensors from autograd; workunit operations are not tracked by PyTorch.
 
     :param kwargs: the list of keyword arguments passed to the workunit
     :param workunit: the workunit function (used to infer types for Python lists)
@@ -282,39 +335,10 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
         (used to convert arrays to the correct memory space)
     """
 
-    cp_available: bool
-    torch_available: bool
-
-    memory_space = get_default_memory_space(execution_space)
-
-    try:
-        import cupy as cp
-
-        cp_available = True
-    except ImportError:
-        cp_available = False
-
-    try:
-        import torch
-
-        torch_available = True
-    except ImportError:
-        torch_available = False
-
     # Get type hints from workunit if available
     type_hints = {}
     if workunit is not None and callable(workunit):
-        import inspect as insp
-
-        try:
-            sig = insp.signature(workunit)
-            type_hints = {
-                name: param.annotation
-                for name, param in sig.parameters.items()
-                if param.annotation != insp.Parameter.empty
-            }
-        except (ValueError, TypeError):
-            pass
+        type_hints = _get_type_hints(workunit)
 
     for k, v in kwargs.items():
         if isinstance(v, ViewType) or isinstance(v, np.generic):
@@ -330,6 +354,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     depth, dtype = parse_list_annotation(annotation)
 
             # Convert Python list to numpy array, then to View
+            memory_space = get_default_memory_space(execution_space)
             kwargs[k] = array(np.array(v, dtype=dtype), space=memory_space)
         elif isinstance(v, np.ndarray):
             if execution_space in DeviceExecutionSpace:
@@ -338,7 +363,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} execution space. "
                     f"Use a pk.View (e.g. pk.View([...], dtype)) or a CuPy array instead."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            if not v.flags["F_CONTIGUOUS"] and not v.flags["C_CONTIGUOUS"]:
+                raise ValueError("numpy array is not contiguous")
+            kwargs[k] = from_numpy(v, space=MemorySpace.HostSpace)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
@@ -346,9 +373,9 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     f"from the {execution_space.value} (host) execution space. "
                     f"Convert it to a numpy array or pk.View in host memory first."
                 )
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = from_array(v)
         elif torch_available and torch.is_tensor(v):
-            kwargs[k] = array(v, space=memory_space)
+            kwargs[k] = from_array(v, execution_space=execution_space)
         elif (
             hasattr(v, "__array__")
             or hasattr(v, "__cuda_array_interface__")
