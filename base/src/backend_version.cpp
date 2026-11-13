@@ -63,7 +63,8 @@ void generate_backend_versions(py::module& kokkos) {
   auto _version =
       kokkos.def_submodule("backend_version", "Version info for backends");
 
-  auto _zero = []() -> int { return -1; };
+  auto _zero              = []() -> int { return -1; };
+  _version.attr("kokkos") = KOKKOS_VERSION;
 
 #if defined(KOKKOS_ENABLE_OPENMP) && defined(_OPENMP)
   _version.attr("openmp") = _OPENMP;

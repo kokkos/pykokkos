@@ -190,8 +190,8 @@ IF(_INTERNAL_KOKKOS)
     MESSAGE(STATUS "Fetching Kokkos via FetchContent")
     FETCHCONTENT_DECLARE(
       Kokkos
-      URL https://github.com/kokkos/kokkos/releases/download/4.7.01/kokkos-4.7.01.zip
-      URL_HASH SHA256=2b7c9964ace4245dec0b952932873d4b1235933dbb7d8d1d69e17b4368784503
+      URL https://github.com/kokkos/kokkos/releases/download/5.3.0/kokkos-5.3.0.zip
+      URL_HASH SHA256=0c916a4ebc16cc4a7729f7846dbb0a663baa3f23d3495354295480be1142a84d
     )
     FETCHCONTENT_MAKEAVAILABLE(Kokkos)
     FETCHCONTENT_GETPROPERTIES(Kokkos SOURCE_DIR Kokkos_SOURCE_DIR)

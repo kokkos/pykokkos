@@ -31,7 +31,6 @@ SET(_VIEW_RANK_MSG "Set this value to the max number of ranks needed for Kokkos:
 ADD_FEATURE(CMAKE_BUILD_TYPE "Build type")
 ADD_FEATURE(CMAKE_INSTALL_PREFIX "Installation prefix")
 ADD_FEATURE(CMAKE_CXX_FLAGS "C++ compiler flags")
-ADD_FEATURE(Kokkos_CXX_STANDARD "Kokkos C++ Standard")
 ADD_FEATURE(Kokkos_DIR "Kokkos installation")
 
 ADD_OPTION(CMAKE_INSTALL_RPATH_USE_LINK_PATH "Install with rpath to linked libraries" ON)
@@ -84,12 +83,9 @@ set(CMAKE_C_VISIBILITY_PRESET "default" CACHE STRING "Default visibility")
 set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE STRING "Default visibility")
 
 # pybind11 has not migrated to CMAKE_CXX_STANDARD and neither has kokkos
-SET(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ language standard")
+SET(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ language standard")
 SET(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require standard")
 SET(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Extensions")
-IF(NOT Kokkos_CXX_STANDARD)
-    SET(Kokkos_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-ENDIF()
 UNSET(PYBIND11_CPP_STANDARD CACHE)
 
 # Stops lookup as soon as a version satisfying version constraints is found.

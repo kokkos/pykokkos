@@ -16,7 +16,7 @@ endif()
 # Dependencies
 # Must match the pybind11 version pykokkos-base is built with (base/CMakeLists.txt)
 find_package(pybind11 3.1.0 EXACT CONFIG REQUIRED)
-find_package(Kokkos 4.7.1 EXACT REQUIRED)
+find_package(Kokkos REQUIRED)
 
 # Sources and targets
 file(GLOB SOURCE_FILES "*.cpp")

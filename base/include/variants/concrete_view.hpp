@@ -79,7 +79,8 @@ void generate_concrete_view_variant(py::module &_mod) {
       _mod, name, demangle<UniformT>());
 
 #if !defined(ENABLE_LAYOUTS)
-  using MirrorT = kokkos_python_view_type_t<typename ViewT::HostMirror>;
+  using MirrorT =
+      kokkos_python_view_type_t<typename UniformT::host_mirror_type>;
 
   IF_CONSTEXPR(!std::is_same<UniformT, MirrorT>::value) {
     Common::generate_view<MirrorT, Sp, Tp, Lp, Mp, DimIdx, DimIdx>(

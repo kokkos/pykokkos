@@ -74,7 +74,8 @@ void generate_execution_space_init(
 #if defined(KOKKOS_ENABLE_CUDA) && defined(__CUDACC__)
   _space.def(py::init([](uint64_t stream_ptr, bool manage_stream) {
     cudaStream_t s = reinterpret_cast<cudaStream_t>(stream_ptr);
-    return new Sp{s, manage_stream};
+    return new Sp{s, manage_stream ? Kokkos::Impl::ManageStream::yes
+                                   : Kokkos::Impl::ManageStream::no};
   }));
 #endif
 }
@@ -86,7 +87,8 @@ void generate_execution_space_init(
 #if defined(KOKKOS_ENABLE_HIP) && defined(__HIPCC__)
   _space.def(py::init([](uint64_t stream_ptr, bool manage_stream) {
     hipStream_t s = reinterpret_cast<hipStream_t>(stream_ptr);
-    return new Sp{s, manage_stream};
+    return new Sp{s, manage_stream ? Kokkos::Impl::ManageStream::yes
+                                   : Kokkos::Impl::ManageStream::no};
   }));
 #endif
 }
