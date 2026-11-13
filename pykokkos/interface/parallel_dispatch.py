@@ -332,8 +332,6 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
         (used to convert arrays to the correct memory space)
     """
 
-    memory_space = get_default_memory_space(execution_space)
-
     # Get type hints from workunit if available
     type_hints = {}
     if workunit is not None and callable(workunit):
@@ -353,6 +351,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                     depth, dtype = parse_list_annotation(annotation)
 
             # Convert Python list to numpy array, then to View
+            memory_space = get_default_memory_space(execution_space)
             kwargs[k] = array(np.array(v, dtype=dtype), space=memory_space)
         elif isinstance(v, np.ndarray):
             if execution_space in DeviceExecutionSpace:
@@ -363,7 +362,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                 )
             if not v.flags["F_CONTIGUOUS"] and not v.flags["C_CONTIGUOUS"]:
                 raise ValueError("numpy array is not contiguous")
-            kwargs[k] = from_numpy(v, space=memory_space)
+            kwargs[k] = from_numpy(v, space=MemorySpace.HostSpace)
         elif cp_available and isinstance(v, cp.ndarray):
             if execution_space not in DeviceExecutionSpace:
                 raise TypeError(
@@ -373,7 +372,7 @@ def convert_arrays(kwargs: Dict[str, Any], workunit: Callable, execution_space) 
                 )
             kwargs[k] = from_array(v)
         elif torch_available and torch.is_tensor(v):
-            kwargs[k] = array(v, space=memory_space, is_array_flag=True)
+            raise NotImplemented("Pytorch convert array")
         elif (
             hasattr(v, "__array__")
             or hasattr(v, "__cuda_array_interface__")
