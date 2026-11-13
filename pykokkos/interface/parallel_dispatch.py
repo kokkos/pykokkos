@@ -22,7 +22,7 @@ from .data_types import DataType, DataTypeClass
 from .execution_policy import ExecutionPolicy, RangePolicy
 from .execution_space import ExecutionSpace, DeviceExecutionSpace
 from .reducers import Reducer
-from .views import ViewType, array, from_array
+from .views import ViewType, array, from_array, from_numpy
 
 from .interface_util import generic_error, get_filename, get_lineno
 
