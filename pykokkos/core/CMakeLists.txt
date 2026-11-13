@@ -14,7 +14,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Dependencies
-find_package(pybind11 2.11 CONFIG REQUIRED)
+# Must match the pybind11 version pykokkos-base is built with (base/CMakeLists.txt)
+find_package(pybind11 3.1.0 EXACT CONFIG REQUIRED)
 find_package(Kokkos 4.7.1 EXACT REQUIRED)
 
 # Sources and targets

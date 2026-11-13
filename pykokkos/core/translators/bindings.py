@@ -139,9 +139,12 @@ def get_kernel_params(
             params[Keywords.LeagueSize.value] = "int"
             params[Keywords.TeamSize.value] = "int"
             params[Keywords.VectorLength.value] = "int"
-            params[Keywords.ScratchSizeLevel.value] = "int"
-            params[Keywords.ScratchSizeValue.value] = "int"
-            params[Keywords.ScratchSizeIsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel0Value.value] = "int"
+            params[Keywords.ScratchSizeLevel0IsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel0Enabled.value] = "bool"
+            params[Keywords.ScratchSizeLevel1Value.value] = "int"
+            params[Keywords.ScratchSizeLevel1IsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel1Enabled.value] = "bool"
         else:
             params[Keywords.ThreadsBegin.value] = "int"
             params[Keywords.ThreadsEnd.value] = "int"
@@ -383,17 +386,29 @@ def generate_call(
         base_policy_auto = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})"
         base_policy_custom = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{Keywords.TeamSize.value},{Keywords.VectorLength.value})"
 
-        def add_scratch_size(policy, is_per_team):
-            per_type = "PerTeam" if is_per_team else "PerThread"
-            return f"({policy}).set_scratch_size({Keywords.ScratchSizeLevel.value}, Kokkos::{per_type}({Keywords.ScratchSizeValue.value}))"
-
-        per_team_auto = add_scratch_size(base_policy_auto, True)
-        per_thread_auto = add_scratch_size(base_policy_auto, False)
-        per_team_custom = add_scratch_size(base_policy_custom, True)
-        per_thread_custom = add_scratch_size(base_policy_custom, False)
-
         policy_var = "pk_policy"
-        policy_decl = f"auto {policy_var} = ({Keywords.TeamSize.value} == -1) ? (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_auto} : {per_thread_auto}) : {base_policy_auto}) : (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_custom} : {per_thread_custom}) : {base_policy_custom});"
+        policy_decl = f"auto {policy_var} = ({Keywords.TeamSize.value} == -1) ? {base_policy_auto} : {base_policy_custom};"
+
+        def add_scratch_size(level, value, is_per_team, enabled):
+            return (
+                f"if ({enabled}) {{ "
+                f"if ({is_per_team}) {{ {policy_var}.set_scratch_size({level}, Kokkos::PerTeam({value})); }} "
+                f"else {{ {policy_var}.set_scratch_size({level}, Kokkos::PerThread({value})); }} "
+                f"}}"
+            )
+
+        policy_decl += add_scratch_size(
+            0,
+            Keywords.ScratchSizeLevel0Value.value,
+            Keywords.ScratchSizeLevel0IsPerTeam.value,
+            Keywords.ScratchSizeLevel0Enabled.value,
+        )
+        policy_decl += add_scratch_size(
+            1,
+            Keywords.ScratchSizeLevel1Value.value,
+            Keywords.ScratchSizeLevel1IsPerTeam.value,
+            Keywords.ScratchSizeLevel1Enabled.value,
+        )
 
         args.append(policy_var)
     else:

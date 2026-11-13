@@ -1,19 +1,21 @@
-# Contributing to PyKokkos
+## Table of Contents
 
-Thank you for your interest in contributing to PyKokkos! This guide covers everything you need to know to get a pull request reviewed and merged smoothly.
+- [Contributing to PyKokkos](#contributing-to-pykokkos)
+  - [Getting Started](#getting-started)
+  - [Opening Issues](#opening-issues)
+  - [Pull Requests](#pull-requests)
+    - [Title](#title)
+    - [Description](#description)
+    - [Code Formatting](#code-formatting)
+    - [Testing](#testing)
+    - [Examples](#examples)
+  - [Questions?](#questions)
 
 ---
 
-## Table of Contents
+# Contributing to PyKokkos
 
-- [Getting Started](#getting-started)
-- [Opening Issues](#opening-issues)
-- [Pull Requests](#pull-requests)
-  - [Title](#title)
-  - [Description](#description)
-  - [Code Formatting](#code-formatting)
-  - [Testing](#testing)
-  - [Examples](#examples)
+Thank you for your interest in contributing to PyKokkos! This guide covers everything you need to know to get a pull request reviewed and merged smoothly.
 
 ---
 
@@ -37,19 +39,20 @@ Use the issue templates provided in this repository. Choose **Bug Report** for u
 
 ### Title
 
-Titles must follow the `module: description` format, where `module` is the part of the codebase being changed. Keep the description short and in the imperative mood.
+Titles **must** follow the `module: description` format, where `module` is the part of the codebase being changed. Keep the description short and in the imperative mood.
 
 **Examples:**
 
-| ✅ Good | ❌ Avoid |
-|---|---|
-| `core: raise TypeError for unsupported types` | `Fixed a bug` |
-| `views: add support for rank-3 layouts` | `Updates to the views module` |
-| `ci: pin black version to 25.12.0` | `black` |
+| ✅ Good                                        | ❌ Avoid                       |
+| --------------------------------------------- | ----------------------------- |
+| `core: raise TypeError for unsupported types` | `Fixed a bug`                 |
+| `views: add support for rank-3 layouts`       | `Updates to the views module` |
+| `ci: pin black version to 25.12.0`            | `black`                       |
 
-[!TIP]
-If you are not sure what module name to choose, just add the name of the Lowest Common Ancestor (LCA) directory of the changed file (for example, you changed `pykokkos/core/compiler` and `pykokkos/core/visitor/visitor_util.py`. The LCA here is `core`---use it as a module name.
-Avoid changes that involve multiple directories under `pykokkos/` (e.g., `pykokkos/interface` and `pykokkos/core`) in one PR.
+> [!TIP]
+> If you are not sure what module name to choose, use the name of the Lowest Common Ancestor (LCA) directory of the changed files. For example, if you changed `pykokkos/core/compiler.py` and `pykokkos/core/visitors/visitors_util.py`, the LCA is `core`, so use `core` as the module name.
+>
+> Avoid changes that involve multiple directories under `pykokkos/` (e.g., `pykokkos/interface` and `pykokkos/core`) in one PR.
 
 ### Description
 
@@ -67,7 +70,7 @@ PyKokkos enforces consistent formatting through [CI checks](https://github.com/k
 
 ```bash
 pip install black==25.12.0
-black .
+python -m black .
 ```
 
 PRs that fail the formatting check will not be reviewed until the check passes.
@@ -77,7 +80,7 @@ PRs that fail the formatting check will not be reviewed until the check passes.
 Most changes should be accompanied by unit tests. Please follow these guidelines:
 
 - **Extend existing test files** in the `test` directory wherever possible. Adding a new test file should be a last resort.
-- **If you have access to a GPU, we recommend running all tests locally, as our CI does not have GPU runners. This helps us identify existing issues and support more GPU models. The command to run the suite locally is `python runtests.py`
+- **If you have access to a GPU**, we recommend running all tests locally, as our CI does not have GPU runners. This helps us identify existing issues and support more GPU models. The command to run the suite locally is `python runtests.py`
 
 ### Examples
 

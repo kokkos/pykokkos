@@ -51,6 +51,7 @@ from .execution_policy import (
     ExecutionPolicy,
     RangePolicy,
     MDRangePolicy,
+    ScratchSize,
     TeamPolicy,
     TeamThreadRange,
     ThreadVectorRange,
