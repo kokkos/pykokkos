@@ -18,7 +18,7 @@ def run() -> None:
     N = 10
 
     A = np.zeros([N], dtype=np.int32)
-    p = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
+    p = pk.RangePolicy(0, N)
     pk.parallel_for(p, init, view=A)
 
     timer = pk.Timer()

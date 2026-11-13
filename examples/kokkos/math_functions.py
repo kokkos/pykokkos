@@ -11,7 +11,6 @@ def my_calculation(i: int, a: pk.View1D[pk.int32], N: int):
 def main():
     n: int = 10
     N: int = n
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     a: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 

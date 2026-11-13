@@ -34,12 +34,12 @@ def main():
     num_teams = (N + team_size - 1) // team_size
 
     view = np.zeros([N], dtype=np.int32)
-    p_init = pk.RangePolicy(pk.ExecutionSpace.OpenMP, 0, N)
+    p_init = pk.RangePolicy(0, N)
     pk.parallel_for(p_init, init_data, view=view)
 
     print(f"Total elements: {N}, Team size: {team_size}, Number of teams: {num_teams}")
 
-    team_policy = pk.TeamPolicy(pk.ExecutionSpace.OpenMP, num_teams, team_size)
+    team_policy = pk.TeamPolicy(num_teams, team_size)
 
     print("Running kernel...")
     pk.parallel_for(team_policy, team_scan, view=view, team_size=team_size)

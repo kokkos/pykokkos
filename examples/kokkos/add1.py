@@ -9,7 +9,6 @@ def add1(i: int, a: pk.View1D[pk.int32]):
 def main():
     n: int = 100 * 1000
     N: int = n
-    pk.set_default_space(pk.ExecutionSpace.OpenMP)
 
     a: pk.View1D[pk.int32] = pk.View([N], pk.int32)
 
