@@ -283,9 +283,9 @@ def check_workunit(workunit: Any) -> None:
         raise TypeError(f"ERROR: {workunit} is not a valid workunit")
 
 
-_type_hints_cache: weakref.WeakKeyDictionary[
-    Callable, Dict[bool, Dict[str, Any]]
-] = weakref.WeakKeyDictionary()
+_type_hints_cache: weakref.WeakKeyDictionary[Callable, Dict[bool, Dict[str, Any]]] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 def _get_type_hints(workunit: Callable) -> Dict[str, Any]:
