@@ -26,7 +26,7 @@ from .views import ViewType, array, from_array, from_numpy
 
 from .interface_util import generic_error, get_filename, get_lineno
 
-from .memory_space import get_default_memory_space
+from .memory_space import get_default_memory_space, MemorySpace
 
 import inspect
 
