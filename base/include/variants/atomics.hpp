@@ -75,6 +75,13 @@ struct is_complex : std::false_type {};
 template <typename T>
 struct is_complex<Kokkos::complex<T>> : std::true_type {};
 
+// On Kokkos 5.x atomic value is desul::AtomicRef and has to be loaded for
+// binary operators (+ - * /)
+template <typename AtomicT>
+typename AtomicT::value_type load_value(const AtomicT &_obj) {
+  return _obj.load();
+}
+
 // this function creates bindings for the atomic type returned to python from
 // views with MemoryTrait<Kokkos::Atomic | ...>
 template <size_t DataIdx, size_t SpaceIdx, size_t DimIdx, size_t LayoutIdx>
@@ -108,15 +115,13 @@ void generate_atomic_variant(py::module &_mod) {
 
   // class decl
   py::class_<atomic_type> _atomic{_mod, name.c_str()};
-  _atomic.def(py::init([](value_type *_v) {
-    return new atomic_type{_v, Kokkos::Impl::AtomicViewConstTag{}};
-  }));
+  _atomic.def(py::init([](value_type *_v) { return new atomic_type{*_v}; }));
 
   _atomic.def(
-      "inc", [](atomic_type &_obj) { return _obj.inc(); },
+      "inc", [](atomic_type &_obj) { _obj.inc_fetch(); },
       "Increment the atomic");
   _atomic.def(
-      "dec", [](atomic_type &_obj) { return _obj.dec(); },
+      "dec", [](atomic_type &_obj) { _obj.dec_fetch(); },
       "Decrement the atomic");
   _atomic.def(
       "__str__",
@@ -167,8 +172,18 @@ void generate_atomic_variant(py::module &_mod) {
   }
 
   // self type
-  _atomic.def(py::self + py::self);
-  _atomic.def(py::self - py::self);
+  _atomic.def(
+      "__add__",
+      [](const atomic_type &lhs, const atomic_type &rhs) {
+        return (load_value(lhs) + load_value(rhs));
+      },
+      py::is_operator());
+  _atomic.def(
+      "__sub__",
+      [](const atomic_type &lhs, const atomic_type &rhs) {
+        return (load_value(lhs) - load_value(rhs));
+      },
+      py::is_operator());
   _atomic.def(py::self += py::self);
   _atomic.def(
       "__isub__",
@@ -177,17 +192,20 @@ void generate_atomic_variant(py::module &_mod) {
 
   // value type
   _atomic.def(
-      "__add__", [](atomic_type _obj, value_type _v) { return (_obj += _v); },
+      "__add__",
+      [](atomic_type _obj, value_type _v) { return (load_value(_obj) + _v); },
       py::is_operator());
   _atomic.def(
-      "__sub__", [](atomic_type _obj, value_type _v) { return (_obj -= _v); },
+      "__sub__",
+      [](atomic_type _obj, value_type _v) { return (load_value(_obj) - _v); },
       py::is_operator());
   _atomic.def(
-      "__mul__", [](atomic_type _obj, value_type _v) { return (_obj * _v); },
+      "__mul__",
+      [](atomic_type _obj, value_type _v) { return (load_value(_obj) * _v); },
       py::is_operator());
   _atomic.def(
       "__truediv__",
-      [](atomic_type _obj, value_type _v) { return (_obj / _v); },
+      [](atomic_type _obj, value_type _v) { return (load_value(_obj) / _v); },
       py::is_operator());
 
   _atomic.def(
@@ -197,12 +215,11 @@ void generate_atomic_variant(py::module &_mod) {
       "__isub__", [](atomic_type &_obj, value_type _v) { return (_obj -= _v); },
       py::is_operator());
   _atomic.def(
-      "__imul__",
-      [](atomic_type &_obj, value_type _v) { return _obj = (_obj * _v); },
+      "__imul__", [](atomic_type &_obj, value_type _v) { return (_obj *= _v); },
       py::is_operator());
   _atomic.def(
       "__itruediv__",
-      [](atomic_type &_obj, value_type _v) { return _obj = (_obj / _v); },
+      [](atomic_type &_obj, value_type _v) { return (_obj /= _v); },
       py::is_operator());
 }
 }  // namespace SpaceDim
@@ -231,13 +248,12 @@ namespace variants {
 template <size_t LayoutIdx, size_t DataIdx, size_t... SpaceIdx>
 void generate_atomic_variant(py::module &_mod,
                              std::index_sequence<SpaceIdx...>) {
-  FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
-      _mod, std::make_index_sequence<ViewDataMaxDimensions>{}));
-  // ensure atomic type for DynRankView is created
-#if ENABLE_VIEW_RANKS < 6
-  FOLD_EXPRESSION(Space::generate_atomic_variant<LayoutIdx, DataIdx, SpaceIdx>(
-      _mod, std::index_sequence<6>{}));
-#endif
+  // In Kokkos 5.x every atomic returns
+  // desul::AtomicRef<T, MemoryOrderRelaxed, MemoryScopeDevice>
+  // which is compatible with all memory spaces, ranks and layouts, so we need
+  // to register it just once.
+  Space::SpaceDim::generate_atomic_variant<DataIdx, HostSpace, 0, LayoutIdx>(
+      _mod);
 }
 
 }  // namespace variants

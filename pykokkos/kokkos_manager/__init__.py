@@ -13,7 +13,7 @@ from pykokkos.interface.execution_space import (
 from pykokkos.interface.data_types import DataTypeClass, double
 
 CONSTANTS: Dict[str, Any] = {
-    "KOKKOS_VERSION": 3.7,  # default to 3.7
+    "KOKKOS_VERSION": None,  # used if pykokkos-base does not report the version
     "EXECUTION_SPACE": None,  # chosen by fist call of get_default_space()
     "AVAILABLE_EXECUTION_SPACES": {},
     "REAL_DTYPE": double,
@@ -27,6 +27,19 @@ CONSTANTS: Dict[str, Any] = {
     "DEVICE_ID": 0,
     "GPU_BACKEND": None,
 }
+
+# version of the Kokkos library pykokkos-base was built with, e.g. 40701
+installed_kokkos_version = getattr(
+    getattr(kokkos, "backend_version", None), "kokkos", None
+)
+if isinstance(installed_kokkos_version, int) and installed_kokkos_version > 0:
+    CONSTANTS["KOKKOS_VERSION"] = float(
+        f"{installed_kokkos_version // 10000}.{installed_kokkos_version // 100 % 100}"
+    )
+else:
+    raise RuntimeError(
+        f"Can not deduce Kokkos version! Got {installed_kokkos_version}, expected int > 0"
+    )
 
 pk_kokkos_version: str = os.getenv("PK_KOKKOS_INTERFACE")
 if pk_kokkos_version is not None:
@@ -192,6 +205,10 @@ def finalize() -> None:
     """
 
     if CONSTANTS["IS_INITIALIZED"] == True:
+        # Kokkos 5.1+ aborts if an execution space instance is destroyed
+        # after finalize(), so release the default instances created at import
+        CONSTANTS["AVAILABLE_EXECUTION_SPACES"].clear()
+        CONSTANTS["KOKKOS_GPU_INSTANCE_LIST"].clear()
         kokkos.finalize()
         CONSTANTS["IS_INITIALIZED"] = False
 

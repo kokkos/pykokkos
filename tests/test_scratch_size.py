@@ -48,6 +48,61 @@ def scratch_reduce_workunit(
         acc += local_sum
 
 
+@pk.workunit(
+    scratch=[
+        (pk.double, lambda p: p.M, 0),
+        (pk.double, lambda p: p.M, 1),
+    ]
+)
+def multi_level_scratch_reduce_workunit(
+    team_member: pk.TeamMember,
+    acc: pk.Acc[pk.double],
+    input_view: pk.View1D[pk.double],
+    M: int,
+):
+    """
+    Workunit that uses scratch memory from levels 0 and 1.
+    """
+    team_rank: int = team_member.team_rank()
+    league_rank: int = team_member.league_rank()
+
+    scratch_level_0: pk.ScratchView1D[pk.double] = pk.ScratchView1D(
+        team_member.team_scratch(0), M
+    )
+    scratch_level_1: pk.ScratchView1D[pk.double] = pk.ScratchView1D(
+        team_member.team_scratch(1), M
+    )
+
+    def init_level_0(i: int):
+        if league_rank < input_view.extent(0) and i < M:
+            scratch_level_0[i] = input_view[league_rank]
+        else:
+            scratch_level_0[i] = 0.0
+
+    if team_rank == 0:
+        pk.parallel_for(pk.ThreadVectorRange(team_member, M), init_level_0)
+
+    team_member.team_barrier()
+
+    def init_level_1(i: int):
+        scratch_level_1[i] = scratch_level_0[i] * 2.0
+
+    if team_rank == 0:
+        pk.parallel_for(pk.ThreadVectorRange(team_member, M), init_level_1)
+
+    team_member.team_barrier()
+
+    def sum_scratch(i: int, inner_acc: pk.Acc[pk.double]):
+        inner_acc += scratch_level_1[i]
+
+    local_sum: float = pk.parallel_reduce(
+        pk.ThreadVectorRange(team_member, M), sum_scratch
+    )
+
+    if team_rank == 0:
+        acc += local_sum
+
+
 class TestScratchSize(unittest.TestCase):
     def setUp(self):
         self.execution_space = pk.ExecutionSpace.OpenMP
@@ -156,6 +211,27 @@ class TestScratchSize(unittest.TestCase):
                 M=self.M,
             )
             self.assertAlmostEqual(expected_result, result, places=5)
+
+    def test_scratch_size_multiple_levels(self):
+        """
+        Test that decorator scratch entries can target levels 0 and 1.
+        """
+        input_view = pk.View([self.E], pk.double)
+        for i in range(self.E):
+            input_view[i] = float(i + 1)
+
+        expected_result: float = sum(input_view[i] for i in range(self.E)) * self.M * 2
+
+        result: float = pk.parallel_reduce(
+            "scratch_reduce_multi_level",
+            pk.TeamPolicy(self.execution_space, self.E, "auto", 32),
+            multi_level_scratch_reduce_workunit,
+            acc=0.0,
+            input_view=input_view,
+            M=self.M,
+        )
+
+        self.assertAlmostEqual(expected_result, result, places=5)
 
 
 class TestScratchViewShmemSizeFail(unittest.TestCase):

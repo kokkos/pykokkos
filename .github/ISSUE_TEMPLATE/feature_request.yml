@@ -1,0 +1,41 @@
+name: Feature Request
+description: Suggest a new feature or improvement for PyKokkos
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to improve PyKokkos? Please describe it below.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: I'm trying to do X, but currently there's no way to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or change you'd like to see.
+      placeholder: |
+        ```python
+        # example of desired API / behavior
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative approaches or workarounds you've already considered.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Links to related issues, papers, or other projects that implement something similar.

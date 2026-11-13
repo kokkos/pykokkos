@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from pykokkos.core import cppast
 
-from . import visitors_util
+from .visitors_util import TranslationError, get_type
 
 
 class ParameterVisitor(ast.NodeVisitor):
@@ -87,9 +87,7 @@ class ParameterVisitor(ast.NodeVisitor):
         annotation: Union[ast.Name, ast.Attribute] = node.annotation
 
         declref = cppast.DeclRefExpr(node.arg)
-        decltype: Optional[cppast.Type] = visitors_util.get_type(
-            annotation, self.pk_import
-        )
+        decltype: Optional[cppast.Type] = get_type(annotation, self.pk_import)
 
         if decltype is None:
             self.error(node, "Type is not supported")
@@ -114,4 +112,4 @@ class ParameterVisitor(ast.NodeVisitor):
             self.views[declref] = decltype
 
     def error(self, node: ast.AST, message: str):
-        visitors_util.error(self.src, self.debug, node, message)
+        raise TranslationError(self.src, self.debug, node, message)

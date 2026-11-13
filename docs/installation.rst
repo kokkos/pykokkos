@@ -110,6 +110,8 @@ install ``base`` with required CMake flags (example performs an install with  Op
      - Build Kokkos submodule with HIP support
    * - ARCH
      - `Kokkos GPU architecture <https://kokkos.org/kokkos-core-wiki/API/core/Macros.html#architectures>`_
+   * - Kokkos_ENABLE_CUDA_UVM
+     - Build Kokkos submodule with CUDA UVM support. Off by default.
 
 .. note::
         Ensure that amdclang++ is used for building HIP device code 

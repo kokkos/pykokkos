@@ -392,4 +392,4 @@ class ConstructorVisitor(ast.NodeVisitor):
         return view_type
 
     def error(self, node: ast.AST, message: str):
-        visitors_util.error(self.src, self.debug, node, message)
+        raise visitors_util.TranslationError(self.src, self.debug, node, message)

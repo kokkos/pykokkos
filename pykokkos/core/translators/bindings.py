@@ -8,6 +8,45 @@ from pykokkos.core.visitors import cpp_view_type, KokkosMainVisitor, visitors_ut
 from pykokkos.interface.data_types import DataType
 
 from .members import PyKokkosMembers
+from .reducer_util import (
+    MINMAX_LOC_REDUCERS,
+    MINMAX_REDUCERS,
+    SCALAR_REDUCERS,
+    VALUE_LOC_REDUCERS,
+    get_reducer_scalar_type,
+    is_non_scalar_reducer,
+)
+
+
+def get_reducer_expr(reducer: str, scalar_type: str) -> str:
+    if reducer in VALUE_LOC_REDUCERS:
+        return f"Kokkos::{reducer}<{scalar_type},int>({Keywords.Accumulator.value})"
+    elif reducer in MINMAX_REDUCERS:
+        return f"Kokkos::{reducer}<{scalar_type}>({Keywords.Accumulator.value})"
+    elif reducer in MINMAX_LOC_REDUCERS:
+        return f"Kokkos::{reducer}<{scalar_type},int>({Keywords.Accumulator.value})"
+    elif reducer in SCALAR_REDUCERS:
+        return f"Kokkos::{reducer}<{scalar_type}>({Keywords.Accumulator.value})"
+
+    raise ValueError(f"unrecognized reducer {reducer}")
+
+
+def get_reducer_return_expr(reducer: Optional[str]) -> str:
+    if reducer in VALUE_LOC_REDUCERS:
+        return f"pybind11::make_tuple({Keywords.Accumulator.value}.val,{Keywords.Accumulator.value}.loc)"
+    elif reducer in MINMAX_REDUCERS:
+        return f"pybind11::make_tuple({Keywords.Accumulator.value}.min_val,{Keywords.Accumulator.value}.max_val)"
+    elif reducer in MINMAX_LOC_REDUCERS:
+        return (
+            f"pybind11::make_tuple({Keywords.Accumulator.value}.min_val,"
+            f"{Keywords.Accumulator.value}.min_loc,"
+            f"{Keywords.Accumulator.value}.max_val,"
+            f"{Keywords.Accumulator.value}.max_loc)"
+        )
+    elif reducer is None or reducer in SCALAR_REDUCERS:
+        return Keywords.Accumulator.value
+
+    raise ValueError(f"unrecognized reducer {reducer}")
 
 
 def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
@@ -24,6 +63,11 @@ def is_hierarchical(workunit: Optional[cppast.MethodDecl]) -> bool:
     # Iterate over each parameter (skipping the tag)
     for p in workunit.params[1:]:
         if isinstance(p.decltype, cppast.ClassType):
+            # Prevent the reducer value_type from being mistakenly identified as a TeamMember
+            if p.decltype.typename.startswith(
+                "Kokkos::"
+            ) and p.decltype.typename.endswith("::value_type"):
+                continue
             return True
 
     return False
@@ -95,9 +139,12 @@ def get_kernel_params(
             params[Keywords.LeagueSize.value] = "int"
             params[Keywords.TeamSize.value] = "int"
             params[Keywords.VectorLength.value] = "int"
-            params[Keywords.ScratchSizeLevel.value] = "int"
-            params[Keywords.ScratchSizeValue.value] = "int"
-            params[Keywords.ScratchSizeIsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel0Value.value] = "int"
+            params[Keywords.ScratchSizeLevel0IsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel0Enabled.value] = "bool"
+            params[Keywords.ScratchSizeLevel1Value.value] = "int"
+            params[Keywords.ScratchSizeLevel1IsPerTeam.value] = "bool"
+            params[Keywords.ScratchSizeLevel1Enabled.value] = "bool"
         else:
             params[Keywords.ThreadsBegin.value] = "int"
             params[Keywords.ThreadsEnd.value] = "int"
@@ -273,7 +320,8 @@ def get_return_type(operation: str, workunit: cppast.MethodDecl) -> str:
     if acc_decl is None:
         return_type = "void"
     else:
-        return_type = acc_decl.decltype.typename.value
+        typename = acc_decl.decltype.typename
+        return_type = typename.value if hasattr(typename, "value") else typename
 
     return return_type
 
@@ -313,6 +361,8 @@ def generate_call(
     members: PyKokkosMembers,
     tag: cppast.DeclRefExpr,
     is_hierarchical: bool,
+    reducer: Optional[str] = None,
+    reducer_value_type: Optional[str] = None,
 ) -> str:
     """
     Generate the calls to the operation
@@ -333,20 +383,45 @@ def generate_call(
     tag_name: str = tag.declname + "_tag"
     if is_hierarchical:
         tag_name_str = f"{functor}::{tag_name}"
-        base_policy_auto = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},Kokkos::AUTO,{Keywords.VectorLength.value})"
-        base_policy_custom = f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{Keywords.TeamSize.value},{Keywords.VectorLength.value})"
-
-        def add_scratch_size(policy, is_per_team):
-            per_type = "PerTeam" if is_per_team else "PerThread"
-            return f"({policy}).set_scratch_size({Keywords.ScratchSizeLevel.value}, Kokkos::{per_type}({Keywords.ScratchSizeValue.value}))"
-
-        per_team_auto = add_scratch_size(base_policy_auto, True)
-        per_thread_auto = add_scratch_size(base_policy_auto, False)
-        per_team_custom = add_scratch_size(base_policy_custom, True)
-        per_thread_custom = add_scratch_size(base_policy_custom, False)
-
         policy_var = "pk_policy"
-        policy_decl = f"auto {policy_var} = ({Keywords.TeamSize.value} == -1) ? (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_auto} : {per_thread_auto}) : {base_policy_auto}) : (({Keywords.ScratchSizeLevel.value} >= 0) ? ({Keywords.ScratchSizeIsPerTeam.value} ? {per_team_custom} : {per_thread_custom}) : {base_policy_custom});"
+        policy_type = (
+            f"Kokkos::TeamPolicy<{Keywords.DefaultExecSpace.value},{tag_name_str}>"
+        )
+        team_size: str = Keywords.TeamSize.value
+        vector_length: str = Keywords.VectorLength.value
+
+        def set_policy(team: str, vector: str) -> str:
+            return f"{{ {policy_var} = {policy_type}({Keywords.DefaultExecSpaceInstance.value}, {Keywords.LeagueSize.value},{team},{vector}); }}"
+
+        # Kokkos 5.x does not accept -1 as a team size nor vector length
+        policy_decl = (
+            f"{policy_type} {policy_var}; "
+            f"if ({team_size} == -1 && {vector_length} == -1) {set_policy('Kokkos::AUTO', 'Kokkos::AUTO')} "
+            f"else if ({team_size} == -1) {set_policy('Kokkos::AUTO', vector_length)} "
+            f"else if ({vector_length} == -1) {set_policy(team_size, 'Kokkos::AUTO')} "
+            f"else {set_policy(team_size, vector_length)} "
+        )
+
+        def add_scratch_size(level, value, is_per_team, enabled):
+            return (
+                f"if ({enabled}) {{ "
+                f"if ({is_per_team}) {{ {policy_var}.set_scratch_size({level}, Kokkos::PerTeam({value})); }} "
+                f"else {{ {policy_var}.set_scratch_size({level}, Kokkos::PerThread({value})); }} "
+                f"}}"
+            )
+
+        policy_decl += add_scratch_size(
+            0,
+            Keywords.ScratchSizeLevel0Value.value,
+            Keywords.ScratchSizeLevel0IsPerTeam.value,
+            Keywords.ScratchSizeLevel0Enabled.value,
+        )
+        policy_decl += add_scratch_size(
+            1,
+            Keywords.ScratchSizeLevel1Value.value,
+            Keywords.ScratchSizeLevel1IsPerTeam.value,
+            Keywords.ScratchSizeLevel1Enabled.value,
+        )
 
         args.append(policy_var)
     else:
@@ -357,7 +432,10 @@ def generate_call(
     args.append(Keywords.Instance.value)
 
     if operation in ("reduce", "scan"):
-        args.append(Keywords.Accumulator.value)
+        if operation == "reduce" and reducer is not None:
+            args.append(get_reducer_expr(reducer, reducer_value_type))
+        else:
+            args.append(Keywords.Accumulator.value)
 
     call += ",".join(args)
     call += ");"
@@ -369,7 +447,7 @@ def generate_call(
     call += generate_copy_back(members)
 
     if operation in ("reduce", "scan"):
-        call += f"return {Keywords.Accumulator.value};"
+        call += f"return {get_reducer_return_expr(reducer)};"
 
     return call
 
@@ -381,6 +459,7 @@ def generate_wrapper(
     wrapper: str,
     kernel: str,
     real: Optional[str],
+    reducer: Optional[str] = None,
 ) -> str:
     """
     Generate the wrapper that calls the kernel and its binding
@@ -398,7 +477,8 @@ def generate_wrapper(
     params: Dict[str, str] = get_kernel_params(
         members, is_hierarchical(workunit), is_workload, real
     )
-    return_type: str = get_return_type(operation, workunit)
+    acc_type: str = get_return_type(operation, workunit)
+    return_type: str = "pybind11::tuple" if is_non_scalar_reducer(reducer) else acc_type
 
     args: List[str] = []
     for name, param_type in params.items():
@@ -429,6 +509,7 @@ def generate_kernel(
     tag: cppast.DeclRefExpr,
     kernel: str,
     real: Optional[str],
+    reducer: Optional[str] = None,
 ) -> str:
     """
     Generate the kernel that calls the workunit
@@ -445,12 +526,16 @@ def generate_kernel(
 
     hierarchical: bool = is_hierarchical(workunit)
     params: Dict[str, str] = get_kernel_params(members, hierarchical, False, real)
-    return_type: str = get_return_type(operation, workunit)
+    acc_type: str = get_return_type(operation, workunit)
+    return_type: str = "pybind11::tuple" if is_non_scalar_reducer(reducer) else acc_type
     signature: str = generate_kernel_signature(return_type, kernel, params)
 
     acc: str = ""
     if operation in ("reduce", "scan"):
-        acc = f"{return_type} {Keywords.Accumulator.value} = 0;"
+        if operation == "reduce" and reducer is not None:
+            acc = f"{acc_type} {Keywords.Accumulator.value};"
+        else:
+            acc = f"{acc_type} {Keywords.Accumulator.value} = 0;"
 
     if members.has_real:
         functor += f"<{Keywords.DefaultExecSpace.value},{real}>"
@@ -458,7 +543,15 @@ def generate_kernel(
         functor += f"<{Keywords.DefaultExecSpace.value}>"
 
     instance: str = generate_functor_instance(functor, members)
-    call: str = generate_call(operation, functor, members, tag, hierarchical)
+    call: str = generate_call(
+        operation,
+        functor,
+        members,
+        tag,
+        hierarchical,
+        reducer,
+        get_reducer_scalar_type(acc_type),
+    )
 
     kernel: str = f"{signature} {{ {acc} {instance} {call} }}"
 
@@ -486,6 +579,8 @@ def bind_workunits_single(
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
     precision: Optional[DataType],
+    reducer: Optional[str] = None,
+    reducer_workunit: Optional[str] = None,
 ) -> Tuple[List[str], List[str]]:
     """
     Generates the bindings for a group of workunits. Each workunit is
@@ -519,12 +614,26 @@ def bind_workunits_single(
 
         operation: str = t[0]
         workunit: cppast.MethodDecl = t[1]
+        workunit_reducer = reducer if workunit_name == reducer_workunit else None
 
         kernel: str = generate_kernel(
-            functor, members, operation, workunit, n, kernel_name, real
+            functor,
+            members,
+            operation,
+            workunit,
+            n,
+            kernel_name,
+            real,
+            workunit_reducer,
         )
         wrapper: str = generate_wrapper(
-            members, operation, workunit, wrapper_name, kernel_name, real
+            members,
+            operation,
+            workunit,
+            wrapper_name,
+            kernel_name,
+            real,
+            workunit_reducer,
         )
 
         bindings.extend([kernel, wrapper])
@@ -537,6 +646,8 @@ def bind_workunits(
     members: PyKokkosMembers,
     workunits: Dict[cppast.DeclRefExpr, Tuple[str, cppast.MethodDecl]],
     module: str,
+    reducer: Optional[str] = None,
+    reducer_workunit: Optional[str] = None,
 ) -> List[str]:
     """
     Generates the bindings for a group of workunits. Each workunit is
@@ -556,11 +667,15 @@ def bind_workunits(
         for d in DataType:
             if d is DataType.real:
                 continue
-            w, b = bind_workunits_single(functor, members, workunits, d)
+            w, b = bind_workunits_single(
+                functor, members, workunits, d, reducer, reducer_workunit
+            )
             bindings.extend(b)
             wrapper_names.extend(w)
     else:
-        w, b = bind_workunits_single(functor, members, workunits, None)
+        w, b = bind_workunits_single(
+            functor, members, workunits, None, reducer, reducer_workunit
+        )
         bindings.extend(b)
         wrapper_names.extend(w)
 
