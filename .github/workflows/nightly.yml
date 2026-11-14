@@ -15,13 +15,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      # Set up before switching branches so the pinned setup comes from this branch
       - name: Set up Python ${{ matrix.python-version }} and CI tools
         uses: ./.github/actions/setup-tools
         with:
           python-version: ${{ matrix.python-version }}
           tools: build ninja
-      - run: git checkout develop
 
       - name: Build Kokkos develop branch
         run: |
