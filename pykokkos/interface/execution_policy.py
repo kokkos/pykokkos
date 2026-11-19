@@ -211,33 +211,22 @@ class TeamPolicy(ExecutionPolicy):
         self.scratch_size_value = None
         self.scratch_sizes: Dict[int, ScratchSize] = {}
 
-    def scratch_size_max(self=None, level: int = 0) -> int:
+    def scratch_size_max(self, level: int = 0) -> int:
         """
         Return the policy's maximum scratch size in bytes for the given level.
-
-        When called on TeamPolicy itself, query the compiled default backend.
 
         :param level: scratch level (0 or 1)
         :returns: maximum scratch size in bytes for that level
         """
-        if isinstance(self, TeamPolicy):
-            space = self.space
-            kokkos = km.get_kokkos_module(is_host_execution_space(space.space))
-            query = getattr(kokkos, "scratch_size_max_for_space", None)
-            if query is not None:
-                return int(query(space.instance, level))
-        else:
-            from pykokkos.bindings import kokkos
-
-            query = getattr(kokkos, "scratch_size_max", None)
-            if query is not None:
-                # A positional level binds to self on a class-level call.
-                return int(query(level if self is None else self))
-
-        raise RuntimeError(
-            "scratch_size_max is not available in the loaded Kokkos bindings. "
-            "Rebuild and reinstall PyKokkos."
-        )
+        space = self.space
+        kokkos = km.get_kokkos_module(is_host_execution_space(space.space))
+        query = getattr(kokkos, "scratch_size_max_for_space", None)
+        if query is None:
+            raise RuntimeError(
+                "scratch_size_max_for_space is not available in the loaded "
+                "Kokkos bindings. Rebuild and reinstall PyKokkos."
+            )
+        return int(query(space.instance, level))
 
 
 class TeamExecutionPolicy:
