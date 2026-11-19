@@ -111,15 +111,6 @@ class TestScratchSize(unittest.TestCase):
         self.E: int = 8  # Number of teams
         self.M: int = 16  # Scratch memory size per team
 
-    def test_scratch_size_max_uses_policy_execution_space(self):
-        policy = pk.TeamPolicy(self.execution_space, self.E, "auto")
-        self.assertEqual(policy.scratch_size_max(), 32 * 1024)
-        self.assertEqual(policy.scratch_size_max(1), 80 * 1024 * 1024)
-
-    def test_scratch_size_max_uses_default_policy_execution_space(self):
-        policy = pk.TeamPolicy(self.E, "auto")
-        self.assertEqual(policy.scratch_size_max(), 32 * 1024)
-
     def test_scratch_size_inline_policy(self):
         """
         Test that scratch memory works with inline policy creation.

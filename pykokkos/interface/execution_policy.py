@@ -213,20 +213,22 @@ class TeamPolicy(ExecutionPolicy):
 
     def scratch_size_max(self, level: int = 0) -> int:
         """
-        Return the policy's maximum scratch size in bytes for the given level.
+        Return the maximum total scratch size in bytes for the given level.
+
+        Calls into the Kokkos backend (precompiled at PyKokkos build time).
 
         :param level: scratch level (0 or 1)
         :returns: maximum scratch size in bytes for that level
         """
         space = self.space
         kokkos = km.get_kokkos_module(is_host_execution_space(space.space))
-        query = getattr(kokkos, "scratch_size_max_for_space", None)
-        if query is None:
+        if not hasattr(kokkos, "scratch_size_max_for_space"):
             raise RuntimeError(
                 "scratch_size_max_for_space is not available in the loaded "
                 "Kokkos bindings. Rebuild and reinstall PyKokkos."
             )
-        return int(query(space.instance, level))
+
+        return int(kokkos.scratch_size_max_for_space(space.instance, level))
 
 
 class TeamExecutionPolicy:
