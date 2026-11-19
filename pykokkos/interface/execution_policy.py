@@ -4,7 +4,11 @@ from typing import Dict, Final, List, Optional, Tuple
 
 import pykokkos.kokkos_manager as km
 
-from .execution_space import ExecutionSpace, ExecutionSpaceInstance
+from .execution_space import (
+    ExecutionSpace,
+    ExecutionSpaceInstance,
+    is_host_execution_space,
+)
 from .hierarchical import TeamMember
 
 
@@ -207,26 +211,33 @@ class TeamPolicy(ExecutionPolicy):
         self.scratch_size_value = None
         self.scratch_sizes: Dict[int, ScratchSize] = {}
 
-    @staticmethod
-    def scratch_size_max(level: int = 0) -> int:
+    def scratch_size_max(self=None, level: int = 0) -> int:
         """
-        Return the maximum total scratch size in bytes for the given level.
+        Return the policy's maximum scratch size in bytes for the given level.
 
-        Calls into the Kokkos backend (precompiled at PyKokkos build time).
+        When called on TeamPolicy itself, query the compiled default backend.
 
         :param level: scratch level (0 or 1)
         :returns: maximum scratch size in bytes for that level
         """
-        from pykokkos.bindings import kokkos
+        if isinstance(self, TeamPolicy):
+            space = self.space
+            kokkos = km.get_kokkos_module(is_host_execution_space(space.space))
+            query = getattr(kokkos, "scratch_size_max_for_space", None)
+            if query is not None:
+                return int(query(space.instance, level))
+        else:
+            from pykokkos.bindings import kokkos
 
-        if not hasattr(kokkos, "scratch_size_max"):
-            raise RuntimeError(
-                "scratch_size_max is not available in the loaded Kokkos bindings. "
-                "Rebuild and reinstall PyKokkos so that libpykokkos exports "
-                "TeamPolicy::scratch_size_max."
-            )
+            query = getattr(kokkos, "scratch_size_max", None)
+            if query is not None:
+                # A positional level binds to self on a class-level call.
+                return int(query(level if self is None else self))
 
-        return int(kokkos.scratch_size_max(level))
+        raise RuntimeError(
+            "scratch_size_max is not available in the loaded Kokkos bindings. "
+            "Rebuild and reinstall PyKokkos."
+        )
 
 
 class TeamExecutionPolicy:
